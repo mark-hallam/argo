@@ -57,7 +57,7 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
     <>
       <style jsx global>{`
         .wpc-card {
-          background: white;
+          background: var(--card);
           border: 1px solid var(--border);
           border-radius: 14px;
           padding: 22px;
@@ -71,7 +71,7 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
           left: 0;
           width: 100%;
           height: 4px;
-          background: linear-gradient(90deg, var(--primary), var(--gradient-end), var(--brand-coral));
+          background: linear-gradient(90deg, var(--brand-primary), var(--brand-pink), var(--brand-coral));
         }
         .wpc-section-label {
           display: flex;
@@ -94,8 +94,8 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
         .wpc-chip {
           padding: 4px 10px;
           border-radius: 999px;
-          background: rgba(139, 92, 246, 0.08);
-          color: #6d28d9;
+          background: color-mix(in oklab, var(--brand-primary) 8%, transparent);
+          color: var(--brand-primary);
           font-size: 12.5px;
           font-weight: 600;
         }
@@ -137,7 +137,7 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
           width: 4px;
           height: 4px;
           border-radius: 50%;
-          background: #c4b5fd;
+          background: color-mix(in oklab, var(--brand-primary) 38%, var(--card));
           margin-top: 9px;
         }
         .wpc-signature {

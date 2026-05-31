@@ -5,6 +5,7 @@ import "./page.css";
 import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useVerticals } from "@/lib/api/verticals";
+import { TEMPLATE_COUNT } from "@/lib/workflow-templates";
 
 /**
  * 8-entry fallback used when the gateway `/verticals` endpoint is
@@ -84,7 +85,7 @@ export default function WorkflowBuildEntryPage() {
 
       <p className="build-sub">
         Pick the vertical that owns this workflow. The builder opens with an empty
-        canvas and a draft name ready to edit — or browse the 50+ templates if
+        canvas and a draft name ready to edit — or browse the {TEMPLATE_COUNT} templates if
         you&apos;d rather clone a proven playbook.
       </p>
 
@@ -94,7 +95,7 @@ export default function WorkflowBuildEntryPage() {
           className="build-cta-templates"
           data-testid="build-templates-cta"
         >
-          <Sparkles size={13} /> Browse 50+ templates
+          <Sparkles size={13} /> Browse {TEMPLATE_COUNT} templates
         </Link>
         <span className="build-cta-or">or pick a vertical below</span>
       </div>
@@ -141,7 +142,7 @@ export default function WorkflowBuildEntryPage() {
                 <div
                   className="build-card-accent"
                   style={{
-                    background: `linear-gradient(90deg, ${accent} 0%, #ec4899 60%, transparent 100%)`,
+                    background: `linear-gradient(90deg, ${accent} 0%, var(--brand-pink) 60%, transparent 100%)`,
                   }}
                 />
                 <ArrowRight size={18} className="build-card-arrow" />

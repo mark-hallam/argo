@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { TEMPLATE_COUNT } from "@/lib/workflow-templates";
 
 export const metadata: Metadata = {
   title: "Workflow templates",
-  description:
-    "50+ pre-built workflows your AI teammates can use today. Pick one, customize in chat, ship in minutes.",
+  description: `${TEMPLATE_COUNT} pre-built workflows your AI teammates can use today. Pick one, customize in chat, ship in minutes.`,
   openGraph: {
     title: "Workflow templates — SKYCOT",
     description:

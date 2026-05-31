@@ -1,8 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const replaceMock = vi.hoisted(() => vi.fn());
+const signInMock = vi.hoisted(() =>
+  vi.fn(async () => ({ ok: true, error: null })),
+);
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -16,6 +19,11 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+vi.mock("next-auth/react", () => ({
+  signIn: signInMock,
+}));
+
+import { SIGNUP_REQUEST_TIMEOUT_MS } from "@/lib/auth/use-signup";
 import SignupPage from "@/app/auth/signup/page";
 
 const fetchMock = vi.fn();
@@ -24,9 +32,11 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   fetchMock.mockReset();
   replaceMock.mockReset();
+  signInMock.mockClear();
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -101,16 +111,33 @@ describe("SignupPage", () => {
     expect(alert.textContent).toMatch(/Too many attempts/);
     expect(replaceMock).not.toHaveBeenCalled();
   });
+
+  it("settles the form when /api/auth/signup never responds", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockReturnValueOnce(new Promise<Response>(() => {}));
+    render(<SignupPage />);
+
+    fireEvent.change(screen.getByTestId("signup-email"), {
+      target: { value: "mark@example.com" },
+    });
+    fireEvent.click(screen.getByTestId("signup-submit"));
+
+    expect(screen.getByTestId("signup-submit")).toBeDisabled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SIGNUP_REQUEST_TIMEOUT_MS);
+    });
+
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toMatch(/took too long/i);
+    expect(screen.getByTestId("signup-submit")).not.toBeDisabled();
+    expect(replaceMock).not.toHaveBeenCalled();
+  });
 });
 
 // Brief: fix-signup-demo-mode-env-flag-and-runbook-prerequisites.
 // Asserts the "Or try a demo workspace" secondary button surfaces the
 // demo path without an SMTP round-trip, and stays out of production
 // builds unless explicitly opted-in via NEXT_PUBLIC_ALLOW_DEMO_MINT=1.
-vi.mock("next-auth/react", () => ({
-  signIn: vi.fn(async () => ({ ok: true, error: null })),
-}));
-
 describe("SignupPage — demo-mint secondary button (runbook fallback)", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -170,5 +197,24 @@ describe("SignupPage — demo-mint secondary button (runbook fallback)", () => {
     await waitFor(() => {
       expect(replaceLocation).toHaveBeenCalledWith("/onboarding/welcome");
     });
+  });
+
+  it("settles the secondary demo-mint CTA when the mint request never responds", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockReturnValueOnce(new Promise<Response>(() => {}));
+
+    render(<SignupPage />);
+    const button = screen.getByTestId("signup-demo-mint");
+    fireEvent.click(button);
+
+    expect(button).toBeDisabled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SIGNUP_REQUEST_TIMEOUT_MS);
+    });
+
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toMatch(/demo workspace took too long/i);
+    expect(button).not.toBeDisabled();
+    expect(signInMock).not.toHaveBeenCalled();
   });
 });

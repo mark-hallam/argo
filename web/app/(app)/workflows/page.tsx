@@ -130,7 +130,7 @@ export default function WorkflowsPage() {
             data-testid="workflows-templates-cta"
           >
             <Sparkles size={13} />
-            Browse {TEMPLATE_COUNT}+ templates
+            Browse {TEMPLATE_COUNT} templates
           </Link>
           <HoverHint label="Describe a new workflow in plain English">
             <button
@@ -165,7 +165,7 @@ export default function WorkflowsPage() {
             style={{
               padding: "48px 24px",
               textAlign: "center",
-              color: "var(--muted-foreground, #52525b)",
+              color: "var(--muted-foreground)",
               fontSize: 14,
             }}
           >
@@ -184,10 +184,12 @@ export default function WorkflowsPage() {
                 style={{
                   padding: "32px 24px",
                   textAlign: "center",
-                  color: "#dc2626",
-                  border: "1px solid #fecaca",
+                  color: "var(--destructive)",
+                  border:
+                    "1px solid color-mix(in oklab, var(--destructive) 24%, transparent)",
                   borderRadius: 12,
-                  background: "#fef2f2",
+                  background:
+                    "color-mix(in oklab, var(--destructive) 8%, var(--card))",
                   fontSize: 14,
                 }}
               >
@@ -202,23 +204,23 @@ export default function WorkflowsPage() {
                   gridColumn: "1 / -1",
                   padding: "48px 24px",
                   textAlign: "center",
-                  border: "1px dashed var(--border, #ece9f5)",
+                  border: "1px dashed var(--border)",
                   borderRadius: "16px",
-                  color: "var(--muted-foreground, #52525b)",
+                  color: "var(--muted-foreground)",
                 }}
               >
                 <p
                   style={{
                     fontSize: 16,
                     fontWeight: 600,
-                    color: "var(--foreground, #1e1b4b)",
+                    color: "var(--foreground)",
                     margin: "0 0 6px",
                   }}
                 >
                   No workflows match &ldquo;{query.trim()}&rdquo;.
                 </p>
                 <p style={{ fontSize: 14, margin: "0 0 16px" }}>
-                  Try a different query or browse the {TEMPLATE_COUNT}+ templates.
+                  Try a different query or browse the {TEMPLATE_COUNT} templates.
                 </p>
                 <div style={{ display: "inline-flex", gap: 12 }}>
                   <button
@@ -227,12 +229,12 @@ export default function WorkflowsPage() {
                     style={{
                       padding: "8px 16px",
                       borderRadius: 8,
-                      border: "1px solid var(--border, #ece9f5)",
-                      background: "var(--card, #ffffff)",
+                      border: "1px solid var(--border)",
+                      background: "var(--card)",
                       cursor: "pointer",
                       fontSize: 13,
                       fontWeight: 600,
-                      color: "var(--foreground, #1e1b4b)",
+                      color: "var(--foreground)",
                     }}
                   >
                     Clear search
@@ -242,8 +244,8 @@ export default function WorkflowsPage() {
                     style={{
                       padding: "8px 16px",
                       borderRadius: 8,
-                      background: "linear-gradient(135deg, #8b5cf6, #ec4899)",
-                      color: "white",
+                      background: "var(--brand-gradient)",
+                      color: "var(--brand-primary-foreground)",
                       textDecoration: "none",
                       fontSize: 13,
                       fontWeight: 600,
@@ -267,7 +269,10 @@ export default function WorkflowsPage() {
                         <span className="workflow-card-vertical">{wf.vertical}</span>
                         <span
                           className="workflow-card-risk"
-                          style={{ background: RISK_COLOR[wf.risk] ?? "#52525b" }}
+                          style={{
+                            background:
+                              RISK_COLOR[wf.risk] ?? "var(--muted-foreground)",
+                          }}
                         >
                           {RISK_LABEL[wf.risk] ?? wf.risk}
                         </span>

@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, Layers, Search, Sparkles } from "lucide-react";
 import {
   RISK_COLOR,
   RISK_LABEL,
+  TEMPLATE_COUNT,
   TEMPLATE_VERTICALS,
   VERTICAL_LABEL,
   WORKFLOW_TEMPLATES,
@@ -19,7 +20,7 @@ import {
 /**
  * Workflow template gallery — `/workflows/templates`.
  *
- * 50+ pre-built workflows the operator can clone in one click. Closes
+ * Curated pre-built workflows the operator can clone in one click. Closes
  * the n8n template-gallery moat. Each card opens a per-template detail
  * page; the detail page exposes "Use template" which seeds the
  * existing visual builder with the template's step list.
@@ -97,7 +98,7 @@ export default function WorkflowTemplatesPage() {
           <input
             type="text"
             className="templates-search-input"
-            placeholder={`Search ${WORKFLOW_TEMPLATES.length}+ templates by name, step, or description…`}
+            placeholder={`Search ${TEMPLATE_COUNT} templates by name, step, or description…`}
             aria-label="Search templates"
             data-testid="templates-search"
             value={query}

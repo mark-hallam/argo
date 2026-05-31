@@ -33,7 +33,7 @@ export default function ApprovalsLandingPage() {
   return (
     <div data-testid="approvals-landing">
       <BrandLoudHero
-        eyebrowDotColor="#fbbf24"
+        eyebrowDotColor="var(--warning)"
         eyebrowLabel="INBOX"
         title="Approvals."
         sub="Every decision your AI teammates queue for a human shows up here — refunds, hires, contracts, anything that needs a sign-off."

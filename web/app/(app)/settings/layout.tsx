@@ -73,11 +73,11 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
 
 const SETTINGS_LAYOUT_STYLES = `
 .settings-shell {
-  --settings-ink: var(--foreground, #1f2937);
-  --settings-muted: var(--muted-foreground, #52525b);
-  --settings-border: var(--border, #e5e7eb);
-  --settings-card: var(--card, #ffffff);
-  --settings-soft: color-mix(in srgb, var(--muted, #f4f4f5) 68%, transparent);
+  --settings-ink: var(--foreground);
+  --settings-muted: var(--muted-foreground);
+  --settings-border: var(--border);
+  --settings-card: var(--card);
+  --settings-soft: color-mix(in srgb, var(--muted) 68%, transparent);
   font-family: "Inter", sans-serif;
   max-width: 1280px;
   margin: 0 auto;
@@ -128,7 +128,8 @@ const SETTINGS_LAYOUT_STYLES = `
   background: var(--settings-card);
   padding: 6px;
   margin-bottom: 22px;
-  box-shadow: 0 12px 28px -24px rgba(15, 23, 42, 0.35);
+  box-shadow:
+    0 12px 28px -24px color-mix(in oklab, var(--foreground) 35%, transparent);
 }
 .settings-tab {
   display: inline-flex;
@@ -162,13 +163,13 @@ const SETTINGS_LAYOUT_STYLES = `
 }
 .settings-danger-tab {
   margin-left: auto;
-  color: var(--destructive, #b91c1c);
+  color: var(--destructive);
 }
 .settings-danger-tab:hover,
 .settings-danger-tab[aria-current="page"] {
-  color: var(--destructive, #b91c1c);
-  background: color-mix(in srgb, var(--destructive, #b91c1c) 8%, transparent);
-  border-color: color-mix(in srgb, var(--destructive, #b91c1c) 22%, var(--settings-border));
+  color: var(--destructive);
+  background: color-mix(in srgb, var(--destructive) 8%, transparent);
+  border-color: color-mix(in srgb, var(--destructive) 22%, var(--settings-border));
 }
 .settings-content-grid {
   display: grid;
@@ -190,7 +191,8 @@ const SETTINGS_LAYOUT_STYLES = `
   border: 1px solid var(--settings-border);
   border-radius: 10px;
   background: var(--settings-card);
-  box-shadow: 0 16px 34px -30px rgba(15, 23, 42, 0.35);
+  box-shadow:
+    0 16px 34px -30px color-mix(in oklab, var(--foreground) 35%, transparent);
 }
 .settings-aside-card {
   padding: 16px;
@@ -208,7 +210,7 @@ const SETTINGS_LAYOUT_STYLES = `
   color: var(--settings-muted);
 }
 .settings-aside-danger {
-  border-color: color-mix(in srgb, var(--destructive, #b91c1c) 22%, var(--settings-border));
+  border-color: color-mix(in srgb, var(--destructive) 22%, var(--settings-border));
 }
 .settings-panel {
   padding: 22px;

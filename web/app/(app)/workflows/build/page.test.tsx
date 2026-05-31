@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { VerticalRow } from "@/lib/api/verticals";
+import { TEMPLATE_COUNT } from "@/lib/workflow-templates";
 
 /**
  * Brand-consistency contract for /workflows/build.
@@ -68,12 +69,15 @@ describe("WorkflowBuildEntryPage — D3 brand recipe", () => {
     expect(hero.className).not.toMatch(/text-3xl|text-4xl|font-semibold/);
   });
 
-  it("offers a templates CTA + the 5 vertical magazine cards", () => {
+  it("offers a templates CTA with the exact count + the vertical magazine cards", () => {
     render(<WorkflowBuildEntryPage />);
 
     expect(screen.getByTestId("build-templates-cta")).toHaveAttribute(
       "href",
       "/workflows/templates",
+    );
+    expect(screen.getByTestId("build-templates-cta")).toHaveTextContent(
+      `Browse ${TEMPLATE_COUNT} templates`,
     );
 
     const picker = screen.getByTestId("workflow-build-vertical-picker");

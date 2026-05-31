@@ -18,28 +18,19 @@ export function CohortMagazineStyles() {
     <>
       <style jsx global>{`
         :root {
-          --skycot-cohort-purple: #8b5cf6;
-          --skycot-cohort-pink: #ec4899;
-          --skycot-cohort-coral: #ff6b6b;
-          --skycot-cohort-gradient: linear-gradient(
-            135deg,
-            #8b5cf6,
-            #ec4899
-          );
-          --skycot-cohort-gradient-3: linear-gradient(
-            135deg,
-            #8b5cf6,
-            #ec4899,
-            #ff6b6b
-          );
-          --skycot-cohort-ink: #1e1b4b;
-          --skycot-cohort-ink-2: #3f3f46;
-          --skycot-cohort-ink-3: #52525b;
-          --skycot-cohort-ink-4: #a1a1aa;
-          --skycot-cohort-line: #ece9f5;
-          --skycot-cohort-line-2: #d1d5db;
-          --skycot-cohort-paper-2: #f3f4f6;
-          --skycot-cohort-bg: #fafaff;
+          --skycot-cohort-purple: var(--brand-primary);
+          --skycot-cohort-pink: var(--brand-pink);
+          --skycot-cohort-coral: var(--brand-coral);
+          --skycot-cohort-gradient: var(--brand-gradient);
+          --skycot-cohort-gradient-3: var(--brand-gradient-3);
+          --skycot-cohort-ink: var(--foreground);
+          --skycot-cohort-ink-2: var(--foreground);
+          --skycot-cohort-ink-3: var(--muted-foreground);
+          --skycot-cohort-ink-4: var(--muted-foreground);
+          --skycot-cohort-line: var(--border);
+          --skycot-cohort-line-2: color-mix(in oklab, var(--border) 70%, var(--foreground));
+          --skycot-cohort-paper-2: var(--muted);
+          --skycot-cohort-bg: var(--background);
         }
 
         /* ── DEPT TABS ─────────────────────────────────────────── */
@@ -68,12 +59,13 @@ export function CohortMagazineStyles() {
         }
         .skycot-cohort-tab.is-on {
           border-color: var(--skycot-cohort-purple);
-          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.08),
-            0 8px 20px -6px rgba(139, 92, 246, 0.2);
+          box-shadow:
+            0 0 0 3px color-mix(in oklab, var(--brand-primary) 8%, transparent),
+            0 8px 20px -6px color-mix(in oklab, var(--brand-primary) 20%, transparent);
           background: linear-gradient(
             180deg,
-            rgba(139, 92, 246, 0.04),
-            rgba(139, 92, 246, 0.02)
+            color-mix(in oklab, var(--brand-primary) 4%, transparent),
+            color-mix(in oklab, var(--brand-primary) 2%, transparent)
           );
         }
         .skycot-cohort-tab-ico {
@@ -191,7 +183,8 @@ export function CohortMagazineStyles() {
         .skycot-cohort-compact-tile:hover {
           transform: translateY(-2px);
           border-color: var(--skycot-cohort-line-2);
-          box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.08);
+          box-shadow:
+            0 8px 20px -6px color-mix(in oklab, var(--foreground) 8%, transparent);
         }
         .skycot-cohort-lead-tile:focus-visible,
         .skycot-cohort-stacked-tile:focus-visible,
@@ -203,17 +196,18 @@ export function CohortMagazineStyles() {
         .skycot-cohort-stacked-tile[data-selected="true"],
         .skycot-cohort-compact-tile[data-selected="true"] {
           border-color: var(--skycot-cohort-purple);
-          box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.18);
+          box-shadow:
+            0 0 0 2px color-mix(in oklab, var(--brand-primary) 18%, transparent);
         }
 
         /* ── LEAD TILE ─────────────────────────────────────────── */
         .skycot-cohort-lead-tile {
           background: linear-gradient(
             135deg,
-            rgba(236, 72, 153, 0.06),
-            rgba(255, 107, 107, 0.06)
+            color-mix(in oklab, var(--brand-pink) 6%, transparent),
+            color-mix(in oklab, var(--brand-coral) 6%, transparent)
           );
-          border: 1px solid rgba(236, 72, 153, 0.18);
+          border: 1px solid color-mix(in oklab, var(--brand-pink) 18%, transparent);
           padding: 32px;
           min-height: 100%;
         }
@@ -228,7 +222,7 @@ export function CohortMagazineStyles() {
           font-weight: 700;
           letter-spacing: 0.12em;
           text-transform: uppercase;
-          color: white;
+          color: var(--brand-primary-foreground);
           background: var(--skycot-cohort-gradient);
         }
         .skycot-cohort-lead-av {
@@ -238,7 +232,7 @@ export function CohortMagazineStyles() {
           margin-bottom: 22px;
           display: grid;
           place-items: center;
-          color: white;
+          color: var(--brand-primary-foreground);
           font-family: var(--font-audiowide);
           font-weight: 400;
           font-size: 24px;
@@ -323,11 +317,11 @@ export function CohortMagazineStyles() {
           margin-bottom: 12px;
           display: grid;
           place-items: center;
-          color: white;
+          color: var(--brand-primary-foreground);
           font-family: var(--font-audiowide);
           font-size: 13px;
           letter-spacing: 0.04em;
-          background: linear-gradient(135deg, #ec4899, #ff6b6b);
+          background: linear-gradient(135deg, var(--brand-pink), var(--brand-coral));
         }
         .skycot-cohort-stacked-kicker {
           font-family: var(--font-mono);
@@ -390,11 +384,11 @@ export function CohortMagazineStyles() {
           margin-bottom: 12px;
           display: grid;
           place-items: center;
-          color: white;
+          color: var(--brand-primary-foreground);
           font-family: var(--font-audiowide);
           font-size: 12px;
           letter-spacing: 0.04em;
-          background: linear-gradient(135deg, #14b8a6, #8b5cf6);
+          background: var(--brand-gradient);
         }
         .skycot-cohort-compact-kicker {
           font-family: var(--font-mono);
@@ -472,10 +466,10 @@ export function CohortMagazineStyles() {
           min-height: 360px;
           background: linear-gradient(
             135deg,
-            rgba(236, 72, 153, 0.06),
-            rgba(255, 107, 107, 0.06)
+            color-mix(in oklab, var(--brand-pink) 6%, transparent),
+            color-mix(in oklab, var(--brand-coral) 6%, transparent)
           );
-          border: 1px solid rgba(236, 72, 153, 0.18);
+          border: 1px solid color-mix(in oklab, var(--brand-pink) 18%, transparent);
         }
         .skycot-cohort-skel-stacked {
           padding: 20px;
@@ -556,7 +550,7 @@ export function CohortMagazineStyles() {
           background-image: linear-gradient(
             90deg,
             var(--skycot-cohort-paper-2) 0%,
-            rgba(255, 255, 255, 0.85) 50%,
+            color-mix(in oklab, var(--card) 85%, transparent) 50%,
             var(--skycot-cohort-paper-2) 100%
           );
           background-size: 200% 100%;

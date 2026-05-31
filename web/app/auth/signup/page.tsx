@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { useSignup } from "@/lib/auth/use-signup";
+import { SIGNUP_REQUEST_TIMEOUT_MS, useSignup } from "@/lib/auth/use-signup";
 import { AuthEditorialShell } from "@/components/auth/AuthEditorialShell";
 import { SsoButtons } from "@/components/auth/SsoButtons";
 import { parseReturnTo, storeReturnToPending } from "@/lib/auth/return-to";
@@ -33,6 +33,72 @@ import { saveDraft } from "@/lib/hire/draft-store";
  */
 const DEMO_MODE =
   typeof process !== "undefined" && process.env.NEXT_PUBLIC_ARGO_DEMO_MODE === "1";
+
+class DemoMintTimeoutError extends Error {
+  constructor() {
+    super("Demo mint request timed out");
+    this.name = "DemoMintTimeoutError";
+  }
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof DOMException !== "undefined" &&
+    error instanceof DOMException &&
+    error.name === "AbortError"
+  );
+}
+
+function isDemoMintTimeout(error: unknown): boolean {
+  return error instanceof DemoMintTimeoutError || isAbortError(error);
+}
+
+function withClientTimeout<T>(
+  run: (signal: AbortSignal) => Promise<T>,
+  timeoutMs = SIGNUP_REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new DemoMintTimeoutError());
+      controller.abort();
+    }, timeoutMs);
+
+    run(controller.signal).then(
+      (value) => {
+        clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      },
+    );
+  });
+}
+
+function withSettlingTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs = SIGNUP_REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new DemoMintTimeoutError());
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      },
+    );
+  });
+}
 
 function shouldShowDemoMintButton(): boolean {
   if (typeof process === "undefined") return false;
@@ -108,12 +174,15 @@ function SignupInner() {
       // cookies on the SPA origin so NextAuth surfaces the principal
       // on subsequent calls. Hitting the gateway directly throws the
       // JWT away and re-creates the 401-on-step-2 demo blocker.
-      const res = await fetch("/api/auth/demo-mint", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ email: effectiveEmail }),
-      });
+      const res = await withClientTimeout((signal) =>
+        fetch("/api/auth/demo-mint", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ email: effectiveEmail }),
+          signal,
+        }),
+      );
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as
           | { error?: { message?: string } }
@@ -138,10 +207,12 @@ function SignupInner() {
       // __Host-session cookie is set but `/api/auth/session` returns
       // null, so the API client can't stamp `X-Argo-Principal` on
       // subsequent gateway calls and onboarding routes 401.
-      const signInRes = await signIn("gateway-bearer", {
-        token: sessionToken,
-        redirect: false,
-      });
+      const signInRes = await withSettlingTimeout(
+        signIn("gateway-bearer", {
+          token: sessionToken,
+          redirect: false,
+        }),
+      );
       if (signInRes?.error) {
         setDemoError(
           "Couldn't sign you into the demo workspace. Refresh and try again.",
@@ -151,9 +222,11 @@ function SignupInner() {
       // Use a document-level replace so no NextAuth/session router callback can
       // win the race and send the demo operator to the post-login app shell.
       window.location.replace("/onboarding/welcome");
-    } catch {
+    } catch (error) {
       setDemoError(
-        "We couldn't reach SKYCOT just now. Check your internet connection and try again.",
+        isDemoMintTimeout(error)
+          ? "Demo workspace took too long to start. Check your connection and try again."
+          : "We couldn't reach SKYCOT just now. Check your internet connection and try again.",
       );
     } finally {
       setDemoPending(false);
@@ -254,12 +327,13 @@ function SignupInner() {
             marginTop: 16,
             width: "100%",
             background: "transparent",
-            border: "1px dashed rgba(30, 27, 75, 0.35)",
+            border:
+              "1px dashed color-mix(in oklab, var(--brand-ink) 35%, transparent)",
             borderRadius: 10,
             padding: "12px 14px",
             fontSize: 13,
             fontWeight: 600,
-            color: "#1e1b4b",
+            color: "var(--brand-ink)",
             cursor: pending ? "not-allowed" : "pointer",
             opacity: pending ? 0.55 : 1,
           }}
@@ -279,9 +353,9 @@ function DemoModeBanner() {
       role="status"
       data-testid="demo-mode-banner"
       style={{
-        background: "#fef3c7",
-        border: "1px solid #f59e0b",
-        color: "#78350f",
+        background: "color-mix(in oklab, var(--warning) 18%, var(--card))",
+        border: "1px solid var(--warning)",
+        color: "var(--foreground)",
         padding: "10px 14px",
         borderRadius: 8,
         marginBottom: 20,

@@ -9,22 +9,22 @@
   gap: 6px;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--muted-foreground, #52525b);
+  color: var(--muted-foreground);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   font-weight: 700;
   margin-bottom: 18px;
   padding: 5px 14px;
   border-radius: 999px;
-  border: 1px solid var(--border, #ece9f5);
-  background: var(--background, #fafaff);
+  border: 1px solid var(--border);
+  background: var(--background);
 }
 .skills-eyebrow-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--brand-teal, #14b8a6);
-  box-shadow: 0 0 6px var(--brand-teal, #14b8a6);
+  background: var(--brand-teal);
+  box-shadow: 0 0 6px var(--brand-teal);
 }
 .skills-hero {
   font-family: var(--font-audiowide);
@@ -33,11 +33,11 @@
   font-weight: 400;
   letter-spacing: 0;
   margin: 0 0 14px;
-  color: var(--foreground, #1e1b4b);
+  color: var(--foreground);
 }
 .skills-hero strong {
   font-weight: 400;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  background: var(--brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -45,7 +45,7 @@
 .skills-sub {
   font-size: 16px;
   font-weight: 300;
-  color: var(--muted-foreground, #3f3f46);
+  color: var(--muted-foreground);
   margin: 0 0 28px;
   max-width: 620px;
 }
@@ -55,9 +55,9 @@
   gap: 14px;
   padding: 16px 20px;
   border-radius: 14px;
-  border: 1px solid var(--border, #ece9f5);
-  background: var(--card, white);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 1px 0 color-mix(in oklab, var(--foreground) 2%, transparent);
   margin-bottom: 14px;
 }
 .search-meta {
@@ -85,8 +85,8 @@
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
-  color: white;
+  background: var(--brand-gradient);
+  color: var(--brand-primary-foreground);
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -97,25 +97,25 @@
   outline: none;
   font-family: "Inter", sans-serif;
   font-size: 18px;
-  color: var(--foreground, #1e1b4b);
+  color: var(--foreground);
   background: transparent;
 }
 .search-input::placeholder {
-  color: var(--muted-foreground, #52525b);
+  color: var(--muted-foreground);
 }
 .search-kbd {
   font-family: var(--font-mono);
   font-size: 11px;
   padding: 3px 8px;
   border-radius: 6px;
-  background: var(--background, #fafaff);
-  border: 1px solid var(--border, #ece9f5);
-  color: var(--muted-foreground, #52525b);
+  background: var(--background);
+  border: 1px solid var(--border);
+  color: var(--muted-foreground);
 }
 .count-pill {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--muted-foreground, #52525b);
+  color: var(--muted-foreground);
   letter-spacing: 0.08em;
 }
 .try-row {
@@ -128,7 +128,7 @@
 .try-label {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--muted-foreground, #52525b);
+  color: var(--muted-foreground);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   font-weight: 700;
@@ -138,24 +138,24 @@
 .try-chip {
   padding: 6px 12px;
   border-radius: 999px;
-  background: var(--card, white);
-  border: 1px solid var(--border, #ece9f5);
-  color: var(--foreground, #1e1b4b);
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--foreground);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
 }
 .try-chip:hover {
-  border-color: #8b5cf6;
-  color: #8b5cf6;
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
 }
 .try-chip.is-active {
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
-  color: white;
+  background: var(--brand-gradient);
+  color: var(--brand-primary-foreground);
   border-color: transparent;
 }
 .try-chip.is-active:hover {
-  color: white;
+  color: var(--brand-primary-foreground);
 }
 .featured-grid {
   display: grid;
@@ -173,8 +173,8 @@
   }
 }
 .skill-card {
-  background: var(--card, white);
-  border: 1px solid var(--border, #ece9f5);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 20px;
   cursor: pointer;
@@ -186,16 +186,17 @@
   text-decoration: none;
 }
 .skill-card:hover {
-  border-color: rgba(139, 92, 246, 0.4);
+  border-color: color-mix(in oklab, var(--brand-primary) 40%, transparent);
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px -10px rgba(139, 92, 246, 0.18);
+  box-shadow:
+    0 12px 24px -10px color-mix(in oklab, var(--brand-primary) 18%, transparent);
 }
 .skill-icon {
   width: 36px;
   height: 36px;
   border-radius: 9px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
-  color: white;
+  background: var(--brand-gradient);
+  color: var(--brand-primary-foreground);
   display: grid;
   place-items: center;
   margin-bottom: 14px;
@@ -204,12 +205,12 @@
   font-family: "Inter", sans-serif;
   font-weight: 600;
   font-size: 17px;
-  color: var(--foreground, #1e1b4b);
+  color: var(--foreground);
   margin: 0 0 6px;
 }
 .skill-blurb {
   font-size: 13.5px;
-  color: var(--muted-foreground, #3f3f46);
+  color: var(--muted-foreground);
   line-height: 1.45;
   margin: 0 0 16px;
 }
@@ -218,7 +219,7 @@
   gap: 14px;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--muted-foreground, #52525b);
+  color: var(--muted-foreground);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   font-weight: 600;
@@ -232,12 +233,12 @@
   cursor: default;
 }
 .skill-cohort {
-  color: #8b5cf6;
+  color: var(--brand-primary);
 }
 .skill-id {
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--muted-foreground, #a1a1aa);
+  color: var(--muted-foreground);
   margin-top: 14px;
   letter-spacing: 0.04em;
 }
@@ -253,8 +254,8 @@
   padding: 9px 14px;
   border-radius: 10px;
   border: 1px solid transparent;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
-  color: white;
+  background: var(--brand-gradient);
+  color: var(--brand-primary-foreground);
   font-family: "Inter", sans-serif;
   font-size: 13px;
   font-weight: 600;
@@ -269,19 +270,19 @@
   opacity: 0.85;
 }
 .skill-install-btn--busy {
-  background: var(--card, white);
-  border-color: rgba(139, 92, 246, 0.4);
-  color: #8b5cf6;
+  background: var(--card);
+  border-color: color-mix(in oklab, var(--brand-primary) 40%, transparent);
+  color: var(--brand-primary);
 }
 .skill-install-btn--installed {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.4);
-  color: #047857;
+  background: color-mix(in oklab, var(--success) 12%, transparent);
+  border-color: color-mix(in oklab, var(--success) 40%, transparent);
+  color: var(--success);
 }
 .skill-install-btn--error {
-  background: rgba(220, 38, 38, 0.08);
-  border-color: rgba(220, 38, 38, 0.4);
-  color: #991b1b;
+  background: color-mix(in oklab, var(--destructive) 8%, transparent);
+  border-color: color-mix(in oklab, var(--destructive) 40%, transparent);
+  color: var(--destructive);
 }
 .skill-install-spinner {
   width: 13px;
@@ -299,28 +300,28 @@
 .skill-install-error-msg {
   margin: 8px 0 0;
   font-size: 11.5px;
-  color: #991b1b;
+  color: var(--destructive);
   line-height: 1.4;
 }
 .section-label {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--muted-foreground, #52525b);
+  color: var(--muted-foreground);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   font-weight: 700;
   margin-bottom: 14px;
 }
 .state-panel {
-  border: 1px dashed var(--border, #ece9f5);
+  border: 1px dashed var(--border);
   border-radius: 14px;
   padding: 32px;
   text-align: center;
-  color: var(--muted-foreground, #52525b);
-  background: var(--background, #fafaff);
+  color: var(--muted-foreground);
+  background: var(--background);
 }
 .state-panel-error {
-  border-color: rgba(220, 38, 38, 0.35);
-  color: #991b1b;
-  background: rgba(254, 226, 226, 0.45);
+  border-color: color-mix(in oklab, var(--destructive) 35%, transparent);
+  color: var(--destructive);
+  background: color-mix(in oklab, var(--destructive) 10%, var(--card));
 }
