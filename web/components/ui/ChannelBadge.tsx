@@ -2,6 +2,7 @@ import {
   Bot,
   Globe,
   Hash,
+  Linkedin,
   Mail,
   MessageCircle,
   MessageSquare,
@@ -11,6 +12,7 @@ import {
   Radio,
   Slack,
   Smartphone,
+  Twitter,
   type LucideIcon,
 } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -41,6 +43,9 @@ const channelBadge = cva(
           "border-[var(--border)] bg-[var(--muted)] text-[var(--muted-foreground)]",
         web:
           "border-[var(--border)] bg-[var(--muted)] text-[var(--muted-foreground)]",
+        x: "border-[var(--border)] bg-[var(--foreground)]/5 text-[var(--foreground)]",
+        linkedin:
+          "border-[var(--info)]/30 bg-[var(--info)]/10 text-[var(--info)]",
       },
       size: {
         default: "gap-1 px-2 py-0.5 text-xs",
@@ -61,6 +66,8 @@ const ICONS: Record<ChannelKind, LucideIcon> = {
   voice: Phone,
   push: Smartphone,
   web: Globe,
+  x: Twitter,
+  linkedin: Linkedin,
 };
 
 const CHANNEL_LABELS: Record<ChannelKind, string> = {
@@ -73,6 +80,8 @@ const CHANNEL_LABELS: Record<ChannelKind, string> = {
   voice: "Voice",
   push: "Push",
   web: "Web inbox",
+  x: "X",
+  linkedin: "LinkedIn",
 };
 
 // Audit rows also carry non-messaging *action surfaces* (an agent acting

@@ -101,6 +101,8 @@ const CHANNEL_LABEL: Record<NonNullable<ApprovalCardProps["channel"]>, string> =
   web: "Web inbox",
   voice: "Voice",
   whatsapp: "WhatsApp",
+  x: "X",
+  linkedin: "LinkedIn",
 };
 
 function toRelative(iso: string): string {
@@ -235,7 +237,7 @@ export function ApprovalCard({
             {channel ? (
               <span className="inline-flex items-center gap-1">
                 <MessageSquare className="size-3" />
-                {CHANNEL_LABEL[channel]}
+                {CHANNEL_LABEL[channel] ?? channel}
               </span>
             ) : null}
             {channel && receivedAt ? <span aria-hidden>·</span> : null}

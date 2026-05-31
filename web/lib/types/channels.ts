@@ -12,6 +12,14 @@
  * Older modules re-export `ChannelKind` from here so existing
  * `import { ChannelKind } from "@/lib/sample-approvals"` callsites
  * keep compiling without churn.
+ *
+ * `x` (X/Twitter) + `linkedin` are publishing surfaces, not
+ * notify-channels: the gateway's marketing-draft route
+ * (`routes_marketing_draft_response.rs`) emits `channel: "x" |
+ * "linkedin"` on the approval envelope for a queued Marcus draft.
+ * They belong in this union so `/approvals` can render a channel
+ * chip for those rows — a narrower union silently coerced them to
+ * `undefined` in the chip's icon map and crashed the whole inbox.
  */
 export type ChannelKind =
   | "slack"
@@ -22,7 +30,9 @@ export type ChannelKind =
   | "whatsapp"
   | "voice"
   | "push"
-  | "web";
+  | "web"
+  | "x"
+  | "linkedin";
 
 export const CHANNEL_KINDS: readonly ChannelKind[] = [
   "slack",
@@ -34,4 +44,6 @@ export const CHANNEL_KINDS: readonly ChannelKind[] = [
   "voice",
   "push",
   "web",
+  "x",
+  "linkedin",
 ] as const;

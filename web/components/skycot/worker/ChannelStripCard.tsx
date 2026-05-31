@@ -6,11 +6,13 @@ import {
   ChevronRight,
   Globe,
   Hash,
+  Linkedin,
   Mail,
   MessageCircle,
   MessageSquare,
   Mic,
   Smartphone,
+  Twitter,
   type LucideIcon,
 } from "lucide-react";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -54,6 +56,8 @@ const CHANNEL_LABEL: Record<ChannelKind, string> = {
   web: "Web inbox",
   voice: "Voice",
   whatsapp: "WhatsApp",
+  x: "X",
+  linkedin: "LinkedIn",
 };
 
 const CHANNEL_ICON: Record<ChannelKind, LucideIcon> = {
@@ -66,6 +70,8 @@ const CHANNEL_ICON: Record<ChannelKind, LucideIcon> = {
   web: Globe,
   voice: Mic,
   whatsapp: MessageCircle,
+  x: Twitter,
+  linkedin: Linkedin,
 };
 
 // The messaging channels this card knows how to render. The live audit

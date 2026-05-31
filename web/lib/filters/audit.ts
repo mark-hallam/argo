@@ -39,6 +39,7 @@ export const CHANNEL_LABELS: Record<ChannelKind, string> = {
   slack: "Slack", discord: "Discord", email: "Email",
   imessage: "iMessage", sms: "SMS", push: "Push",
   web: "Web inbox", voice: "Voice", whatsapp: "WhatsApp",
+  x: "X", linkedin: "LinkedIn",
 };
 
 export const STATUS_LABELS: Record<AuditStatus, string> = {

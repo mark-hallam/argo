@@ -10,6 +10,8 @@ const CHANNELS: ChannelKind[] = [
   "web",
   "voice",
   "whatsapp",
+  "x",
+  "linkedin",
 ];
 
 const meta: Meta<typeof ChannelChip> = {

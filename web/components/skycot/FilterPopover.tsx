@@ -23,6 +23,8 @@ const CHANNEL_LABEL: Record<ChannelKind, string> = {
   web: "Web inbox",
   voice: "Voice",
   whatsapp: "WhatsApp",
+  x: "X",
+  linkedin: "LinkedIn",
 };
 
 const STATUS_LABEL: Record<StatusKind, string> = {

@@ -105,6 +105,8 @@ const CHANNEL_SUMMARY_LABEL: Record<ChannelKind, string> = {
   web: "Web",
   voice: "Voice",
   whatsapp: "WhatsApp",
+  x: "X",
+  linkedin: "LinkedIn",
 };
 
 function channelCounts(items: ApprovalItem[]): Array<[ChannelKind, number]> {
