@@ -69,6 +69,7 @@ pub mod trust;
 /// from a Vec of observation rows; query via `direct_trust`,
 /// `composed_trust` (BFS, max-product, default 3-hop cap), and
 /// `neighbors`.
+pub mod trace_cluster;
 pub mod trust_graph;
 mod trust_reader;
 pub mod version;
