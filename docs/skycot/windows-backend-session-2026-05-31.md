@@ -347,3 +347,70 @@ rabbit-hole Windows-hardening on a Mac-shipped product when Phase 2
 - **Group B (argo-tool path/process, 8):** triaged, not fixed.
 - **Group D (pitch Portia/Pitch):** flagged to Mac, intentionally untouched.
 - **EOL hazard:** mitigated via local `core.autocrlf input` + renormalize.
+
+---
+
+## Phase 2 — Advance a backend feature — COMPLETE (adapters VERIFIED; route swap UNCONFIRMED)
+
+**Feature: production `WorkerSessionRunner` for the workflow DAG executor.**
+The runner + its 3 trait seams already existed in `argo-workflow`; what was
+missing were the production adapters + the route wiring. Both shipped.
+
+### What shipped
+
+1. **Production adapters — ✅ VERIFIED Windows-green** (`ac0e3eb82`):
+   `crates/argo-agent-runner/src/workflow_adapters.rs` —
+   - `McpToolDispatcher` (impl `ToolDispatcher`): per-tenant pooled MCP
+     dispatch, server→stdio-transport resolution, `isError`→`ToolError`.
+   - `AuditWorkflowEmitter` (impl `WorkflowAuditEmitter`): `WorkflowStepExecuted`
+     on success (propagates write error), best-effort `WorkflowStepFailed`.
+   - `CapabilityWorkflowChecker` (impl `WorkflowCapabilityChecker`): gates each
+     tool on `Capability::ToolDispatch` via `CapabilityEngine::check`.
+   - Evidence: `cargo test -p argo-agent-runner` → **127 passed / 0 failed**
+     (incl. 11 new adapter tests); `cargo clippy --all-targets` → exit 0.
+
+   **Crate-placement finding (load-bearing):** the brief proposed putting these
+   in `argo-runtime`. That is **impossible** — `argo-runtime` deps only
+   `argo-types`+`argo-workflow`, and `argo-store → argo-runtime` is a real edge,
+   so adding `argo-audit`/`argo-capability` to runtime forms the cycle
+   `argo-runtime → argo-audit → argo-store → argo-runtime`. `argo-agent-runner`
+   already deps all four (workflow+mcp+audit+capability) and sits outside that
+   cycle → the correct home. Verified via per-crate Cargo.toml grep before
+   writing code.
+
+2. **Ledger — ✅** (`e15e4a908`): FEATURE_MATRIX "Workflow DAG runner —
+   production adapters" row + Genesis-P3 MockRunner-caveat update + regen HTML.
+
+3. **Route swap — 🟡 UNCONFIRMED, needs Mac** (`676be3ffa`):
+   `routes_workflow_execute.rs` now wires the adapters into the live
+   `/workflows/{vertical}/{name}/execute` route behind
+   **`ARGO_WORKFLOW_REAL_RUNNER` (default OFF)** — default path keeps
+   `MockRunner::echo` (demo-safe, zero behaviour change), flag ON dispatches
+   real tools. Real-runner assembly split to
+   `routes_workflow_execute_runner.rs` to hold the 500-LOC ceiling (parent 452).
+   **Cannot be compile-verified on Windows** — `argo-cli` is blocked by
+   `kryptering` (the LLP64 bug from Phase 0). Authored + static-reviewed
+   (every cross-crate signature checked against source); committed with an
+   explicit `[UNCONFIRMED]` label + a Mac-verify checklist in the commit body.
+   **Per DEC-029 this is reported as UNVERIFIED, not "done".**
+
+### Outstanding (single item, operator's Mac)
+`cargo build -p argo-cli` on macOS to confirm `676be3ffa` compiles. If green,
+the swap is fully live behind the flag; flip `ARGO_WORKFLOW_REAL_RUNNER=1` to
+activate real workflow tool-dispatch. If it doesn't compile, the failure is
+isolated to argo-cli (the adapters in `ac0e3eb82` are independently verified +
+already green).
+
+## Session summary (truth-bounded)
+
+| Item | Status | Evidence |
+|---|---|---|
+| Toolchain (Rust 1.96 + MSVC) | ✅ VERIFIED | link-tested binary |
+| Phase 0 compat map | ✅ VERIFIED | 85/89 crates build; 2 hard-fail documented |
+| argo-skill CRLF parser (real bug) | ✅ VERIFIED | 393/393 + clippy (`fc781adb5`) |
+| Phase 1 Group-A Unix-test gates (16) | ✅ VERIFIED | provider+orch green (`174733b52`) |
+| EOL hygiene + agent-runner cfg-gate | ✅ VERIFIED | `c30e377bf`/`0e9e3de3a` |
+| Phase 2 adapters | ✅ VERIFIED | 127 tests (`ac0e3eb82`) |
+| Phase 2 ledger | ✅ VERIFIED | FEATURE_MATRIX+HTML (`e15e4a908`) |
+| Phase 2 route swap | 🟡 UNCONFIRMED | static-only; Mac `cargo build -p argo-cli` (`676be3ffa`) |
+| Phase 1 remainder (Groups B/C, ~6) | ⏭️ triaged, deferred | Windows-env artifacts, not product bugs; `is_absolute` flagged as security candidate |
