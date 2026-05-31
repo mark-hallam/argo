@@ -414,3 +414,85 @@ already green).
 | Phase 2 ledger | ✅ VERIFIED | FEATURE_MATRIX+HTML (`e15e4a908`) |
 | Phase 2 route swap | 🟡 UNCONFIRMED | static-only; Mac `cargo build -p argo-cli` (`676be3ffa`) |
 | Phase 1 remainder (Groups B/C, ~6) | ⏭️ triaged, deferred | Windows-env artifacts, not product bugs; `is_absolute` flagged as security candidate |
+
+---
+
+## Phase 3 — Next backend features (Windows-buildable, cargo-verified)
+
+Two library-crate features, both fully Windows-verified. NOT argo-cli, NOT the
+Genesis lane.
+
+### Primary — Teammate-eval golden-suite runner (`argo-eval`) — ✅ VERIFIED
+
+**Picked because** FEATURE_MATRIX:79 "Teammate-eval (6-axis scoring)" was the
+clearest 🟧 Scaffold in a Windows-buildable non-Genesis library crate: "real
+6-axis scoring library but **no runner/CLI/gateway caller**". (The skill A/B
+loop the brief named is already ✅ Live — DEC-023 P4 shipped `argo eval
+skill-ab`, FEATURE_MATRIX:204 — so the teammate scorer was the genuine
+greenfield gap.) DEC-017 explicitly calls for "a runner [that] drives [the
+scorer] over the golden set, deterministic, runs in CI" — that runner did not
+exist. Built it.
+
+`crates/argo-eval/src/teammate_runner.rs` (new, 211 LOC):
+- `GoldenCase = (TeammateScenario, ScenarioOutcome)`.
+- `evaluate_case(case, threshold) -> ScenarioVerdict` — scores via the existing
+  `score_scenario`, flags every axis below threshold (inclusive `>=`, matching
+  `AxisScores::passed`), names failing axes (sorted, deterministic), reports
+  per-scenario `overall` + pass/fail.
+- `run_golden_suite(cases, threshold) -> TeammateEvalReport` — per-scenario
+  verdicts + `passed`/`total` + `pass_rate()` + `mean_overall` + `all_passed()`.
+- Deterministic (no model call) → CI-runnable. Serde round-trips so a golden
+  set can be authored on disk later (no fs dep here). DEC-017's
+  live-outcome→ScenarioOutcome producer stays the deferred phase-2 seam.
+
+**Honesty note (a real mistake, caught by cargo):** my first draft of this
+module was written against an *assumed* API (`score_observation`,
+`GoldenScenario`, `AxisWeights`, …) that does not exist — `cargo test` failed
+with E0432 before any commit. Rewrote against the real `teammate.rs` API
+(`score_scenario`/`AxisScores`/`TeammateScenario`/`ScenarioOutcome`). This is
+exactly why the rule is verify-before-claim: the wrong version never left the
+machine.
+
+VERIFIED: `cargo test -p argo-eval` → **83 lib (10 new teammate_runner) + 7
+surface_contract + 7 doctests, 0 failed**; `cargo clippy -p argo-eval
+--all-targets` → exit 0, 0 warnings on the new module. Surface-contract test
+updated to declare the new `pub mod` (the no-accidental-public-API guard
+firing correctly). Ledger: FEATURE_MATRIX "Teammate-eval" 🟧 Scaffold → 🟡
+Partial (real library consumer now; CLI/gateway caller + live-outcome producer
+still absent → honestly Partial, not Live), HTML regenerated.
+**Commit (on origin): `a821a57f4` → rebased to ship as the eval commit in `6fa53b8b0`'s lineage.**
+
+### Secondary — argo-vertical isolation hardening (`is_absolute_any_os`) — ✅ VERIFIED
+
+The cross-platform security gap I flagged in Phase 1. `check_path_within` used
+`Path::is_absolute()`, which is **host-dependent**: on Windows it returns false
+for the Unix-absolute `/etc/passwd`, so a `[role] system_prompt = "/etc/passwd"`
+in a vertical manifest was NOT rejected on a Windows builder (and the mirror —
+`C:\Windows` — slips through on Unix). A vertical manifest is portable, so an
+asset path absolute under *either* convention must be refused on *every* host.
+
+Fix (`crates/argo-vertical/src/isolation.rs`, 130 LOC): replaced
+`p.is_absolute()` with `is_absolute_any_os(rel)` — rejects a leading `/` or `\`
+(Unix-absolute + Windows rooted/UNC) AND a `<letter>:` drive prefix (Windows
+drive-qualified/relative), host-independently. Strict superset of
+`Path::is_absolute` on both platforms.
+
+VERIFIED: `cargo test -p argo-vertical` → **219 passed / 0 failed**; 6 new tests
+(unix / windows-drive / UNC absolute rejected on any host; legit relative paths
+pass; both conventions refused through `check_isolation`). **This also flips the
+pre-existing `rejects_absolute_system_prompt` test RED→green on Windows** — it
+was the Group-C Windows-only failure from the Phase-1 inventory, so this closes
+it for real (not gated, fixed). `cargo clippy -p argo-vertical --all-targets` →
+exit 0. **Commit (on origin): `1e1797f8a`.**
+
+### Coordination notes
+- Hit a rebase tangle: the Mac's Marcus commit (`ba4657fc1`) also edited
+  FEATURE_MATRIX → conflict on the generated `feature-matrix.html`. Resolved by
+  regenerating from the cleanly-merged `.md` (never hand-merge generated
+  output). A `git rebase --abort` mid-tangle discarded my uncommitted isolation
+  edits — re-applied them cleanly afterward (caught because I re-grepped the
+  working tree rather than trusting it survived).
+- The Mac fixed the Portia/Pitch stale test (`e91f3b0ac`) — Group-D now theirs,
+  off my list. New 3-lane coordination map at `87a1daefe`.
+
+**Phase 3 final state: `HEAD == origin == 1e1797f8a`, 0/0, clean.**
