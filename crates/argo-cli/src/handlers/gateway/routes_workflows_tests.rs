@@ -15,6 +15,10 @@ use argo_types::TenantId;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
+// NB: `resolve_principal` dev-bypass-tolerance tests live in the sibling
+// `routes_workflows_principal_tests.rs` (split out to keep both test
+// files under the 500-LOC ceiling).
+
 #[test]
 fn parse_route_recognises_rollback_post() {
     let req = "POST /api/v1/verticals/pr_checker/workflows/standard_review/rollback HTTP/1.1\r\nHost: x\r\n\r\n";

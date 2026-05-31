@@ -19,6 +19,13 @@ pub(super) async fn dispatch_get(
     if let Some(resp) = super::routes_dispatch_get_api::dispatch_api_get(req, store).await {
         return Some(resp);
     }
+    // fix-frontier-b-backend-routes — `/settings/api-keys` +
+    // `/settings/providers` metadata reads (`GET /api/v1/api-keys`,
+    // `GET /api/v1/providers/keys`). Exact-path matches, metadata only
+    // (never a secret value). Mounted early since both are leaf paths.
+    if let Some(resp) = super::routes_settings_credentials::dispatch_get(req, store).await {
+        return Some(resp);
+    }
     if let Some(resp) = super::routes_dispatch_get_catalog::dispatch_catalog_get(req, store).await {
         return Some(resp);
     }

@@ -226,14 +226,27 @@ fn parse_route<'a>(req: &'a str, verb: &str) -> Option<Route<'a>> {
 // ── Auth helpers ────────────────────────────────────────────────
 
 fn resolve_principal(req: &str) -> Result<(Principal, &'static str), (&'static str, String)> {
-    let raw = header_value(req, PRINCIPAL_HEADER).ok_or_else(unauthorized)?;
-    let (kind, identity) = match raw.split_once(':') {
-        Some((k, v)) if !v.is_empty() => (k.to_string(), v.to_string()),
-        _ => return Err(unauthorized()),
-    };
-    let principal = Principal::Gateway {
-        adapter: kind,
-        identity,
+    let principal = match header_value(req, PRINCIPAL_HEADER) {
+        Some(raw) => match raw.split_once(':') {
+            Some((k, v)) if !v.is_empty() => Principal::Gateway {
+                adapter: k.to_string(),
+                identity: v.to_string(),
+            },
+            // Header present but malformed (no `:` or empty identity) is
+            // a client error regardless of mode.
+            _ => return Err(unauthorized()),
+        },
+        // No `X-Argo-Principal` header. In dev with `gateway.auth_bypass`
+        // on (and NOT production) derive the same default dev-bypass
+        // principal the bearer gate uses (`routes_auth::dev_bypass_principal`
+        // → `system:dev-bypass`), so the SPA's header-less recording-mode
+        // calls resolve instead of 401-ing. Production keeps requiring the
+        // header — the bypass branch is unreachable when production is on.
+        None if dev_bypass_active() => Principal::Gateway {
+            adapter: "system".to_string(),
+            identity: "dev-bypass".to_string(),
+        },
+        None => return Err(unauthorized()),
     };
     // Role comes from the verified session JWT
     // (see [`super::role_gate::resolve_role`]). When no JWT is
@@ -249,6 +262,18 @@ fn resolve_principal(req: &str) -> Result<(Principal, &'static str), (&'static s
         UserTenantRole::Guest => "guest",
     };
     Ok((principal, role))
+}
+
+/// True when the gateway is in the dev/integration-test auth-bypass
+/// mode: `gateway.auth_bypass = true` AND not production. Mirrors the
+/// exact gate `super::routes_auth::check_bearer_auth` /
+/// `authenticate_request` apply, so this route tolerates the
+/// header-less dev-bypass principal the same way the top-level
+/// `/api/v1/workflows` + `/api/v1/team` (workers) routes already do —
+/// without ever weakening the production path.
+fn dev_bypass_active() -> bool {
+    argo_config::load().unwrap_or_default().gateway.auth_bypass
+        && !super::routes_auth_production_mode::is_production_mode()
 }
 
 fn check_capability(
@@ -354,3 +379,7 @@ pub(super) fn internal(message: &str) -> (&'static str, String) {
 #[cfg(test)]
 #[path = "routes_workflows_tests.rs"]
 mod routes_workflows_tests;
+
+#[cfg(test)]
+#[path = "routes_workflows_principal_tests.rs"]
+mod routes_workflows_principal_tests;
