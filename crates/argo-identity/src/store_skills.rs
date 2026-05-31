@@ -199,6 +199,29 @@ impl IdentityStore<'_> {
         Ok(count)
     }
 
+    /// The `worker_skill.created_at` ("learned at") timestamps for every
+    /// worker (across **all** tenants) that holds `skill_id`, oldest
+    /// first. Like [`Self::count_workers_with_skill_global`] this is an
+    /// aggregate-only signal — bare timestamps, no worker ids or names —
+    /// so no cross-tenant identity leaks. Backs the skill-telemetry
+    /// "adoption trend" sparkline, which buckets the timestamps into a
+    /// cumulative `workers who had learned this skill by day D` series.
+    ///
+    /// The strings are SQLite `datetime('now')` values
+    /// (`YYYY-MM-DD HH:MM:SS`, UTC). The caller parses them; a row that
+    /// fails to parse is simply dropped from the series.
+    pub async fn skill_learned_at_timestamps(&self, skill_id: &str) -> ArgoResult<Vec<String>> {
+        self.ensure_schema().await?;
+        let rows: Vec<String> = sqlx::query_scalar(
+            "SELECT created_at FROM worker_skill WHERE skill_id = ? ORDER BY created_at ASC",
+        )
+        .bind(skill_id)
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("skill_learned_at_timestamps: {e}")))?;
+        Ok(rows)
+    }
+
     /// Assign one `skill_id` to every worker in `worker_ids` in a
     /// single SQL transaction (Stream
     /// `mission-cohort-detail-bulk-assign-skill`). Idempotent: workers

@@ -3,12 +3,11 @@ import "./page.css";
 
 import Link from "next/link";
 import { use } from "react";
-import { useSkillUsage } from "@/lib/hooks/use-skills";
+import { useSkillTelemetry, useSkillUsage } from "@/lib/hooks/use-skills";
 import { formatLearnedAgo } from "@/lib/format-learned-ago";
 import { TrustGradeChip } from "@/components/skycot/skills/TrustGradeChip";
 import { SkillLearningLoopCard } from "@/components/skycot/skills/SkillLearningLoopCard";
 import { InstallSkillButton } from "@/components/skycot/skills/InstallSkillButton";
-import { sampleSkillTelemetry } from "@/lib/sample-skill-telemetry";
 
 /**
  * Skill detail surface — mission-skill-discovery-marketplace-surface.
@@ -37,7 +36,12 @@ export default function SkillDetailStubPage({
   const { skillId } = use(params);
   const usageQuery = useSkillUsage(skillId);
   const usage = usageQuery.data?.usage;
-  const telemetry = sampleSkillTelemetry(skillId);
+  // REAL learning-loop telemetry from the gateway (retired the
+  // sample-skill-telemetry.ts fixture). Resolve by the skill's
+  // canonical name when usage has loaded it, else by the URL segment;
+  // the endpoint accepts either form. `null` → honest empty state.
+  const telemetryQuery = useSkillTelemetry(usage?.skill_name ?? skillId);
+  const telemetry = telemetryQuery.data?.telemetry ?? null;
 
   return (
     <>

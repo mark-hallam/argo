@@ -207,6 +207,7 @@ mod routes_skills;
 mod routes_skills_list_get;
 mod routes_skills_quality;
 mod routes_skills_show;
+mod routes_skills_telemetry;
 mod routes_skills_usage;
 mod routes_support_tickets;
 mod routes_notifications;

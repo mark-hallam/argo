@@ -5,10 +5,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchLearnedThisMonth,
   fetchSkills,
+  fetchSkillTelemetry,
   fetchSkillUsage,
   installSkillToWorkers,
   type FetchLearnedThisMonthResult,
   type FetchSkillsResult,
+  type FetchSkillTelemetryResult,
   type FetchSkillUsageResult,
   type InstallSkillResult,
 } from "@/lib/api/skills";
@@ -38,6 +40,21 @@ export function useSkillUsage(skillName: string | undefined) {
     queryKey: ["skill-usage", skillName ?? ""],
     queryFn: () => fetchSkillUsage(skillName as string),
     enabled: typeof skillName === "string" && skillName.length > 0,
+  });
+}
+
+/**
+ * REAL learning-loop telemetry for the skill drill-in card: eval re-run
+ * history, cumulative adoption trend, run count, and the newest runs —
+ * all from live tables. Returns `{ telemetry: null }` (honest empty
+ * state) when the skill has no recorded runs or the gateway is offline;
+ * the card never falls back to a fabricated fixture.
+ */
+export function useSkillTelemetry(skillNameOrId: string | undefined) {
+  return useQuery<FetchSkillTelemetryResult>({
+    queryKey: ["skill-telemetry", skillNameOrId ?? ""],
+    queryFn: () => fetchSkillTelemetry(skillNameOrId as string),
+    enabled: typeof skillNameOrId === "string" && skillNameOrId.length > 0,
   });
 }
 
@@ -121,6 +138,7 @@ export function useInstallSkill(): UseInstallSkillResult {
       setPhase("installed");
       void client.invalidateQueries({ queryKey: SKILLS_KEY });
       void client.invalidateQueries({ queryKey: ["skill-usage"] });
+      void client.invalidateQueries({ queryKey: ["skill-telemetry"] });
       void client.invalidateQueries({ queryKey: ["worker"] });
     },
     onError: (err) => {

@@ -273,6 +273,94 @@ export async function fetchSkillUsage(
   }
 }
 
+/**
+ * One REAL eval re-run for the learning-loop card, from
+ * `skill_reeval_history`. NB: these are scheduled eval re-runs of the
+ * skill (the same rows that drive `/evals`), NOT trust-grade promotion
+ * events — there is no promotion-event table, so the card never
+ * fabricates a promotion arc.
+ */
+export interface SkillEvalRun {
+  /** Skill version the eval ran against (e.g. `v3`). */
+  version: string;
+  /** 0..1 pass rate, or `null` when the eval itself errored. */
+  pass_rate: number | null;
+  /** Prior run's pass rate, or `null` for the first (baseline) run. */
+  previous_pass_rate?: number | null;
+  /** `stable` / `regressed` / `no_baseline` — the real eval decision. */
+  decision: "stable" | "regressed" | "no_baseline";
+  /** ISO-8601 timestamp of the run. */
+  ran_at: string;
+}
+
+/**
+ * REAL telemetry bundle for one skill, from the gateway
+ * `GET /api/v1/skills/<id-or-name>/telemetry` endpoint. Every field is
+ * sourced from a live table (`skill_reeval_history`, `worker_skill`,
+ * the skill's provenance); fields the retired fixture invented
+ * (per-run `latency_ms` / `worker_name`) are deliberately absent.
+ */
+export interface SkillTelemetry {
+  skill_id: string;
+  skill_name: string;
+  /** Canonical `argo_skill::TrustGrade` discriminant. */
+  current_grade: string;
+  /** REAL count of scheduled eval re-runs for this skill. */
+  run_count: number;
+  /** REAL distinct workers across all tenants (aggregate only). */
+  distinct_workers: number;
+  /** Eval re-run history, oldest → newest. */
+  eval_history: SkillEvalRun[];
+  /**
+   * Cumulative adoption series — `distinct workers who had learned this
+   * skill by day D`, oldest → newest (30 points). Bucketed from
+   * `worker_skill.created_at`.
+   */
+  adoption_trend: number[];
+  /** Newest 3 eval re-runs, newest-first. */
+  recent_runs: SkillEvalRun[];
+}
+
+export interface FetchSkillTelemetryResult {
+  /** `null` → the card renders its honest empty state. */
+  telemetry: SkillTelemetry | null;
+  source: SkillUsageSource;
+}
+
+/**
+ * GET `/api/v1/skills/<id-or-name>/telemetry` — REAL learning-loop
+ * telemetry. Accepts the skill name or the catalog UUID (the endpoint
+ * resolves either form). Used by the skill drill-in's "Learning loop"
+ * card; this retired the hardcoded `sample-skill-telemetry.ts` fixture.
+ *
+ * Demo-live contract (NO THEATER): in `auth-bypass + demo-live` we hit
+ * the real gateway; if it is unreachable / 404s we return
+ * `{ telemetry: null }` so the card shows its honest EMPTY state — never
+ * a fabricated fixture. In plain auth-bypass dev (no demo-live) we also
+ * return `{ telemetry: null }`: there is no offline fixture any more, so
+ * the card honestly reports "no runs yet" rather than inventing trend
+ * data. Strict prod propagates the ApiError.
+ */
+export async function fetchSkillTelemetry(
+  skillNameOrId: string,
+): Promise<FetchSkillTelemetryResult> {
+  if (isAuthBypassed() && !isDemoLive()) {
+    return { telemetry: null, source: "mock-bypass" };
+  }
+  try {
+    const telemetry = await apiGet<SkillTelemetry>(
+      `/api/v1/skills/${encodeURIComponent(skillNameOrId)}/telemetry`,
+    );
+    return { telemetry, source: "gateway" };
+  } catch (err) {
+    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+      // Honest empty state — NOT the (deleted) fixture.
+      return { telemetry: null, source: "mock-offline" };
+    }
+    throw err;
+  }
+}
+
 /** Response envelope for `/api/v1/skills/learned-this-month`. */
 export interface LearnedThisMonth {
   /** RFC3339 cutoff the server picked (first-of-month UTC). */
