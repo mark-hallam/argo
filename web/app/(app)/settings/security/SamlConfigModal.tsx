@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import {
   saveSamlConfig,
@@ -20,6 +20,7 @@ export default function SamlConfigModal({ initial, onCancel, onSaved }: ModalPro
   const [busy, setBusy] = useState<"idle" | "saving" | "testing">("idle");
   const [testResult, setTestResult] = useState<SamlTestResult | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   function update<K extends keyof SamlConfig>(key: K, value: SamlConfig[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
@@ -56,64 +57,99 @@ export default function SamlConfigModal({ initial, onCancel, onSaved }: ModalPro
 
   const disabled = busy !== "idle";
 
+  useEffect(() => {
+    dialogRef.current?.focus();
+  }, []);
+
   return (
-    <div
-      className="saml-modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="saml-modal-title"
-      data-testid="saml-modal"
-    >
+    <div className="saml-modal-backdrop">
       <style jsx>{`
         .saml-modal-backdrop {
           position: fixed; inset: 0; z-index: 50;
-          background: rgba(30, 27, 75, 0.4); backdrop-filter: blur(4px);
+          background: color-mix(in oklab, var(--foreground) 40%, transparent);
+          backdrop-filter: blur(4px);
           display: grid; place-items: center; padding: 24px;
         }
         .saml-modal {
-          background: white; border-radius: 16px; max-width: 640px; width: 100%;
+          background: var(--popover); color: var(--popover-foreground);
+          border-radius: var(--radius-lg); max-width: 640px; width: 100%;
           max-height: 90vh; overflow-y: auto; padding: 28px;
-          box-shadow: 0 25px 50px -12px rgba(30, 27, 75, 0.35);
+          box-shadow: 0 25px 50px -12px color-mix(in oklab, var(--foreground) 35%, transparent);
           display: flex; flex-direction: column; gap: 16px;
+          outline: none;
         }
-        .saml-modal h2 { margin: 0; font-size: 20px; font-weight: 600; color: #1e1b4b; }
+        .saml-modal:focus-visible {
+          box-shadow:
+            0 25px 50px -12px color-mix(in oklab, var(--foreground) 35%, transparent),
+            0 0 0 3px color-mix(in oklab, var(--ring) 28%, transparent);
+        }
+        .saml-modal h2 { margin: 0; font-size: 20px; font-weight: 600; color: var(--foreground); }
+        .saml-sr-only {
+          position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+          overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+        }
         .saml-row { display: flex; flex-direction: column; gap: 6px; }
         .saml-label { font-family: var(--font-mono); font-size: 11px;
-          letter-spacing: 0.12em; text-transform: uppercase; color: #52525b;
+          letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted-foreground);
           font-weight: 700; }
         .saml-input, .saml-textarea, .saml-select {
-          padding: 10px 14px; border-radius: 9px; border: 1px solid #ece9f5;
-          background: #fafaff; font-family: "Inter", sans-serif; font-size: 14px;
-          color: #1e1b4b; outline: none;
+          padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--input);
+          background: var(--background); font-family: var(--font-sans); font-size: 14px;
+          color: var(--foreground); outline: none;
         }
         .saml-input:focus, .saml-textarea:focus, .saml-select:focus {
-          border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
+          border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 16%, transparent);
         }
         .saml-textarea { min-height: 140px; font-family: var(--font-mono);
           font-size: 12.5px; line-height: 1.45; }
         .saml-toggle { display: flex; align-items: center; gap: 12px;
-          padding: 12px; border-radius: 9px; background: #fafaff;
-          border: 1px solid #ece9f5; }
+          padding: 12px; border-radius: var(--radius-md); background: var(--background);
+          border: 1px solid var(--border); }
         .saml-toggle-text { flex: 1; }
-        .saml-toggle-label { font-size: 13.5px; font-weight: 600; color: #1e1b4b;
+        .saml-toggle-label { font-size: 13.5px; font-weight: 600; color: var(--foreground);
           margin: 0 0 2px; }
-        .saml-toggle-blurb { font-size: 12px; color: #52525b; margin: 0; }
+        .saml-toggle-blurb { font-size: 12px; color: var(--muted-foreground); margin: 0; }
         .saml-actions { display: flex; gap: 10px; justify-content: flex-end;
           margin-top: 8px; flex-wrap: wrap; }
-        .saml-btn { padding: 9px 16px; border-radius: 9px; font-size: 13px;
-          font-weight: 600; border: 1px solid #ece9f5; background: white;
-          color: #1e1b4b; cursor: pointer; }
+        .saml-btn { padding: 9px 16px; border-radius: var(--radius-md); font-size: 13px;
+          font-weight: 600; border: 1px solid var(--border); background: var(--card);
+          color: var(--foreground); cursor: pointer; }
+        .saml-btn:focus-visible {
+          outline: 2px solid var(--ring); outline-offset: 2px;
+        }
         .saml-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        .saml-btn-primary { background: linear-gradient(135deg, #8b5cf6, #ec4899);
-          color: white; border: none; box-shadow: 0 4px 12px -4px rgba(139, 92, 246, 0.45); }
-        .saml-result { padding: 10px 14px; border-radius: 9px; font-size: 13px;
+        .saml-btn-primary { background: linear-gradient(135deg, var(--primary), var(--gradient-end));
+          color: var(--primary-foreground); border: none;
+          box-shadow: 0 4px 12px -4px color-mix(in oklab, var(--primary) 45%, transparent); }
+        .saml-result { padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px;
           font-weight: 500; display: flex; gap: 8px; align-items: center; }
-        .saml-result-ok { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
-        .saml-result-err { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-        .saml-save-error { color: #b91c1c; font-size: 13px; margin: 0; }
+        .saml-result-ok {
+          background: color-mix(in oklab, var(--success) 12%, var(--card));
+          color: var(--success); border: 1px solid color-mix(in oklab, var(--success) 32%, var(--border));
+        }
+        .saml-result-err {
+          background: color-mix(in oklab, var(--destructive) 10%, var(--card));
+          color: var(--destructive); border: 1px solid color-mix(in oklab, var(--destructive) 28%, var(--border));
+        }
+        .saml-save-error { color: var(--destructive); font-size: 13px; margin: 0; }
       `}</style>
-      <div className="saml-modal">
+      <div
+        className="saml-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="saml-modal-title"
+        aria-describedby="saml-modal-description"
+        data-testid="saml-modal"
+        ref={dialogRef}
+        tabIndex={-1}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && !disabled) onCancel();
+        }}
+      >
         <h2 id="saml-modal-title">Configure SAML SSO</h2>
+        <p id="saml-modal-description" className="saml-sr-only">
+          Enter identity provider details, test the connection, and save the SAML configuration.
+        </p>
 
         <div className="saml-row">
           <label className="saml-label" htmlFor="saml-flavor">Identity provider</label>
@@ -203,8 +239,15 @@ export default function SamlConfigModal({ initial, onCancel, onSaved }: ModalPro
         </div>
 
         {testResult ? (
-          <div className={testResult.ok ? "saml-result saml-result-ok" : "saml-result saml-result-err"}>
-            {testResult.ok ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+          <div
+            className={testResult.ok ? "saml-result saml-result-ok" : "saml-result saml-result-err"}
+            role={testResult.ok ? "status" : "alert"}
+          >
+            {testResult.ok ? (
+              <CheckCircle2 size={14} aria-hidden="true" />
+            ) : (
+              <AlertCircle size={14} aria-hidden="true" />
+            )}
             {testResult.message}
           </div>
         ) : null}

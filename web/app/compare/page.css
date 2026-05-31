@@ -3,6 +3,10 @@
   max-width: 1180px;
   margin: 0 auto;
 }
+.compare-stage :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
 .compare-eyebrow {
   display: inline-flex;
   align-items: center;

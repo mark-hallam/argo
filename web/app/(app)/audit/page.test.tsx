@@ -367,6 +367,8 @@ describe("AuditPage", () => {
   });
 
   it("groups rows under TODAY / YESTERDAY headers in the feed", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-31T12:00:00.000Z"));
     const now = Date.now();
     const todayRow = makeRow({
       id: "act_today",

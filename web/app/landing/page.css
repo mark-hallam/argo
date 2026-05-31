@@ -16,6 +16,10 @@
   letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
 }
+.land :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
 .land::before {
   content: "";
   position: fixed;

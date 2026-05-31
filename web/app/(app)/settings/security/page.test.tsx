@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const ssoApi = vi.hoisted(() => ({
@@ -68,5 +69,20 @@ describe("settings security SAML panel", () => {
     expect(screen.getByTestId("saml-summary")).toHaveTextContent("http://www.okta.com/abc");
     expect(screen.queryByTestId("saml-fallback")).not.toBeInTheDocument();
     expect(screen.queryByText("Failed to fetch")).not.toBeInTheDocument();
+  });
+
+  it("opens the SAML dialog with modal semantics and closes it from the keyboard", async () => {
+    const user = userEvent.setup();
+    render(<SecuritySettingsPage />);
+
+    await user.click(await screen.findByTestId("saml-configure"));
+
+    const dialog = screen.getByRole("dialog", { name: "Configure SAML SSO" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveAttribute("aria-describedby", "saml-modal-description");
+    expect(dialog).toHaveFocus();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Configure SAML SSO" })).not.toBeInTheDocument();
   });
 });

@@ -18,7 +18,7 @@ const LABEL_STYLE: React.CSSProperties = {
   letterSpacing: "0.12em",
   textTransform: "uppercase",
   fontWeight: 700,
-  color: "#52525b",
+  color: "var(--muted-foreground)",
   marginBottom: 4,
 };
 
@@ -26,11 +26,11 @@ const INPUT_STYLE: React.CSSProperties = {
   width: "100%",
   padding: "7px 9px",
   borderRadius: 7,
-  border: "1px solid rgba(0,0,0,0.12)",
-  background: "white",
-  color: "#1e1b4b",
+  border: "1px solid var(--border)",
+  background: "var(--card)",
+  color: "var(--foreground)",
   fontSize: 12.5,
-  fontFamily: "Inter, sans-serif",
+  fontFamily: "var(--font-sans)",
 };
 
 const LANGUAGE_OPTIONS: { value: CodeLanguage; label: string }[] = [
@@ -40,8 +40,8 @@ const LANGUAGE_OPTIONS: { value: CodeLanguage; label: string }[] = [
 
 const EDITOR_FRAME_STYLE: React.CSSProperties = {
   borderRadius: 7,
-  border: "1px solid rgba(0,0,0,0.12)",
-  background: "white",
+  border: "1px solid var(--border)",
+  background: "var(--card)",
   overflow: "hidden",
 };
 
@@ -52,7 +52,7 @@ const EDITOR_FALLBACK_STYLE: React.CSSProperties = {
   justifyContent: "center",
   fontFamily: "var(--font-mono)",
   fontSize: 11,
-  color: "#a1a1aa",
+  color: "var(--muted-foreground)",
 };
 
 // Monaco runtime weighs ~3MB; ship it from a code-split chunk that only
@@ -92,9 +92,9 @@ export function CodeConfigEditor({ config, onChange }: Props) {
         style={{
           padding: "10px 12px",
           borderRadius: 8,
-          background: "rgba(245,158,11,0.1)",
-          border: "1px solid rgba(245,158,11,0.35)",
-          color: "#92400e",
+          background: "color-mix(in oklab, var(--warning) 12%, var(--card))",
+          border: "1px solid color-mix(in oklab, var(--warning) 36%, var(--border))",
+          color: "var(--warning-foreground)",
           fontSize: 12,
           lineHeight: 1.45,
           display: "flex",
@@ -102,7 +102,7 @@ export function CodeConfigEditor({ config, onChange }: Props) {
           marginBottom: 14,
         }}
       >
-        <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+        <AlertTriangle size={14} aria-hidden="true" style={{ flexShrink: 0, marginTop: 2 }} />
         <span>
           Code runs in an isolated sandbox. No filesystem access. 5s CPU budget.
           Network requires explicit allowlist.
@@ -129,7 +129,7 @@ export function CodeConfigEditor({ config, onChange }: Props) {
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: 10,
-              color: "#a1a1aa",
+              color: "var(--muted-foreground)",
             }}
           >
             Available: input, env, secrets
@@ -150,9 +150,9 @@ export function CodeConfigEditor({ config, onChange }: Props) {
               marginTop: 6,
               padding: "6px 9px",
               borderRadius: 6,
-              background: "rgba(244,63,94,0.08)",
-              border: "1px solid rgba(244,63,94,0.3)",
-              color: "#9f1239",
+              background: "color-mix(in oklab, var(--destructive) 10%, var(--card))",
+              border: "1px solid color-mix(in oklab, var(--destructive) 32%, var(--border))",
+              color: "var(--destructive)",
               fontSize: 11.5,
             }}
           >

@@ -47,18 +47,30 @@ export function BuilderInspector({
     <aside className="builder-panel">
       <div className="builder-panel-head">
         <span className="builder-panel-eyebrow">{STEP_KIND_META[step.kind].label}</span>
-        <button type="button" className="builder-panel-close" onClick={onClose}>
-          <X size={16} />
+        <button
+          type="button"
+          className="builder-panel-close"
+          aria-label="Close step inspector"
+          onClick={onClose}
+        >
+          <X size={16} aria-hidden="true" />
         </button>
       </div>
       <h2 className="builder-panel-title">{step.name}</h2>
-      <p style={{ fontSize: 13.5, color: "#3f3f46", lineHeight: 1.55, margin: "0 0 18px" }}>
+      <p
+        style={{
+          fontSize: 13.5,
+          color: "var(--muted-foreground)",
+          lineHeight: 1.55,
+          margin: "0 0 18px",
+        }}
+      >
         {step.description}
       </p>
       {step.inputs ? (
         <div className="builder-panel-section">
           <div className="builder-panel-section-label">INPUTS</div>
-          <code style={{ fontSize: 12.5, color: "#1e1b4b", fontFamily: "var(--font-mono)" }}>
+          <code style={{ fontSize: 12.5, color: "var(--foreground)", fontFamily: "var(--font-mono)" }}>
             {step.inputs.join(", ")}
           </code>
         </div>
@@ -66,7 +78,7 @@ export function BuilderInspector({
       {step.outputs ? (
         <div className="builder-panel-section">
           <div className="builder-panel-section-label">OUTPUTS</div>
-          <code style={{ fontSize: 12.5, color: "#1e1b4b", fontFamily: "var(--font-mono)" }}>
+          <code style={{ fontSize: 12.5, color: "var(--foreground)", fontFamily: "var(--font-mono)" }}>
             {step.outputs.join(", ")}
           </code>
         </div>
@@ -102,9 +114,9 @@ export function BuilderInspector({
             style={{
               padding: "10px 12px",
               borderRadius: 8,
-              background: "rgba(245,158,11,0.1)",
-              border: "1px solid rgba(245,158,11,0.3)",
-              color: "#92400e",
+              background: "color-mix(in oklab, var(--warning) 12%, var(--card))",
+              border: "1px solid color-mix(in oklab, var(--warning) 32%, var(--border))",
+              color: "var(--warning-foreground)",
               fontSize: 12.5,
             }}
           >
@@ -124,9 +136,9 @@ export function BuilderInspector({
                   margin: "0 0 8px",
                   padding: "8px 10px",
                   borderRadius: 6,
-                  background: "rgba(139,92,246,0.06)",
-                  border: "1px solid rgba(139,92,246,0.25)",
-                  color: "#1e1b4b",
+                  background: "color-mix(in oklab, var(--primary) 8%, var(--card))",
+                  border: "1px solid color-mix(in oklab, var(--primary) 26%, var(--border))",
+                  color: "var(--foreground)",
                   fontFamily: "var(--font-mono)",
                   fontSize: 11,
                   lineHeight: 1.4,
@@ -147,9 +159,9 @@ export function BuilderInspector({
                     flex: 1,
                     padding: "7px 10px",
                     borderRadius: 7,
-                    background: "white",
-                    color: "#5b21b6",
-                    border: "1px solid rgba(139,92,246,0.4)",
+                    background: "var(--card)",
+                    color: "var(--primary)",
+                    border: "1px solid color-mix(in oklab, var(--primary) 40%, var(--border))",
                     cursor: "pointer",
                     fontSize: 12,
                     fontWeight: 600,
@@ -168,9 +180,9 @@ export function BuilderInspector({
                   style={{
                     padding: "7px 10px",
                     borderRadius: 7,
-                    background: "white",
-                    color: "#9f1239",
-                    border: "1px solid rgba(244,63,94,0.35)",
+                    background: "var(--card)",
+                    color: "var(--destructive)",
+                    border: "1px solid color-mix(in oklab, var(--destructive) 35%, var(--border))",
                     cursor: "pointer",
                     fontSize: 12,
                     fontWeight: 600,
@@ -192,9 +204,9 @@ export function BuilderInspector({
                 width: "100%",
                 padding: "8px 12px",
                 borderRadius: 7,
-                background: "white",
-                color: "#5b21b6",
-                border: "1px dashed rgba(139,92,246,0.45)",
+                background: "var(--card)",
+                color: "var(--primary)",
+                border: "1px dashed color-mix(in oklab, var(--primary) 45%, var(--border))",
                 cursor: "pointer",
                 fontSize: 12,
                 fontWeight: 600,
@@ -218,8 +230,8 @@ export function BuilderInspector({
           width: "100%",
           padding: "10px 16px",
           borderRadius: 9,
-          background: "linear-gradient(135deg, #8b5cf6, #ec4899)",
-          color: "white",
+          background: "linear-gradient(135deg, var(--primary), var(--gradient-end))",
+          color: "var(--primary-foreground)",
           border: "none",
           fontWeight: 700,
           fontSize: 13,

@@ -170,10 +170,13 @@ export async function fetchWorkerEvals(workerId: string): Promise<EvalDashboardP
 
   try {
     const raw = await apiGet<unknown>(`/api/v1/workers/${encodeURIComponent(workerId)}/evals`);
-    if (!isPayload(raw)) return mockEvalDashboard(workerId, "mock-offline");
+    if (!isPayload(raw)) {
+      if (isDemoLive()) throw new Error("Unexpected eval dashboard payload from gateway.");
+      return mockEvalDashboard(workerId, "mock-offline");
+    }
     return { ...raw, source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockEvalDashboard(workerId, "mock-offline");
     }
     throw err;

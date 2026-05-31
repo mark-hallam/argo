@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -7,10 +8,18 @@ import { AlertCircle, Eye, Loader2, Pencil, Sparkles, Tv } from "lucide-react";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "@/components/ui/Breadcrumb";
 import { EditMode } from "@/components/skycot/canvas/EditMode";
 import { ExportImport } from "@/components/skycot/canvas/ExportImport";
-import { SkillCanvas } from "@/components/skycot/canvas/SkillCanvas";
+import type { SkillCanvasProps } from "@/components/skycot/canvas/SkillCanvas";
 import { SkillIrNotFoundError } from "@/lib/api/skill-ir";
 import { useSkillIr } from "@/lib/hooks/use-skill-ir";
 import { cn } from "@/lib/utils";
+
+const SkillCanvas = dynamic<SkillCanvasProps>(
+  () => import("@/components/skycot/canvas/SkillCanvas").then((mod) => mod.SkillCanvas),
+  {
+    ssr: false,
+    loading: () => <LoadingState label="Loading canvas renderer…" />,
+  },
+);
 
 /**
  * Read-only Skill Canvas route — `/workers/<workerId>/skills/<skillId>/canvas`.
@@ -133,7 +142,7 @@ function CanvasBreadcrumb({
   );
 }
 
-function LoadingState() {
+function LoadingState({ label = "Loading skill canvas…" }: { label?: string }) {
   return (
     <div
       data-testid="skill-canvas-loading"
@@ -141,7 +150,7 @@ function LoadingState() {
     >
       <div className="flex flex-col items-center gap-2 text-[var(--muted-foreground)]">
         <Loader2 className="size-6 animate-spin" />
-        <p className="text-sm">Loading skill canvas…</p>
+        <p className="text-sm">{label}</p>
       </div>
     </div>
   );

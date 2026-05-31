@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchWorkerEvals, mockEvalDashboard } from "./evals";
+import { fetchWorkerEvals } from "./evals";
 
 const ORIGINAL_FETCH = globalThis.fetch;
 
@@ -111,13 +111,23 @@ describe("lib/api/evals", () => {
       expect(hitEvals).toBe(true);
     });
 
-    it("falls back to mock-offline when demo-live gateway 404s (offline fallback preserved)", async () => {
+    it("does not return mock-offline when demo-live gateway 404s", async () => {
       process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
       process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
       installMock(() => makeResponse({ status: 404, body: { error: "not found" } }));
-      const result = await fetchWorkerEvals("recruiter-rita");
-      expect(result.source).toBe("mock-offline");
-      expect(result).toEqual(mockEvalDashboard("recruiter-rita", "mock-offline"));
+      await expect(fetchWorkerEvals("recruiter-rita")).rejects.toMatchObject({
+        name: "ApiError",
+        status: 404,
+      });
+    });
+
+    it("does not return mock-offline for malformed demo-live gateway payloads", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+      installMock(() => makeResponse({ status: 200, body: { items: [] } }));
+      await expect(fetchWorkerEvals("recruiter-rita")).rejects.toThrow(
+        "Unexpected eval dashboard payload from gateway.",
+      );
     });
   });
 });
