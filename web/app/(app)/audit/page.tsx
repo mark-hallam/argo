@@ -4,8 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState, type ButtonHTMLAtt
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Filter, Loader2 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/Button";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { AuditIllustration } from "@/components/empty-state/illustrations/AuditIllustration";
+import { AuditEmpty } from "./AuditEmptyStates";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/lib/ui/use-toast";
 import { AuditDayGroup } from "@/components/skycot/audit/AuditDayGroup";
@@ -21,18 +20,24 @@ import {
   useAuditWorkspaceFreshness,
   type AuditWorkspaceState,
 } from "@/lib/hooks/use-audit-feed";
+import { useAuditFeedFilters } from "./use-audit-url-state";
+import {
+  isPristineState,
+  parseRange,
+  resolveWorkerSlugs,
+  writeMultiFilters,
+  writeSingleParam,
+} from "./audit-url-writers";
 import { useViewerPolicy } from "@/lib/hooks/use-viewer-policy";
 import { redactAuditRow } from "@/lib/redaction/redact";
 import { categoriesLackedBy } from "@/lib/redaction/audit-rules";
 import type { RbacPermission } from "@/lib/redaction/types";
 import {
-  AUDIT_RANGE_PRESETS,
   DEFAULT_AUDIT_RANGE,
   type AuditFilters,
   type AuditRangePreset,
 } from "@/lib/types/audit";
 import {
-  AUDIT_FILTER_DIMENSIONS,
   EMPTY_AUDIT_FILTERS,
   applyAuditMultiFilters,
   auditApproverOptions,
@@ -40,37 +45,116 @@ import {
   clearAuditDimension,
   isAuditFilterEmpty,
   parseAuditMultiFilters,
-  serializeAuditMultiFilters,
   toggleAuditFilterValue,
   type AuditMultiFilters,
 } from "@/lib/filters/audit";
-import { lookupWorkerIdFromSlug } from "@/lib/sample-personas";
+import type { UseInfiniteQueryResult, InfiniteData } from "@tanstack/react-query";
+import type { AuditFeedPage } from "@/lib/types/audit";
 
 const SEARCH_DEBOUNCE_MS = 200;
 const FILTER_DEBOUNCE_MS = 250;
+
+type AuditFeedQuery = UseInfiniteQueryResult<InfiniteData<AuditFeedPage>, Error>;
 
 /**
  * `/audit` — B3 chain-explorer surface over real audit feed rows. URL
  * filters remain source-of-truth; multi-select dimensions are applied
  * client-side until server-side enterprise filtering ships.
+ *
+ * The feed fetch (`useAuditFeed` + the freshness probe) is deliberately
+ * called HERE, in the OUTER component, ABOVE the `useSearchParams()`
+ * Suspense boundary below — the same hoist the `/team` Scene-1 fix used
+ * (`web/app/(app)/team/page.tsx`). `useSearchParams()` triggers React's
+ * client-side-rendering bailout (a suspend) on this route; that boundary
+ * sits inside `RouteTransition`'s `<AnimatePresence>`
+ * (`lib/motion/primitives.tsx`), and when it suspends during hydration the
+ * subtree never commits — so a fetch mounted *inside* it never has its
+ * React Query observer subscribe and `queryFn` never fires. `/audit` then
+ * showed "Loading audit timeline…" FOREVER with NO `/api/v1/audit` request
+ * (verified live: 14s, zero audit requests). Mounting the fetch here — in a
+ * component that reads the URL via the non-suspending `useAuditFeedFilters`
+ * instead of `useSearchParams` — guarantees it fires on mount regardless of
+ * the inner boundary. The search-param-driven filter UI stays inside the
+ * boundary (it needs the live URL) and only filters already-fetched rows.
+ * Pinned by `web/app/(app)/audit/audit-fetch-fires.test.tsx`.
  */
 export default function AuditPage() {
+  // Feed filters read WITHOUT `useSearchParams` (see module-level
+  // `useAuditFeedFilters` doc) so this component never suspends.
+  const feedFilters = useAuditFeedFilters();
+  const feed = useAuditFeed(feedFilters);
+
+  // Workspace-freshness probe lives here too so the empty-state copy is
+  // driven by an observer that is never gated behind the boundary. We can't
+  // cheaply know `rows.length === 0 && isPristine` before the inner view
+  // computes it, so probe whenever the primary feed has settled to zero
+  // rows on a default (no-`q`) range — the same trigger the inner view used,
+  // minus the multi-filter dimensions (which only ever shrink the set).
+  const probeFreshness =
+    !feed.isPending &&
+    !feed.isError &&
+    (feed.data?.pages.flatMap((p) => p.rows).length ?? 0) === 0 &&
+    feedFilters.range === DEFAULT_AUDIT_RANGE &&
+    !feedFilters.q;
+  const workspaceState = useAuditWorkspaceFreshness({ enabled: probeFreshness });
+
   return (
-    <Suspense fallback={<AuditPageFallback />}>
-      <AuditPageContent />
+    <Suspense
+      fallback={<AuditPageFallback feed={feed} workspaceState={workspaceState} />}
+    >
+      <AuditPageContent feed={feed} workspaceState={workspaceState} />
     </Suspense>
   );
 }
 
-function AuditPageFallback() {
+// Suspense fallback — shown only for the brief window while
+// `useSearchParams()` resolves. It renders the SAME timeline body the
+// committed view would, driven by the already-mounted `feed` query, so the
+// audit rows are NEVER gated behind the boundary resolving. Filter chrome is
+// the static, non-interactive variant (no URL to read yet).
+function AuditPageFallback({
+  feed,
+  workspaceState,
+}: {
+  feed: AuditFeedQuery;
+  workspaceState: AuditWorkspaceState;
+}) {
+  const rawRemoteRows = feed.data?.pages.flatMap((p) => p.rows) ?? [];
+  const buckets = groupByDay(rawRemoteRows);
   return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8" data-testid="audit-loading">
-      <Loader2 className="size-5 mx-auto animate-spin text-[var(--muted-foreground)]" />
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 space-y-4">
+      {feed.isPending ? (
+        <LoadingState />
+      ) : feed.isError ? (
+        <AuditUnreachable
+          message={feed.error?.message ?? "Couldn't load audit"}
+          onRetry={() => feed.refetch()}
+        />
+      ) : rawRemoteRows.length === 0 ? (
+        <AuditEmpty
+          isPristine
+          filters={EMPTY_AUDIT_FILTERS}
+          workspaceState={workspaceState}
+          onClearAll={() => {}}
+        />
+      ) : (
+        <div data-testid="audit-feed" className="space-y-6">
+          {buckets.map((bucket) => (
+            <AuditDayGroup key={bucket.key} bucket={bucket} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function AuditPageContent() {
+function AuditPageContent({
+  feed,
+  workspaceState,
+}: {
+  feed: AuditFeedQuery;
+  workspaceState: AuditWorkspaceState;
+}) {
   const router = useRouter();
   const pathname = usePathname() ?? "/audit";
   const searchParams = useSearchParams();
@@ -80,13 +164,11 @@ function AuditPageContent() {
     () => resolveWorkerSlugs(parseAuditMultiFilters(searchParams ?? new URLSearchParams())),
     [searchParams],
   );
-  const feedFilters: AuditFilters = useMemo(() => ({ range, q }), [range, q]);
   const [searchInput, setSearchInput] = useState(q ?? "");
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [pendingFilters, setPendingFilters] = useState<AuditMultiFilters | null>(null);
   const { info: toastInfo } = useToast();
   const [exporterOpen, setExporterOpen] = useState(false);
-  const feed = useAuditFeed(feedFilters);
 
   // Sync local search input with URL on back/forward navigation.
   useEffect(() => {
@@ -178,12 +260,9 @@ function AuditPageContent() {
   const showRedactionBanner = rows.length > 0 && presentCategories.length > 0;
   const exportTenantId = policy.tenantId ?? testExportTenantId();
   const exportTenantLabel = policy.tenantLabel ?? "Current workspace";
-  // Only probe workspace freshness when we're about to show the
-  // pristine empty state — saves a redundant request on the common
-  // path where the feed has rows or filters are active.
-  const probeFreshness =
-    !feed.isPending && !feed.isError && rows.length === 0 && isPristine;
-  const workspaceState = useAuditWorkspaceFreshness({ enabled: probeFreshness });
+  // `feed` + `workspaceState` are mounted in the OUTER `AuditPage`
+  // component (above the `useSearchParams()` Suspense boundary) and passed
+  // in — see the `AuditPage` doc-comment for why the fetch must live there.
 
   return (
     <>
@@ -321,73 +400,6 @@ function FilterTriggerButton({
   );
 }
 
-function isPristineState(
-  range: AuditRangePreset,
-  q: string | undefined,
-  multi: AuditMultiFilters,
-): boolean {
-  return range === DEFAULT_AUDIT_RANGE && !q && isAuditFilterEmpty(multi);
-}
-
-function parseRange(params: URLSearchParams | null): AuditRangePreset {
-  const raw = params?.get("range") ?? "";
-  return (AUDIT_RANGE_PRESETS as readonly string[]).includes(raw)
-    ? (raw as AuditRangePreset)
-    : DEFAULT_AUDIT_RANGE;
-}
-
-// Deep links from the worker Activity tab arrive with a human-readable
-// slug (`?worker=mariah`) so the address bar doesn't leak the UUID.
-// Translate any known slugs back to UUIDs before the rest of the
-// filter machinery — which keys on `row.worker.id` — sees the value.
-// Unknown tokens (non-sample workers, raw UUIDs) pass through.
-function resolveWorkerSlugs(filters: AuditMultiFilters): AuditMultiFilters {
-  if (filters.worker.length === 0) return filters;
-  const resolved = filters.worker.map((token) => lookupWorkerIdFromSlug(token) ?? token);
-  return { ...filters, worker: resolved };
-}
-
-function writeSingleParam(
-  router: ReturnType<typeof useRouter>,
-  pathname: string,
-  searchParams: URLSearchParams | null,
-  key: string,
-  value: string | null,
-) {
-  const params = new URLSearchParams(searchParams?.toString() ?? "");
-  if (value && value.length > 0) params.set(key, value);
-  else params.delete(key);
-  const qs = params.toString();
-  router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-}
-
-function writeMultiFilters(
-  router: ReturnType<typeof useRouter>,
-  pathname: string,
-  searchParams: URLSearchParams | null,
-  filters: AuditMultiFilters,
-) {
-  const params = new URLSearchParams(searchParams?.toString() ?? "");
-  for (const dim of AUDIT_FILTER_DIMENSIONS) {
-    params.delete(urlKey(dim));
-  }
-  const next = new URLSearchParams(serializeAuditMultiFilters(filters));
-  next.forEach((value, key) => params.set(key, value));
-  const qs = params.toString();
-  router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-}
-
-function urlKey(dim: keyof AuditMultiFilters): string {
-  switch (dim) {
-    case "actionType":
-      return "action_type";
-    case "costBand":
-      return "cost_band";
-    default:
-      return dim;
-  }
-}
-
 function LoadingState() {
   return (
     <div
@@ -432,67 +444,3 @@ function AuditUnreachable({
   );
 }
 
-function AuditEmpty({
-  isPristine,
-  filters,
-  workspaceState,
-  onClearAll,
-}: {
-  isPristine: boolean;
-  filters: AuditMultiFilters;
-  workspaceState: AuditWorkspaceState;
-  onClearAll: () => void;
-}) {
-  if (isPristine) {
-    // Probe whether the workspace has any 30-day-window history. If
-    // the probe knows the workspace is fresh, switch to the "no
-    // activity yet" framing; otherwise fall back to the existing
-    // "Quiet day" copy (also the safe default while the probe is
-    // still loading or errored).
-    if (workspaceState === "fresh") {
-      return (
-        <EmptyState
-          data-testid="audit-empty-fresh"
-          illustration={AuditIllustration}
-          headline="No audit activity yet"
-          body="Your team's actions will appear here as they happen — once a worker takes an action or an approval lands, you'll see it on this timeline."
-        />
-      );
-    }
-    return (
-      <EmptyState
-        data-testid="audit-empty-pristine"
-        illustration={AuditIllustration}
-        headline="Quiet day"
-        body="Worker actions and approvals will appear here as they happen. Plenty of room for activity."
-      />
-    );
-  }
-  return (
-    <EmptyState
-      data-testid="audit-empty-filtered"
-      variant="compact"
-      headline="No actions match the current filters"
-      body={filteredEmptyDetail(filters)}
-      cta={{ label: "Clear filters", onClick: onClearAll }}
-    />
-  );
-}
-
-function filteredEmptyDetail(filters: AuditMultiFilters): string {
-  const active: string[] = [];
-  if (filters.worker.length > 0) active.push("worker");
-  if (filters.channel.length > 0) active.push("channel");
-  if (filters.actionType.length > 0) active.push("action type");
-  if (filters.status.length > 0) active.push("status");
-  if (filters.approver.length > 0) active.push("approver");
-  if (filters.costBand.length > 0) active.push("cost band");
-  if (filters.classification.length > 0) active.push("classification");
-  if (active.length === 0) {
-    return "Try widening the time range or clearing search.";
-  }
-  if (active.length === 1) {
-    return `Try removing the ${active[0]} filter or widening the time range.`;
-  }
-  return `Try removing one of the ${active.length} active filters or widening the time range.`;
-}

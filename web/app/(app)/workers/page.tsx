@@ -8,7 +8,9 @@ import { HireStarterPrompts } from "@/components/empty-state/HireStarterPrompts"
 import { TeammateCard } from "@/components/skycot/TeammateCard";
 import { TeammateGrid } from "@/components/skycot/TeammateGrid";
 import { useTeam } from "@/lib/hooks/use-team";
-import { compareWorkersForGrid } from "@/lib/types/worker";
+import { compareWorkersForGrid, type Worker } from "@/lib/types/worker";
+import type { UseQueryResult } from "@tanstack/react-query";
+import type { FetchTeamResult } from "@/lib/api/team";
 
 /**
  * `/workers` — nav-bar entrypoint for the worker roster. When the
@@ -22,21 +24,63 @@ import { compareWorkersForGrid } from "@/lib/types/worker";
  * gate the `/team` redirect on `just-hired=1` and render the grid
  * inline for that one navigation. A dedicated workers list with
  * column-level filters is a separate Track-E brief.
+ *
+ * `useTeam()` is called HERE, in the OUTER component, ABOVE the
+ * `useSearchParams()` Suspense boundary below — the same hoist the
+ * `/team` Scene-1 fix used (`web/app/(app)/team/page.tsx`). When that
+ * boundary suspended on hydration inside `RouteTransition`'s
+ * `<AnimatePresence>` (`lib/motion/primitives.tsx`), a fetch mounted
+ * *inside* it never had its React Query observer subscribe, so
+ * `queryFn` never fired: `/workers` showed "Fetching the live worker
+ * roster." with NO `/api/v1/workers` request, and the `/team` redirect
+ * (also gated by the boundary) never ran either. Mounting `useTeam()`
+ * here guarantees the fetch fires on mount regardless of the inner
+ * boundary; the `just-hired`/`new` URL params stay inside the boundary.
  */
 export default function WorkersPage() {
+  const teamQuery = useTeam();
+  const workers = useMemo(
+    () => (Array.isArray(teamQuery.data?.workers) ? teamQuery.data.workers : []),
+    [teamQuery.data],
+  );
   return (
-    <Suspense fallback={<WorkersFallback />}>
-      <WorkersPageContent />
+    <Suspense fallback={<WorkersFallback teamQuery={teamQuery} workers={workers} />}>
+      <WorkersPageContent teamQuery={teamQuery} workers={workers} />
     </Suspense>
   );
 }
 
-function WorkersFallback() {
+// Suspense fallback — shown only for the brief window while
+// `useSearchParams()` resolves. Renders from the already-mounted
+// `teamQuery` (never gated behind the boundary): loader while pending,
+// otherwise the empty "hire" grid. The just-hired highlight is the only
+// thing that needs the URL, so it's deferred to the committed view.
+function WorkersFallback({
+  teamQuery,
+  workers,
+}: {
+  teamQuery: UseQueryResult<FetchTeamResult>;
+  workers: Worker[];
+}) {
+  const hasWorkers = !teamQuery.isPending && workers.length > 0;
+  if (teamQuery.isPending || hasWorkers) {
+    return (
+      <>
+        <WorkersHero state={hasWorkers ? "redirecting" : "loading"} total={workers.length} />
+        <div className="grid min-h-64 place-items-center" data-testid="workers-loading">
+          <Loader2 className="size-5 animate-spin text-[var(--muted-foreground)]" aria-hidden />
+        </div>
+      </>
+    );
+  }
   return (
     <>
-      <WorkersHero state="loading" />
-      <div className="grid min-h-64 place-items-center" data-testid="workers-loading">
-        <Loader2 className="size-5 animate-spin text-[var(--muted-foreground)]" aria-hidden />
+      <WorkersHero state="empty" />
+      <div
+        className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-6"
+        data-testid="workers-empty"
+      >
+        <HireStarterPrompts />
       </div>
     </>
   );
@@ -77,11 +121,17 @@ function WorkersHero({
   );
 }
 
-function WorkersPageContent() {
+function WorkersPageContent({
+  teamQuery,
+  workers,
+}: {
+  teamQuery: UseQueryResult<FetchTeamResult>;
+  workers: Worker[];
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const teamQuery = useTeam();
-  const workers = teamQuery.data?.workers ?? [];
+  // `workers` is fetched by the parent and passed down — see the
+  // `WorkersPage` doc-comment for why the fetch lives above this boundary.
   const hasWorkers = !teamQuery.isPending && workers.length > 0;
   const justHired = searchParams?.get("just-hired") === "1";
   const newId = searchParams?.get("new");
