@@ -3,10 +3,15 @@ import "./page.css";
 
 import Link from "next/link";
 import { use } from "react";
-import { useSkillTelemetry, useSkillUsage } from "@/lib/hooks/use-skills";
+import {
+  useSkillTelemetry,
+  useSkillUsage,
+  useSkillVersions,
+} from "@/lib/hooks/use-skills";
 import { formatLearnedAgo } from "@/lib/format-learned-ago";
 import { TrustGradeChip } from "@/components/skycot/skills/TrustGradeChip";
 import { SkillLearningLoopCard } from "@/components/skycot/skills/SkillLearningLoopCard";
+import { SkillVersionHistoryCard } from "@/components/skycot/skills/SkillVersionHistoryCard";
 import { InstallSkillButton } from "@/components/skycot/skills/InstallSkillButton";
 
 /**
@@ -42,6 +47,10 @@ export default function SkillDetailStubPage({
   // the endpoint accepts either form. `null` → honest empty state.
   const telemetryQuery = useSkillTelemetry(usage?.skill_name ?? skillId);
   const telemetry = telemetryQuery.data?.telemetry ?? null;
+  // REAL version timeline + eval-delta changelog (C3). Same name-or-id
+  // tolerance as telemetry; `null` → honest empty/single-version state.
+  const versionsQuery = useSkillVersions(usage?.skill_name ?? skillId);
+  const versions = versionsQuery.data?.versions ?? null;
 
   return (
     <>
@@ -87,6 +96,11 @@ export default function SkillDetailStubPage({
         <SkillLearningLoopCard
           skillName={usage?.skill_name ?? skillId}
           telemetry={telemetry}
+        />
+
+        <SkillVersionHistoryCard
+          skillName={usage?.skill_name ?? skillId}
+          versions={versions}
         />
 
         <section

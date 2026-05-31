@@ -6,8 +6,12 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkillsIllustration } from "@/components/empty-state/illustrations/SkillsIllustration";
-import { useSkills, useSkillsLearnedThisMonth } from "@/lib/hooks/use-skills";
-import type { SkillRow } from "@/lib/api/skills";
+import {
+  useSkills,
+  useSkillSearch,
+  useSkillsLearnedThisMonth,
+} from "@/lib/hooks/use-skills";
+import type { SkillRow, SkillSearchResult } from "@/lib/api/skills";
 import { iconForSkill } from "@/lib/api/skill-icons";
 import { InstallSkillButton } from "@/components/skycot/skills/InstallSkillButton";
 
@@ -15,10 +19,16 @@ import { InstallSkillButton } from "@/components/skycot/skills/InstallSkillButto
  * Skills marketplace landing — locked A1 marketplace design language.
  *
  * Brand-loud-marketplace register per the 2026-05-19 design lock memory.
- * Hero search + "try" chips + featured-skills grid. v1 ships the curated
- * "TRY" chip set; cards now read from the live gateway skill registry
- * (`useSkills` → `/skills` envelope) with a seed-fallback when the
- * gateway is empty or unreachable in dev.
+ * Hero search + "try" chips + featured-skills grid.
+ *
+ * Search is now SERVER-SIDE: the hero query + the facet control feed
+ * `useSkillSearch` → `GET /api/v1/skills/search`, which runs the SAME
+ * ranking engine the marketplace uses (`argo_skill::rank_skills`) over
+ * the tenant's REAL skill rows. The facet values (category / trust) are
+ * derived by the server from real skill columns — never a hand-authored
+ * taxonomy. When no query/facet is active the grid shows the full
+ * installed catalog from `useSkills` (so the empty / error / loading
+ * states + the learned-this-month chip keep working).
  */
 
 export const TRY_CHIPS = [
@@ -49,41 +59,77 @@ function cohortLabel(skill: SkillRow): string {
  * Decorative — not a filter token. Operators reading "LIBRARY" next to
  * the interactive TRY pills above the grid (F07 / ux-audit-2026-05-27-2351)
  * expected it to filter the catalog. It doesn't. Library is the default
- * scope; if we ever add a real scope filter (Library / Marketplace / Mine)
- * it belongs in a segmented control above the catalog grid, not in the
- * per-card meta tag.
+ * scope; the real scope filter is the facet control above the grid.
  */
 export function layerChipLabel(layer: string): string {
   if (layer === "library") return "Verified";
   return layer;
 }
 
+/** Humanize a trust-grade discriminant for the facet pill. */
+function trustLabel(grade: string): string {
+  return grade
+    .split("_")
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(" ");
+}
+
 export default function SkillsPage() {
-  const { data, isLoading, isError, error } = useSkills();
+  // Full installed catalog — drives the total count + empty/error states
+  // and the unfiltered grid.
+  const catalogQuery = useSkills();
   const learnedQuery = useSkillsLearnedThisMonth();
-  const skills = useMemo(() => data?.skills ?? [], [data?.skills]);
+  const catalog = useMemo(
+    () => catalogQuery.data?.skills ?? [],
+    [catalogQuery.data?.skills],
+  );
+
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
+  const [trustMin, setTrustMin] = useState<string | null>(null);
   const [learnedOnly, setLearnedOnly] = useState(false);
+
+  const searchActive =
+    query.trim().length > 0 || category !== null || trustMin !== null;
+
+  // Server-side ranked search. The query is always issued (so the facet
+  // values stay populated even on an empty query); the grid only swaps
+  // to its results when a query/facet is actually active.
+  const searchQuery = useSkillSearch({
+    q: query.trim(),
+    category: category ?? undefined,
+    trustMin: trustMin ?? undefined,
+  });
+
+  const facets = searchQuery.data?.response.facets;
 
   const learnedIdSet = useMemo(() => {
     const ids = learnedQuery.data?.learned.skill_ids ?? [];
     return new Set(ids);
   }, [learnedQuery.data?.learned.skill_ids]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let rows = skills;
-    if (learnedOnly) {
-      rows = rows.filter((s) => learnedIdSet.has(s.id) || learnedIdSet.has(s.name));
-    }
-    if (q.length === 0) return rows;
-    return rows.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.description.toLowerCase().includes(q) ||
-        s.layer.toLowerCase().includes(q),
+  // Rows to render: the server-ranked results when a search/facet is
+  // active, else the full catalog. The learned-this-month chip then
+  // narrows whichever set is showing (client-side intersection).
+  const rows: Array<SkillRow | SkillSearchResult> = useMemo(() => {
+    const base = searchActive
+      ? (searchQuery.data?.response.results ?? [])
+      : catalog;
+    if (!learnedOnly) return base;
+    return base.filter(
+      (s) => learnedIdSet.has(s.id) || learnedIdSet.has(s.name),
     );
-  }, [skills, query, learnedOnly, learnedIdSet]);
+  }, [
+    searchActive,
+    searchQuery.data?.response.results,
+    catalog,
+    learnedOnly,
+    learnedIdSet,
+  ]);
+
+  const isLoading = catalogQuery.isLoading;
+  const isError = catalogQuery.isError;
+  const error = catalogQuery.error;
 
   return (
     <>
@@ -128,9 +174,9 @@ export default function SkillsPage() {
           />
           <div className="search-meta">
             <span className="count-pill" data-testid="skills-count">
-              {filtered.length === skills.length
-                ? `${skills.length} skills`
-                : `${filtered.length} of ${skills.length} skills`}
+              {searchActive || learnedOnly
+                ? `${rows.length} of ${catalog.length} skills`
+                : `${catalog.length} skills`}
             </span>
             <span className="search-kbd">⌘K</span>
           </div>
@@ -161,6 +207,68 @@ export default function SkillsPage() {
           </button>
         </div>
 
+        {/* Facet control — values come from the server's real-column
+            facets (category cohort / trust grade). Honest: a facet group
+            only renders when the server reported values for it. */}
+        {facets && (facets.category.length > 0 || facets.trust.length > 0) && (
+          <div className="facet-row" data-testid="skills-facets">
+            {facets.category.length > 0 && (
+              <div className="facet-group">
+                <span className="try-label">CATEGORY</span>
+                <button
+                  type="button"
+                  className={`try-chip${category === null ? " is-active" : ""}`}
+                  aria-pressed={category === null}
+                  onClick={() => setCategory(null)}
+                >
+                  All
+                </button>
+                {facets.category.map((f) => (
+                  <button
+                    type="button"
+                    key={`cat-${f.value}`}
+                    className={`try-chip${category === f.value ? " is-active" : ""}`}
+                    aria-pressed={category === f.value}
+                    data-testid={`skills-facet-category-${f.value}`}
+                    onClick={() =>
+                      setCategory((c) => (c === f.value ? null : f.value))
+                    }
+                  >
+                    {prettifySkillName(f.value)} ({f.count})
+                  </button>
+                ))}
+              </div>
+            )}
+            {facets.trust.length > 0 && (
+              <div className="facet-group">
+                <span className="try-label">TRUST</span>
+                <button
+                  type="button"
+                  className={`try-chip${trustMin === null ? " is-active" : ""}`}
+                  aria-pressed={trustMin === null}
+                  onClick={() => setTrustMin(null)}
+                >
+                  Any
+                </button>
+                {facets.trust.map((f) => (
+                  <button
+                    type="button"
+                    key={`trust-${f.value}`}
+                    className={`try-chip${trustMin === f.value ? " is-active" : ""}`}
+                    aria-pressed={trustMin === f.value}
+                    data-testid={`skills-facet-trust-${f.value}`}
+                    onClick={() =>
+                      setTrustMin((t) => (t === f.value ? null : f.value))
+                    }
+                  >
+                    {trustLabel(f.value)} ({f.count})
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="section-label">FEATURED SKILLS</div>
 
         {isLoading && (
@@ -183,7 +291,7 @@ export default function SkillsPage() {
           />
         )}
 
-        {!isLoading && !isError && skills.length === 0 && (
+        {!isLoading && !isError && catalog.length === 0 && (
           <EmptyState
             data-testid="skills-workspace-empty"
             illustration={SkillsIllustration}
@@ -193,15 +301,15 @@ export default function SkillsPage() {
           />
         )}
 
-        {!isLoading && !isError && skills.length > 0 && filtered.length === 0 && (
+        {!isLoading && !isError && catalog.length > 0 && rows.length === 0 && (
           <div className="state-panel" data-testid="skills-empty">
-            No skills match “{query}”. Try a different search or clear the filter.
+            No skills match your search. Try a different term or clear the filters.
           </div>
         )}
 
-        {!isLoading && !isError && skills.length > 0 && filtered.length > 0 && (
+        {!isLoading && !isError && catalog.length > 0 && rows.length > 0 && (
           <div className="featured-grid">
-            {filtered.map((skill) => {
+            {rows.map((skill) => {
               const Icon = iconForSkill(skill.name);
               return (
               <Link

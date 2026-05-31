@@ -102,6 +102,39 @@ pub fn search(query: &str, options: &SearchOptions) -> Vec<MarketplaceSkill> {
     rank_marketplace_skills(rows, query, options)
 }
 
+/// Rank an arbitrary set of [`MarketplaceSkill`] rows with the same
+/// trust + tenant filters and ranking the marketplace [`search`] applies.
+///
+/// Exposed so callers that already hold real catalog rows — e.g. the
+/// gateway's tenant-scoped `/api/v1/skills/search` route reading the
+/// live `skill` table — rank against the *same* engine instead of
+/// re-implementing a parallel scorer. An empty query keeps every
+/// trust/tenant-passing row (score 1 each), still ordered trust-then-
+/// recency-then-name for determinism.
+///
+/// ```
+/// use argo_skill::{marketplace::{rank_skills, MarketplaceSkill, SearchOptions}, TrustGrade};
+/// let rows = vec![MarketplaceSkill {
+///     name: "approval.route".into(),
+///     tenant: "acme".into(),
+///     description: "routes approvals".into(),
+///     version: "1.0.0".into(),
+///     trust_grade: TrustGrade::Tenant,
+///     last_published_at: "2026-05-01T00:00:00Z".into(),
+///     oci_ref: String::new(),
+/// }];
+/// let ranked = rank_skills(rows, "approval", &SearchOptions::default());
+/// assert_eq!(ranked[0].name, "approval.route");
+/// ```
+#[must_use]
+pub fn rank_skills(
+    rows: Vec<MarketplaceSkill>,
+    query: &str,
+    options: &SearchOptions,
+) -> Vec<MarketplaceSkill> {
+    rank_marketplace_skills(rows, query, options)
+}
+
 /// Parse a trust-grade CLI label into the enum used by search.
 ///
 /// Accepts snake_case and kebab-case labels.

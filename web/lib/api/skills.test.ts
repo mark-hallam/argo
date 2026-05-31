@@ -8,7 +8,9 @@ vi.mock("./team", () => ({ fetchTeam: vi.fn() }));
 import {
   fetchLearnedThisMonth,
   fetchSkills,
+  fetchSkillSearch,
   fetchSkillUsage,
+  fetchSkillVersions,
   installSkillToWorkers,
   resolveSkillDisplayMetadata,
   SEED_SKILLS,
@@ -213,6 +215,150 @@ describe("lib/api/skills", () => {
       const meta = resolveSkillDisplayMetadata("brand.new.skill");
       expect(meta.title).toBe("brand.new.skill");
       expect(meta.description).toContain("brand.new.skill");
+    });
+  });
+
+  describe("fetchSkillSearch", () => {
+    it("unwraps the gateway search envelope and reports the query string sent", async () => {
+      const envelope = {
+        query: "approval",
+        count: 1,
+        results: [{ ...LIVE_SKILL, category: "approval" }],
+        facets: {
+          category: [{ value: "approval", count: 1 }],
+          source: [{ value: "published:verified:team", count: 1 }],
+          trust: [{ value: "published_verified", count: 1 }],
+        },
+      };
+      const fetchMock = installMock(() => makeResponse({ status: 200, body: envelope }));
+      const result = await fetchSkillSearch({
+        q: "approval",
+        category: "approval",
+        trustMin: "published-verified",
+      });
+      expect(result.source).toBe("gateway");
+      expect(result.response.results[0].category).toBe("approval");
+      expect(result.response.facets.trust[0].value).toBe("published_verified");
+      // The query string carries q + category + trust_min (renamed).
+      const url = String(fetchMock.mock.calls.at(-1)?.[0] ?? "");
+      expect(url).toContain("q=approval");
+      expect(url).toContain("category=approval");
+      expect(url).toContain("trust_min=published-verified");
+    });
+
+    it("returns a mock search over the seed catalog under auth-bypass (no network)", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      const fetchMock = installMock(() => makeResponse({ status: 200, body: {} }));
+      const result = await fetchSkillSearch({ q: "" });
+      expect(result.source).toBe("mock-bypass");
+      // Empty query → every seed skill, each carrying a derived category.
+      expect(result.response.results.length).toBe(SEED_SKILLS.length);
+      expect(result.response.facets.category.length).toBeGreaterThan(0);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("falls back to mock search on 404 in dev", async () => {
+      installMock(() =>
+        makeResponse({ status: 404, body: { error: { code: "not_found", message: "x" } } }),
+      );
+      const result = await fetchSkillSearch({ q: "invoice" });
+      expect(result.source).toBe("mock-offline");
+      // The mock honours the query filter against the seed catalog.
+      expect(
+        result.response.results.every((r) =>
+          (r.name + r.description).toLowerCase().includes("invoice"),
+        ),
+      ).toBe(true);
+    });
+
+    it("propagates 404 in strict production (no mock swallow)", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      process.env.NEXT_PUBLIC_ENV = "production";
+      installMock(() =>
+        makeResponse({ status: 404, body: { error: { code: "not_found", message: "x" } } }),
+      );
+      let caught: unknown;
+      try {
+        await fetchSkillSearch({ q: "x" });
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeInstanceOf(ApiError);
+      expect((caught as ApiError).status).toBe(404);
+    });
+  });
+
+  describe("fetchSkillVersions", () => {
+    it("unwraps the gateway versions envelope on 2xx", async () => {
+      const envelope = {
+        skill_name: "approval.route",
+        version_count: 2,
+        versions: [
+          {
+            id: "id-2",
+            version: "2.0.0",
+            trust_grade: "tenant",
+            superseded: false,
+            lifecycle_state: "active",
+            created_at: "2026-05-24T09:00:00.000Z",
+            eval: {
+              pass_rate: 0.92,
+              previous_pass_rate: 0.8,
+              delta_pp: 12.0,
+              run_count: 2,
+              decision: "stable",
+              ran_at: "2026-05-24T09:00:00.000Z",
+            },
+          },
+          {
+            id: "id-1",
+            version: "1.0.0",
+            trust_grade: "tenant",
+            superseded: true,
+            lifecycle_state: "active",
+            created_at: "2026-05-10T09:00:00.000Z",
+            eval: null,
+          },
+        ],
+      };
+      installMock(() => makeResponse({ status: 200, body: envelope }));
+      const result = await fetchSkillVersions("approval.route");
+      expect(result.source).toBe("gateway");
+      expect(result.versions?.version_count).toBe(2);
+      expect(result.versions?.versions[0].eval?.delta_pp).toBe(12.0);
+      expect(result.versions?.versions[1].superseded).toBe(true);
+    });
+
+    it("returns null (honest empty) under auth-bypass — there is no offline fixture", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      const fetchMock = installMock(() => makeResponse({ status: 200, body: {} }));
+      const result = await fetchSkillVersions("approval.route");
+      expect(result.source).toBe("mock-bypass");
+      expect(result.versions).toBeNull();
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("returns null on 404 in dev (honest empty state)", async () => {
+      installMock(() =>
+        makeResponse({ status: 404, body: { error: { code: "not_found", message: "x" } } }),
+      );
+      const result = await fetchSkillVersions("ghost.skill");
+      expect(result.source).toBe("mock-offline");
+      expect(result.versions).toBeNull();
+    });
+
+    it("propagates 5xx as ApiError so callers see real outages", async () => {
+      installMock(() =>
+        makeResponse({ status: 500, body: "boom", contentType: "text/plain" }),
+      );
+      let caught: unknown;
+      try {
+        await fetchSkillVersions("approval.route");
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeInstanceOf(ApiError);
+      expect((caught as ApiError).status).toBe(500);
     });
   });
 });

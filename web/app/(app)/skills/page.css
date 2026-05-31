@@ -157,6 +157,25 @@
 .try-chip.is-active:hover {
   color: var(--brand-primary-foreground);
 }
+/* Server-backed facet control — sits above the grid, reuses the
+   .try-chip pill styling (brand gradient on active). One row per facet
+   group (category / trust), each with its own eyebrow label. */
+.facet-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 40px;
+}
+.facet-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.facet-group .try-label {
+  min-width: 72px;
+}
 .featured-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

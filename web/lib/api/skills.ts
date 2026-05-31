@@ -361,6 +361,238 @@ export async function fetchSkillTelemetry(
   }
 }
 
+/**
+ * One ranked search result — the catalog card shape (mirrors
+ * [`SkillRow`]) plus the `category` cohort the server derived from the
+ * skill name. The server ranks these with the SAME engine the
+ * marketplace `search` uses (`argo_skill::rank_skills`), over the
+ * caller's REAL tenant skill rows — never the static demo catalog.
+ */
+export interface SkillSearchResult extends SkillRow {
+  /** Cohort prefix of the name (segment before the first `.`/`:`/`-`). */
+  category: string;
+  /** Action-risk tier from the skill frontmatter. */
+  risk?: string;
+  /** Free-form skill tags from the frontmatter. */
+  tags?: string[];
+}
+
+/** One facet value + its honest occurrence count across the catalog. */
+export interface SkillFacet {
+  value: string;
+  count: number;
+}
+
+/**
+ * Available facets, each computed from REAL skill columns (never a
+ * hand-authored taxonomy):
+ *  - `category` — cohort prefixes present in the catalog.
+ *  - `source`   — distinct `provenance.source` strings.
+ *  - `trust`    — distinct `TrustGrade` discriminants, most→least trusted.
+ */
+export interface SkillSearchFacets {
+  category: SkillFacet[];
+  source: SkillFacet[];
+  trust: SkillFacet[];
+}
+
+/** `GET /api/v1/skills/search` envelope. */
+export interface SkillSearchResponse {
+  query: string;
+  count: number;
+  results: SkillSearchResult[];
+  facets: SkillSearchFacets;
+}
+
+/** Filters the search route understands; all optional. */
+export interface SkillSearchParams {
+  q?: string;
+  /** Cohort category exact-match (case-insensitive on the server). */
+  category?: string;
+  /** Provenance-source substring filter. */
+  source?: string;
+  /** Minimum trust grade, kebab-or-snake label (e.g. `published-verified`). */
+  trustMin?: string;
+}
+
+export interface FetchSkillSearchResult {
+  response: SkillSearchResponse;
+  source: SkillUsageSource;
+}
+
+/**
+ * Build the `?q=&category=&source=&trust_min=` query string, omitting
+ * blank params so the server sees only the filters the operator set.
+ */
+function buildSearchQuery(params: SkillSearchParams): string {
+  const qs = new URLSearchParams();
+  if (params.q && params.q.length > 0) qs.set("q", params.q);
+  if (params.category) qs.set("category", params.category);
+  if (params.source) qs.set("source", params.source);
+  if (params.trustMin) qs.set("trust_min", params.trustMin);
+  const s = qs.toString();
+  return s.length > 0 ? `?${s}` : "";
+}
+
+/** Cohort prefix of a skill name — the segment before the first separator. */
+function categoryOfName(name: string): string {
+  const end = name.search(/[.:-]/);
+  return end === -1 ? name : name.slice(0, end);
+}
+
+/**
+ * Client-side mirror of the server's ranking + facet derivation, used
+ * ONLY on the auth-bypass (non-demo-live) dev path so `/skills` stays
+ * interactive offline. The server is authoritative everywhere else.
+ * NB: this is a dev fallback over the seed catalog, not a data path the
+ * camera sees in demo-live (which hits the real gateway).
+ */
+function mockSearch(params: SkillSearchParams): SkillSearchResponse {
+  const q = (params.q ?? "").trim().toLowerCase();
+  let rows = SEED_SKILLS;
+  if (params.category) {
+    rows = rows.filter(
+      (s) => categoryOfName(s.name).toLowerCase() === params.category!.toLowerCase(),
+    );
+  }
+  if (params.source) {
+    rows = rows.filter((s) =>
+      s.provenance_source.toLowerCase().includes(params.source!.toLowerCase()),
+    );
+  }
+  const matched =
+    q.length === 0
+      ? rows
+      : rows.filter(
+          (s) =>
+            s.name.toLowerCase().includes(q) ||
+            s.description.toLowerCase().includes(q),
+        );
+  const results: SkillSearchResult[] = matched.map((s) => ({
+    ...s,
+    category: categoryOfName(s.name),
+  }));
+  const tally = (vals: string[]): SkillFacet[] => {
+    const m = new Map<string, number>();
+    for (const v of vals) m.set(v, (m.get(v) ?? 0) + 1);
+    return [...m.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([value, count]) => ({ value, count }));
+  };
+  return {
+    query: params.q ?? "",
+    count: results.length,
+    results,
+    facets: {
+      category: tally(SEED_SKILLS.map((s) => categoryOfName(s.name))),
+      source: tally(SEED_SKILLS.map((s) => s.provenance_source)),
+      trust: tally(SEED_SKILLS.map((s) => s.trust_grade)),
+    },
+  };
+}
+
+/**
+ * GET `/api/v1/skills/search` — server-side ranked search over the
+ * tenant's REAL skill catalog, with facets derived from real columns.
+ *
+ * Contract mirrors the other fetchers: auth-bypass (non-demo-live) →
+ * client-side `mockSearch` over the seed catalog (dev only); 404 /
+ * gateway-unreachable in dev → same mock fallback; strict prod
+ * propagates the ApiError.
+ */
+export async function fetchSkillSearch(
+  params: SkillSearchParams,
+): Promise<FetchSkillSearchResult> {
+  if (isAuthBypassed() && !isDemoLive()) {
+    return { response: mockSearch(params), source: "mock-bypass" };
+  }
+  try {
+    const response = await apiGet<SkillSearchResponse>(
+      `/api/v1/skills/search${buildSearchQuery(params)}`,
+    );
+    return { response, source: "gateway" };
+  } catch (err) {
+    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+      return { response: mockSearch(params), source: "mock-offline" };
+    }
+    throw err;
+  }
+}
+
+/**
+ * One version in a skill's history, joined with its latest eval re-run.
+ * Every field is sourced from a live table (`skill` rows +
+ * `skill_reeval_history`); `eval` is `null` when the version has never
+ * been re-evaluated — the card shows an honest empty line, never a
+ * fabricated promotion arc.
+ */
+export interface SkillVersionEntry {
+  id: string;
+  version: string;
+  /** Canonical `TrustGrade` discriminant for this version. */
+  trust_grade: string;
+  /** True iff `superseded_by IS NOT NULL`. */
+  superseded: boolean;
+  lifecycle_state: string;
+  created_at: string;
+  /** Latest eval re-run for this version, or `null` if none recorded. */
+  eval: SkillVersionEval | null;
+}
+
+export interface SkillVersionEval {
+  /** 0..1 pass rate of the latest re-run, or `null` if the eval errored. */
+  pass_rate: number | null;
+  /** Prior run's pass rate, or `null` for the baseline run. */
+  previous_pass_rate: number | null;
+  /** Pass-rate movement in percentage points, or `null` without a baseline. */
+  delta_pp: number | null;
+  /** Number of re-eval runs recorded for this version. */
+  run_count: number;
+  decision: "stable" | "regressed" | "no_baseline";
+  ran_at: string;
+}
+
+/** `GET /api/v1/skills/<id-or-name>/versions` envelope. */
+export interface SkillVersionsResponse {
+  skill_name: string;
+  version_count: number;
+  versions: SkillVersionEntry[];
+}
+
+export interface FetchSkillVersionsResult {
+  /** `null` → the card renders its honest single-version / empty state. */
+  versions: SkillVersionsResponse | null;
+  source: SkillUsageSource;
+}
+
+/**
+ * GET `/api/v1/skills/<id-or-name>/versions` — REAL version timeline +
+ * eval-delta changelog. Accepts the skill name or the catalog UUID.
+ *
+ * Demo-live contract (NO THEATER): auth-bypass (non-demo-live) and
+ * gateway-404/unreachable both return `{ versions: null }` so the card
+ * shows its honest empty state — there is no offline fixture. Strict
+ * prod propagates the ApiError.
+ */
+export async function fetchSkillVersions(
+  skillNameOrId: string,
+): Promise<FetchSkillVersionsResult> {
+  if (isAuthBypassed() && !isDemoLive()) {
+    return { versions: null, source: "mock-bypass" };
+  }
+  try {
+    const versions = await apiGet<SkillVersionsResponse>(
+      `/api/v1/skills/${encodeURIComponent(skillNameOrId)}/versions`,
+    );
+    return { versions, source: "gateway" };
+  } catch (err) {
+    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+      return { versions: null, source: "mock-offline" };
+    }
+    throw err;
+  }
+}
+
 /** Response envelope for `/api/v1/skills/learned-this-month`. */
 export interface LearnedThisMonth {
   /** RFC3339 cutoff the server picked (first-of-month UTC). */

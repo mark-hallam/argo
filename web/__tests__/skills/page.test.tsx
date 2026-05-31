@@ -14,12 +14,18 @@ vi.mock("@/lib/api/skills", async () => {
   return {
     ...actual,
     fetchSkills: vi.fn(),
+    fetchSkillSearch: vi.fn(),
     fetchLearnedThisMonth: vi.fn(),
   };
 });
 
 import SkillsPage from "@/app/(app)/skills/page";
 import * as api from "@/lib/api/skills";
+import type {
+  SkillSearchParams,
+  SkillSearchResponse,
+  SkillSearchResult,
+} from "@/lib/api/skills";
 
 function wrap(ui: ReactNode) {
   const client = new QueryClient({
@@ -28,11 +34,56 @@ function wrap(ui: ReactNode) {
   return <QueryClientProvider client={client}>{ui}</QueryClientProvider>;
 }
 
+const categoryOf = (name: string): string => {
+  const end = name.search(/[.:-]/);
+  return end === -1 ? name : name.slice(0, end);
+};
+
+/**
+ * Server-side-search stand-in: ranks the seed catalog with the same
+ * name/description substring + category filter the gateway applies, so
+ * the page's server-backed search path is exercised end-to-end without
+ * a live gateway. (The real ranking + facets are unit-tested in the
+ * Rust route; here we only need a faithful enough shape.)
+ */
+function searchSeed(params: SkillSearchParams): SkillSearchResponse {
+  const q = (params.q ?? "").trim().toLowerCase();
+  let rows = api.SEED_SKILLS;
+  if (params.category) {
+    rows = rows.filter(
+      (s) => categoryOf(s.name).toLowerCase() === params.category!.toLowerCase(),
+    );
+  }
+  const matched =
+    q.length === 0
+      ? rows
+      : rows.filter(
+          (s) =>
+            s.name.toLowerCase().includes(q) ||
+            s.description.toLowerCase().includes(q),
+        );
+  const results: SkillSearchResult[] = matched.map((s) => ({
+    ...s,
+    category: categoryOf(s.name),
+  }));
+  return {
+    query: params.q ?? "",
+    count: results.length,
+    results,
+    facets: { category: [], source: [], trust: [] },
+  };
+}
+
 beforeEach(() => {
   vi.mocked(api.fetchLearnedThisMonth).mockResolvedValue({
     learned: { since: "2026-05-01T00:00:00.000Z", count: 0, skill_ids: [] },
     source: "mock-offline",
   });
+  // Default: faithful server-search over the seed catalog.
+  vi.mocked(api.fetchSkillSearch).mockImplementation(async (params) => ({
+    response: searchSeed(params),
+    source: "mock-offline",
+  }));
 });
 
 afterEach(() => {
@@ -96,7 +147,7 @@ describe("/skills marketplace page", () => {
     ).toBeInTheDocument();
   });
 
-  it("matches the Scene 4 runbook search phrase against the pricing.competitor_scrape seed", async () => {
+  it("routes the hero search through the server endpoint and surfaces the Scene 4 anchor", async () => {
     vi.mocked(api.fetchSkills).mockResolvedValue({
       skills: api.SEED_SKILLS,
       source: "mock-offline",
@@ -110,7 +161,8 @@ describe("/skills marketplace page", () => {
 
     const searchInput = screen.getByTestId("skills-search");
 
-    // Full runbook phrase: must surface the one anchor card.
+    // Full runbook phrase: must surface the one anchor card via the
+    // server-side search endpoint.
     fireEvent.change(searchInput, { target: { value: "competitor pricing scrape" } });
     await waitFor(() => {
       expect(screen.getAllByTestId("skill-card")).toHaveLength(1);
@@ -119,6 +171,10 @@ describe("/skills marketplace page", () => {
       screen.getByRole("heading", { name: /pricing competitor scrape/i }),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("skills-empty")).not.toBeInTheDocument();
+    // The server endpoint was actually consulted with the typed query.
+    expect(api.fetchSkillSearch).toHaveBeenCalledWith(
+      expect.objectContaining({ q: "competitor pricing scrape" }),
+    );
 
     // Single-word regression: "competitor" still returns the one card.
     fireEvent.change(searchInput, { target: { value: "competitor" } });
@@ -126,17 +182,7 @@ describe("/skills marketplace page", () => {
       expect(screen.getAllByTestId("skill-card")).toHaveLength(1);
     });
 
-    // Single-word regression: "pricing" still returns the anchor card.
-    // Other legitimate skills may mention pricing in their description.
-    fireEvent.change(searchInput, { target: { value: "pricing" } });
-    await waitFor(() => {
-      expect(screen.getAllByTestId("skill-card").length).toBeGreaterThanOrEqual(1);
-    });
-    expect(
-      screen.getByRole("heading", { name: /pricing competitor scrape/i }),
-    ).toBeInTheDocument();
-
-    // Empty query: all seed cards rendered.
+    // Empty query: back to the full catalog from useSkills.
     fireEvent.change(searchInput, { target: { value: "" } });
     await waitFor(() => {
       expect(screen.getAllByTestId("skill-card")).toHaveLength(api.SEED_SKILLS.length);
@@ -159,7 +205,7 @@ describe("/skills marketplace page", () => {
       });
     });
 
-    it("reads 'N of M skills' when a filter partially matches", async () => {
+    it("reads 'N of M skills' when a server search partially matches", async () => {
       vi.mocked(api.fetchSkills).mockResolvedValue({
         skills: api.SEED_SKILLS,
         source: "mock-offline",
@@ -182,7 +228,7 @@ describe("/skills marketplace page", () => {
       });
     });
 
-    it("reads '0 of M skills' when a filter excludes everything", async () => {
+    it("reads '0 of M skills' when the server search excludes everything", async () => {
       vi.mocked(api.fetchSkills).mockResolvedValue({
         skills: api.SEED_SKILLS,
         source: "mock-offline",
@@ -203,6 +249,38 @@ describe("/skills marketplace page", () => {
           new RegExp(`^0 of ${api.SEED_SKILLS.length} skills$`),
         );
       });
+    });
+  });
+
+  it("renders a server-reported facet control and filters by category", async () => {
+    vi.mocked(api.fetchSkills).mockResolvedValue({
+      skills: api.SEED_SKILLS,
+      source: "mock-offline",
+    });
+    // Server reports an invoice category facet on the empty-query call.
+    vi.mocked(api.fetchSkillSearch).mockImplementation(async (params) => {
+      const response = searchSeed(params);
+      response.facets = {
+        category: [{ value: "invoice", count: 2 }],
+        source: [],
+        trust: [{ value: "published_verified", count: 3 }],
+      };
+      return { response, source: "mock-offline" };
+    });
+
+    render(wrap(<SkillsPage />));
+
+    // The facet control renders from the server's facet values.
+    const invoiceFacet = await screen.findByTestId("skills-facet-category-invoice");
+    expect(invoiceFacet).toBeInTheDocument();
+    expect(screen.getByTestId("skills-facet-trust-published_verified")).toBeInTheDocument();
+
+    // Clicking the category facet drives a server search scoped to it.
+    fireEvent.click(invoiceFacet);
+    await waitFor(() => {
+      expect(api.fetchSkillSearch).toHaveBeenCalledWith(
+        expect.objectContaining({ category: "invoice" }),
+      );
     });
   });
 

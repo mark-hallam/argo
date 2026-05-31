@@ -145,7 +145,7 @@ pub use ingest_learned::{
 pub use learn::{should_propose, SkillCandidate, DEFAULT_SUCCESS_THRESHOLD};
 pub use library::{LayeredLookup, LayeredSkill, SkillLayer};
 pub use marketplace::{
-    parse_trust_grade, search, MarketplaceSkill, SearchOptions, DEFAULT_SEARCH_LIMIT,
+    parse_trust_grade, rank_skills, search, MarketplaceSkill, SearchOptions, DEFAULT_SEARCH_LIMIT,
 };
 pub use pack_lint::{lint_pack, CheckId, LintFinding, LintReport, PackLintSeverity};
 pub use parse::{parse_skill_md, FRONTMATTER_DELIM};

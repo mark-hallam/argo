@@ -60,13 +60,13 @@ pub(super) async fn dispatch_get(
     if bare == SKILLS_PATH {
         return Some(installed_response(req, store).await);
     }
-    // `/api/v1/skills/<id-or-name>[/usage|/telemetry]` — single-skill
-    // drill-in. Must come after the exact-match routes above. Both
-    // sub-routes accept either the catalog UUID (the SPA's skill-detail
-    // page keys on it) OR the skill name (marketplace card / older SPA
-    // paths), so a name-style segment resolves instead of 404-ing. The
-    // bare detail path (`skill_detail_response`) still resolves by id
-    // only.
+    // `/api/v1/skills/<id-or-name>[/usage|/telemetry|/versions]` —
+    // single-skill drill-in. Must come after the exact-match routes
+    // above. The sub-routes accept either the catalog UUID (the SPA's
+    // skill-detail page keys on it) OR the skill name (marketplace card
+    // / older SPA paths), so a name-style segment resolves instead of
+    // 404-ing. The bare detail path (`skill_detail_response`) still
+    // resolves by id only.
     if let Some(rest) = bare.strip_prefix("/api/v1/skills/") {
         if let Some(id) = rest.strip_suffix("/usage") {
             if !id.is_empty() && !id.contains('/') {
@@ -76,6 +76,14 @@ pub(super) async fn dispatch_get(
             if !id.is_empty() && !id.contains('/') {
                 return Some(
                     super::routes_skills_telemetry::skill_telemetry_response(req, store, id).await,
+                );
+            }
+        } else if let Some(id) = rest.strip_suffix("/versions") {
+            // C3 — version history + eval-delta changelog. Same
+            // name-or-id tolerance as /usage + /telemetry.
+            if !id.is_empty() && !id.contains('/') {
+                return Some(
+                    super::routes_skills_versions::skill_versions_response(req, store, id).await,
                 );
             }
         } else if !rest.is_empty() && !rest.contains('/') {

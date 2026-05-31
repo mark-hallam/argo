@@ -5,14 +5,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchLearnedThisMonth,
   fetchSkills,
+  fetchSkillSearch,
   fetchSkillTelemetry,
   fetchSkillUsage,
+  fetchSkillVersions,
   installSkillToWorkers,
   type FetchLearnedThisMonthResult,
+  type FetchSkillSearchResult,
   type FetchSkillsResult,
   type FetchSkillTelemetryResult,
   type FetchSkillUsageResult,
+  type FetchSkillVersionsResult,
   type InstallSkillResult,
+  type SkillSearchParams,
 } from "@/lib/api/skills";
 
 const SKILLS_KEY = ["skills"] as const;
@@ -27,6 +32,36 @@ export function useSkills() {
   return useQuery<FetchSkillsResult>({
     queryKey: SKILLS_KEY,
     queryFn: fetchSkills,
+  });
+}
+
+/**
+ * Server-side ranked skill search + facets. Keyed on the params object
+ * so flipping a facet or typing in the hero search refetches a freshly
+ * ranked result set from the gateway (`/api/v1/skills/search`), which
+ * runs the SAME ranking engine the marketplace uses over the tenant's
+ * REAL skills. `keepPreviousData` keeps the grid stable between
+ * keystrokes instead of flashing the loading panel.
+ */
+export function useSkillSearch(params: SkillSearchParams) {
+  return useQuery<FetchSkillSearchResult>({
+    queryKey: ["skill-search", params],
+    queryFn: () => fetchSkillSearch(params),
+    placeholderData: (prev) => prev,
+  });
+}
+
+/**
+ * REAL version history + eval-delta changelog for a skill, from
+ * `/api/v1/skills/<id-or-name>/versions`. Returns `{ versions: null }`
+ * (honest empty state) when the gateway is offline or the skill has no
+ * recorded versions. Drives the skill-detail "Version history" card.
+ */
+export function useSkillVersions(skillNameOrId: string | undefined) {
+  return useQuery<FetchSkillVersionsResult>({
+    queryKey: ["skill-versions", skillNameOrId ?? ""],
+    queryFn: () => fetchSkillVersions(skillNameOrId as string),
+    enabled: typeof skillNameOrId === "string" && skillNameOrId.length > 0,
   });
 }
 

@@ -34,6 +34,14 @@ pub(super) async fn dispatch_get(
     {
         return Some(resp);
     }
+    // frontier-c — server-side ranked skill search
+    // (`GET /api/v1/skills/search`). Exact-path; MUST be mounted ahead
+    // of `routes_skills_list_get::dispatch_get` so the literal `search`
+    // segment is never swallowed by that module's
+    // `/api/v1/skills/<id>` detail catch-all.
+    if let Some(resp) = super::routes_skills_search::dispatch_get(req, store).await {
+        return Some(resp);
+    }
     // fix-gateway-workflows-and-skills-marketplace-endpoints-404 —
     // top-level aggregations the SPA's `/skills` + `/workflows` pages
     // call before falling back to local seed fixtures. Mounted ahead
