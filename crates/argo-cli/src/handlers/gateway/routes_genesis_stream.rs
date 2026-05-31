@@ -46,9 +46,19 @@
 //! display `tenant_id` echoed in the payload. Cross-tenant isolation stays
 //! filesystem-enforced once multi-tenant routing lands (the segment is still
 //! keyed off the resolved tenant slug).
+//!
+//! ## Non-determinism robustness — unique `vertical_id` per generation
+//!
+//! A `/genesis` regen for the same role can yield a different `contract_digest`
+//! (non-deterministic LLM). The per-role `vertical_id` (`<archetype>-<persona>`)
+//! was STABLE, so a regen between review and hire CLOBBERED the reviewed
+//! manifest → confirmed digest stopped matching → spurious `422`.
+//! `routes_genesis_stream_unique_id` stamps a unique id per generation so a
+//! regen writes a NEW dir, leaving the reviewed one hireable. The digest gate
+//! is NOT weakened — it covers the capability projection, not the id.
 
 use super::routes_genesis_stream_llm::resolve_plan;
-use argo_genesis::{name_to_persona_slug, write_vertical_with_overwrite};
+use argo_genesis::{name_to_persona_slug, write_vertical_with_overlap};
 use argo_store::SessionStore;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -67,8 +77,6 @@ struct GenesisRequest {
     role_description: String,
     #[serde(default)]
     persona: Option<String>,
-    #[serde(default)]
-    overwrite: bool,
     /// Optional single SOP / playbook document the teammate must comprehend
     /// before hire (Genesis P6 — the moat; DEC-025 #5: text role + *optionally*
     /// one SOP doc). Plain-text body OR a base64-encoded PDF (see
@@ -133,7 +141,7 @@ pub(super) async fn serve_genesis_stream(
         .await;
     }
 
-    let body = body_from_request(req);
+    let body = req.split_once("\r\n\r\n").map(|(_h, b)| b).unwrap_or("");
     let parsed: GenesisRequest = match serde_json::from_str(body) {
         Ok(p) => p,
         Err(e) => {
@@ -173,7 +181,7 @@ pub(super) async fn serve_genesis_stream(
     open_sse_stream(out, &cors_headers).await?;
     write_progress(out, "drafting_persona", "Resolving persona slug", 10).await?;
 
-    let (plan, gen_mode) = match resolve_plan(&role_description, &persona).await {
+    let (mut plan, gen_mode) = match resolve_plan(&role_description, &persona).await {
         Ok(pair) => pair,
         Err(e) => {
             return write_error_event(
@@ -185,6 +193,9 @@ pub(super) async fn serve_genesis_stream(
             .await;
         }
     };
+    // Unique id BEFORE the dir is resolved + written, so a regeneration writes a
+    // new dir (see the module-level non-determinism section).
+    super::routes_genesis_stream_unique_id::apply_unique_vertical_suffix(&mut plan);
 
     write_progress(
         out,
@@ -212,7 +223,13 @@ pub(super) async fn serve_genesis_stream(
     )
     .await?;
 
-    if let Err(e) = write_vertical_with_overwrite(&plan, &vertical_dir, parsed.overwrite) {
+    // `allow_overlap = true`: a regeneration for the same role intentionally
+    // produces a sibling that heavily overlaps the prior one (same archetype +
+    // actions), which the catalog-authoring overlap guard (`conflict.detect`)
+    // would otherwise refuse. Regenerating is the expected Genesis flow, so the
+    // SSE path opts out of the refusal; the unique id (fresh dir) is what keeps
+    // the new sibling from clobbering the reviewed one.
+    if let Err(e) = write_vertical_with_overlap(&plan, &vertical_dir, true) {
         return write_error_event(
             out,
             "generating_skill_bundle",
@@ -347,10 +364,6 @@ fn provider_key_present() -> bool {
             .unwrap_or(false)
     };
     non_empty(PROVIDER_KEY_ENV) || PROVIDER_KEY_ALIASES.iter().any(|k| non_empty(k))
-}
-
-fn body_from_request(req: &str) -> &str {
-    req.split_once("\r\n\r\n").map(|(_h, b)| b).unwrap_or("")
 }
 
 fn persona_for(explicit: Option<&str>, role_description: &str) -> String {

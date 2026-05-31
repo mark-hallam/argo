@@ -337,15 +337,30 @@ async fn write_segment_uses_cwd_tenant_not_request_header() {
     assert!(errs.is_empty(), "cwd-tenant load errors: {errs:?}");
     assert_eq!(reg.len(), 1, "exactly one generated vertical under cwd tenant");
 
-    // A second request with a DIFFERENT header lands in the SAME segment: it is
-    // a re-generate of the same persona, so the no-overwrite refusal proves the
-    // path collided — both headers wrote the one cwd segment.
+    // A second request with a DIFFERENT header ALSO lands in the cwd segment
+    // (not its header segment). Under non-determinism robustness each
+    // generation gets its OWN unique `vertical_id`, so the second succeeds and
+    // adds a SECOND vertical to the SAME cwd segment rather than colliding —
+    // proving the write segment is the cwd tenant regardless of the header.
     let other_header = "22222222-2222-2222-2222-222222222222";
     let raw2 = drive_handler(build_request(&body, Some(other_header)), Arc::clone(&store)).await;
     assert!(raw2.starts_with("HTTP/1.1 200 OK"), "got: {raw2}");
     assert!(
-        raw2.contains("event: error") && raw2.contains("is not empty"),
-        "second header must collide with the first in the SAME cwd segment; got: {raw2}"
+        raw2.contains("event: vertical_ready"),
+        "second header must write a new unique vertical (no collision); got: {raw2}"
+    );
+    // Neither header drove a write segment of its own.
+    assert!(
+        !genesis_root.join(other_header).is_dir(),
+        "the second header must NOT drive its own write segment"
+    );
+    // Both generations live in the ONE cwd segment.
+    let (reg2, errs2) = argo_vertical::load_dir(&cwd_dir).unwrap();
+    assert!(errs2.is_empty(), "cwd-tenant load errors after 2nd gen: {errs2:?}");
+    assert_eq!(
+        reg2.len(),
+        2,
+        "both generations (different headers) write to the SAME cwd segment"
     );
 }
 
@@ -448,12 +463,18 @@ async fn provider_key_503_carries_cors_headers_for_allowlisted_origin() {
 }
 
 #[tokio::test]
-async fn second_attempt_without_overwrite_emits_error_event() {
-    // First attempt creates `verticals/.genesis/<tenant>/<persona>/`;
-    // the second attempt for the same tenant+role must surface the
-    // OutputDirNotEmpty refusal as an SSE error event rather than
-    // succeeding. Closes the regression in
-    // `fix-genesis-idempotency-output-dir-not-empty`.
+async fn second_attempt_gets_its_own_unique_vertical_no_collision() {
+    // NON-DETERMINISM ROBUSTNESS (`fix-genesis-nondeterminism-robustness`):
+    // each generation now stamps a UNIQUE suffix on its `vertical_id`, so a
+    // second attempt for the SAME tenant+role writes a NEW
+    // `.genesis/<tenant>/<vertical_id>/` directory instead of colliding with
+    // the first (the old `OutputDirNotEmpty` SSE error) or clobbering it. Both
+    // attempts succeed and land in distinct dirs, leaving a manifest the
+    // operator may already be reviewing untouched.
+    //
+    // This SUPERSEDES the prior `second_attempt_without_overwrite_emits_error_event`
+    // assertion: the collision it locked in was the very mechanism behind the
+    // regeneration-clobber 422, so the corrected contract is "no collision".
     let tmp = TempDir::new().unwrap();
     let _env = EnvGuard::set(&[
         (PROVIDER_KEY_ENV, "test-key"),
@@ -470,10 +491,31 @@ async fn second_attempt_without_overwrite_emits_error_event() {
     let raw1 = drive_handler(build_request(&body, Some(tenant)), Arc::clone(&store)).await;
     assert!(raw1.starts_with("HTTP/1.1 200 OK"));
     assert!(raw1.contains("event: vertical_ready"));
+    let id1 = parse_vertical_ready(&raw1)["vertical_id"]
+        .as_str()
+        .expect("vertical_id 1")
+        .to_string();
+
     let raw2 = drive_handler(build_request(&body, Some(tenant)), Arc::clone(&store)).await;
     assert!(raw2.starts_with("HTTP/1.1 200 OK"), "still streams; got: {raw2}");
-    assert!(raw2.contains("event: error"), "expected error event; got: {raw2}");
-    assert!(raw2.contains("is not empty"), "expected refusal text; got: {raw2}");
+    assert!(
+        raw2.contains("event: vertical_ready"),
+        "second attempt must SUCCEED with its own unique id; got: {raw2}"
+    );
+    assert!(
+        !raw2.contains("event: error"),
+        "second attempt must NOT collide / emit an error now; got: {raw2}"
+    );
+    let id2 = parse_vertical_ready(&raw2)["vertical_id"]
+        .as_str()
+        .expect("vertical_id 2")
+        .to_string();
+    assert_ne!(id1, id2, "the two generations must get distinct unique ids");
+    // Both share the same stable base (`<archetype>-<persona>`) — only the
+    // per-generation suffix differs — so the persona is still legible in the id.
+    let base = "marketing-intern-maya";
+    assert!(id1.starts_with(base), "id1 keeps the role base: {id1}");
+    assert!(id2.starts_with(base), "id2 keeps the role base: {id2}");
 }
 
 #[tokio::test]
@@ -639,5 +681,152 @@ async fn sse_written_vertical_is_resolved_by_hire_gate_in_same_cwd_segment() {
         !gate.reasons.iter().any(|r| r.contains("role-contract confirmation mismatch")),
         "must not be a contract-mismatch block; got reasons: {:?}",
         gate.reasons
+    );
+}
+
+/// THE REGRESSION TEST for the Genesis non-determinism robustness gap.
+///
+/// The LLM classifier+synthesizer is non-deterministic, so two `/genesis`
+/// calls for the SAME role can produce different `contract_digest`s. The hire
+/// re-derives the contract from the on-disk manifest and confirms the
+/// operator's echoed digest against it, so a SINGLE clean flow (generate →
+/// review → hire) works. The bug: the per-role `vertical_id`
+/// (`<archetype-slug>-<persona>`) was STABLE, so a REGENERATION for the same
+/// role between the operator's review and the hire (or two flows for the same
+/// role) CLOBBERED the reviewed manifest on disk — the operator's confirmed
+/// digest then no longer matched the (now-second) manifest → a spurious
+/// `422 genesis_gate_failed` for a contract the operator genuinely reviewed.
+///
+/// This proves the fix: each generation gets a UNIQUE `vertical_id`, so:
+///
+///   1. Two generations for the same role yield DISTINCT `vertical_id`s →
+///      DISTINCT on-disk dirs (no clobber), and BOTH succeed (the second is no
+///      longer an `OutputDirNotEmpty` collision).
+///   2. The FIRST generation's `(vertical_id, contract_digest)` — the one the
+///      operator reviewed — is STILL resolvable on disk after the second
+///      generation, and its confirmation STILL passes the gate's contract axis
+///      (`contract_confirmation == "confirmed"`), i.e. it was NOT invalidated
+///      by the regeneration.
+///
+/// (The composed gate may still hold at `needs_review` in CI because the
+/// safety judge has no live provider and degrades fail-safe — the separate,
+/// correct safety behaviour. This asserts the contract axis, which is the one
+/// the clobber broke.)
+#[tokio::test]
+async fn regeneration_does_not_invalidate_the_first_reviewed_contract() {
+    let tmp = TempDir::new().unwrap();
+    let _env = EnvGuard::set(&[
+        (PROVIDER_KEY_ENV, "test-key"),
+        ("ARGO_VERTICALS_DIR", tmp.path().to_str().unwrap()),
+        ("ARGO_GENESIS_LLM_PROVIDER", "definitely-not-a-real-provider-xyz"),
+    ])
+    .await;
+    let store = mem_store().await;
+    let body = serde_json::json!({
+        "role_description": "I need a customer success lead who triages tier-1 tickets and escalates refunds over $500",
+        "persona": "Casey",
+    })
+    .to_string();
+
+    // The cwd-derived workspace tenant the hire-commit endpoint resolves
+    // (`routes_workers_hire::resolve_tenant_principal`) — the read segment.
+    let cwd = std::env::current_dir().unwrap();
+    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let (cwd_tenant, _ws) = store
+        .ensure_workspace(name, &cwd.to_string_lossy())
+        .await
+        .unwrap();
+    let cwd_tenant_str = cwd_tenant.to_string();
+
+    // FIRST generation — the one the operator "reviews". Capture its EXACT
+    // (vertical_id, contract_digest) — what the SPA pins from the SSE event.
+    let raw1 = drive_handler(build_request(&body, None), Arc::clone(&store)).await;
+    assert!(raw1.starts_with("HTTP/1.1 200 OK"), "first gen failed: {raw1}");
+    let p1 = parse_vertical_ready(&raw1);
+    let id1 = p1["vertical_id"].as_str().expect("vertical_id 1").to_string();
+    let digest1 = p1["contract_digest"].as_str().expect("digest 1").to_string();
+    assert!(!digest1.is_empty(), "first gen must surface a non-empty digest");
+
+    // SECOND generation for the SAME role (a "regenerate" / "try again" between
+    // review and hire), WITHOUT overwrite. Pre-fix this either clobbered the
+    // first manifest (stable id + overwrite) or collided (`is not empty`). Now
+    // it gets its OWN unique id, so it succeeds AND leaves the first untouched.
+    let raw2 = drive_handler(build_request(&body, None), Arc::clone(&store)).await;
+    assert!(raw2.starts_with("HTTP/1.1 200 OK"), "second gen failed: {raw2}");
+    assert!(
+        raw2.contains("event: vertical_ready"),
+        "regeneration must SUCCEED (own unique id, no clobber/collision); got: {raw2}"
+    );
+    assert!(
+        !raw2.contains("event: error"),
+        "regeneration must NOT emit an OutputDirNotEmpty error now; got: {raw2}"
+    );
+    let p2 = parse_vertical_ready(&raw2);
+    let id2 = p2["vertical_id"].as_str().expect("vertical_id 2").to_string();
+
+    // (1) The two generations got DISTINCT ids → distinct on-disk dirs.
+    assert_ne!(
+        id1, id2,
+        "each generation must get a UNIQUE vertical_id so a regen never clobbers \
+         the reviewed manifest"
+    );
+
+    // (2) The FIRST reviewed (id, digest) is STILL resolvable after the second
+    // generation — the regeneration did NOT clobber it.
+    let dir1 = super::super::genesis_tenant::genesis_vertical_dir_for_tenant(
+        tmp.path(),
+        &cwd_tenant_str,
+        &id1,
+    )
+    .expect(
+        "the FIRST reviewed vertical must STILL resolve on disk after a \
+         regeneration for the same role (no clobber)",
+    );
+    assert!(dir1.join("vertical.toml").is_file(), "first manifest still on disk");
+    // The second one resolves to its OWN distinct dir.
+    let dir2 = super::super::genesis_tenant::genesis_vertical_dir_for_tenant(
+        tmp.path(),
+        &cwd_tenant_str,
+        &id2,
+    )
+    .expect("the second vertical resolves to its own dir");
+    assert_ne!(dir1, dir2, "the two generations live in distinct dirs");
+
+    // (3) The operator's confirmation of the FIRST contract STILL passes the
+    // gate's contract axis — the regeneration did NOT invalidate it. This is
+    // the exact axis the clobber broke (confirmed → mismatch → 422).
+    let gate = super::super::routes_genesis_gate::run_hire_gate_from_dir_with_confirmation(
+        &dir1,
+        Some(&digest1),
+    )
+    .await;
+    assert_eq!(
+        gate.contract_confirmation, "confirmed",
+        "the FIRST reviewed contract's confirmation must STILL MATCH after a \
+         regeneration; got reasons: {:?}",
+        gate.reasons
+    );
+    assert_eq!(
+        gate.contract_digest, digest1,
+        "the hire-gate re-derives the IDENTICAL digest the FIRST gen surfaced"
+    );
+    assert!(
+        !gate.reasons.iter().any(|r| r.contains("role-contract confirmation mismatch")),
+        "the reviewed contract must NOT become a mismatch after a regen; got: {:?}",
+        gate.reasons
+    );
+
+    // The digest gate is NOT weakened: a genuinely WRONG/forged digest against
+    // that same dir still fails the contract axis (mismatch), so robustness did
+    // not become a bypass.
+    let forged = super::super::routes_genesis_gate::run_hire_gate_from_dir_with_confirmation(
+        &dir1,
+        Some("0000000000000000000000000000000000000000000000000000000000000000"),
+    )
+    .await;
+    assert_ne!(
+        forged.contract_confirmation, "confirmed",
+        "a forged/stale digest must still FAIL the contract axis — the gate is \
+         not weakened by the unique-id fix"
     );
 }

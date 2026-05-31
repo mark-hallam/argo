@@ -137,6 +137,7 @@ mod routes_genesis_stream;
 mod routes_genesis_stream_llm;
 mod routes_genesis_stream_payload;
 mod routes_genesis_stream_tenant;
+mod routes_genesis_stream_unique_id;
 mod routes_ghostwriter;
 mod routes_governance;
 mod routes_gtm_draft_followup;
