@@ -361,6 +361,10 @@ fn active_cgroup_path(status: &CageStatus) -> Option<String> {
     }
 }
 
-#[cfg(test)]
+// Unix-only: every test in this module spawns real child processes
+// (`/bin/true`, `sleep`, …) to exercise supervisor spawn/respawn/reap. Those
+// binaries don't exist on Windows (`Os { code: 3, NotFound }`), so the suite
+// is gated to Unix. CI (Linux) + macOS still compile + run it.
+#[cfg(all(test, unix))]
 #[path = "worker_supervisor_tests.rs"]
 mod worker_supervisor_tests;
