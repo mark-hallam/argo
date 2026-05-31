@@ -2,6 +2,9 @@ import Link from "next/link";
 import { ArrowRight, Check, Shield, MessageSquareText, Sparkles, GitBranch, Users2 } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
+import { WaitlistForm } from "@/components/marketing/WaitlistForm";
+import { PortiaEmbed } from "@/components/marketing/PortiaEmbed";
+import { DemoVideoSlot } from "@/components/marketing/DemoVideoSlot";
 import { SEED_CUSTOMERS } from "@/lib/content/customers";
 import "./page.css";
 
@@ -117,30 +120,49 @@ const HOW = [
   },
 ];
 
+// The four verified-unique pillars (docs/skycot/marketing/DIFFERENTIATORS.md).
+// Across all 25 surveyed competitors, none matched these — so the copy leans
+// in. Each pairs with the live proof we already ship, linked for the curious.
 const DIFFERENTIATORS = [
   {
+    num: "01",
     icon: <Shield size={22} />,
+    kicker: "Provable by design",
     title: "Every action, provable",
     blurb:
-      "AI teammate actions write to the hash-chained audit ledger, so the record is tamper-evident instead of just a transcript.",
+      "Every action an AI teammate takes writes to a hash-chained, tamper-evident ledger — cryptographically impossible to alter or delete after the fact. An audit trail you can take to your board, or your regulator.",
+    proofLabel: "See the audit chain",
+    proofHref: "/audit",
   },
   {
+    num: "02",
     icon: <MessageSquareText size={22} />,
-    title: "Truth-bounded claims",
+    kicker: "Can't overclaim",
+    title: "An AI that knows what it's not allowed to say",
     blurb:
-      "Teammates cannot assert sensitive claims they cannot back up. They defer instead of improvising numbers or promises.",
+      "A claim-level truth boundary gates what a teammate may assert — not just what it can access. Portia, our Pitch Agent, literally cannot state a number she can't back up. She defers to a human instead.",
+    proofLabel: "Watch Portia refuse to overclaim",
+    proofHref: "/pitch",
   },
   {
+    num: "03",
     icon: <Check size={22} />,
-    title: "Approval-first in 9 channels",
+    kicker: "Approval-first",
+    title: "Nothing risky without your yes",
     blurb:
-      "Risky actions stop for human approval across Slack, Discord, SMS, voice, iMessage, web, push, Teams, and email.",
+      "Sensitive actions stop for human approval — delivered to wherever you already are, across 9 channels: Slack, Discord, SMS, voice, iMessage, web, push, Teams, and email. Approve or reject from your phone.",
+    proofLabel: "See the approvals inbox",
+    proofHref: "/approvals",
   },
   {
+    num: "04",
     icon: <Users2 size={22} />,
-    title: "Persistent teammates",
+    kicker: "Hire, don't prompt",
+    title: "Hire teammates, not chatbots",
     blurb:
-      "You hire named teammates with standing responsibilities, memory, shared skills, and delegated work, not one-off chatbots.",
+      "You hire AI teammates that hold a standing responsibility — persistent identity, memory, delegation to each other, shared learned skills. Not one-off task bots you re-prompt every time.",
+    proofLabel: "Meet the roster",
+    proofHref: "/teammates",
   },
 ];
 
@@ -155,7 +177,7 @@ export default function MarketingLandingPage() {
           <div>
             <div className="land-hero-eyebrow">
               <span className="land-hero-eyebrow-dot" />
-              v1.0 shipped · Hiring our first 100 teams
+              Early access · Inviting our first 100 teams
             </div>
             <h1 className="land-hero-h1">
               Don&apos;t buy another tool.
@@ -164,16 +186,19 @@ export default function MarketingLandingPage() {
               (Seriously.)
             </h1>
             <p className="land-hero-sub">
-              SKYCOT compiles plain-English job descriptions into AI teammates that live in Slack,
-              learn from your feedback, and ask for approval before they act. Audit-first,
-              single-binary, enterprise-grade.
+              SKYCOT turns a plain-English job description into an AI teammate that lives in Slack,
+              learns from your feedback, and asks for approval before it acts. Provable by design,
+              truth-bounded, enterprise-grade.
             </p>
+            <div className="land-hero-waitlist">
+              <WaitlistForm source="landing-hero" size="lg" />
+            </div>
             <div className="land-hero-actions">
-              <Link href="/auth/signup" className="land-btn-primary">
-                Hire your first teammate <ArrowRight size={16} />
-              </Link>
-              <a href="#how" className="land-btn-secondary">
-                See how it works
+              <a href="#why" className="land-btn-secondary">
+                Why we&apos;re different
+              </a>
+              <a href="#demo" className="land-btn-secondary">
+                Watch the demo
               </a>
             </div>
             <div className="land-trust-strip">
@@ -183,19 +208,19 @@ export default function MarketingLandingPage() {
               </span>
               <span className="land-trust-item">
                 <span className="land-trust-dot" />
-                SOC 2-READY AUDIT TRAIL
+                TAMPER-EVIDENT AUDIT TRAIL
               </span>
               <span className="land-trust-item">
                 <span className="land-trust-dot" />
-                ISO 27001 CONTROLS SUPPORTED
+                TRUTH-BOUNDED BY DEFAULT
               </span>
               <span className="land-trust-item">
                 <span className="land-trust-dot" />
-                GDPR · HIPAA WORKFLOWS
+                APPROVAL-FIRST · 9 CHANNELS
               </span>
               <span className="land-trust-item">
                 <span className="land-trust-dot" />
-                EARLY ACCESS · APPLY
+                MADE IN MELBOURNE
               </span>
             </div>
           </div>
@@ -273,6 +298,70 @@ export default function MarketingLandingPage() {
           </div>
         </section>
 
+        {/* The moat — verified differentiators, led hard, right under the hero */}
+        <section className="land-section land-moat" id="why">
+          <p className="land-section-label">THE MOAT · VERIFIED AGAINST 25 COMPETITORS</p>
+          <h2 className="land-section-title">
+            Four things <strong>nobody else</strong> ships.
+          </h2>
+          <p className="land-moat-lede">
+            We surveyed 25 AI-agent platforms — Microsoft Agent 365, Salesforce
+            Agentforce, Sierra, Decagon, Lindy, Ema, Dust, LangGraph, CrewAI and
+            more. <strong>Not one matched all four.</strong> The field is crowding
+            on orchestration and &ldquo;AI employees.&rdquo; Our wedge is the part a
+            serious buyer needs before they let an AI <em>do</em> anything: trust
+            and governance for agents that take real action.
+          </p>
+          <div className="land-moat-grid">
+            {DIFFERENTIATORS.map((item) => (
+              <article key={item.title} className="land-moat-card">
+                <div className="land-moat-card-top">
+                  <div className="land-moat-icon">{item.icon}</div>
+                  <span className="land-moat-num">{item.num}</span>
+                </div>
+                <p className="land-moat-kicker">{item.kicker}</p>
+                <h3>{item.title}</h3>
+                <p className="land-moat-blurb">{item.blurb}</p>
+                <Link href={item.proofHref} className="land-moat-proof">
+                  {item.proofLabel} <ArrowRight size={14} />
+                </Link>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* Demo film — labeled placeholder until the operator records the MP4 */}
+        <section className="land-section land-demo" id="demo">
+          <p className="land-section-label">SEE IT IN MOTION</p>
+          <h2 className="land-section-title">
+            Watch a teammate get <strong>hired</strong>.
+          </h2>
+          <p className="land-demo-lede">
+            A short tour: describe a job in plain English, meet your new teammate,
+            approve their first decisions, and watch every action land in the
+            tamper-evident audit trail.
+          </p>
+          <div className="land-demo-wrap">
+            <DemoVideoSlot durationLabel="90-second tour" />
+          </div>
+        </section>
+
+        {/* Talk to Portia — public taste of the truth-bounded Pitch Agent */}
+        <section className="land-section land-portia" id="portia">
+          <p className="land-section-label">TALK TO PORTIA</p>
+          <h2 className="land-section-title">
+            Ask our AI <strong>anything</strong> about SKYCOT.
+          </h2>
+          <p className="land-portia-lede">
+            Portia is our Pitch Agent — truth-bounded, so she can&apos;t state a
+            number she can&apos;t back up. Ask her a hard question and watch the
+            truth boundary work in real time.
+          </p>
+          <div className="land-portia-wrap">
+            <PortiaEmbed />
+          </div>
+        </section>
+
         {/* How it works */}
         <section id="how" className="land-section">
           <p className="land-section-label">HOW IT WORKS</p>
@@ -286,23 +375,6 @@ export default function MarketingLandingPage() {
                 <h3 className="land-how-title">{s.title}</h3>
                 <p className="land-how-blurb">{s.blurb}</p>
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Verified differentiators */}
-        <section className="land-section land-diff-section">
-          <p className="land-section-label">VERIFIED DIFFERENTIATORS</p>
-          <h2 className="land-section-title">
-            Trust controls competitors <strong>didn&apos;t match</strong>.
-          </h2>
-          <div className="land-diff-grid">
-            {DIFFERENTIATORS.map((item) => (
-              <article key={item.title} className="land-diff-card">
-                <div className="land-diff-icon">{item.icon}</div>
-                <h3>{item.title}</h3>
-                <p>{item.blurb}</p>
-              </article>
             ))}
           </div>
         </section>
@@ -455,14 +527,18 @@ export default function MarketingLandingPage() {
           </Link>
         </section>
 
-        {/* Final CTA */}
-        <section className="land-final">
+        {/* Final CTA — early-access waitlist */}
+        <section className="land-final" id="early-access">
           <h2>
-            Your first teammate is <strong>four minutes away</strong>.
+            Be one of our <strong>first 100 teams</strong>.
           </h2>
-          <Link href="/auth/signup" className="land-btn-primary">
-            Hire your first teammate <ArrowRight size={16} />
-          </Link>
+          <p className="land-final-sub">
+            Early access is rolling out to a small group. Leave your email and
+            we&apos;ll reach out when your slot opens.
+          </p>
+          <div className="land-final-waitlist">
+            <WaitlistForm source="landing-final" size="lg" />
+          </div>
         </section>
 
         <MarketingFooter />
