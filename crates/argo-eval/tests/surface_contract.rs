@@ -17,6 +17,7 @@ const EXPECTED_PUBLIC_MODULES: &[&str] = &[
     "regression",
     "self_healing",
     "teammate",
+    "teammate_runner",
 ];
 
 const EXPECTED_REEXPORTS: &[&str] = &[

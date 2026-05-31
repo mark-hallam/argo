@@ -54,6 +54,7 @@ pub mod self_healing;
 mod streaming;
 mod task;
 pub mod teammate;
+pub mod teammate_runner;
 
 #[cfg(test)]
 mod pitch_runner_tests;
