@@ -72,6 +72,40 @@ Use this section before interpreting any older track notes:
   and the mission-vs-code gap manifest. Old advisory files are historical
   unless a current ledger row explicitly points at one.
 
+## Hero teammates — the real working colleagues SKYCOT runs on itself
+
+SKYCOT demonstrates its own product by running real teammates on its own
+go-to-market. Each is recursive proof: the company is operated by the very
+AI workforce it sells.
+
+| # | Teammate | Owns | Status | Ref |
+|---|----------|------|--------|-----|
+| 1 | **Portia** (Pitch Agent) | Pitching SKYCOT — text Q&A today, voice + live-meeting on the roadmap | ✅ Live (text) | DEC-016; FEATURE_MATRIX §5 |
+| 2 | **Grant** (GTM Engineer) | Inbound growth — qualifies waitlist signups, drafts brand-safe follow-ups (never auto-sends) | ✅ Live | DEC-018; FEATURE_MATRIX §5 |
+| 3 | **Marketing teammate** | Top-of-funnel marketing + social — articles, **social listening** (find SKYCOT mentions), **drafting public responses**, thought-leadership | 🗓️ Planned | DEC-028 |
+
+The **Marketing teammate is the 3rd hero** (operator-locked 2026-05-31, DEC-028).
+Defining shape:
+
+- **Built THROUGH Genesis** — created from a plain-English role description that
+  Genesis synthesizes into a real teammate, so building it doubles as **live proof
+  Genesis works**. Writes in Mark's documented voice
+  ([`../skycot/marketing/VOICE_PROFILE.md`](../skycot/marketing/VOICE_PROFILE.md)).
+- **MVP discipline: draft-only + approval-gated + listening-first.** Find mentions
+  → draft → operator approves before anything goes public. **NO autonomous
+  posting** (a public action is a brand/legal risk; truth-boundary hard-bound;
+  ties to DEC-025 "a generated teammate must not ruin a business"). It earns
+  autonomy later. Every draft is on the hash-chained audit ledger.
+- **Boundary with Grant (DEC-018):** Grant = inbound / qualify-the-lead;
+  Marketing = top-of-funnel awareness/content/voice — it **fills the funnel Grant
+  qualifies**.
+- **Timing: fast-follow after the Genesis safety stack (P0–P6) lands.** The
+  thin-slice scoping (scope the role + research social-listening / draft-integration
+  availability) is queued in
+  [`../skycot/overnight-build-out.md`](../skycot/overnight-build-out.md) under
+  "Post-P6 follow-ups." Full rationale:
+  [`../skycot/decisions/DEC-028-marketing-teammate-third-hero.md`](../skycot/decisions/DEC-028-marketing-teammate-third-hero.md).
+
 ## Track A — UX research (DONE)
 
 Deliverables under [../skycot/ux-research/](../skycot/ux-research/):
