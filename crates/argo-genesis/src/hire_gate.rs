@@ -25,15 +25,14 @@
 //! ## Why the behaviour-contract text is the eval subject
 //!
 //! The deterministic floor has no provider. A seed "passes" when the
-//! teammate's rendered behaviour contract contains the seed's rubric
-//! keywords (which are derived from the role + its actions). A real,
-//! richly-specified teammate's contract names its actions and domain, so
-//! the keywords appear; an empty stub's contract does not. That is exactly
-//! the "gameable by keyword-parroting, but a true floor against empty
-//! workers" property the design doc calls for.
+//! teammate's rendered behaviour contract contains the seed's rubric keywords
+//! (derived from the role + its actions): a richly-specified teammate's
+//! contract names its actions and domain, an empty stub's does not — the
+//! "gameable by keyword-parroting, but a true floor against empty workers"
+//! property the design doc calls for. The LLM rubric (P7, [`crate::rubric`])
+//! is the additive axis that closes that gameability gap.
 
 use crate::eval_seed::{self, EvalSeed};
-use crate::genesis_judge::JudgeInput;
 use crate::hire_gate_contract::{ContractConfirmation, ContractGateInput};
 use crate::pipeline::GenesisPlan;
 use crate::prompt_writer::build_system_prompt;
@@ -140,9 +139,21 @@ pub struct GateVerdict {
     pub sop_total: usize,
     /// Observed SOP-comprehension pass rate (0.0 when no questions).
     pub sop_pass_rate: f64,
-    /// The semantic safety-judge verdict token (`allow` /
-    /// `allow_with_disclaimer` / `block` / `unavailable`).
+    /// Safety-judge token: `allow` / `allow_with_disclaimer` / `block` / `unavailable`.
     pub safety_verdict: String,
+    /// LLM-graded capability rubric (Genesis P7, DEC-025 #7) axis — see
+    /// [`crate::rubric`] + [`Self::with_rubric`]. `false` when flag-gated off
+    /// (vacuous pass; the deterministic floor stays the baseline).
+    pub rubric_applicable: bool,
+    /// The rubric was applicable but DEGRADED (grader could not run / returned an
+    /// unusable grade) → holds in `needs_review` (fail-safe), never a silent pass.
+    pub rubric_degraded: bool,
+    /// The rubric's weighted-mean capability score (`0.0` when n/a or degraded).
+    pub rubric_score: f64,
+    /// The rubric's lowest single-dimension score — the weakest facet found.
+    pub rubric_min_dimension: f64,
+    /// Wire token: `not_applicable` / `pass` / `block` / `unavailable`.
+    pub rubric_verdict: String,
     /// The teammate's truthful, operator-confirmable role contract — derived
     /// from its actual bound capability profile (DEC-025 #4). Surfaced for
     /// operator review before activation. `None` only when no plan/manifest
@@ -190,7 +201,9 @@ impl GateVerdict {
     ///
     /// Comprehension + SOP-comprehension are all-must-pass invariant gates, so
     /// any miss is a hard block. Operator confirmation is required for
-    /// activation, so an unconfirmed contract can NEVER reach `Pass`.
+    /// activation, so an unconfirmed contract can NEVER reach `Pass`. The
+    /// **LLM rubric** (Genesis P7) is an ADDITIVE sixth axis folded in by
+    /// [`Self::with_rubric`] AFTER this call (it can only tighten the verdict).
     #[must_use]
     pub fn compose(
         eval: EvalFloorOutcome,
@@ -321,6 +334,12 @@ impl GateVerdict {
             sop_total: sop.total,
             sop_pass_rate: sop.pass_rate,
             safety_verdict,
+            // The LLM rubric (P7) is folded in by `with_rubric`; default n/a.
+            rubric_applicable: false,
+            rubric_degraded: false,
+            rubric_score: 0.0,
+            rubric_min_dimension: 0.0,
+            rubric_verdict: "not_applicable".to_string(),
             role_contract: contract.role_contract,
             contract_digest,
             contract_confirmation: confirmation_token,
@@ -460,23 +479,6 @@ pub fn behaviour_contract_text(plan: &GenesisPlan) -> String {
         }
     }
     out.to_lowercase()
-}
-
-/// Project a [`GenesisPlan`] onto the safety judge's [`JudgeInput`]. Mirrors
-/// the projection `plan_or_broad` already uses so both paths feed the judge
-/// an identical view of the archetype plan.
-#[must_use]
-pub fn judge_input_for_plan(plan: &GenesisPlan) -> JudgeInput<'_> {
-    JudgeInput {
-        charter: &plan.charter,
-        persona_description: &plan.persona,
-        action_vocabulary: plan
-            .manifest
-            .actions
-            .as_ref()
-            .map(|a| a.actions.keys().cloned().collect())
-            .unwrap_or_default(),
-    }
 }
 
 #[cfg(test)]

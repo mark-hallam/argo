@@ -91,6 +91,15 @@ pub(super) fn build_final_payload(
             "sop_pass_rate": gate.sop_pass_rate,
             "sop_quiz_questions": sop_quiz_questions,
             "safety_verdict": gate.safety_verdict,
+            // LLM-graded capability rubric (Genesis P7). `rubric_applicable` is
+            // false when the rubric is flag-gated off (the deterministic floor
+            // is the gate); when on, `rubric_verdict` is pass/block/unavailable
+            // and the scores are the honest capability evidence.
+            "rubric_applicable": gate.rubric_applicable,
+            "rubric_verdict": gate.rubric_verdict,
+            "rubric_degraded": gate.rubric_degraded,
+            "rubric_score": gate.rubric_score,
+            "rubric_min_dimension": gate.rubric_min_dimension,
             "contract_confirmation": gate.contract_confirmation,
             "contract_digest": gate.contract_digest,
             "reasons": gate.reasons,
@@ -138,6 +147,10 @@ pub(super) async fn emit_audit(
         "gate_sop_passed": gate.sop_passed,
         "gate_sop_total": gate.sop_total,
         "gate_safety_verdict": gate.safety_verdict,
+        "gate_rubric_applicable": gate.rubric_applicable,
+        "gate_rubric_verdict": gate.rubric_verdict,
+        "gate_rubric_degraded": gate.rubric_degraded,
+        "gate_rubric_score": gate.rubric_score,
         "gate_contract_confirmation": gate.contract_confirmation,
         "gate_contract_digest": gate.contract_digest,
         "gate_reasons": gate.reasons,

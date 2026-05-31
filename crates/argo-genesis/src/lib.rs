@@ -49,6 +49,7 @@ pub mod genesis_judge;
 pub mod hire_gate;
 pub mod hire_gate_contract;
 pub mod hire_gate_disk;
+pub mod hire_gate_rubric;
 pub mod job_description;
 pub mod manifest_writer;
 pub mod materialize;
@@ -61,6 +62,7 @@ pub mod prompt_writer;
 pub mod quality;
 pub mod refine;
 pub mod role_contract;
+pub mod rubric;
 pub mod safety_judge;
 pub mod sop;
 pub mod sop_store;
@@ -94,12 +96,17 @@ pub use genesis_judge::{
     build_judge_prompt, judge_genesis_draft, GenesisJudgeClient, GenesisJudgeVerdict, JudgeInput,
 };
 pub use hire_gate::{
-    behaviour_contract_text, build_gate_eval_inputs, judge_input_for_plan, DeterministicEvalInput,
-    EvalFloorOutcome, GateEvalInputs, GateState, GateVerdict, SafetySignal, EVAL_PASS_RATE_FLOOR,
+    behaviour_contract_text, build_gate_eval_inputs, DeterministicEvalInput, EvalFloorOutcome,
+    GateEvalInputs, GateState, GateVerdict, SafetySignal, EVAL_PASS_RATE_FLOOR,
 };
 pub use hire_gate_contract::{ContractConfirmation, ContractGateInput};
+pub use hire_gate_rubric::judge_input_for_plan;
 pub use hire_gate_disk::{gate_inputs_from_dir, DiskGateInputs};
 pub use role_contract::{verify_contract_matches, ContractAction, RoleContract};
+pub use rubric::{
+    build_rubric_prompt, grade_rubric, RubricClient, RubricDimension, RubricOutcome, RubricVerdict,
+    DIMENSION_FLOOR, RUBRIC_PASS_FLOOR,
+};
 pub use sop::{
     build_sop_quiz, extract_sop_pdf_text, ingest_sop, SopComprehensionOutcome, SopKnowledge,
     SopQuestion, MIN_SOP_CHARS,

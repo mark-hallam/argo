@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::comprehension::ComprehensionOutcome;
+use crate::hire_gate_rubric::judge_input_for_plan;
 use crate::sop::SopComprehensionOutcome;
 use crate::materialize::materialize_spec;
 use crate::pipeline::plan;

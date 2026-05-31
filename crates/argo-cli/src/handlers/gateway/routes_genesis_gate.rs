@@ -19,13 +19,14 @@
 //! (`routes_workers_hire`) call [`run_hire_gate`] so neither path can
 //! activate a teammate that has not actually cleared the checks.
 
+use super::routes_genesis_rubric::run_rubric_axis;
 use super::routes_genesis_stream_llm::{complete_once, resolve_provider_id};
 use argo_genesis::{
-    build_comprehension_questions, build_gate_eval_inputs, gate_inputs_from_dir,
-    judge_genesis_draft, judge_input_for_plan, read_sop_knowledge, ComprehensionOutcome,
-    ComprehensionQuestion, ContractGateInput, DeterministicEvalInput, EvalFloorOutcome, GateVerdict,
-    GenesisJudgeClient, GenesisJudgeVerdict, GenesisPlan, JudgeInput, SafetySignal,
-    SopComprehensionOutcome, SopQuestion,
+    behaviour_contract_text, build_comprehension_questions, build_gate_eval_inputs,
+    gate_inputs_from_dir, judge_genesis_draft, judge_input_for_plan, read_sop_knowledge,
+    ComprehensionOutcome, ComprehensionQuestion, ContractGateInput, DeterministicEvalInput,
+    EvalFloorOutcome, GateVerdict, GenesisJudgeClient, GenesisJudgeVerdict, GenesisPlan, JudgeInput,
+    SafetySignal, SopComprehensionOutcome, SopQuestion,
 };
 use argo_eval::{run_eval, EvalMetric, EvalSubject, EvalTask};
 use argo_types::ArgoResult;
@@ -102,11 +103,19 @@ pub(super) async fn run_hire_gate_with_confirmation(
         None => SopComprehensionOutcome::not_applicable(),
     };
     let safety = run_safety_signal(judge_input_for_plan(plan)).await;
+    // The LLM-graded capability rubric (Genesis P7, DEC-025 #7). An ADDITIVE
+    // sixth axis on top of the deterministic floor: flag-gated off by default
+    // (`not_applicable`, vacuous pass — the floor stays the baseline), graded
+    // when `ARGO_GENESIS_LLM_RUBRIC=1`, and degraded fail-safe to `needs_review`
+    // when the LLM grader can't run. Uses the SAME behaviour-contract text the
+    // eval floor scores + the SAME judge projection the safety judge sees, so
+    // both LLM axes view one consistent teammate.
+    let rubric = run_rubric_axis(judge_input_for_plan(plan), &behaviour_contract_text(plan)).await;
     // The role-contract confirmation axis — derived truthfully from the SAME
     // manifest the P2 capability fence reads, resolved against the operator's
     // echoed digest.
     let contract_input = ContractGateInput::from_plan(plan, confirmed_digest);
-    GateVerdict::compose(eval, comprehension, sop, safety, contract_input)
+    GateVerdict::compose(eval, comprehension, sop, safety, contract_input).with_rubric(rubric)
 }
 
 /// Test-only convenience wrapper: the disk-fence gate with no operator
@@ -141,6 +150,10 @@ pub(super) async fn run_hire_gate_from_dir_with_confirmation(
         // confirm — a supplied digest cannot match a non-existent contract).
         // The SOP axis is not-applicable here: with no manifest there is no
         // teammate to grade, and the four real axes already fail closed.
+        // The four deterministic axes already fail closed (zero seeds, zero
+        // comprehension, degraded safety, no contract). The rubric is
+        // not-applicable — there is no teammate to grade — so it adds nothing;
+        // the verdict is already blocked/needs-review.
         return GateVerdict::compose(
             EvalFloorOutcome::from_counts(0, 0),
             ComprehensionOutcome::from_counts(0, 0),
@@ -149,7 +162,8 @@ pub(super) async fn run_hire_gate_from_dir_with_confirmation(
                 reason: "vertical manifest unreadable at hire-commit gate".to_string(),
             },
             ContractGateInput::resolve(None, confirmed_digest),
-        );
+        )
+        .with_rubric(argo_genesis::RubricOutcome::not_applicable());
     };
     let questions = build_comprehension_questions(&inputs.charter, &inputs.action_vocabulary);
     let eval = run_eval_floor(&inputs.seeds, &inputs.contract_text).await;
@@ -159,11 +173,17 @@ pub(super) async fn run_hire_gate_from_dir_with_confirmation(
     // byte-identical doc-comprehension verdict — no per-surface divergence.
     let sop = run_sop_comprehension_floor(vertical_dir).await;
     let safety = run_safety_signal(inputs.judge_input()).await;
+    // The LLM rubric (Genesis P7), re-graded against the disk-reconstructed
+    // behaviour contract + judge projection so the hire-commit fence reaches the
+    // SAME rubric verdict the SSE path did (no per-surface divergence). Flag-
+    // gated off by default → not-applicable; degraded fail-safe when on but the
+    // grader can't run.
+    let rubric = run_rubric_axis(inputs.judge_input(), &inputs.contract_text).await;
     // The truthful contract is derived from the IDENTICAL on-disk manifest the
     // P2 fence reads, so the SSE path and this fence confirm byte-identical
     // contracts (the digest the operator saw on the SSE payload matches here).
     let contract_input = ContractGateInput::resolve(Some(inputs.role_contract()), confirmed_digest);
-    GateVerdict::compose(eval, comprehension, sop, safety, contract_input)
+    GateVerdict::compose(eval, comprehension, sop, safety, contract_input).with_rubric(rubric)
 }
 
 /// Grade the doc-grounded SOP-comprehension quiz (Genesis P6 — the moat).
@@ -414,6 +434,14 @@ pub(super) mod test_overrides {
             sop_total: 0,
             sop_pass_rate: 0.0,
             safety_verdict: "allow".to_string(),
+            // The rubric is not applicable in the forced-pass fixture (the
+            // common case for downstream-persistence tests that aren't about
+            // the rubric axis).
+            rubric_applicable: false,
+            rubric_degraded: false,
+            rubric_score: 0.0,
+            rubric_min_dimension: 0.0,
+            rubric_verdict: "not_applicable".to_string(),
             role_contract: None,
             contract_digest: String::new(),
             contract_confirmation: "confirmed".to_string(),
