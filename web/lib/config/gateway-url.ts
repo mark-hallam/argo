@@ -71,7 +71,29 @@ export function isCanonicalLocalGateway(url: string = resolveGatewayUrl()): bool
   return normaliseGatewayUrl(url) === CANONICAL_LOCAL_GATEWAY_URL;
 }
 
-/** Build the `/health` URL the runtime probe pings. */
+/** Build the absolute `${base}/health` URL (server-to-server use). */
 export function gatewayHealthUrl(base: string = resolveGatewayUrl()): string {
   return `${normaliseGatewayUrl(base)}/health`;
+}
+
+/**
+ * The URL the boot-time `GatewayHealthProbe` should fetch.
+ *
+ * In the browser this returns the SAME-ORIGIN path `/health`, which
+ * Next's server-side rewrite (see `next.config.ts`) proxies through to
+ * `${gateway}/health`. This mirrors `gatewayBase()` in
+ * `lib/api/client.ts`: browser fetches NEVER cross origins (so the
+ * CSP `connect-src` / CORS boundary is never exercised), which means
+ * the probe reflects the health of the EXACT mechanism the real data
+ * path uses — the Next proxy — rather than a direct cross-origin
+ * `:7400` fetch the browser refuses (no `Access-Control-Allow-Origin`
+ * on the Rust gateway), which produced a false "Gateway unreachable"
+ * banner.
+ *
+ * Server-side (SSR / route handlers) there is no same-origin proxy, so
+ * this falls back to the absolute gateway `/health` URL.
+ */
+export function gatewayHealthProbeUrl(): string {
+  if (typeof window !== "undefined") return "/health";
+  return gatewayHealthUrl();
 }

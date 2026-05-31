@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   CANONICAL_LOCAL_GATEWAY_URL,
+  gatewayHealthProbeUrl,
   gatewayHealthUrl,
   isCanonicalLocalGateway,
   normaliseGatewayUrl,
@@ -75,5 +76,18 @@ describe("gateway-url canonical module", () => {
     expect(gatewayHealthUrl("http://127.0.0.1:7400/")).toBe(
       "http://127.0.0.1:7400/health",
     );
+  });
+
+  it("gatewayHealthProbeUrl returns the same-origin /health path in the browser", () => {
+    // happy-dom provides a `window`, so this exercises the browser
+    // branch: the boot probe must hit the same-origin Next proxy path,
+    // NEVER the absolute cross-origin gateway URL (which the browser
+    // refuses with no Access-Control-Allow-Origin → false banner).
+    expect(typeof window).toBe("object");
+    expect(gatewayHealthProbeUrl()).toBe("/health");
+    // Even with a remote gateway configured, the browser still probes
+    // same-origin (the proxy forwards server-side).
+    process.env.NEXT_PUBLIC_GATEWAY_URL = "https://api.skycot.com";
+    expect(gatewayHealthProbeUrl()).toBe("/health");
   });
 });

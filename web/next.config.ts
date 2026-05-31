@@ -48,6 +48,20 @@ const config: NextConfig = {
   async rewrites() {
     return [
       { source: "/api/v1/:path*", destination: `${gatewayUrl}/api/v1/:path*` },
+      // Same-origin gateway-liveness passthrough. The gateway exposes
+      // its combined health probe at the ROOT (`/health`), not under
+      // `/api/v1/*`. The boot-time `GatewayHealthProbe` must reflect the
+      // health of the REAL data path — which is this server-side Next
+      // proxy, not a direct browser fetch. A direct cross-origin
+      // `http://127.0.0.1:7400/health` fetch from the `:3000` SPA is
+      // refused by the browser (the Rust gateway sends no
+      // `Access-Control-Allow-Origin` header and has no OPTIONS handler),
+      // so the probe used to render a false "Gateway unreachable" banner
+      // even when the gateway was healthy and every `/api/v1/*` call
+      // succeeded. Routing the probe through this same-origin rewrite
+      // makes it server-to-server (no browser cross-origin, CSP/CORS
+      // boundary untouched) and reports the data path's true health.
+      { source: "/health", destination: `${gatewayUrl}/health` },
     ];
   },
   // Bare auth paths → canonical `/auth/*` (308 permanent). Operators or
