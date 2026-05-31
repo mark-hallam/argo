@@ -33,7 +33,7 @@ export type VerticalConfig = {
   headline: { lead: string; accent: string; tail?: string };
   /** Hero subhead (1 sentence) */
   subhead: string;
-  /** Hex accent color used for the hero tint + secondary accents */
+  /** CSS color token used for the hero tint + secondary accents */
   accent: string;
   /** Section heading for the 3-card workflow region */
   workflowHeading: { lead: string; accent: string };
@@ -76,7 +76,7 @@ const SALES: VerticalConfig = {
   headline: { lead: "Your AI sales team that", accent: "never sleeps." },
   subhead:
     "Hire teammates that qualify every inbound lead, draft outreach in your voice, and book demos while you're asleep. Approval-first, fully audit-logged, never off-brand.",
-  accent: "#8b5cf6",
+  accent: "var(--brand-primary)",
   workflowHeading: { lead: "Built for", accent: "sales teams" },
   workflows: [
     {
@@ -129,7 +129,7 @@ const RECRUITING: VerticalConfig = {
   },
   subhead:
     "AI teammates that read every application, schedule first-rounds against your calendar, and chase references so your recruiters can spend time with humans.",
-  accent: "#0891b2",
+  accent: "var(--brand-teal)",
   workflowHeading: { lead: "Built for", accent: "recruiting teams" },
   workflows: [
     {
@@ -186,7 +186,7 @@ const SUPPORT: VerticalConfig = {
   },
   subhead:
     "AI teammates that triage every ticket by urgency, draft replies in your tone, and escalate when they're stuck. Approval-first, audit-first, on-brand.",
-  accent: "#f59e0b",
+  accent: "var(--warning)",
   workflowHeading: { lead: "Built for", accent: "support teams" },
   workflows: [
     {
@@ -239,7 +239,7 @@ const FINANCE: VerticalConfig = {
   },
   subhead:
     "AI teammates that extract every invoice, reconcile vendor payments line-by-line, and flag the anomaly your spreadsheet would have missed. Fully audit-logged.",
-  accent: "#10b981",
+  accent: "var(--success)",
   workflowHeading: { lead: "Built for", accent: "finance teams" },
   workflows: [
     {
@@ -296,7 +296,7 @@ const MARKETING: VerticalConfig = {
   },
   subhead:
     "AI teammates that QA every outgoing piece against your brand voice, enrich the leads coming in, and pull a campaign digest before your Monday standup.",
-  accent: "#ec4899",
+  accent: "var(--brand-pink)",
   workflowHeading: { lead: "Built for", accent: "marketing teams" },
   workflows: [
     {
@@ -346,7 +346,7 @@ const OPS: VerticalConfig = {
   headline: { lead: "Run the back office on", accent: "autopilot." },
   subhead:
     "AI teammates that pull weekly status across every project, sync data between your CRM and ERP, and audit the skills your humans are spending time on.",
-  accent: "#64748b",
+  accent: "var(--muted-foreground)",
   workflowHeading: { lead: "Built for", accent: "ops teams" },
   workflows: [
     {

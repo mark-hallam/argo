@@ -1,10 +1,9 @@
 .cus {
-  --purple: #8b5cf6;
-  --pink: #ec4899;
-  --coral: #ff6b6b;
-  --teal: #14b8a6;
-  --cyan: #0891b2;
-  --ink: #1e1b4b;
+  --purple: var(--brand-primary);
+  --pink: var(--brand-pink);
+  --coral: var(--brand-coral);
+  --teal: var(--brand-teal);
+  --ink: var(--brand-ink);
   --ink-2: #3f3f46;
   --ink-3: #52525b;
   --bg: #fafaff;

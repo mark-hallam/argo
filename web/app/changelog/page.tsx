@@ -188,7 +188,10 @@ const TAG_COLORS: Record<EntryTag, { bg: string; fg: string }> = {
   UX: { bg: "rgba(139, 92, 246, 0.1)", fg: "#7c3aed" },
   Workflows: { bg: "rgba(236, 72, 153, 0.1)", fg: "#db2777" },
   Audit: { bg: "rgba(20, 184, 166, 0.12)", fg: "#0d9488" },
-  Connectors: { bg: "rgba(8, 145, 178, 0.1)", fg: "#0891b2" },
+  Connectors: {
+    bg: "color-mix(in oklch, var(--brand-teal) 10%, transparent)",
+    fg: "var(--brand-teal)",
+  },
   API: { bg: "rgba(99, 102, 241, 0.1)", fg: "#4f46e5" },
   Brand: { bg: "rgba(255, 107, 107, 0.12)", fg: "#e11d48" },
   Security: { bg: "rgba(244, 63, 94, 0.1)", fg: "#be123c" },

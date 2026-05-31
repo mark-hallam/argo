@@ -139,10 +139,10 @@ interface RoleMeta {
 }
 
 export const ROLE_META: Record<MemberRole, RoleMeta> = {
-  owner: { icon: <Crown size={13} />, color: "#8b5cf6", label: "Owner" },
-  admin: { icon: <Shield size={13} />, color: "#ec4899", label: "Admin" },
-  user: { icon: <User size={13} />, color: "#0891b2", label: "User" },
-  guest: { icon: <Eye size={13} />, color: "#52525b", label: "Guest" },
+  owner: { icon: <Crown size={13} />, color: "var(--brand-primary)", label: "Owner" },
+  admin: { icon: <Shield size={13} />, color: "var(--brand-pink)", label: "Admin" },
+  user: { icon: <User size={13} />, color: "var(--brand-teal)", label: "User" },
+  guest: { icon: <Eye size={13} />, color: "var(--muted-foreground)", label: "Guest" },
 };
 
 interface RoleDescription {

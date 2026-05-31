@@ -28,15 +28,15 @@ import { getTemplate, type TemplateStepKind } from "@/lib/workflow-templates";
  */
 
 const STEP_KIND_META: Record<TemplateStepKind, { icon: React.ReactNode; color: string; label: string }> = {
-  trigger: { icon: <Play size={14} />, color: "#10b981", label: "Trigger" },
-  skill_invoke: { icon: <Sparkles size={14} />, color: "#8b5cf6", label: "Skill" },
-  approval: { icon: <ShieldCheck size={14} />, color: "#f59e0b", label: "Approval gate" },
-  tool_call: { icon: <Database size={14} />, color: "#0891b2", label: "Tool call" },
-  notify: { icon: <MessageSquare size={14} />, color: "#ec4899", label: "Notify" },
-  decision: { icon: <GitBranch size={14} />, color: "#6366f1", label: "Decision" },
-  data: { icon: <Database size={14} />, color: "#52525b", label: "Data" },
-  mcp_invoke: { icon: <Plug size={14} />, color: "#7c3aed", label: "MCP connector" },
-  cu_action: { icon: <Monitor size={14} />, color: "#db2777", label: "Computer-use" },
+  trigger: { icon: <Play size={14} />, color: "var(--success)", label: "Trigger" },
+  skill_invoke: { icon: <Sparkles size={14} />, color: "var(--brand-primary)", label: "Skill" },
+  approval: { icon: <ShieldCheck size={14} />, color: "var(--warning)", label: "Approval gate" },
+  tool_call: { icon: <Database size={14} />, color: "var(--brand-teal)", label: "Tool call" },
+  notify: { icon: <MessageSquare size={14} />, color: "var(--brand-pink)", label: "Notify" },
+  decision: { icon: <GitBranch size={14} />, color: "var(--info)", label: "Decision" },
+  data: { icon: <Database size={14} />, color: "var(--muted-foreground)", label: "Data" },
+  mcp_invoke: { icon: <Plug size={14} />, color: "var(--brand-primary)", label: "MCP connector" },
+  cu_action: { icon: <Monitor size={14} />, color: "var(--brand-pink)", label: "Computer-use" },
 };
 
 export default function CustomerStoryPage({ params }: { params: Promise<{ slug: string }> }) {

@@ -29,7 +29,7 @@
 }
 .stub-title strong {
   font-weight: 400;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  background: var(--brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -142,9 +142,9 @@
   border-color: var(--border, #ece9f5);
 }
 .usage-chip-author {
-  background: rgba(8, 145, 178, 0.08);
-  color: #0e7490;
-  border-color: rgba(8, 145, 178, 0.24);
+  background: color-mix(in oklch, var(--brand-teal) 8%, transparent);
+  color: var(--brand-teal);
+  border-color: color-mix(in oklch, var(--brand-teal) 24%, transparent);
 }
 .usage-list {
   list-style: none;
@@ -345,9 +345,9 @@
   border-color: rgba(239, 68, 68, 0.32);
 }
 .learn-runs-verdict[data-verdict="auto"] {
-  background: rgba(8, 145, 178, 0.08);
-  color: #0e7490;
-  border-color: rgba(8, 145, 178, 0.32);
+  background: color-mix(in oklch, var(--brand-teal) 8%, transparent);
+  color: var(--brand-teal);
+  border-color: color-mix(in oklch, var(--brand-teal) 32%, transparent);
 }
 .learn-runs-latency {
   font-family: var(--font-mono);
@@ -373,7 +373,7 @@
   padding: 11px 20px;
   border-radius: 10px;
   border: 1px solid transparent;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  background: var(--brand-gradient);
   color: white;
   font-family: "Inter", sans-serif;
   font-size: 14px;

@@ -206,26 +206,26 @@ export interface SkyNoteData extends Record<string, unknown> {
 }
 
 export const STEP_KIND_META: Record<StepKind, { icon: ReactNode; color: string; label: string }> = {
-  trigger:      { icon: createElement(Play, { size: 14 }),          color: "#10b981", label: "Trigger" },
-  skill_invoke: { icon: createElement(Sparkles, { size: 14 }),      color: "#8b5cf6", label: "Skill" },
-  approval:     { icon: createElement(ShieldCheck, { size: 14 }),   color: "#f59e0b", label: "Approval gate" },
-  tool_call:    { icon: createElement(Database, { size: 14 }),      color: "#0891b2", label: "Tool call" },
-  notify:       { icon: createElement(MessageSquare, { size: 14 }), color: "#ec4899", label: "Notify" },
-  decision:     { icon: createElement(GitBranch, { size: 14 }),     color: "#6366f1", label: "Decision" },
-  data:         { icon: createElement(Database, { size: 14 }),      color: "#52525b", label: "Data" },
-  loop:         { icon: createElement(Repeat, { size: 14 }),        color: "#6366f1", label: "Loop" },
-  wait:         { icon: createElement(Clock, { size: 14 }),         color: "#6366f1", label: "Wait" },
-  sub_workflow: { icon: createElement(Layers, { size: 14 }),        color: "#0891b2", label: "Sub-workflow" },
-  http_request: { icon: createElement(Globe, { size: 14 }),         color: "#0891b2", label: "HTTP request" },
-  code:         { icon: createElement(Code2, { size: 14 }),         color: "#3b82f6", label: "Code" },
-  mcp_invoke:   { icon: createElement(Plug, { size: 14 }),          color: "#0891b2", label: "MCP connector" },
-  cu_action:    { icon: createElement(MonitorSmartphone, { size: 14 }), color: "#8b5cf6", label: "Computer-use action" },
+  trigger:      { icon: createElement(Play, { size: 14 }),          color: "var(--success)", label: "Trigger" },
+  skill_invoke: { icon: createElement(Sparkles, { size: 14 }),      color: "var(--brand-primary)", label: "Skill" },
+  approval:     { icon: createElement(ShieldCheck, { size: 14 }),   color: "var(--warning)", label: "Approval gate" },
+  tool_call:    { icon: createElement(Database, { size: 14 }),      color: "var(--brand-teal)", label: "Tool call" },
+  notify:       { icon: createElement(MessageSquare, { size: 14 }), color: "var(--brand-pink)", label: "Notify" },
+  decision:     { icon: createElement(GitBranch, { size: 14 }),     color: "var(--info)", label: "Decision" },
+  data:         { icon: createElement(Database, { size: 14 }),      color: "var(--muted-foreground)", label: "Data" },
+  loop:         { icon: createElement(Repeat, { size: 14 }),        color: "var(--info)", label: "Loop" },
+  wait:         { icon: createElement(Clock, { size: 14 }),         color: "var(--info)", label: "Wait" },
+  sub_workflow: { icon: createElement(Layers, { size: 14 }),        color: "var(--brand-teal)", label: "Sub-workflow" },
+  http_request: { icon: createElement(Globe, { size: 14 }),         color: "var(--brand-teal)", label: "HTTP request" },
+  code:         { icon: createElement(Code2, { size: 14 }),         color: "var(--info)", label: "Code" },
+  mcp_invoke:   { icon: createElement(Plug, { size: 14 }),          color: "var(--brand-teal)", label: "MCP connector" },
+  cu_action:    { icon: createElement(MonitorSmartphone, { size: 14 }), color: "var(--brand-primary)", label: "Computer-use action" },
 };
 
-export const TRUE_EDGE_STYLE = { stroke: "#8b5cf6", strokeWidth: 2 } as const;
-export const FALSE_EDGE_STYLE = { stroke: "#f59e0b", strokeWidth: 2 } as const;
-export const JOIN_EDGE_STYLE = { stroke: "#f59e0b", strokeWidth: 2, strokeDasharray: "5 4" } as const;
-export const LOOP_RETURN_EDGE_STYLE = { stroke: "#6366f1", strokeWidth: 1.5, strokeDasharray: "6 5" } as const;
+export const TRUE_EDGE_STYLE = { stroke: "var(--brand-primary)", strokeWidth: 2 } as const;
+export const FALSE_EDGE_STYLE = { stroke: "var(--warning)", strokeWidth: 2 } as const;
+export const JOIN_EDGE_STYLE = { stroke: "var(--warning)", strokeWidth: 2, strokeDasharray: "5 4" } as const;
+export const LOOP_RETURN_EDGE_STYLE = { stroke: "var(--info)", strokeWidth: 1.5, strokeDasharray: "6 5" } as const;
 
 export const COL_MAIN_X = 100;
 export const COL_LOOP_INDENT_X = 190;

@@ -36,11 +36,11 @@ const FALLBACK_VERTICALS: ReadonlyArray<readonly [string, string, string]> = [
  * accent per id; the data-driven list cycles the same palette).
  */
 const ACCENT_PALETTE = [
-  "#8b5cf6",
-  "#0891b2",
-  "#ec4899",
-  "#f59e0b",
-  "#14b8a6",
+  "var(--brand-primary)",
+  "var(--brand-teal)",
+  "var(--brand-pink)",
+  "var(--warning)",
+  "var(--brand-coral)",
 ] as const;
 
 function accentFor(index: number): string {

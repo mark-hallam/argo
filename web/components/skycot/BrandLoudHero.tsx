@@ -63,10 +63,10 @@ export function BrandLoudHero({
           margin: 24px 16px 0;
           padding: 28px 32px;
           border-radius: 18px;
-          background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #ff6b6b 100%);
+          background: var(--brand-gradient-3);
           color: white;
           overflow: hidden;
-          box-shadow: 0 16px 40px -16px rgba(139, 92, 246, 0.45);
+          box-shadow: 0 16px 40px -16px color-mix(in oklch, var(--brand-primary) 45%, transparent);
         }
         .skycot-brandloud-hero::before {
           content: "";

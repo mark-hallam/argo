@@ -23,6 +23,11 @@ interface PickerCandidate {
   risk: WorkflowRisk;
 }
 
+const PICKER_ACCENT = "var(--brand-teal)";
+const PICKER_ACCENT_TINT = "color-mix(in oklch, var(--brand-teal) 10%, transparent)";
+const PICKER_ACCENT_HOVER = "color-mix(in oklch, var(--brand-teal) 8%, transparent)";
+const PICKER_ACCENT_BORDER = "color-mix(in oklch, var(--brand-teal) 25%, transparent)";
+
 function displayName(name: string): string {
   return name.replace(/_/g, " ");
 }
@@ -152,7 +157,7 @@ export function SubWorkflowPicker({
                 width: 28,
                 height: 28,
                 borderRadius: 7,
-                background: "linear-gradient(135deg, #0891b2, #8b5cf6)",
+                background: "var(--brand-gradient)",
                 color: "white",
                 display: "grid",
                 placeItems: "center",
@@ -269,8 +274,8 @@ export function SubWorkflowPicker({
                   fontFamily: "Inter, sans-serif",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(8,145,178,0.08)";
-                  e.currentTarget.style.borderColor = "rgba(8,145,178,0.25)";
+                  e.currentTarget.style.background = PICKER_ACCENT_HOVER;
+                  e.currentTarget.style.borderColor = PICKER_ACCENT_BORDER;
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = "transparent";
@@ -281,14 +286,14 @@ export function SubWorkflowPicker({
                   style={{
                     padding: "2px 8px",
                     borderRadius: 999,
-                    background: "rgba(8,145,178,0.10)",
-                    border: "1px solid rgba(8,145,178,0.25)",
+                    background: PICKER_ACCENT_TINT,
+                    border: `1px solid ${PICKER_ACCENT_BORDER}`,
                     fontFamily: "var(--font-mono)",
                     fontSize: 9.5,
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
                     fontWeight: 700,
-                    color: "#0e7490",
+                    color: PICKER_ACCENT,
                     flexShrink: 0,
                     marginTop: 2,
                   }}

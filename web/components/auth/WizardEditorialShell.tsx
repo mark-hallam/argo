@@ -119,7 +119,7 @@ body:has(.wiz-editorial) {
 .wiz-editorial {
   --purple: #8b5cf6; --purple-deep: #6d28d9;
   --pink: #ec4899; --coral: #ff6b6b; --yellow: #fcd34d;
-  --teal: #14b8a6; --cyan: #0891b2;
+  --teal: var(--brand-teal);
   --ink: #1e1b4b; --ink-2: #3f3f46; --ink-3: #52525b; --ink-4: #a1a1aa;
   --paper-2: #f4f4f4; --bg: #fafaff;
   --line: #ece9f5; --line-2: #d1d1d1;

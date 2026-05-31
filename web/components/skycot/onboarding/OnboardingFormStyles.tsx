@@ -24,29 +24,23 @@ export function OnboardingFormStyles() {
   return (
     <style jsx global>{`
       .wiz-editorial {
-        --ob-purple: #8b5cf6;
+        --ob-purple: var(--brand-primary);
         --ob-purple-deep: #6d28d9;
-        --ob-pink: #ec4899;
-        --ob-coral: #ff6b6b;
-        --ob-yellow: #fcd34d;
-        --ob-teal: #14b8a6;
-        --ob-cyan: #0891b2;
-        --ob-ink: #1e1b4b;
+        --ob-pink: var(--brand-pink);
+        --ob-coral: var(--brand-coral);
+        --ob-yellow: var(--warning);
+        --ob-teal: var(--brand-teal);
+        --ob-ink: var(--brand-ink);
         --ob-ink-2: #3f3f46;
-        --ob-ink-3: #52525b;
+        --ob-ink-3: var(--muted-foreground);
         --ob-ink-4: #a1a1aa;
-        --ob-bg: #fafaff;
+        --ob-bg: var(--background);
         --ob-paper: #fafaf9;
         --ob-paper-2: #f4f4f4;
-        --ob-line: #ece9f5;
+        --ob-line: var(--border);
         --ob-line-2: #d1d1d1;
-        --ob-gradient: linear-gradient(135deg, var(--ob-purple), var(--ob-pink));
-        --ob-gradient-3: linear-gradient(
-          135deg,
-          var(--ob-purple),
-          var(--ob-pink),
-          var(--ob-coral)
-        );
+        --ob-gradient: var(--brand-gradient);
+        --ob-gradient-3: var(--brand-gradient-3);
       }
       .wiz-editorial .ob-stack {
         display: flex;

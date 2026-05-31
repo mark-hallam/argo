@@ -562,8 +562,8 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
         className="vland"
         style={
           {
-            "--accent-tint": hexToTint(accent, 0.13),
-            "--accent-eyebrow-bg": hexToTint(accent, 0.12),
+            "--accent-tint": accentToTint(accent, 0.13),
+            "--accent-eyebrow-bg": accentToTint(accent, 0.12),
             "--accent-eyebrow-fg": accent,
           } as React.CSSProperties
         }
@@ -717,10 +717,15 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
   );
 }
 
-/** Convert a #rrggbb hex to an `rgba()` tint at the requested alpha. */
-function hexToTint(hex: string, alpha: number): string {
-  const m = /^#?([a-f0-9]{6})$/i.exec(hex);
-  if (!m) return `rgba(139, 92, 246, ${alpha})`;
+/** Convert a CSS color token or #rrggbb hex to a tint at the requested alpha. */
+function accentToTint(color: string, alpha: number): string {
+  if (color.startsWith("var(")) {
+    return `color-mix(in oklch, ${color} ${Math.round(alpha * 100)}%, transparent)`;
+  }
+  const m = /^#?([a-f0-9]{6})$/i.exec(color);
+  if (!m) {
+    return `color-mix(in oklch, var(--brand-primary) ${Math.round(alpha * 100)}%, transparent)`;
+  }
   const n = parseInt(m[1], 16);
   const r = (n >> 16) & 0xff;
   const g = (n >> 8) & 0xff;

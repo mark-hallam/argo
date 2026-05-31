@@ -14,8 +14,8 @@ export function TeammateCardStyles() {
         background: var(--card, white);
         box-shadow:
           0 1px 2px rgba(0, 0, 0, 0.06),
-          0 32px 60px -16px rgba(139, 92, 246, 0.3),
-          inset 0 0 0 2px rgba(139, 92, 246, 0.12);
+          0 32px 60px -16px color-mix(in oklch, var(--brand-primary) 30%, transparent),
+          inset 0 0 0 2px color-mix(in oklch, var(--brand-primary) 12%, transparent);
         transition:
           transform 0.35s cubic-bezier(0.2, 0, 0, 1),
           box-shadow 0.35s cubic-bezier(0.2, 0, 0, 1);
@@ -27,16 +27,16 @@ export function TeammateCardStyles() {
       .holo-card:focus-visible {
         box-shadow:
           0 1px 2px rgba(0, 0, 0, 0.06),
-          0 32px 60px -16px rgba(139, 92, 246, 0.3),
-          inset 0 0 0 2px rgba(139, 92, 246, 0.12),
+          0 32px 60px -16px color-mix(in oklch, var(--brand-primary) 30%, transparent),
+          inset 0 0 0 2px color-mix(in oklch, var(--brand-primary) 12%, transparent),
           0 0 0 3px var(--ring);
       }
       .holo-card:hover {
         transform: translateY(-8px) rotate(-1deg) scale(1.015);
         box-shadow:
           0 1px 2px rgba(0, 0, 0, 0.06),
-          0 48px 80px -16px rgba(139, 92, 246, 0.45),
-          inset 0 0 0 2px rgba(139, 92, 246, 0.25);
+          0 48px 80px -16px color-mix(in oklch, var(--brand-primary) 45%, transparent),
+          inset 0 0 0 2px color-mix(in oklch, var(--brand-primary) 25%, transparent);
       }
       .holo-banner {
         position: relative;
@@ -197,9 +197,9 @@ export function TeammateCardStyles() {
         font-weight: 600;
         padding: 4px 10px;
         border-radius: 999px;
-        background: rgba(139, 92, 246, 0.08);
-        color: #6d28d9;
-        border: 1px solid rgba(139, 92, 246, 0.15);
+        background: color-mix(in oklch, var(--brand-primary) 8%, transparent);
+        color: var(--brand-primary);
+        border: 1px solid color-mix(in oklch, var(--brand-primary) 15%, transparent);
       }
       .holo-body {
         padding: 18px 24px 0;

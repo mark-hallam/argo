@@ -157,9 +157,9 @@ export function ApiKeysStyles() {
         border-color: rgba(139, 92, 246, 0.2);
       }
       .ak-pill-cohort {
-        background: rgba(8, 145, 178, 0.08);
-        color: #0e7490;
-        border-color: rgba(8, 145, 178, 0.2);
+        background: color-mix(in oklch, var(--brand-teal) 8%, transparent);
+        color: var(--brand-teal);
+        border-color: color-mix(in oklch, var(--brand-teal) 20%, transparent);
       }
       .ak-pill-revoked {
         background: rgba(220, 38, 38, 0.08);

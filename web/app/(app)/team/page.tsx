@@ -484,7 +484,7 @@ function TeamHero({
         : `${working} working right now · ${weeklyActions.toLocaleString()} actions this week.`;
   return (
     <BrandLoudHero
-      eyebrowDotColor="#f0fdf4"
+      eyebrowDotColor="var(--brand-primary-foreground)"
       eyebrowLabel="YOUR AI WORKFORCE · LIVE"
       pulseDot
       title={title}
@@ -502,4 +502,3 @@ function TeamHero({
     />
   );
 }
-

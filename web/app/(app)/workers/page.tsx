@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { BrandLoudHero } from "@/components/skycot/BrandLoudHero";
 import { HireStarterPrompts } from "@/components/empty-state/HireStarterPrompts";
 import { TeammateCard } from "@/components/skycot/TeammateCard";
 import { TeammateGrid } from "@/components/skycot/TeammateGrid";
@@ -33,7 +34,7 @@ export default function WorkersPage() {
 function WorkersFallback() {
   return (
     <>
-      <WorkersHeader />
+      <WorkersHero state="loading" />
       <div className="grid min-h-64 place-items-center" data-testid="workers-loading">
         <Loader2 className="size-5 animate-spin text-[var(--muted-foreground)]" aria-hidden />
       </div>
@@ -41,15 +42,38 @@ function WorkersFallback() {
   );
 }
 
-function WorkersHeader() {
+function WorkersHero({
+  state,
+  total = 0,
+}: {
+  state: "loading" | "empty" | "just-hired" | "redirecting";
+  total?: number;
+}) {
+  const sub =
+    state === "empty"
+      ? "Pick a starting point to hire a teammate with persistent memory, skills, audit trails, and approval gates."
+      : state === "just-hired"
+        ? "Review the new worker, then open their profile to inspect memory, skills, trust, and settings."
+      : state === "redirecting"
+        ? "Opening the canonical Team roster."
+        : "Fetching the live worker roster.";
+
   return (
-    <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-5">
-        <h1 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
-          Workers
-        </h1>
-      </div>
-    </div>
+    <BrandLoudHero
+      eyebrowDotColor="var(--brand-primary-foreground)"
+      eyebrowLabel="WORKERS · C2 ROSTER"
+      title="Workers"
+      sub={sub}
+      subMaxWidth={520}
+      shineDurationS={4.8}
+      kpis={
+        total > 0
+          ? [
+              { label: "Teammates", value: total.toLocaleString() },
+            ]
+          : undefined
+      }
+    />
   );
 }
 
@@ -76,7 +100,18 @@ function WorkersPageContent() {
 
   return (
     <>
-      <WorkersHeader />
+      <WorkersHero
+        state={
+          showLoader
+            ? hasWorkers
+              ? "redirecting"
+              : "loading"
+            : showGrid
+              ? "just-hired"
+              : "empty"
+        }
+        total={sortedWorkers.length}
+      />
       {showLoader ? (
         <div className="grid min-h-64 place-items-center" data-testid="workers-loading">
           <Loader2 className="size-5 animate-spin text-[var(--muted-foreground)]" aria-hidden />
