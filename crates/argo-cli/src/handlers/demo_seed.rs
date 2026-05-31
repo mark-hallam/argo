@@ -134,6 +134,12 @@ fn print_text_report(args: &DemoSeedArgs, report: &SeedReport, elapsed: std::tim
         report.orchestration_runs_created
     );
     println!();
+    println!("Seed-enrichment (REAL-but-empty surfaces — real rows the live endpoints serve):");
+    println!("  notifications_seeded:       {}", report.notifications_seeded);
+    println!("  workflow_runs_seeded:       {}", report.workflow_runs_seeded);
+    println!("  knowledge_docs_seeded:      {}", report.knowledge_docs_seeded);
+    println!("  trust_grades_set:           {}", report.trust_grades_set);
+    println!();
     println!("Cross-tenant invisibility (Scene 6 negative check):");
     println!("  foreign_workers_created:    {}", report.foreign_workers_created);
     println!("  foreign_skills_created:     {}", report.foreign_skills_created);

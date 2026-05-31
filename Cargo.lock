@@ -607,6 +607,7 @@ dependencies = [
  "argo-store",
  "argo-types",
  "argo-vertical",
+ "argo-workplace-knowledge",
  "async-trait",
  "chrono",
  "serde",

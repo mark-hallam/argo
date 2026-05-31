@@ -14,6 +14,7 @@ argo-identity = { path = "../argo-identity" }
 argo-audit = { path = "../argo-audit" }
 argo-skill = { path = "../argo-skill" }
 argo-vertical = { path = "../argo-vertical" }
+argo-workplace-knowledge = { path = "../argo-workplace-knowledge" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }

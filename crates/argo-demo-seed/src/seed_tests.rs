@@ -67,6 +67,19 @@ async fn skip_pass_a_seeds_dressing_only() {
     );
     assert!(!report.pass_a_real_llm);
 
+    // ── Seed-enrichment surfaces (REAL-but-empty gaps closed) ─────
+    // Broadcast bell notifications so the SPA never falls back to the
+    // SAMPLE_NOTIFICATIONS mock (it only fires on 404; an empty 200
+    // would render the "Nothing new." empty state).
+    assert_eq!(report.notifications_seeded, 5);
+    // Run history for the Scene-5 workflow so the run-history panel
+    // populates (7 runs: 5 ok, 1 failed, 1 running).
+    assert_eq!(report.workflow_runs_seeded, 7);
+    // Handbook docs so /settings/knowledge lists real pages.
+    assert_eq!(report.knowledge_docs_seeded, 4);
+    // Honest trust grade on every one of the eight hero teammates.
+    assert_eq!(report.trust_grades_set, 8);
+
     // Vacuous-pass guard (round-37 pattern): seeded tenant sees the
     // eight real hero teammates (incl. Marcus, DEC-028); a DIFFERENT
     // tenant sees zero.
@@ -117,6 +130,19 @@ async fn reseed_does_not_duplicate_approvals() {
         "re-seed must skip already-seeded retrains (got {})",
         second.retrain_records_seeded
     );
+
+    // Enrichment surfaces are seeded once and skip on re-seed (the
+    // notifications / workflow-runs / knowledge guards), so a re-seed
+    // to add a teammate never duplicates the bell, run history, or
+    // handbook. Trust grades re-apply the same value (no-op UPDATE).
+    assert_eq!(first.notifications_seeded, 5);
+    assert_eq!(second.notifications_seeded, 0, "re-seed must not duplicate the bell");
+    assert_eq!(first.workflow_runs_seeded, 7);
+    assert_eq!(second.workflow_runs_seeded, 0, "re-seed must not duplicate run history");
+    assert_eq!(first.knowledge_docs_seeded, 4);
+    assert_eq!(second.knowledge_docs_seeded, 0, "re-seed must not duplicate the handbook");
+    assert_eq!(first.trust_grades_set, 8);
+    assert_eq!(second.trust_grades_set, 8, "re-seed re-applies the same grades");
 }
 
 #[tokio::test]

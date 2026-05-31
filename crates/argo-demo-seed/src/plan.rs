@@ -139,4 +139,29 @@ pub struct SeedReport {
     /// `true` when the run drove real LLM turns; `false` when Pass A
     /// was skipped via [`SeedOptions::skip_pass_a_turns`].
     pub pass_a_real_llm: bool,
+    /// Number of broadcast `notifications` rows seeded so the
+    /// bell-popover (`GET /api/v1/notifications`) + unread-count badge
+    /// render real rows instead of the SPA's "Nothing new." empty
+    /// state (and the `SAMPLE_NOTIFICATIONS` fallback never fires).
+    /// The canonical seed inserts 5 rows mirroring seeded approvals /
+    /// workers / workflow runs. See [`crate::seed_notifications`].
+    pub notifications_seeded: usize,
+    /// Number of `workflow_run` rows seeded for the
+    /// `customer_research_followup` workflow so the Scene-5 detail
+    /// page's run-history aggregates + recent-runs table
+    /// (`GET /api/v1/verticals/<v>/workflows/<n>/runs`) populate from
+    /// real rows. The canonical seed inserts 7 runs. See
+    /// [`crate::seed_workflow_runs`].
+    pub workflow_runs_seeded: usize,
+    /// Number of `workplace_knowledge_doc` rows seeded so
+    /// `/settings/knowledge` (`GET /api/v1/knowledge`) lists real
+    /// handbook pages instead of an empty state. The canonical seed
+    /// inserts 4 docs (one per category). See [`crate::seed_knowledge`].
+    pub knowledge_docs_seeded: usize,
+    /// Number of hero workers given an honest non-zero
+    /// `worker.trust_grade` so the worker-detail Trust tab
+    /// (`GET /api/v1/workers/<id>/trust-grade`) shows a real grade
+    /// instead of the `draft`-default unreviewed floor. See
+    /// [`crate::seed_trust_grades`].
+    pub trust_grades_set: usize,
 }

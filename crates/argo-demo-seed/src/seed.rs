@@ -178,7 +178,55 @@ pub async fn run_canonical_v1_seed(
     report.skill_ir_seeded = crate::seed_skill_ir(store, opts.tenant_id).await?;
     report.skill_reeval_rows_seeded =
         crate::seed_skill_reeval_history(store, opts.tenant_id).await?;
+
+    // ── Seed-enrichment: REAL-but-empty surfaces ──────────────────
+    // Closes the NO-THEATER gaps where a real, correctly-gated endpoint
+    // exists but the seed left it empty (so the SPA showed a fake
+    // fallback or an empty state). Extracted into its own helper so
+    // this orchestration stays readable; runs last so every referenced
+    // entity (approvals, workers, workflow, skills) already exists.
+    seed_enrichment_surfaces(store, opts.tenant_id, &worker_ids, &mut report).await?;
+
     Ok(report)
+}
+
+/// Seed the four REAL-but-empty surfaces — bell notifications, Scene-5
+/// workflow run history, the `/settings/knowledge` handbook, and honest
+/// per-worker trust grades — onto `report`. Each writes real rows the
+/// live endpoint serves, tied to entities the caller already seeded;
+/// each is independently idempotent.
+async fn seed_enrichment_surfaces(
+    store: &Arc<SessionStore>,
+    tenant_id: TenantId,
+    worker_ids: &[argo_identity::WorkerId],
+    report: &mut SeedReport,
+) -> SeedResult<()> {
+    // Broadcast bell notifications — mirror the seeded approvals /
+    // workers / workflow so the bell shows real rows (the SPA's
+    // SAMPLE_NOTIFICATIONS fallback only fires on 404; an empty 200
+    // would otherwise render the "Nothing new." empty state).
+    report.notifications_seeded =
+        crate::seed_notifications::seed_notifications(store, tenant_id).await?;
+
+    // Run history for the Scene-5 `customer_research_followup` workflow
+    // so the detail page's run-history panel populates. NB
+    // `workflow_run` is NOT tenant-scoped (migration 18); rows match on
+    // the compound `{vertical}/{name}` key the live route builds.
+    report.workflow_runs_seeded = crate::seed_workflow_runs::seed_workflow_runs(store).await?;
+
+    // Workplace-knowledge handbook docs so /settings/knowledge lists
+    // real wiki pages.
+    report.knowledge_docs_seeded =
+        crate::seed_knowledge::seed_knowledge(store, tenant_id).await?;
+
+    // Honest per-worker trust grades so the Trust tab shows a real grade
+    // instead of the draft-default unreviewed floor. Positional-aligned
+    // with DEMO_SEED_PERSONAS, the same spine seed_demo_workers walked.
+    report.trust_grades_set =
+        crate::seed_trust_grades::seed_trust_grades(store, tenant_id, DEMO_SEED_PERSONAS, worker_ids)
+            .await?;
+
+    Ok(())
 }
 
 async fn seed_demo_workers(
