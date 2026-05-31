@@ -53,7 +53,9 @@ fn pitch_agent_pack_loads_and_adapts_into_vertical() {
     let loaded = adapt_pack_entry(&root, &manifest, &manifest.verticals[0])
         .expect("adapter must accept the Pitch template");
     assert_eq!(loaded.manifest.vertical.id, "pitch-agent");
-    assert_eq!(loaded.manifest.vertical.name, "Pitch");
+    // DEC-016: the pitch-agent persona was renamed Pitch -> Portia.
+    // `vertical.name` resolves from [worker].default_display_name.
+    assert_eq!(loaded.manifest.vertical.name, "Portia");
 }
 
 #[test]
