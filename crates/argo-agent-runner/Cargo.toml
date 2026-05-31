@@ -25,6 +25,11 @@ argo-tool = { path = "../argo-tool" }
 argo-types = { path = "../argo-types" }
 argo-vertical = { path = "../argo-vertical" }
 argo-workplace-knowledge = { path = "../argo-workplace-knowledge" }
+# Promoted from dev-dependencies: the production workflow-runner adapters
+# (`workflow_adapters.rs`) implement argo-workflow's ToolDispatcher /
+# WorkflowAuditEmitter / WorkflowCapabilityChecker seams, so the lib (not
+# just tests) needs it. argo-workflow deps only argo-types → no cycle.
+argo-workflow = { path = "../argo-workflow" }
 async-trait = { workspace = true }
 aws-config = { workspace = true }
 chrono = { workspace = true }
@@ -36,7 +41,6 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
-argo-workflow = { path = "../argo-workflow" }
 tempfile = "3"
 tokio = { workspace = true }
 tracing-subscriber = { workspace = true }

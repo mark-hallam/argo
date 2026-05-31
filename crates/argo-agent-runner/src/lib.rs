@@ -59,6 +59,12 @@ pub mod turn_routing;
 mod turn_vertical;
 mod turn_vertical_fence;
 mod turn_vertical_grants;
+/// Production adapters bridging the abstract [`argo_workflow`] runner
+/// seams (`ToolDispatcher` / `WorkflowAuditEmitter` /
+/// `WorkflowCapabilityChecker`) to the real `argo-mcp` / `argo-audit` /
+/// `argo-capability` subsystems, so the DAG executor can run with a real
+/// `WorkerSessionRunner`. See module docs for the crate-placement rationale.
+pub mod workflow_adapters;
 
 pub use helpers::{
     build_assistant_content, emit_event, lift_tool_blocks, message_from_row, price_for,
