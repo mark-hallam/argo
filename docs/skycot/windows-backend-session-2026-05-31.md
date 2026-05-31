@@ -496,3 +496,50 @@ exit 0. **Commit (on origin): `1e1797f8a`.**
   off my list. New 3-lane coordination map at `87a1daefe`.
 
 **Phase 3 final state: `HEAD == origin == 1e1797f8a`, 0/0, clean.**
+
+---
+
+## Phase 4 — teammate-eval scorecard (DEC-017) — VERIFIED + shipped
+
+**Picked:** deepen the teammate-eval harness, the DEC-017 instrument I
+extended in Phase 3 (the golden-suite runner). First verified state:
+the design doc (`docs/skycot/evals/TEAMMATE_PERFORMANCE_EVAL_HARNESS_DESIGN.md`)
+§5 names `scorecard.rs` as a missing piece; golden-company **fixtures
+already exist on disk** (`eval/companies/`, `eval/scenarios/mariah/marketplace_core.jsonl`
+— these are `TeammateScenario` rubrics: scenario-only, no outcomes). No
+scorecard code existed. So the next real gap = the aggregate scoring
+layer over those fixtures.
+
+**Shipped (commit `4c8f1f44e`):**
+- `crates/argo-eval/src/teammate_scorecard.rs` (244 LOC) —
+  `Scorecard{teammate,passed,total,axis_means[6],threshold}` with
+  `pass_rate()` / `weakest_axis()` (ties → earliest axis, deterministic) /
+  `axis_mean(name)` / `render()` (design's text shape, marks the weakest
+  axis); `build_scorecard(teammate,&[GoldenCase],threshold)` (runs the
+  Phase-3 runner, averages each axis); `parse_golden_cases(&str)` (pure,
+  line-numbered parse errors) + `load_golden_cases(path)` file wrapper —
+  the committed scenario-bank JSONL loader §5 calls for.
+- `crates/argo-eval/src/teammate_scorecard_tests.rs` (168 LOC, 14 tests).
+- Wired `pub mod teammate_scorecard;` (lib.rs) + declared in
+  `tests/surface_contract.rs` EXPECTED_PUBLIC_MODULES.
+
+**VERIFIED (Windows, this turn):** `cargo test -p argo-eval` →
+96 lib (14 new scorecard) + 8 surface-contract + 10 doctests, **0 failed**;
+`cargo clippy -p argo-eval --all-targets` → exit 0, 0 warnings on the new
+module.
+
+**Honest scope:** this is the deterministic scoring/aggregation layer.
+The live-teammate → `ScenarioOutcome` producer (turning a scenario rubric
+into a real scored outcome via an actual teammate run) remains the
+**deferred DEC-017 phase-2 seam** — so the FEATURE_MATRIX row stays
+🟡 **Partial** (no CLI/gateway caller either). Not claiming Live.
+
+**Ledger:** FEATURE_MATRIX "Teammate-eval" row extended (runner + scorecard),
+HTML regenerated — same commit. Coordination note: the Mac pushed 3
+commits mid-Phase-4 that touched FEATURE_MATRIX prose (Status-legend /
+At-a-glance section); resolved the rebase conflict by keeping the Mac's
+fuller prose (their `## At-a-glance` header) + regenerating HTML from the
+merged `.md` (never hand-merging generated HTML). My Teammate-eval row
+auto-merged cleanly (outside the conflict block).
+
+**Phase 4 final state: `HEAD == origin == 4c8f1f44e`, 0/0, clean.**
