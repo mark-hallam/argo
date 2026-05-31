@@ -37,6 +37,41 @@ program is structurally thin — `v1.4` in V11 was declared SHIPPED
 against minimal TUI/HTML slices, not against a real product
 surface.
 
+## Post-demo build order — A → B → C → D (operator-locked 2026-05-31, DEC-030)
+
+> **This is the operative forward order now.** It supersedes the pre-demo
+> P1–P5 priority ([DEC-023](../skycot/decisions/DEC-023-continuous-autonomous-priority-rank-order.md))
+> as the *next* thing to build. The seven historical tracks below (A–G/J/L/M)
+> are orientation only. Full rationale:
+> [DEC-030](../skycot/decisions/DEC-030-post-demo-frontier-order.md).
+
+With the v1.0 demo essentially **recordable** and the three-lane build push
+**complete** — Genesis P0–P7
+([DEC-025](../skycot/decisions/DEC-025-genesis-done-right-full-synthesis.md)),
+the 3 hero teammates (Portia, Grant, Marketing —
+[DEC-028](../skycot/decisions/DEC-028-marketing-teammate-third-hero.md)), the
+eval + self-improvement loop
+([DEC-017](../skycot/decisions/DEC-017-teammate-eval-harness-synthetic-golden-companies-first.md)),
+and frontend de-theatre + locked-design parity
+([DEC-007](../skycot/decisions/DEC-007-no-theater-in-demo.md) /
+[DEC-027](../skycot/decisions/DEC-027-brand-and-design-system-locked.md)) — the
+post-demo build order is locked. Work it **top-down, continuously** (finish the
+higher band before dropping to the next; a blocker is marked PARTIAL/BLOCKED and
+the next item picked up, never idle).
+
+| Order | Frontier | Scope | Status |
+|---|---|---|---|
+| **A** | **Voice** | Live voice for the teammates — OpenAI **discrete** STT (`/v1/audio/transcriptions`) + TTS (`/v1/audio/speech`), `ARGO_VOICE_PROVIDER`-selectable ([DEC-021](../skycot/decisions/DEC-021-voice-vendor-openai-for-launch-selectable.md)); Realtime socket is a later latency upgrade. Thin first slice = **"talk to Portia by voice"** (truth-bounded over the shipped `pitch-ask` logic). | 🟢 **ACTIVE FRONTIER** — the biggest differentiator / wow |
+| **B** | **Everything real** | Build the backend endpoints the UI currently marks **honestly-unavailable** (`/api/v1/api-keys`, `/api/v1/providers/keys`, `/api/doctor/channels`) + close remaining honest-gaps, so the *whole product* is real — not just the demo path. Continues the de-theatre work ([DEC-007](../skycot/decisions/DEC-007-no-theater-in-demo.md), [DEC-019](../skycot/decisions/DEC-019-beyond-the-demo-build-out-whole-platform.md)); honest empty states stay until the endpoint exists, never faked data. | 🗓️ Next after A |
+| **C** | **Marketplace depth** | More **real** hero teammates + a richer **hire-from-catalog** experience, beyond the three launch heroes. Each new teammate to the [DEC-025](../skycot/decisions/DEC-025-genesis-done-right-full-synthesis.md) production-quality + safety bar (does real work, can't ruin a business; draft-only/approval-gated where it acts publicly). | 🗓️ Planned |
+| **D** | **Enterprise governance** | SSO (SAML/OIDC), SCIM, BYOK, data-residency — enterprise-sales table-stakes. Last because it closes enterprise *sales*, not the funding-round *wow* ([DEC-023](../skycot/decisions/DEC-023-continuous-autonomous-priority-rank-order.md) P5). **Build note: the SSO crypto chain can't build on Windows** — plan D work on macOS/Linux. | 🗓️ Planned (v1.x tail) |
+
+All of A/B/C/D stay under NO THEATER
+([DEC-007](../skycot/decisions/DEC-007-no-theater-in-demo.md)) and truth-bounded
+reporting ([DEC-029](../skycot/decisions/DEC-029-truth-bounded-status-reporting.md)):
+real + tested + committed, honest empty states where a backend is absent, and no
+"done/live" claim without an artifact.
+
 ## The seven tracks
 
 | Track | Scope | Who | Status | Closes |
