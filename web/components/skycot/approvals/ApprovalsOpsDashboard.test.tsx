@@ -348,6 +348,48 @@ describe("ApprovalsOpsDashboard", () => {
     );
   });
 
+  it("renders the tier row as a width-filling flex layout, not a viewport-keyed fixed grid", () => {
+    // Regression for the severity-tier card crush: the row used to be a
+    // grid whose `xl:grid-cols-[minmax(0,1fr)_7.5rem_5rem_6.5rem_auto]`
+    // template starved the content track to ~85px on /approvals (the
+    // dashboard reserves a 320px aside, so at a 1280px viewport the row
+    // only has ~640px and four fixed metadata tracks consumed it). The
+    // fix makes the row a `flex flex-wrap` whose content block keeps
+    // `flex-1 min-w-0 basis-*` so it fills the real container width,
+    // with the SLA / $ / confidence / actions in a separate wrapping
+    // meta cluster.
+    renderWithClient(
+      <ApprovalsOpsDashboard
+        items={[item({ id: "tier-flex", severity: "p2" })]}
+      />,
+    );
+
+    const row = screen.getByTestId("recent-approval-tier-flex");
+    // Width-filling flex row, not the old crush-prone fixed grid.
+    expect(row.className).toContain("flex");
+    expect(row.className).toContain("flex-wrap");
+    expect(row.className).not.toContain("grid-cols-");
+
+    // Content block grows to fill the available width and can shrink.
+    const col = screen.getByTestId("approval-content-col-tier-flex");
+    expect(col.className).toContain("flex-1");
+    expect(col.className).toContain("min-w-0");
+
+    // Metadata + actions live in their own wrapping cluster so they no
+    // longer occupy fixed tracks that starve the content column.
+    const meta = screen.getByTestId("approval-meta-col-tier-flex");
+    expect(meta.className).toContain("flex-wrap");
+    expect(meta.querySelector('[data-testid="approval-row-actions-tier-flex"]')).not.toBeNull();
+
+    // The body keeps `line-clamp-2` for clamping AND must NOT carry the
+    // `block` utility, which would override line-clamp's `-webkit-box`
+    // display and let a long detail run unbounded once the column fills.
+    const body = col.querySelector("span.break-words");
+    expect(body).not.toBeNull();
+    expect(body?.className).toContain("line-clamp-2");
+    expect((body?.className ?? "").split(/\s+/)).not.toContain("block");
+  });
+
   it("refuses a row inline and fires the Refused toast", async () => {
     const user = userEvent.setup();
     renderWithClient(

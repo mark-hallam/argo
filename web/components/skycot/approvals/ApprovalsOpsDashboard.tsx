@@ -368,7 +368,7 @@ function ApprovalRow({
       onClick={drillIn ?? undefined}
       onKeyDown={onKeyDown}
       className={cn(
-        "grid w-full gap-3 px-4 py-4 text-left transition-colors",
+        "flex w-full flex-wrap items-center gap-x-4 gap-y-3 px-4 py-4 text-left transition-colors",
         clickable
           ? cn(
               "cursor-pointer hover:bg-[var(--muted)]/40",
@@ -377,17 +377,22 @@ function ApprovalRow({
               "focus-visible:ring-offset-[var(--card)]",
             )
           : "cursor-default",
-        // md..lg (768-1279px): 4-col grid with tighter widths, actions
-        // wrap to a second visual line via `col-span-4` below. Avoids
-        // the collision F4 documented when the inline action cluster
-        // landed alongside the original 5-col lg template.
-        "md:grid-cols-[minmax(0,1fr)_5.5rem_4rem_5rem]",
-        // xl (>=1280px): restore the full single-line 5-col layout.
-        "xl:grid-cols-[minmax(0,1fr)_7.5rem_5rem_6.5rem_auto]",
       )}
     >
+      {/* Flex (not grid) row: the content block keeps `min-w-0 flex-1`
+          so it fills the column WIDTH at any container size. The
+          earlier viewport-keyed `xl:grid-cols-[1fr 7.5rem 5rem 6.5rem
+          auto]` template crushed this block to ~85px on /approvals
+          because the dashboard reserves a 320px aside — at a 1280px
+          viewport the row only has ~640px, and four fixed metadata
+          tracks (~480px) starved the `1fr` content track. Flex tracks
+          the real container width, so the text fills and the metadata
+          + actions cluster (below) sits inline when there's room and
+          wraps as a unit when there isn't — matching the chronological
+          TODAY card. `basis-[16rem]` lets content claim the row before
+          the cluster wraps. */}
       <div
-        className="flex min-w-0 gap-3"
+        className="flex min-w-0 flex-1 basis-[16rem] gap-3"
         data-testid={`approval-content-col-${item.id}`}
       >
         <span
@@ -404,7 +409,7 @@ function ApprovalRow({
           <span className="block truncate text-sm font-semibold text-[var(--foreground)]">
             {item.verb}
           </span>
-          <span className="mt-1 line-clamp-2 block break-words text-xs text-[var(--muted-foreground)]">
+          <span className="mt-1 line-clamp-2 break-words text-xs text-[var(--muted-foreground)]">
             {item.worker.name} · {item.detail}
           </span>
           <span className="mt-2 inline-flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted-foreground)]">
@@ -414,28 +419,35 @@ function ApprovalRow({
           </span>
         </span>
       </div>
-      <span className="self-center">
-        {item.slaExpiresAt ? <SLABar expiresAt={item.slaExpiresAt} /> : null}
-      </span>
-      <span className="self-center md:text-right">
-        <DollarAtRisk amount={item.dollarAtRisk} currency={item.currency} />
-      </span>
-      <span className="self-center">
-        {typeof item.confidence === "number" ? (
-          <ConfidenceDonut value={item.confidence} size={28} />
-        ) : (
-          <span className="text-xs text-[var(--muted-foreground)]">No confidence</span>
-        )}
-      </span>
-      <span className="self-center justify-self-end md:col-span-4 xl:col-span-1">
-        <ApprovalRowActions
-          approvalId={item.id}
-          severity={severity}
-          onApprove={onApprove}
-          onRefuse={onRefuse}
-          disabled={disabled}
-        />
-      </span>
+      <div
+        className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-2"
+        data-testid={`approval-meta-col-${item.id}`}
+      >
+        {item.slaExpiresAt ? (
+          <span className="shrink-0">
+            <SLABar expiresAt={item.slaExpiresAt} />
+          </span>
+        ) : null}
+        <span className="shrink-0 text-right">
+          <DollarAtRisk amount={item.dollarAtRisk} currency={item.currency} />
+        </span>
+        <span className="shrink-0">
+          {typeof item.confidence === "number" ? (
+            <ConfidenceDonut value={item.confidence} size={28} />
+          ) : (
+            <span className="text-xs text-[var(--muted-foreground)]">No confidence</span>
+          )}
+        </span>
+        <span className="shrink-0">
+          <ApprovalRowActions
+            approvalId={item.id}
+            severity={severity}
+            onApprove={onApprove}
+            onRefuse={onRefuse}
+            disabled={disabled}
+          />
+        </span>
+      </div>
     </div>
   );
 }
