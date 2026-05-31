@@ -12,6 +12,7 @@ const SHELL_FILE = join(
   "auth",
   "WizardEditorialShell.tsx",
 );
+const GLOBALS_FILE = join(REPO_ROOT, "web", "app", "globals.css");
 
 function relLuminance(r: number, g: number, b: number): number {
   const channel = (c: number) => {
@@ -43,13 +44,28 @@ function readTokenInWizEditorial(token: string): string {
   const block = css.match(/\.wiz-editorial\s*\{([\s\S]*?)\n\}/);
   expect(block, ".wiz-editorial block missing from WizardEditorialShell").not.toBeNull();
   // Match the LAST declaration of the token in the block (CSS cascade).
-  const re = new RegExp(`--${token}:\\s*(#[0-9a-fA-F]{6})\\s*;`, "g");
+  const re = new RegExp(`--${token}:\\s*([^;]+)\\s*;`, "g");
   const matches = Array.from(block![1].matchAll(re));
   expect(
     matches.length,
-    `--${token} hex value missing from .wiz-editorial`,
+    `--${token} declaration missing from .wiz-editorial`,
   ).toBeGreaterThan(0);
-  return matches[matches.length - 1][1];
+  return matches[matches.length - 1][1].trim();
+}
+
+function readGlobalHexToken(token: string): string {
+  const css = readFileSync(GLOBALS_FILE, "utf8");
+  const match = css.match(new RegExp(`--${token}:\\s*(#[0-9a-fA-F]{6})\\s*;`));
+  expect(match, `--${token} hex value missing from globals.css`).not.toBeNull();
+  return match![1];
+}
+
+function resolveHex(value: string): string {
+  const literal = value.match(/^#[0-9a-fA-F]{6}$/);
+  if (literal) return literal[0];
+  const token = value.match(/^var\(--([a-z0-9-]+)\)$/i);
+  expect(token, `Expected a hex literal or single-token var(), got ${value}`).not.toBeNull();
+  return readGlobalHexToken(token![1]);
 }
 
 /**
@@ -63,20 +79,23 @@ function readTokenInWizEditorial(token: string): string {
  */
 describe("hire wizard a11y — locked WizardEditorialShell color tokens", () => {
   it("locks --foreground to dark-ink (>=4.5:1 against the wizard's light bg)", () => {
-    const foreground = readTokenInWizEditorial("foreground");
-    const background = readTokenInWizEditorial("background");
+    const foreground = resolveHex(readTokenInWizEditorial("foreground"));
+    const background = resolveHex(readTokenInWizEditorial("background"));
     const ratio = contrastRatio(hexToRgb(foreground), hexToRgb(background));
     expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
 
   it("locks --muted-foreground to a slate-600-equivalent passing 4.5:1", () => {
-    const muted = readTokenInWizEditorial("muted-foreground");
-    const background = readTokenInWizEditorial("background");
+    const muted = resolveHex(readTokenInWizEditorial("muted-foreground"));
+    const background = resolveHex(readTokenInWizEditorial("background"));
     const ratio = contrastRatio(hexToRgb(muted), hexToRgb(background));
     expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("pins --background to the warm-near-white F1 page color", () => {
-    expect(readTokenInWizEditorial("background").toLowerCase()).toBe("#fafaff");
+  it("pins --background to the warm-near-white F1 brand token", () => {
+    expect(readTokenInWizEditorial("background")).toBe("var(--brand-bg)");
+    expect(resolveHex(readTokenInWizEditorial("background")).toLowerCase()).toBe(
+      "#fafaff",
+    );
   });
 });

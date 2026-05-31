@@ -47,8 +47,8 @@ export function WizardSkeleton({
           display: "grid",
           gridTemplateColumns: "1fr auto 1fr",
           alignItems: "center",
-          borderBottom: "1px solid #ece9f5",
-          background: "rgba(255,255,255,0.7)",
+          borderBottom: "1px solid var(--brand-line)",
+          background: "color-mix(in oklab, var(--brand-paper) 70%, transparent)",
           backdropFilter: "blur(12px)",
         }}
       >
@@ -65,11 +65,19 @@ export function WizardSkeleton({
           />
           <div
             className="animate-pulse"
-            style={{ width: 80, height: 14, borderRadius: 4, background: "#ece9f5" }}
+            style={{
+              width: 80,
+              height: 14,
+              borderRadius: 4,
+              background: "var(--brand-line)",
+            }}
           />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 30, height: 10, borderRadius: 3, background: "#ece9f5" }} className="animate-pulse" />
+          <div
+            style={{ width: 30, height: 10, borderRadius: 3, background: "var(--brand-line)" }}
+            className="animate-pulse"
+          />
           <div style={{ display: "flex", gap: 4, margin: "0 12px" }}>
             {Array.from({ length: TOTAL_STEPS }).map((_, idx) => {
               const filled = idx + 1 <= filledUpTo;
@@ -83,17 +91,26 @@ export function WizardSkeleton({
                     borderRadius: 2,
                     background: filled
                       ? "linear-gradient(135deg, var(--primary), var(--gradient-end))"
-                      : "#f4f4f4",
+                      : "var(--brand-paper-2)",
                   }}
                 />
               );
             })}
           </div>
-          <div style={{ width: 56, height: 10, borderRadius: 3, background: "#ece9f5" }} className="animate-pulse" />
+          <div
+            style={{ width: 56, height: 10, borderRadius: 3, background: "var(--brand-line)" }}
+            className="animate-pulse"
+          />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16, justifyContent: "flex-end" }}>
-          <div style={{ width: 50, height: 28, borderRadius: 7, background: "#ece9f5" }} className="animate-pulse" />
-          <div style={{ width: 80, height: 14, borderRadius: 4, background: "#ece9f5" }} className="animate-pulse" />
+          <div
+            style={{ width: 50, height: 28, borderRadius: 7, background: "var(--brand-line)" }}
+            className="animate-pulse"
+          />
+          <div
+            style={{ width: 80, height: 14, borderRadius: 4, background: "var(--brand-line)" }}
+            className="animate-pulse"
+          />
         </div>
       </header>
       <main
@@ -111,7 +128,7 @@ export function WizardSkeleton({
             width: 140,
             height: 24,
             borderRadius: 999,
-            background: "#ece9f5",
+            background: "var(--brand-line)",
             marginBottom: 28,
           }}
         />
@@ -122,7 +139,7 @@ export function WizardSkeleton({
             width: "min(600px, 80%)",
             height: 64,
             borderRadius: 10,
-            background: "#ece9f5",
+            background: "var(--brand-line)",
           }}
         />
         <div
@@ -132,7 +149,7 @@ export function WizardSkeleton({
             width: "min(420px, 60%)",
             height: 18,
             borderRadius: 5,
-            background: "#ece9f5",
+            background: "var(--brand-line)",
           }}
         />
         <div
@@ -142,14 +159,14 @@ export function WizardSkeleton({
             maxWidth: 640,
             height: 160,
             borderRadius: 14,
-            background: "white",
-            border: "1px solid #ece9f5",
+            background: "var(--brand-paper)",
+            border: "1px solid var(--brand-line)",
           }}
         />
         <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
           <div
             className="animate-pulse"
-            style={{ width: 110, height: 56, borderRadius: 14, background: "#ece9f5" }}
+            style={{ width: 110, height: 56, borderRadius: 14, background: "var(--brand-line)" }}
           />
           <div
             className="animate-pulse"
@@ -157,7 +174,8 @@ export function WizardSkeleton({
               width: 180,
               height: 56,
               borderRadius: 14,
-              background: "linear-gradient(135deg, #d8c7f7, #f5c5d8)",
+              background:
+                "linear-gradient(135deg, color-mix(in oklab, var(--brand-primary) 28%, var(--brand-paper)), color-mix(in oklab, var(--brand-pink) 24%, var(--brand-paper)))",
             }}
           />
         </div>

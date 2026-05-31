@@ -12,8 +12,8 @@ const useIsomorphicLayoutEffect =
   typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 const authLightInlineStyle = {
-  background: "#fafaff",
-  color: "#1e1b4b",
+  background: "var(--brand-bg)",
+  color: "var(--brand-ink)",
   colorScheme: "light",
 } as const;
 
@@ -87,20 +87,20 @@ export function AuthEditorialShell({
     <>
       <style>{`
         .auth-editorial {
-          --purple: #8b5cf6;
-          --purple-deep: #6d28d9;
-          --pink: #ec4899;
-          --coral: #ff6b6b;
-          --teal: #14b8a6;
-          --ink: #1e1b4b;
-          --ink-2: #3f3f46;
-          --ink-3: #52525b;
-          --ink-4: #a1a1aa;
-          --bg: #fafaff;
-          --line: #ece9f5;
-          --line-2: #d1d1d1;
-          --gradient: linear-gradient(135deg, var(--purple), var(--pink));
-          --gradient-3: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
+          --purple: var(--brand-primary);
+          --purple-deep: var(--brand-purple-deep);
+          --pink: var(--brand-pink);
+          --coral: var(--brand-coral);
+          --teal: var(--brand-teal);
+          --ink: var(--brand-ink);
+          --ink-2: var(--brand-ink-2);
+          --ink-3: var(--brand-ink-3);
+          --ink-4: var(--brand-ink-4);
+          --bg: var(--brand-bg);
+          --line: var(--brand-line);
+          --line-2: var(--brand-line-strong);
+          --gradient: var(--brand-gradient);
+          --gradient-3: var(--brand-gradient-3);
           font-family: "Inter", sans-serif;
           background: var(--bg);
           color: var(--ink);
@@ -118,7 +118,7 @@ export function AuthEditorialShell({
           right: -10%;
           width: 700px;
           height: 700px;
-          background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
+          background: radial-gradient(circle, color-mix(in oklab, var(--purple) 15%, transparent) 0%, transparent 70%);
           z-index: 0;
           pointer-events: none;
         }
@@ -129,7 +129,7 @@ export function AuthEditorialShell({
           left: -10%;
           width: 800px;
           height: 800px;
-          background: radial-gradient(circle, rgba(236, 72, 153, 0.1) 0%, transparent 70%);
+          background: radial-gradient(circle, color-mix(in oklab, var(--pink) 10%, transparent) 0%, transparent 70%);
           z-index: 0;
           pointer-events: none;
         }
@@ -154,7 +154,7 @@ export function AuthEditorialShell({
           height: 28px;
           border-radius: 7px;
           background: var(--gradient);
-          box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.3);
+          box-shadow: 0 4px 12px -2px color-mix(in oklab, var(--purple) 30%, transparent);
         }
         .auth-brand-name {
           font-family: var(--font-audiowide);
@@ -299,7 +299,7 @@ export function AuthEditorialShell({
         }
         .sso-btn-active:hover {
           border-color: var(--purple);
-          box-shadow: 0 4px 14px -6px rgba(139, 92, 246, 0.4);
+          box-shadow: 0 4px 14px -6px color-mix(in oklab, var(--purple) 40%, transparent);
         }
         .sso-btn-active:active {
           transform: translateY(1px);
@@ -310,8 +310,12 @@ export function AuthEditorialShell({
         }
         .sso-btn-highlight {
           border-color: var(--purple);
-          background: linear-gradient(135deg, rgba(139, 92, 246, 0.06), rgba(236, 72, 153, 0.06));
-          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.08);
+          background: linear-gradient(
+            135deg,
+            color-mix(in oklab, var(--purple) 6%, transparent),
+            color-mix(in oklab, var(--pink) 6%, transparent)
+          );
+          box-shadow: 0 0 0 3px color-mix(in oklab, var(--purple) 8%, transparent);
         }
         .divider {
           display: flex;
@@ -364,7 +368,7 @@ export function AuthEditorialShell({
         }
         .field-input:focus {
           border-color: var(--purple);
-          box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
+          box-shadow: 0 0 0 4px color-mix(in oklab, var(--purple) 10%, transparent);
         }
         .form-error {
           font-size: 13px;
@@ -376,12 +380,12 @@ export function AuthEditorialShell({
           padding: 15px 22px;
           border-radius: 12px;
           background: var(--gradient);
-          color: white;
+          color: var(--brand-gradient-foreground);
           border: none;
           font-size: 15px;
           font-weight: 700;
           cursor: pointer;
-          box-shadow: 0 6px 20px -4px rgba(139, 92, 246, 0.45);
+          box-shadow: 0 6px 20px -4px color-mix(in oklab, var(--purple) 45%, transparent);
           margin-top: 6px;
           letter-spacing: -0.005em;
           display: flex;
@@ -405,7 +409,7 @@ export function AuthEditorialShell({
           font-size: 11px;
           padding: 2px 7px;
           border-radius: 5px;
-          background: rgba(255, 255, 255, 0.25);
+          background: color-mix(in oklab, var(--brand-gradient-foreground) 25%, transparent);
         }
         .below-form {
           margin-top: 18px;

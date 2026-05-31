@@ -257,8 +257,8 @@ const SETTINGS_TABS_OVERFLOW_STYLES = `
   left: 7px;
   background: linear-gradient(
     90deg,
-    var(--settings-card, #ffffff) 0%,
-    color-mix(in srgb, var(--settings-card, #ffffff) 0%, transparent) 100%
+    var(--settings-card, var(--card)) 0%,
+    color-mix(in srgb, var(--settings-card, var(--card)) 0%, transparent) 100%
   );
   border-radius: 7px 0 0 7px;
 }
@@ -266,8 +266,8 @@ const SETTINGS_TABS_OVERFLOW_STYLES = `
   right: 7px;
   background: linear-gradient(
     270deg,
-    var(--settings-card, #ffffff) 0%,
-    color-mix(in srgb, var(--settings-card, #ffffff) 0%, transparent) 100%
+    var(--settings-card, var(--card)) 0%,
+    color-mix(in srgb, var(--settings-card, var(--card)) 0%, transparent) 100%
   );
   border-radius: 0 7px 7px 0;
 }
@@ -288,11 +288,11 @@ const SETTINGS_TABS_OVERFLOW_STYLES = `
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  border: 1px solid var(--settings-border, #e5e7eb);
-  background: var(--settings-card, #ffffff);
-  color: var(--settings-ink, #1f2937);
+  border: 1px solid var(--settings-border, var(--border));
+  background: var(--settings-card, var(--card));
+  color: var(--settings-ink, var(--foreground));
   cursor: pointer;
-  box-shadow: 0 6px 14px -10px rgba(15, 23, 42, 0.4);
+  box-shadow: 0 6px 14px -10px color-mix(in oklab, var(--foreground) 40%, transparent);
   opacity: 0;
   pointer-events: none;
   transition: opacity 140ms ease, background 140ms ease;
@@ -303,10 +303,10 @@ const SETTINGS_TABS_OVERFLOW_STYLES = `
   height: 14px;
 }
 .settings-tabs-scroll-button:hover {
-  background: var(--settings-soft, color-mix(in srgb, #f4f4f5 68%, transparent));
+  background: var(--settings-soft, color-mix(in srgb, var(--muted) 68%, transparent));
 }
 .settings-tabs-scroll-button:focus-visible {
-  outline: 2px solid var(--ring, #6366f1);
+  outline: 2px solid var(--ring);
   outline-offset: 2px;
   opacity: 1;
   pointer-events: auto;

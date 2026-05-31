@@ -90,10 +90,11 @@ export function WizardErrorState({
               type="button"
               onClick={onReset}
               data-testid="wizard-error-state-reset"
-              className="inline-flex items-center gap-2 rounded-[var(--radius-md)] px-4 py-2 text-sm font-semibold text-white"
+              className="inline-flex items-center gap-2 rounded-[var(--radius-md)] px-4 py-2 text-sm font-semibold text-[var(--brand-gradient-foreground)]"
               style={{
-                background: "linear-gradient(135deg, #8b5cf6, #ec4899)",
-                boxShadow: "0 4px 12px -2px rgba(139,92,246,0.4)",
+                background: "var(--brand-gradient)",
+                boxShadow:
+                  "0 4px 12px -2px color-mix(in oklab, var(--brand-primary) 40%, transparent)",
               }}
             >
               <RotateCw className="size-3.5" />

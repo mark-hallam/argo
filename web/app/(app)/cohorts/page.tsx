@@ -269,7 +269,7 @@ function CohortsHero({
   }
   return (
     <BrandLoudHero
-      eyebrowDotColor="#ddd6fe"
+      eyebrowDotColor="var(--brand-gradient-foreground)"
       eyebrowLabel="COHORTS"
       title={title}
       sub={sub}

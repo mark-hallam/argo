@@ -20,7 +20,7 @@ const rowStyle: CSSProperties = {
   alignItems: "center",
   gap: 12,
   fontSize: 14.5,
-  color: "#1e1b4b",
+  color: "var(--brand-ink)",
 };
 
 function tickStyle(filled: boolean): CSSProperties {
@@ -33,11 +33,9 @@ function tickStyle(filled: boolean): CSSProperties {
     borderRadius: 999,
     fontSize: 13,
     fontWeight: 700,
-    color: filled ? "white" : "#a1a1aa",
-    background: filled
-      ? "linear-gradient(135deg, #8b5cf6, #ec4899)"
-      : "transparent",
-    border: filled ? "none" : "1.5px solid #d1d1d1",
+    color: filled ? "var(--brand-gradient-foreground)" : "var(--brand-ink-4)",
+    background: filled ? "var(--brand-gradient)" : "transparent",
+    border: filled ? "none" : "1.5px solid var(--brand-line-strong)",
   };
 }
 
@@ -61,16 +59,17 @@ export function InstallReceipt({ receipt, onPickAgain, onContinue }: Props) {
       style={{
         padding: "28px 24px 24px",
         borderRadius: 18,
-        border: "1px solid #ece9f5",
-        background: "rgba(255, 255, 255, 0.85)",
-        boxShadow: "0 12px 36px -16px rgba(30, 27, 75, 0.12)",
+        border: "1px solid var(--brand-line)",
+        background: "color-mix(in oklab, var(--brand-paper) 85%, transparent)",
+        boxShadow:
+          "0 12px 36px -16px color-mix(in oklab, var(--brand-ink) 12%, transparent)",
       }}
     >
       <h2
         style={{
           fontSize: 20,
           fontWeight: 700,
-          color: "#1e1b4b",
+          color: "var(--brand-ink)",
           letterSpacing: "-0.015em",
           margin: 0,
         }}

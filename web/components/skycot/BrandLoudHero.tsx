@@ -64,7 +64,7 @@ export function BrandLoudHero({
           padding: 28px 32px;
           border-radius: 18px;
           background: var(--brand-gradient-3);
-          color: white;
+          color: var(--brand-gradient-foreground);
           overflow: hidden;
           box-shadow: 0 16px 40px -16px color-mix(in oklch, var(--brand-primary) 45%, transparent);
         }
@@ -75,7 +75,7 @@ export function BrandLoudHero({
           background: linear-gradient(
             115deg,
             transparent 30%,
-            rgba(255, 255, 255, 0.18) 50%,
+            color-mix(in oklab, var(--brand-gradient-foreground) 18%, transparent) 50%,
             transparent 70%
           );
           transform: translateX(-100%);
@@ -125,10 +125,10 @@ export function BrandLoudHero({
           letter-spacing: 0.2em;
           text-transform: uppercase;
           font-weight: 700;
-          color: rgba(255, 255, 255, 0.85);
+          color: color-mix(in oklab, var(--brand-gradient-foreground) 85%, transparent);
           padding: 4px 12px;
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.16);
+          background: color-mix(in oklab, var(--brand-gradient-foreground) 16%, transparent);
           backdrop-filter: blur(8px);
           margin-bottom: 14px;
         }
@@ -136,10 +136,10 @@ export function BrandLoudHero({
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: var(--skycot-bl-dot-color, #f0fdf4);
+          background: var(--skycot-bl-dot-color, var(--brand-gradient-foreground));
         }
         .skycot-brandloud-eyebrow-dot.is-pulse {
-          box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
+          box-shadow: 0 0 6px color-mix(in oklab, var(--brand-gradient-foreground) 90%, transparent);
           animation: skycot-brandloud-pulse 1.6s cubic-bezier(0.42, 0, 0.58, 1) infinite;
         }
         @keyframes skycot-brandloud-pulse {
@@ -153,10 +153,14 @@ export function BrandLoudHero({
           font-weight: 400;
           letter-spacing: 0.005em;
           margin: 0;
-          color: white;
+          color: var(--brand-gradient-foreground);
         }
         .skycot-brandloud-title-accent {
-          background: linear-gradient(135deg, #fff5d6 0%, #fde68a 100%);
+          background: linear-gradient(
+            135deg,
+            color-mix(in oklab, var(--brand-gradient-foreground) 86%, var(--brand-yellow)) 0%,
+            var(--brand-yellow) 100%
+          );
           -webkit-background-clip: text;
           background-clip: text;
           -webkit-text-fill-color: transparent;
@@ -166,7 +170,7 @@ export function BrandLoudHero({
           margin-top: 8px;
           font-size: 14px;
           font-weight: 400;
-          color: rgba(255, 255, 255, 0.85);
+          color: color-mix(in oklab, var(--brand-gradient-foreground) 85%, transparent);
           max-width: var(--skycot-bl-sub-max-width, 460px);
         }
         .skycot-brandloud-kpis {
@@ -182,7 +186,7 @@ export function BrandLoudHero({
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 600;
-          color: rgba(255, 255, 255, 0.75);
+          color: color-mix(in oklab, var(--brand-gradient-foreground) 75%, transparent);
           margin-bottom: 4px;
         }
         .skycot-brandloud-kpi-sample {
@@ -191,7 +195,7 @@ export function BrandLoudHero({
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 600;
-          color: rgba(255, 255, 255, 0.7);
+          color: color-mix(in oklab, var(--brand-gradient-foreground) 70%, transparent);
           margin-bottom: 2px;
         }
         .skycot-brandloud-kpi-value {
@@ -199,7 +203,7 @@ export function BrandLoudHero({
           font-size: 36px;
           font-weight: 900;
           letter-spacing: -0.02em;
-          color: white;
+          color: var(--brand-gradient-foreground);
           line-height: 1;
         }
         @media (max-width: 720px) {

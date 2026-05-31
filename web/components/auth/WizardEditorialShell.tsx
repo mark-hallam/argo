@@ -113,28 +113,28 @@ const WIZARD_STYLES = `
    routes keep their dark-mode chrome. */
 html:has(.wiz-editorial),
 body:has(.wiz-editorial) {
-  background-color: #fafaff;
+  background-color: var(--brand-bg);
   color-scheme: light;
 }
 .wiz-editorial {
-  --purple: #8b5cf6; --purple-deep: #6d28d9;
-  --pink: #ec4899; --coral: #ff6b6b; --yellow: #fcd34d;
+  --purple: var(--brand-primary); --purple-deep: var(--brand-purple-deep);
+  --pink: var(--brand-pink); --coral: var(--brand-coral); --yellow: var(--brand-yellow);
   --teal: var(--brand-teal);
-  --ink: #1e1b4b; --ink-2: #3f3f46; --ink-3: #52525b; --ink-4: #a1a1aa;
-  --paper-2: #f4f4f4; --bg: #fafaff;
-  --line: #ece9f5; --line-2: #d1d1d1;
-  --gradient: linear-gradient(135deg, var(--purple), var(--pink));
-  --gradient-3: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
+  --ink: var(--brand-ink); --ink-2: var(--brand-ink-2); --ink-3: var(--brand-ink-3); --ink-4: var(--brand-ink-4);
+  --paper: var(--brand-paper); --paper-2: var(--brand-paper-2); --bg: var(--brand-bg);
+  --line: var(--brand-line); --line-2: var(--brand-line-strong);
+  --gradient: var(--brand-gradient);
+  --gradient-3: var(--brand-gradient-3);
   /* WCAG 2.1 AA — lock shadcn semantic tokens to F1 light values so
      body content (Step1Land et al.) using text-[var(--foreground)]
      stays dark-ink when the user has dark theme set globally. The
      wizard bg is hardcoded light, so a globally-flipping --foreground
      produces white-on-white text (audit F9, 2026-05-26-2309).
-     #1e1b4b on #fafaff ≈ 15.4:1; #52525b on #fafaff ≈ 7.0:1. */
-  --foreground: #1e1b4b;
-  --muted-foreground: #52525b;
-  --background: #fafaff;
-  --border: #ece9f5;
+     brand ink on brand bg passes AA with wide margin. */
+  --foreground: var(--brand-ink);
+  --muted-foreground: var(--brand-ink-3);
+  --background: var(--brand-bg);
+  --border: var(--brand-line);
   font-family: "Inter", sans-serif;
   background: var(--bg); color: var(--ink);
   font-size: 16px; line-height: 1.55;
@@ -146,11 +146,11 @@ body:has(.wiz-editorial) {
 }
 .wiz-editorial::before {
   top: -20%; right: -10%; width: 700px; height: 700px;
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
+  background: radial-gradient(circle, color-mix(in oklab, var(--purple) 15%, transparent) 0%, transparent 70%);
 }
 .wiz-editorial::after {
   bottom: -30%; left: -10%; width: 800px; height: 800px;
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.1) 0%, transparent 70%);
+  background: radial-gradient(circle, color-mix(in oklab, var(--pink) 10%, transparent) 0%, transparent 70%);
 }
 .wiz-top, .wiz-stage, .wiz-foot { position: relative; z-index: 1; }
 .wiz-top {
@@ -158,7 +158,7 @@ body:has(.wiz-editorial) {
   display: grid; grid-template-columns: 1fr auto 1fr;
   align-items: center; gap: 12px;
   border-bottom: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.7);
+  background: color-mix(in oklab, var(--paper) 70%, transparent);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   position: sticky; top: 0; z-index: 10;
 }
@@ -193,7 +193,7 @@ body:has(.wiz-editorial) {
 .wiz-brand-mark {
   width: 28px; height: 28px; border-radius: 7px;
   background: var(--gradient);
-  box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 4px 12px -2px color-mix(in oklab, var(--purple) 30%, transparent);
 }
 .wiz-brand-name {
   font-family: var(--font-audiowide);
@@ -214,7 +214,7 @@ body:has(.wiz-editorial) {
 }
 .wiz-pip-done {
   background: var(--gradient);
-  box-shadow: 0 0 8px rgba(139, 92, 246, 0.45);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--purple) 45%, transparent);
 }
 .wiz-pip-active {
   background: linear-gradient(90deg, var(--purple) 0%, var(--purple) 50%, var(--paper-2) 50%, var(--paper-2) 100%);
@@ -286,16 +286,16 @@ body:has(.wiz-editorial) {
   padding: 18px 36px; border-radius: 14px;
   font-family: "Inter", sans-serif;
   font-size: 16px; font-weight: 700; letter-spacing: -0.005em;
-  background: var(--gradient); color: white;
+  background: var(--gradient); color: var(--brand-gradient-foreground);
   border: none; cursor: pointer;
-  box-shadow: 0 8px 32px -8px rgba(139, 92, 246, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 32px -8px color-mix(in oklab, var(--purple) 45%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--brand-gradient-foreground) 25%, transparent);
   transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
 }
 .wiz-cta:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 12px 40px -8px rgba(139, 92, 246, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  box-shadow: 0 12px 40px -8px color-mix(in oklab, var(--purple) 60%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--brand-gradient-foreground) 30%, transparent);
 }
 .wiz-cta:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 .wiz-cta-back {
@@ -306,13 +306,13 @@ body:has(.wiz-editorial) {
 .wiz-cta-back:hover:not(:disabled) {
   transform: translateY(-1px);
   border-color: var(--line-2);
-  background: rgba(255, 255, 255, 0.5);
+  background: color-mix(in oklab, var(--paper) 50%, transparent);
   box-shadow: none;
 }
 .wiz-cta-kbd {
   font-family: var(--font-mono);
   font-size: 12px; padding: 3px 8px; border-radius: 5px;
-  background: rgba(255, 255, 255, 0.22); letter-spacing: 0.04em;
+  background: color-mix(in oklab, var(--brand-gradient-foreground) 22%, transparent); letter-spacing: 0.04em;
 }
 .wiz-below-cta {
   margin-top: 16px; font-size: 13px;

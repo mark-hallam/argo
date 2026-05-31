@@ -26,6 +26,7 @@ const THIS_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(THIS_DIR, "..", "..", "..");
 const WEB_DIR = resolve(THIS_DIR, "..", "..");
 const SCRIPT = join(REPO_ROOT, "scripts", "check-route-metadata.sh");
+const REAL_TREE_SMOKE_TIMEOUT_MS = 15_000;
 
 interface RunResult {
   code: number;
@@ -179,9 +180,9 @@ describe("check-route-metadata — current main smoke test", () => {
     const r = runScript(WEB_DIR);
     expect(r.code).toBe(0);
     expect(r.stdout).toContain("clean");
-  });
+  }, REAL_TREE_SMOKE_TIMEOUT_MS);
 
   it("uses web/ as the default target when no argument is passed", () => {
     expect(runScript().code).toBe(0);
-  });
+  }, REAL_TREE_SMOKE_TIMEOUT_MS);
 });

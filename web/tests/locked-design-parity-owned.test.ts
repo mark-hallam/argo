@@ -7,9 +7,11 @@ const file = (relativePath: string) =>
 
 const HIGH_IMPACT_TOKEN_FILES = [
   "app/(app)/settings/layout.tsx",
+  "components/skycot/settings/SettingsTabs.tsx",
   "app/(app)/cohorts/page.tsx",
   "components/skycot/cohorts/CohortMagazineStyles.tsx",
   "app/(app)/approvals/page.tsx",
+  "components/skycot/BrandLoudHero.tsx",
   "app/(app)/skills/page.css",
   "app/(app)/skills/[skillId]/page.css",
   "app/(app)/workflows/page.tsx",
@@ -19,6 +21,11 @@ const HIGH_IMPACT_TOKEN_FILES = [
   "app/(app)/workers/[workerId]/overview/page.tsx",
   "components/skycot/worker/WorkerPersonalityCard.tsx",
   "app/auth/signup/page.tsx",
+  "components/auth/AuthEditorialShell.tsx",
+  "components/auth/WizardEditorialShell.tsx",
+  "components/auth/WizardSkeleton.tsx",
+  "components/auth/WizardErrorState.tsx",
+  "app/(setup)/onboarding/pick-vertical/_InstallReceipt.tsx",
 ] as const;
 
 const BRAND_LITERAL_DEBT =
