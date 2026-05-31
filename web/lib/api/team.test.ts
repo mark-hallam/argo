@@ -46,6 +46,7 @@ describe("lib/api/team", () => {
     delete process.env.NEXT_PUBLIC_ENV;
     delete process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
     delete process.env.NEXT_PUBLIC_SKYCOT_DEMO_MODE;
+    delete process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE;
   });
 
   afterEach(() => {
@@ -89,6 +90,20 @@ describe("lib/api/team", () => {
     const result = await fetchTeam();
     expect(result.source).toBe("mock-offline");
     expect(result.workers).toBe(SAMPLE_TEAM);
+  });
+
+  it("does not return SAMPLE_TEAM when demo-mode is paired with demo-live", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SKYCOT_DEMO_MODE", "1");
+    vi.stubEnv("NEXT_PUBLIC_SKYCOT_DEMO_LIVE", "1");
+    installMock(() =>
+      makeResponse({
+        status: 404,
+        body: { error: { code: "not_found", message: "no team endpoint" } },
+      }),
+    );
+    const result = await fetchTeam();
+    expect(result.source).toBe("unreachable");
+    expect(result.workers).toEqual([]);
   });
 
   it("propagates 5xx errors as ApiError (no mock swallow)", async () => {

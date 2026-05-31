@@ -121,6 +121,23 @@ describe("settings providers page", () => {
     }
   });
 
+  it("marks provider key storage unavailable when the live endpoint errors", async () => {
+    providerKeysApi.fetchProviderKeys.mockRejectedValueOnce(
+      new Error("404: no provider-keys endpoint"),
+    );
+    render(<ProvidersSettingsPage />);
+    await waitFor(() => {
+      expect(screen.getByText("Provider-key storage is not live.")).toBeInTheDocument();
+    });
+    expect(screen.getByText(/No provider credentials are being mocked/)).toBeInTheDocument();
+
+    const anthropicStatus = screen.getByTestId("provider-key-anthropic-status");
+    expect(anthropicStatus).toHaveTextContent("Endpoint pending");
+    const anthropicAction = screen.getByTestId("provider-key-anthropic-action");
+    expect(anthropicAction).toBeDisabled();
+    expect(anthropicAction).toHaveTextContent("Unavailable");
+  });
+
   it("expands the inline form when Add key is clicked", async () => {
     render(<ProvidersSettingsPage />);
     const trigger = await screen.findByTestId("provider-key-anthropic-action");

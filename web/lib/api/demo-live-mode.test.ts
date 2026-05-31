@@ -29,9 +29,13 @@ import type { SkillGraph } from "@/lib/types/skill-ir";
 
 const apiGetMock = vi.fn();
 const apiPostMock = vi.fn();
+const apiPatchMock = vi.fn();
+const apiDeleteMock = vi.fn();
 vi.mock("@/lib/api/client", () => ({
   apiGet: (...args: unknown[]) => apiGetMock(...args),
   apiPost: (...args: unknown[]) => apiPostMock(...args),
+  apiPatch: (...args: unknown[]) => apiPatchMock(...args),
+  apiDelete: (...args: unknown[]) => apiDeleteMock(...args),
 }));
 
 // Avoid sonner's lazy dynamic import surfacing in approvals tests
@@ -68,6 +72,8 @@ const TEST_GRAPH: SkillGraph = {
 beforeEach(() => {
   apiGetMock.mockReset();
   apiPostMock.mockReset();
+  apiPatchMock.mockReset();
+  apiDeleteMock.mockReset();
   vi.resetModules();
   process.env = {
     ...ORIGINAL_ENV,
@@ -404,5 +410,140 @@ describe("demo-live recording-mode opt-out — Skill IR save/export/import", () 
     expect(apiPostMock.mock.calls[0][0]).toBe("/api/v1/skills/skill_target/ir/import");
     expect(apiPostMock.mock.calls[0][1]).toEqual({ bundle });
     expect(result.skillId).toBe("skill_target");
+  });
+});
+
+describe("demo-live recording-mode opt-out — worker detail surfaces", () => {
+  const workerId = "11111111-1111-7111-8111-111111111111";
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+  });
+
+  it("propagates missing worker-detail reads instead of returning sample tab data", async () => {
+    const { ApiError } = await import("@/lib/api/types");
+    apiGetMock.mockRejectedValue(new ApiError(404, "not found"));
+
+    const { fetchWorker, WorkerNotFoundError } = await import("@/lib/api/workers");
+    await expect(fetchWorker(workerId)).rejects.toBeInstanceOf(WorkerNotFoundError);
+
+    const { fetchWorkerOverview, WorkerOverviewNotFoundError } = await import(
+      "@/lib/api/worker-overview"
+    );
+    await expect(fetchWorkerOverview(workerId)).rejects.toBeInstanceOf(
+      WorkerOverviewNotFoundError,
+    );
+
+    const { fetchWorkerActivity } = await import("@/lib/api/worker-activity");
+    await expect(fetchWorkerActivity(workerId, { range: "7d" })).rejects.toMatchObject({
+      status: 404,
+    });
+
+    const { fetchMemory, WorkerMemoryNotFoundError } = await import(
+      "@/lib/api/worker-memory"
+    );
+    await expect(fetchMemory(workerId)).rejects.toBeInstanceOf(WorkerMemoryNotFoundError);
+
+    const { fetchSkills, WorkerSkillsNotFoundError } = await import(
+      "@/lib/api/worker-skills"
+    );
+    await expect(fetchSkills(workerId)).rejects.toBeInstanceOf(WorkerSkillsNotFoundError);
+
+    const { getSettings, WorkerSettingsNotFoundError } = await import(
+      "@/lib/api/worker-settings"
+    );
+    await expect(getSettings(workerId)).rejects.toBeInstanceOf(WorkerSettingsNotFoundError);
+
+    const { getWorkerPolicies } = await import("@/lib/api/worker-policies");
+    await expect(getWorkerPolicies(workerId)).rejects.toMatchObject({ status: 404 });
+
+    const { fetchWorkerTrustGrade } = await import("@/lib/api/worker-trust");
+    await expect(fetchWorkerTrustGrade(workerId)).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("propagates worker-detail mutation 404s instead of applying local success fallbacks", async () => {
+    const { ApiError } = await import("@/lib/api/types");
+    apiPostMock.mockRejectedValue(new ApiError(404, "not found"));
+    apiPatchMock.mockRejectedValue(new ApiError(404, "not found"));
+    apiDeleteMock.mockRejectedValue(new ApiError(404, "not found"));
+
+    const { pauseWorker, hireWorker } = await import("@/lib/api/workers");
+    await expect(pauseWorker(workerId)).rejects.toMatchObject({ status: 404 });
+    await expect(
+      hireWorker({
+        workerDraft: {
+          suggestedName: "Mira",
+          persona: {
+            tagline: "answers buyer messages",
+            avatarKind: "initials",
+            voiceProfile: { tone: "warm", formality: "medium", signaturePhrases: [] },
+          },
+          charter: "Mira keeps marketplace conversations moving.",
+          duties: [
+            {
+              label: "Reply to buyer questions",
+              schedule: { kind: "event", spec: "message.inbound" },
+              defaultEnabled: true,
+            },
+          ],
+          exampleReplies: [],
+          approvalPolicy: { level: "balanced" },
+          suggestedVertical: "marketplace",
+        },
+        problem: "buyer messages are piling up",
+        answers: {},
+        idempotencyKey: "018f67d0-0000-7000-8000-000000000001",
+      }),
+    ).rejects.toMatchObject({ status: 404 });
+
+    const { addFact, deleteFact, editFact } = await import("@/lib/api/worker-memory");
+    await expect(addFact(workerId, { text: "Prefers concise replies" })).rejects.toMatchObject({
+      status: 404,
+    });
+    await expect(
+      editFact(workerId, "fact_1", { text: "Prefers concise replies" }),
+    ).rejects.toMatchObject({ status: 404 });
+    await expect(deleteFact(workerId, "fact_1")).rejects.toMatchObject({ status: 404 });
+
+    const { enableSkill, disableSkill } = await import("@/lib/api/worker-skills");
+    await expect(enableSkill(workerId, "skill_1")).rejects.toMatchObject({ status: 404 });
+    await expect(disableSkill(workerId, "skill_1")).rejects.toMatchObject({ status: 404 });
+
+    const { updateBudget } = await import("@/lib/api/worker-settings");
+    await expect(
+      updateBudget(workerId, { dailyCapUsd: 10, monthlyCapUsd: 100 }),
+    ).rejects.toMatchObject({ status: 404 });
+
+    const { updateWorkerPolicy } = await import("@/lib/api/worker-policies");
+    await expect(
+      updateWorkerPolicy({
+        workerId,
+        actionType: "post_listing",
+        policy: "always-ask",
+        operatorNote: "Demo-live verification",
+      }),
+    ).rejects.toMatchObject({ status: 404 });
+
+    const { recomputeWorkerTrustGrade } = await import("@/lib/api/worker-trust");
+    await expect(recomputeWorkerTrustGrade(workerId)).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe("demo-live recording-mode opt-out — audit export", () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+  });
+
+  it("propagates export preview/generate 404s instead of returning sample bundle data", async () => {
+    const { ApiError } = await import("@/lib/api/types");
+    apiPostMock.mockRejectedValue(new ApiError(404, "not found"));
+    const params = {
+      scope: { kind: "filtered" as const },
+      tenantId: "tenant_demo",
+      format: "soc2-type-ii" as const,
+    };
+    const { generateExport, previewExport } = await import("@/lib/api/audit-export");
+    await expect(previewExport(params)).rejects.toMatchObject({ status: 404 });
+    await expect(generateExport(params)).rejects.toMatchObject({ status: 404 });
   });
 });

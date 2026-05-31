@@ -44,6 +44,7 @@ describe("lib/api/api-keys", () => {
     vi.stubEnv("NODE_ENV", "test");
     delete process.env.NEXT_PUBLIC_ENV;
     delete process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
+    delete process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE;
   });
 
   afterEach(() => {
@@ -95,6 +96,19 @@ describe("lib/api/api-keys", () => {
       expect(result.source).toBe("mock-bypass");
       expect(result.keys).toBe(SAMPLE_API_KEYS);
       expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("propagates 404 in demo-live instead of returning sample keys", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+      const fetchMock = installMock(() =>
+        makeResponse({
+          status: 404,
+          body: { error: { code: "not_found", message: "no api-keys endpoint" } },
+        }),
+      );
+      await expect(fetchApiKeys()).rejects.toBeInstanceOf(ApiError);
+      expect(fetchMock).toHaveBeenCalled();
     });
 
     it("propagates 404 in strict production (no mock fallback)", async () => {
@@ -182,6 +196,26 @@ describe("lib/api/api-keys", () => {
       });
       expect(result.key.expires_at).toBeNull();
     });
+
+    it("propagates 404 in demo-live instead of minting a mock token", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+      installMock(() =>
+        makeResponse({
+          status: 404,
+          body: { error: { code: "not_found", message: "no api-keys endpoint" } },
+        }),
+      );
+      await expect(
+        createApiKey({
+          name: "Demo live",
+          scopes: ["read:workers"],
+          cohort_ids: [],
+          all_cohorts: true,
+          expiry: "never",
+        }),
+      ).rejects.toBeInstanceOf(ApiError);
+    });
   });
 
   describe("revokeApiKey", () => {
@@ -201,6 +235,15 @@ describe("lib/api/api-keys", () => {
 
     it("propagates 5xx", async () => {
       installMock(() => makeResponse({ status: 500, body: "boom", contentType: "text/plain" }));
+      await expect(revokeApiKey("key_abc")).rejects.toBeInstanceOf(ApiError);
+    });
+
+    it("propagates 404 in demo-live instead of returning mock ok", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+      installMock(() =>
+        makeResponse({ status: 404, body: { error: { code: "not_found", message: "missing" } } }),
+      );
       await expect(revokeApiKey("key_abc")).rejects.toBeInstanceOf(ApiError);
     });
   });

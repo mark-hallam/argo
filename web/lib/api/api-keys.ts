@@ -15,6 +15,8 @@
  * - `revokeApiKey` returns a `{ ok: true, id }` envelope.
  * - 404 from the gateway → mock fallback in dev (`source = "mock-offline"`).
  * - `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` → mock immediately, no network call.
+ * - `NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1` disables both mock paths so the
+ *   missing gateway endpoint is surfaced honestly instead of faking keys.
  * - Strict production (`NODE_ENV === "production"` AND
  *   `NEXT_PUBLIC_ENV === "production"`): no mock fallback. 404 and any
  *   other `ApiError` propagate.
@@ -25,6 +27,7 @@
 import { apiDelete, apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { SAMPLE_API_KEYS } from "@/lib/sample-api-keys";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 
 export type ApiKeyScope =
   | "read:workers"
@@ -96,14 +99,14 @@ function isMissingOrUnreachable(err: unknown): boolean {
 }
 
 export async function fetchApiKeys(): Promise<FetchApiKeysResult> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return { keys: SAMPLE_API_KEYS, source: "mock-bypass" };
   }
   try {
     const keys = await apiGet<ApiKeyRow[]>("/api/v1/api-keys");
     return { keys, source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { keys: SAMPLE_API_KEYS, source: "mock-offline" };
     }
     throw err;
@@ -148,7 +151,7 @@ function expiryToIso(expiry: ApiKeyExpiry): string | null {
 export async function createApiKey(
   req: CreateApiKeyRequest,
 ): Promise<CreateApiKeyResponse> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     const token = mockToken();
     return { key: mockKeyFrom(req, token), token };
   }
@@ -158,7 +161,7 @@ export async function createApiKey(
       req,
     );
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       const token = mockToken();
       return { key: mockKeyFrom(req, token), token };
     }
@@ -167,14 +170,14 @@ export async function createApiKey(
 }
 
 export async function revokeApiKey(id: string): Promise<{ ok: true; id: string }> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return { ok: true, id };
   }
   try {
     await apiDelete<unknown>(`/api/v1/api-keys/${encodeURIComponent(id)}`);
     return { ok: true, id };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { ok: true, id };
     }
     throw err;

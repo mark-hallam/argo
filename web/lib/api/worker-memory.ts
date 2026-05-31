@@ -211,7 +211,7 @@ export async function fetchMemory(
     );
     return { memory: normalizeGatewayMemory(raw), source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockResult(workerId);
     }
     if (err instanceof ApiError && err.status === 404) {
@@ -238,7 +238,7 @@ export async function addFact(
       input,
     );
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockAddFact(workerId, input.text);
     }
     throw err;
@@ -270,7 +270,7 @@ export async function editFact(
       input,
     );
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockEditFact(workerId, factId, input.text);
     }
     throw err;
@@ -290,7 +290,7 @@ export async function deleteFact(
       `/api/v1/workers/${encodeURIComponent(workerId)}/memory/facts/${encodeURIComponent(factId)}`,
     );
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       mockDeleteFact(workerId, factId);
       return;
     }

@@ -124,6 +124,7 @@ function shouldFallBackToMock(err: unknown): boolean {
   // Dev-only: gateway absent or returned 404. Anything else is a real
   // error — surface it.
   if (process.env.NODE_ENV === "production") return false;
+  if (isDemoLive()) return false;
   return isMissingOrUnreachable(err);
 }
 
@@ -183,7 +184,7 @@ async function postWorkerAction(
   action: "pause" | "resume",
   nextStatus: WorkerStatus,
 ): Promise<WorkerActionResult> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return { ok: true, workerId, status: nextStatus };
   }
   try {
@@ -191,7 +192,7 @@ async function postWorkerAction(
       `/api/v1/workers/${workerId}/${action}`,
     );
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { ok: true, workerId, status: nextStatus };
     }
     throw err;
@@ -325,6 +326,7 @@ function buildDemoWorker(workerId: string, draft: WorkerDraft): Worker {
 
 function isStubFallbackEligible(err: unknown): boolean {
   if (isStrictProduction()) return false;
+  if (isDemoLive()) return false;
   return isMissingOrUnreachable(err);
 }
 
@@ -453,8 +455,8 @@ function buildHireBody(req: HireWorkerRequest): Record<string, unknown> {
 }
 
 export async function hireWorker(req: HireWorkerRequest): Promise<HireWorkerResult> {
-  if (isAuthBypassed()) {
-    // Demo-recording mode: persist the new hire into a session-local
+  if (isAuthBypassed() && !isDemoLive()) {
+    // Plain auth-bypass mode: persist the new hire into a session-local
     // roster so /team gains a card and /workers/<id>/overview renders
     // the just-hired persona instead of 404ing. The id is a real-
     // shaped UUIDv7 (not `stub-` prefixed) so the URL + browser tab

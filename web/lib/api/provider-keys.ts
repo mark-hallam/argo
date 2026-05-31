@@ -10,13 +10,16 @@
  * Gateway endpoints land later (planned brief
  * `mission-gateway-provider-keys-endpoint`); until then every call
  * 404s and falls back to a per-tab in-memory store so the
- * `/settings/providers` form keeps working in dev. Auth-bypass +
- * 404-fallback contract mirrors `lib/api/settings.ts`.
+ * `/settings/providers` form keeps working in dev. Demo-live disables
+ * the mock store so the missing endpoint is called out honestly on
+ * camera. Auth-bypass + 404-fallback contract mirrors
+ * `lib/api/settings.ts`.
  */
 
 import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { PROVIDER_OPTIONS, type ProviderName } from "@/lib/api/settings";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 
 export interface ProviderKeyStatus {
   provider: ProviderName;
@@ -87,14 +90,14 @@ function mask(provider: ProviderName, key: string): string {
 }
 
 export async function fetchProviderKeys(): Promise<FetchProviderKeysResult> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return { keys: defaultUnconfigured(), source: "mock-bypass" };
   }
   try {
     const keys = await apiGet<ProviderKeyStatus[]>("/api/v1/providers/keys");
     return { keys, source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { keys: defaultUnconfigured(), source: "mock-offline" };
     }
     throw err;
@@ -110,7 +113,7 @@ export async function saveProviderKey(
     masked_preview: mask(req.provider, req.key),
     updated_at: new Date().toISOString(),
   };
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     mockStore.set(req.provider, next);
     return { status: next, source: "mock-bypass" };
   }
@@ -121,7 +124,7 @@ export async function saveProviderKey(
     );
     return { status, source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       mockStore.set(req.provider, next);
       return { status: next, source: "mock-offline" };
     }

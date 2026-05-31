@@ -149,7 +149,7 @@ export async function getWorkerPolicies(
     );
     return fromWire(workerId, raw, "gateway");
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockResult(workerId, "mock-offline");
     }
     throw err;
@@ -210,7 +210,7 @@ export async function updateWorkerPolicy(
       source: "gateway",
     };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return {
         workerId: input.workerId,
         actionType: input.actionType,

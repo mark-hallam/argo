@@ -13,6 +13,7 @@ export interface ProviderKeyFormProps {
   status: ProviderKeyStatus;
   onSaved: (next: ProviderKeyStatus) => void;
   onError?: (message: string) => void;
+  unavailableReason?: string;
 }
 
 export function ProviderKeyForm({
@@ -21,6 +22,7 @@ export function ProviderKeyForm({
   status,
   onSaved,
   onError,
+  unavailableReason,
 }: ProviderKeyFormProps) {
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState("");
@@ -54,7 +56,17 @@ export function ProviderKeyForm({
     }
   }
 
-  const buttonLabel = status.configured ? "Rotate" : "Add key";
+  const isUnavailable = Boolean(unavailableReason);
+  const buttonLabel = isUnavailable
+    ? "Unavailable"
+    : status.configured
+      ? "Rotate"
+      : "Add key";
+  const statusLabel = isUnavailable
+    ? "Endpoint pending"
+    : status.configured
+      ? "Configured"
+      : "Mock provider";
 
   return (
     <div className="provider-key-row" data-testid={testid}>
@@ -62,13 +74,15 @@ export function ProviderKeyForm({
         <span className="provider-key-label">{label}</span>
         <span
           className={`provider-key-pill ${
-            status.configured
-              ? "provider-key-pill-configured"
-              : "provider-key-pill-mock"
+            isUnavailable
+              ? "provider-key-pill-unavailable"
+              : status.configured
+                ? "provider-key-pill-configured"
+                : "provider-key-pill-mock"
           }`}
           data-testid={`${testid}-status`}
         >
-          {status.configured ? "Configured" : "Mock provider"}
+          {statusLabel}
         </span>
         {status.masked_preview ? (
           <code
@@ -121,6 +135,8 @@ export function ProviderKeyForm({
           type="button"
           className="provider-key-action"
           onClick={() => setExpanded(true)}
+          disabled={isUnavailable}
+          title={unavailableReason}
           data-testid={`${testid}-action`}
         >
           {buttonLabel}

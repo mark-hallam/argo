@@ -24,6 +24,7 @@ export default function ProvidersSettingsPage() {
   const [isLoading, setLoading] = useState(true);
   const [isSaving, setSaving] = useState(false);
   const [keys, setKeys] = useState<ProviderKeyStatus[]>([]);
+  const [keysError, setKeysError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -43,11 +44,18 @@ export default function ProvidersSettingsPage() {
       });
     fetchProviderKeys()
       .then(({ keys: next }) => {
-        if (active) setKeys(next);
+        if (!active) return;
+        setKeys(next);
+        setKeysError(null);
       })
-      .catch(() => {
-        // mock fallback already absorbs 404 / unreachable; only strict-prod
-        // throws hit this path. Leave keys empty so the UI degrades cleanly.
+      .catch((err) => {
+        if (!active) return;
+        setKeys([]);
+        setKeysError(
+          err instanceof Error
+            ? err.message
+            : "Provider credential storage endpoint is unavailable.",
+        );
       });
     return () => {
       active = false;
@@ -171,6 +179,15 @@ export default function ProvidersSettingsPage() {
             switch from the mock provider as soon as a real key lands.
           </p>
         </div>
+        {keysError ? (
+          <div className="settings-keys-unavailable" role="status" aria-live="polite">
+            <strong>Provider-key storage is not live.</strong>
+            <span>
+              The gateway did not serve <code>/api/v1/providers/keys</code>. No provider
+              credentials are being mocked in demo-live mode.
+            </span>
+          </div>
+        ) : null}
         <div className="settings-keys-list">
           {PROVIDER_OPTIONS.map((opt) => {
             const status =
@@ -186,6 +203,7 @@ export default function ProvidersSettingsPage() {
                 provider={opt.value}
                 label={opt.label}
                 status={status}
+                unavailableReason={keysError ?? undefined}
                 onSaved={(next) => {
                   setKeys((prev) => {
                     const without = prev.filter(
@@ -351,6 +369,25 @@ function SettingsStyles() {
   flex-direction: column;
   gap: 10px;
 }
+.settings-keys-unavailable {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(236, 72, 153, 0.32);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent, #ec4899) 8%, var(--settings-card, #ffffff));
+  color: var(--settings-ink, #1f2937);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.settings-keys-unavailable strong {
+  font-size: 13px;
+}
+.settings-keys-unavailable code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+}
 .provider-key-row {
   display: flex;
   align-items: center;
@@ -390,6 +427,10 @@ function SettingsStyles() {
 .provider-key-pill-mock {
   background: rgba(148, 163, 184, 0.18);
   color: #475569;
+}
+.provider-key-pill-unavailable {
+  background: rgba(236, 72, 153, 0.12);
+  color: #be185d;
 }
 .provider-key-preview {
   font-family: "JetBrains Mono", ui-monospace, monospace;

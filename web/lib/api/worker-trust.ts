@@ -10,6 +10,7 @@
 import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { findSampleWorkerTrust } from "@/lib/sample-worker-trust";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 
 /** Canonical trust-grade values returned by the gateway. The names
  *  come straight from `argo_skill::TrustGrade`. */
@@ -171,7 +172,7 @@ export async function fetchWorkerTrustGrade(workerId: string): Promise<FetchTrus
     const raw = await apiGet<GatewayTrustGradeBody>(path);
     return { snapshot: normalizeTrustGrade(raw, workerId), source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { snapshot: findSampleWorkerTrust(workerId), source: "mock-offline" };
     }
     throw err;
@@ -242,7 +243,7 @@ export async function recomputeWorkerTrustGrade(
       scoreTotal: typeof body.score_total === "number" ? body.score_total : 0,
     };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       const snapshot = findSampleWorkerTrust(workerId);
       return {
         decision: "hold",

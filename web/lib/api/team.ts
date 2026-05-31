@@ -182,7 +182,7 @@ async function fetchTeamInner(): Promise<FetchTeamResult> {
     // so React Query settles instead of stalling on an unhandled
     // rejection. Strict production is still excluded — real buyers see
     // real errors, not seeded mocks.
-    if (demoMode && !isStrictProduction()) {
+    if (demoMode && !isDemoLive() && !isStrictProduction()) {
       return { workers: SAMPLE_TEAM, source: "mock-offline" };
     }
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {

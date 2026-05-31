@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchWorkerTrustGrade } from "./worker-trust";
+import { fetchWorkerTrustGrade, recomputeWorkerTrustGrade } from "./worker-trust";
 
 const ORIGINAL_FETCH = globalThis.fetch;
 
@@ -110,13 +110,18 @@ describe("lib/api/worker-trust", () => {
       expect(hitTrust).toBe(true);
     });
 
-    it("falls back to mock-offline when demo-live gateway 404s (offline fallback preserved)", async () => {
+    it("propagates gateway 404 in demo-live instead of returning mock-offline", async () => {
       process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
       process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
       installMock(() => makeResponse({ status: 404, body: { error: "not found" } }));
-      const result = await fetchWorkerTrustGrade("priya");
-      expect(result.source).toBe("mock-offline");
-      expect(result.snapshot.workerId).toBe("priya");
+      await expect(fetchWorkerTrustGrade("priya")).rejects.toMatchObject({ status: 404 });
+    });
+
+    it("propagates recompute 404 in demo-live instead of returning a synthetic hold", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+      installMock(() => makeResponse({ status: 404, body: { error: "not found" } }));
+      await expect(recomputeWorkerTrustGrade("priya")).rejects.toMatchObject({ status: 404 });
     });
   });
 });

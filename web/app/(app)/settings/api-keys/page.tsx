@@ -69,7 +69,12 @@ export default function ApiKeysPage() {
   const [confirmRevoke, setConfirmRevoke] = useState<ApiKeyRow | null>(null);
 
   const keys = query.data?.keys ?? [];
-  const isEmpty = !query.isLoading && keys.length === 0;
+  const loadError =
+    query.error instanceof Error
+      ? query.error.message
+      : "The live API-key endpoint is unavailable.";
+  const isUnavailable = query.isError;
+  const isEmpty = !query.isLoading && !isUnavailable && keys.length === 0;
 
   return (
     <>
@@ -84,12 +89,20 @@ export default function ApiKeysPage() {
               Long-lived tokens for service accounts, CI, and integrations.
             </p>
           </div>
-          <button type="button" className="ak-create-btn" onClick={() => setShowCreate(true)}>
+          <button
+            type="button"
+            className="ak-create-btn"
+            onClick={() => setShowCreate(true)}
+            disabled={isUnavailable}
+            title={isUnavailable ? "API-key storage endpoint is not live in this build." : undefined}
+          >
             <Plus size={15} /> Create API key
           </button>
         </div>
 
-        {isEmpty ? (
+        {isUnavailable ? (
+          <UnavailableState message={loadError} />
+        ) : isEmpty ? (
           <EmptyState onCreate={() => setShowCreate(true)} />
         ) : (
           <KeysTable
@@ -241,6 +254,22 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
       <button type="button" className="ak-create-btn" onClick={onCreate}>
         <Plus size={15} /> Create your first key
       </button>
+    </div>
+  );
+}
+
+function UnavailableState({ message }: { message: string }) {
+  return (
+    <div className="ak-empty ak-unavailable" role="status" aria-live="polite">
+      <div className="ak-empty-icon">
+        <CircleSlash size={32} />
+      </div>
+      <h2 className="ak-empty-title">API-key storage is not live.</h2>
+      <p className="ak-empty-blurb">
+        The gateway did not serve <code>/api/v1/api-keys</code>. No keys are being mocked in
+        demo-live mode.
+      </p>
+      <p className="ak-error">{message}</p>
     </div>
   );
 }

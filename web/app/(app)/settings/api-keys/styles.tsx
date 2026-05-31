@@ -57,6 +57,12 @@ export function ApiKeysStyles() {
       .ak-create-btn:hover {
         filter: brightness(1.05);
       }
+      .ak-create-btn:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        filter: grayscale(0.2);
+        box-shadow: none;
+      }
       .ak-list {
         background: white;
         border: 1px solid var(--border, #ece9f5);
@@ -213,6 +219,13 @@ export function ApiKeysStyles() {
         max-width: 380px;
         margin: 0 auto 20px;
         line-height: 1.55;
+      }
+      .ak-empty-blurb code {
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+      .ak-unavailable {
+        border-color: rgba(236, 72, 153, 0.32);
       }
       .ak-overlay {
         position: fixed;

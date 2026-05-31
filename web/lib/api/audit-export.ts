@@ -25,6 +25,7 @@ import {
   type ExportPreview,
   type ExportResult,
 } from "@/lib/sample-export";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 
 /**
  * Wire format the gateway's `POST /api/v1/audit/export` accepts.
@@ -78,11 +79,11 @@ function isAuthBypassed(): boolean {
   // Demo-live mode runs against the real gateway (which has a working
   // /audit/export/preview over real seeded audit rows), so the bypass
   // mock must not engage there — otherwise the audit-export dialog shows
-  // a fabricated count/size on camera. Falls back to mock on 404 anyway.
+  // a fabricated count/size on camera.
   return (
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1" &&
-    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE !== "1"
+    !isDemoLive()
   );
 }
 
@@ -102,7 +103,7 @@ export async function previewExport(
       toGatewayRequest(params),
     );
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockPreview(params);
     }
     throw err;
@@ -123,7 +124,7 @@ export async function generateExport(
     void emitAuditRow(params, result);
     return result;
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return withAuditEmission(params, mockGenerate(params));
     }
     throw err;

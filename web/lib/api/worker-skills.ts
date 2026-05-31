@@ -131,7 +131,7 @@ export async function fetchSkills(workerId: string): Promise<FetchWorkerSkillsRe
     );
     return { skills, source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockResult(workerId, "mock-offline");
     }
     if (err instanceof ApiError && err.status === 404) {
@@ -164,7 +164,7 @@ async function mutate(
     }
     return "gateway";
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return "mock-offline";
     }
     throw err;
