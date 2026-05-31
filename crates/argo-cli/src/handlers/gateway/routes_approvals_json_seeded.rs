@@ -76,6 +76,11 @@ struct ApprovalRow {
     id: String,
     requested_at_micros: i64,
     status: String,
+    /// The `requested_by` column — the teammate that filed the draft
+    /// (e.g. `"Marcus"` for marketing drafts). Used as the displayed
+    /// `worker.name` when no `approval.asked`-resolved worker persona is
+    /// available. Empty string for rows that never set it.
+    requested_by: String,
     draft_content: Option<String>,
 }
 
@@ -87,7 +92,7 @@ async fn approval_request_rows(
     // crates/argo-store/src/approvals.rs::create_request). Bind the
     // resolved tenant the same way; binding as TEXT would never match.
     let raw = sqlx::query(
-        "SELECT id, requested_at, status, draft_content \
+        "SELECT id, requested_at, status, requested_by, draft_content \
          FROM approval_request \
          WHERE tenant_id = ? \
          ORDER BY requested_at DESC",
@@ -105,6 +110,7 @@ async fn approval_request_rows(
             id: id.to_string(),
             requested_at_micros: r.try_get("requested_at")?,
             status: r.try_get("status")?,
+            requested_by: r.try_get("requested_by").unwrap_or_default(),
             draft_content: r.try_get("draft_content").ok(),
         });
     }
@@ -152,14 +158,24 @@ fn build_row(row: &ApprovalRow, ask: Option<&Value>, worker: Option<(WorkerId, S
     let received_at = chrono::DateTime::<chrono::Utc>::from_timestamp_micros(row.requested_at_micros)
         .map(|dt| dt.to_rfc3339())
         .unwrap_or_default();
+    // Displayed name precedence: a resolved worker persona (when the
+    // `approval.asked` payload carried a worker_id) wins; otherwise the
+    // `approval_request.requested_by` column (e.g. "Marcus" for a
+    // marketing draft); the "Pending teammate" placeholder is used ONLY
+    // when neither is available. The worker id stays "unknown" unless a
+    // real persona was resolved — `requested_by` is a display label, not
+    // a WorkerId.
     let (worker_id_str, worker_name) = match worker {
         Some((id, name)) => (id.to_string(), name),
-        None => ("unknown".to_string(), "Pending teammate".to_string()),
+        None => {
+            let name = match row.requested_by.trim() {
+                "" => "Pending teammate".to_string(),
+                by => by.to_string(),
+            };
+            ("unknown".to_string(), name)
+        }
     };
-    let label = ask
-        .and_then(|v| v.get("label"))
-        .and_then(Value::as_str)
-        .unwrap_or("an action");
+    let verb = approval_verb(ask);
     let summary = ask
         .and_then(|v| v.get("summary"))
         .and_then(Value::as_str)
@@ -182,7 +198,7 @@ fn build_row(row: &ApprovalRow, ask: Option<&Value>, worker: Option<(WorkerId, S
             "name": worker_name,
             "avatar_url": Value::Null,
         },
-        "verb": format!("wants to {label}"),
+        "verb": verb,
         "detail": summary,
         "consequence_if_yes": "",
         "consequence_if_no": "",
@@ -197,6 +213,52 @@ fn build_row(row: &ApprovalRow, ask: Option<&Value>, worker: Option<(WorkerId, S
         received_at,
         id: row.id.clone(),
         json,
+    }
+}
+
+/// Build the card's `verb` phrase from the `approval.asked` payload.
+///
+/// Precedence:
+/// 1. An explicit `label` field on the ask payload (`"wants to {label}"`).
+/// 2. A real verb derived from the structured `action` field — e.g.
+///    `"marketing.response_drafted"` → `"wants to draft a marketing
+///    response"`, so Marcus's card reads grammatically rather than the
+///    old ungrammatical `"wants to an action"`.
+/// 3. The grammatical default `"wants to take an action"` when neither
+///    is present.
+fn approval_verb(ask: Option<&Value>) -> String {
+    if let Some(label) = ask
+        .and_then(|v| v.get("label"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        return format!("wants to {label}");
+    }
+    if let Some(action) = ask
+        .and_then(|v| v.get("action"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        return verb_from_action(action);
+    }
+    "wants to take an action".to_string()
+}
+
+/// Turn a dotted, snake-cased `action` slug into a human verb phrase.
+///
+/// `"marketing.response_drafted"` → `"wants to draft a marketing
+/// response"`; an unrecognised slug degrades to a readable
+/// `"wants to {slug-with-spaces}"` rather than the ungrammatical
+/// default.
+fn verb_from_action(action: &str) -> String {
+    match action {
+        "marketing.response_drafted" => "wants to draft a marketing response".to_string(),
+        other => {
+            let words = other.replace(['.', '_'], " ");
+            format!("wants to {}", words.trim())
+        }
     }
 }
 
@@ -261,3 +323,7 @@ fn header_tenant_override(req: &str) -> Option<String> {
     }
     None
 }
+
+#[cfg(test)]
+#[path = "routes_approvals_json_seeded_tests.rs"]
+mod tests;
