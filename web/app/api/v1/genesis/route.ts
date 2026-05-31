@@ -127,7 +127,50 @@ export async function POST(req: NextRequest): Promise<Response> {
     });
   }
 
-  // Hand the upstream ReadableStream straight back — NOT awaited/collected.
+  // Re-emit the upstream stream through OUR OWN ReadableStream rather than
+  // handing `upstream.body` straight to `new Response(...)`.
+  //
+  // WHY (the second half of the bug): the Rust gateway sends all its SSE
+  // events (`progress` … `vertical_ready`) and then ABRUPTLY closes the TCP
+  // socket — it does not send a graceful stream terminator. If we pass
+  // `upstream.body` directly, Node/undici's internal pipe sees that close
+  // as `SocketError: other side closed` (`UND_ERR_SOCKET`) and throws
+  // `failed to pipe response`, which Next turns into a 500 AFTER the bytes
+  // have already streamed. The browser's reader then errors and the SPA's
+  // `streamGenesis().catch` fires a spurious "network error" — even though
+  // every event (incl. `vertical_ready`) already reached the client and the
+  // role-contract review should render. (Confirmed in the dev log:
+  // `POST /api/v1/genesis 500 in ~24000ms` with `remotePort: 7400`,
+  // `bytesRead: 4197` — i.e. the full payload was read first.)
+  //
+  // By pumping the reader ourselves we treat "upstream closed" — whether a
+  // clean `done` OR a post-data socket error — as a NORMAL end of stream
+  // (`controller.close()`), so the response completes 200 and the browser's
+  // reader sees a clean end after the last event.
+  const reader = upstream.body.getReader();
+  const passthrough = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { value, done } = await reader.read();
+        if (done) {
+          controller.close();
+          return;
+        }
+        if (value) controller.enqueue(value);
+      } catch {
+        // Upstream half-closed the socket after delivering its events.
+        // The SSE payload (incl. `vertical_ready`) has already been
+        // forwarded, so this is a normal end-of-stream from the browser's
+        // point of view — close cleanly instead of erroring the response.
+        controller.close();
+      }
+    },
+    cancel(reason) {
+      // Client navigated away / aborted — release the upstream reader.
+      void reader.cancel(reason).catch(() => {});
+    },
+  });
+
   // The explicit headers below stop Next's dev compression middleware from
   // re-buffering the stream:
   //  - `Content-Encoding: identity` — no gzip/br, so nothing accumulates a
@@ -136,7 +179,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   //    proxy (incl. Next) from re-encoding the body.
   //  - `X-Accel-Buffering: no` — disables nginx/proxy buffering in prod.
   //  - `Connection: keep-alive` — hold the socket open for the full stream.
-  return new Response(upstream.body, {
+  return new Response(passthrough, {
     status: 200,
     headers: {
       "Content-Type": "text/event-stream; charset=utf-8",
