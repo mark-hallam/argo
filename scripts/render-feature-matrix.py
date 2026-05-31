@@ -11,7 +11,7 @@ Output: docs/skycot/feature-matrix.html (self-contained, no deps).
 import re
 import pathlib
 import html as _html
-from datetime import date
+from datetime import datetime, timezone, timedelta
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / "docs/build-plan/FEATURE_MATRIX.md"
@@ -37,6 +37,29 @@ STATUS_HEADERS = {"status", "backend", "demo surface", "badge"}
 # Text label that follows the leading emoji in a status cell, to strip so it
 # isn't printed twice (the pill already carries the canonical label).
 _LABEL_RE = re.compile(r"^\s*(Live|Partial|Scaffold|In-progress|Planned|Backlog|Done)\b")
+
+
+def melbourne_stamp() -> str:
+    """Return the current date + time in Australia/Melbourne, e.g.
+    ``2026-05-31 14:32 AEDT``.
+
+    The operator regenerates this HTML several times a day and wants the exact
+    local time of the last generate at a glance (per the standing "report times
+    in Melbourne local" rule). ``zoneinfo`` handles AEST/AEDT daylight-saving
+    automatically. If the IANA tz database is unavailable on this machine
+    (rare; ``tzdata`` not installed on a stripped Python), fall back to a fixed
+    +10:00 AEST offset so the stamp is still well-formed rather than crashing
+    the render.
+    """
+    fmt = "%Y-%m-%d %H:%M %Z"
+    try:
+        from zoneinfo import ZoneInfo
+
+        return datetime.now(ZoneInfo("Australia/Melbourne")).strftime(fmt)
+    except Exception:
+        # tzdata missing: best-effort fixed AEST offset (no DST awareness).
+        aest = timezone(timedelta(hours=10), name="AEST")
+        return datetime.now(aest).strftime(fmt)
 
 
 def status_columns(header):
@@ -181,10 +204,12 @@ def render():
     )
     total = sum(tallies.values())
     body = "".join(parts)
-    # Auto-stamp the real generation date so a regen can never silently show a
-    # stale date. This is distinct from the content-verified date in the
-    # FEATURE_MATRIX.md header (which the markdown owns).
-    gen_date = date.today().isoformat()
+    # Auto-stamp the real generation date + time (Melbourne local) so a regen
+    # can never silently show a stale stamp and the operator can see the exact
+    # local time of the last generate at a glance. This is distinct from the
+    # content-verified date in the FEATURE_MATRIX.md header (which the markdown
+    # owns).
+    gen_date = melbourne_stamp()
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SKYCOT — Feature Matrix & Roadmap</title>
