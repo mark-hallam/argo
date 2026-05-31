@@ -4,14 +4,14 @@ import type { ReactNode } from "react";
 export const metadata: Metadata = {
   title: "Customers",
   description:
-    "300+ teams shipping with SKYCOT. From solo founders to Fortune 500. Hear how they're using their AI teammates.",
+    "Representative SKYCOT deployment profiles for teams hiring approval-first AI teammates. Cleared customer stories replace these when they are published.",
   alternates: {
     canonical: "/customers",
   },
   openGraph: {
     title: "Customers — SKYCOT",
     description:
-      "Teams shipping with SKYCOT. AI teammates that ask before they act, earn trust, ship an audit trail.",
+      "Representative deployment profiles for AI teammates that ask before they act, earn trust, and ship an audit trail.",
   },
 };
 

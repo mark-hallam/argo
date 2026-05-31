@@ -3,11 +3,11 @@
   --pink: var(--brand-pink);
   --coral: var(--brand-coral);
   --teal: var(--brand-teal);
-  --ink: var(--brand-ink);
-  --ink-2: #3f3f46;
-  --ink-3: #52525b;
-  --bg: #fafaff;
-  --line: #ece9f5;
+  --ink: var(--foreground);
+  --ink-2: var(--muted-foreground);
+  --ink-3: var(--muted-foreground);
+  --bg: var(--background);
+  --line: var(--border);
   font-family: "Inter", sans-serif;
   background: var(--bg);
   color: var(--ink);
@@ -23,7 +23,7 @@
   right: -10%;
   width: 700px;
   height: 700px;
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.13) 0%, transparent 70%);
+  background: radial-gradient(circle, color-mix(in oklch, var(--brand-primary) 13%, transparent) 0%, transparent 70%);
   z-index: 0;
   pointer-events: none;
 }
@@ -34,7 +34,7 @@
   left: -10%;
   width: 800px;
   height: 800px;
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.1) 0%, transparent 70%);
+  background: radial-gradient(circle, color-mix(in oklch, var(--brand-pink) 10%, transparent) 0%, transparent 70%);
   z-index: 0;
   pointer-events: none;
 }
@@ -62,7 +62,7 @@
   font-weight: 700;
   padding: 6px 14px;
   border-radius: 999px;
-  background: rgba(139, 92, 246, 0.1);
+  background: color-mix(in oklch, var(--brand-primary) 10%, transparent);
   color: var(--purple);
   margin-bottom: 24px;
 }
@@ -83,7 +83,7 @@
 }
 .cus-h1 strong {
   font-weight: 400;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899, #ff6b6b);
+  background: var(--brand-gradient-3);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -114,7 +114,7 @@
   .cus-grid { grid-template-columns: 1fr; padding: 0 24px; }
 }
 .cus-card {
-  background: white;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 24px;
@@ -127,8 +127,8 @@
 }
 .cus-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 16px 32px -14px rgba(139, 92, 246, 0.2);
-  border-color: rgba(139, 92, 246, 0.3);
+  box-shadow: 0 16px 32px -14px color-mix(in oklch, var(--brand-primary) 20%, transparent);
+  border-color: color-mix(in oklch, var(--brand-primary) 30%, transparent);
 }
 .cus-card-head {
   display: flex;
@@ -141,7 +141,7 @@
   border-radius: 12px;
   display: grid;
   place-items: center;
-  color: white;
+  color: var(--brand-primary-foreground);
   font-family: var(--font-audiowide);
   font-size: 17px;
   letter-spacing: 0.04em;
@@ -172,7 +172,7 @@
 .cus-kpi-line strong {
   font-family: var(--font-audiowide);
   font-weight: 400;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  background: var(--brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -185,7 +185,7 @@
   font-style: italic;
   padding-left: 14px;
   border-left: 3px solid;
-  border-image: linear-gradient(180deg, #8b5cf6, #ec4899) 1;
+  border-image: linear-gradient(180deg, var(--brand-primary), var(--brand-pink)) 1;
 }
 .cus-quote-author {
   font-family: var(--font-mono);
@@ -199,7 +199,7 @@
   align-self: flex-start;
   padding: 4px 9px;
   border-radius: 999px;
-  background: rgba(139, 92, 246, 0.08);
+  background: color-mix(in oklch, var(--brand-primary) 8%, transparent);
   color: var(--purple);
   font-family: var(--font-mono);
   font-size: 9.5px;
@@ -222,7 +222,7 @@
   text-transform: uppercase;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(139, 92, 246, 0.08);
+  background: color-mix(in oklch, var(--brand-primary) 8%, transparent);
   color: var(--purple);
   font-weight: 700;
 }
@@ -238,8 +238,8 @@
   margin: 80px 64px;
   padding: 72px 56px;
   border-radius: 28px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899, #ff6b6b);
-  color: white;
+  background: var(--brand-gradient-3);
+  color: var(--brand-primary-foreground);
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -254,7 +254,7 @@
   background: linear-gradient(
     115deg,
     transparent 30%,
-    rgba(255, 255, 255, 0.14) 50%,
+    color-mix(in oklch, var(--brand-primary-foreground) 14%, transparent) 50%,
     transparent 70%
   );
   transform: translateX(-100%);
@@ -273,13 +273,13 @@
   font-family: var(--font-audiowide);
   font-size: 42px;
   font-weight: 400;
-  color: white;
+  color: var(--brand-primary-foreground);
   margin: 0 0 16px;
   position: relative;
 }
 .cus-final p {
   font-size: 17px;
-  color: rgba(255, 255, 255, 0.92);
+  color: color-mix(in oklch, var(--brand-primary-foreground) 92%, transparent);
   margin: 0 auto 28px;
   max-width: 560px;
   position: relative;
@@ -290,8 +290,8 @@
   gap: 8px;
   padding: 14px 28px;
   border-radius: 12px;
-  background: white;
-  color: #8b5cf6;
+  background: var(--brand-primary-foreground);
+  color: var(--brand-primary);
   font-size: 15px;
   font-weight: 700;
   text-decoration: none;

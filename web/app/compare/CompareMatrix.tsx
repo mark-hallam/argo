@@ -68,11 +68,15 @@ export function CompareMatrix({ competitors, dimensions }: CompareMatrixProps) {
   return (
     <div className="compare-table-wrap">
       <table className="compare-table">
+        <caption className="sr-only">
+          SKYCOT competitor comparison by trust, audit, approvals, editing,
+          enterprise controls, and deployment model.
+        </caption>
         <thead>
           <tr>
-            <th></th>
+            <th scope="col">Capability</th>
             {competitors.map((c, idx) => (
-              <th key={c} className={idx === 0 ? "us-col" : ""}>
+              <th key={c} scope="col" className={idx === 0 ? "us-col" : ""}>
                 {c}
               </th>
             ))}
@@ -82,21 +86,22 @@ export function CompareMatrix({ competitors, dimensions }: CompareMatrixProps) {
           {groups.map((g) => (
             <Fragment key={g.name}>
               <tr className="compare-group-row">
-                <td>{g.name}</td>
+                <th scope="rowgroup">{g.name}</th>
                 {competitors.map((c) => (
                   <td key={c} />
                 ))}
               </tr>
               {g.dims.map((d, i) => (
                 <tr key={`${g.name}-${i}`}>
-                  <td className="compare-question-cell">
+                  <th scope="row" className="compare-question-cell">
                     {d.question}
                     {d.caption ? <div className="compare-caption">{d.caption}</div> : null}
-                  </td>
+                  </th>
                   {competitors.map((c, idx) => (
                     <td key={c} className={idx === 0 ? "us-col" : ""}>
                       <span
                         className={scoreClass(d.scores[c])}
+                        role="img"
                         aria-label={scoreLabel(d.scores[c])}
                       />
                     </td>

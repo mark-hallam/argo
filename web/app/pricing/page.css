@@ -23,7 +23,7 @@
   right: -10%;
   width: 700px;
   height: 700px;
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.13) 0%, transparent 70%);
+  background: radial-gradient(circle, color-mix(in oklch, var(--brand-primary) 13%, transparent) 0%, transparent 70%);
   z-index: 0;
   pointer-events: none;
 }
@@ -34,7 +34,7 @@
   left: -10%;
   width: 800px;
   height: 800px;
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.1) 0%, transparent 70%);
+  background: radial-gradient(circle, color-mix(in oklch, var(--brand-pink) 10%, transparent) 0%, transparent 70%);
   z-index: 0;
   pointer-events: none;
 }
@@ -64,7 +64,7 @@
   font-weight: 700;
   padding: 6px 14px;
   border-radius: 999px;
-  background: rgba(139, 92, 246, 0.1);
+  background: color-mix(in oklch, var(--brand-primary) 10%, transparent);
   color: var(--purple);
   margin-bottom: 24px;
 }
@@ -85,7 +85,7 @@
 }
 .pri-h1 strong {
   font-weight: 400;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899, #ff6b6b);
+  background: var(--brand-gradient-3);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -130,15 +130,15 @@
 }
 .pri-tier:hover {
   transform: translateY(-3px);
-  box-shadow: 0 18px 38px -14px rgba(139, 92, 246, 0.2);
-  border-color: rgba(139, 92, 246, 0.3);
+  box-shadow: 0 18px 38px -14px color-mix(in oklch, var(--brand-primary) 20%, transparent);
+  border-color: color-mix(in oklch, var(--brand-primary) 30%, transparent);
 }
 .pri-tier.featured {
   background:
-    linear-gradient(180deg, rgba(139, 92, 246, 0.06) 0%, transparent 80%),
+    linear-gradient(180deg, color-mix(in oklch, var(--brand-primary) 6%, transparent) 0%, transparent 80%),
     var(--card);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  box-shadow: 0 16px 32px -14px rgba(139, 92, 246, 0.25);
+  border: 1px solid color-mix(in oklch, var(--brand-primary) 30%, transparent);
+  box-shadow: 0 16px 32px -14px color-mix(in oklch, var(--brand-primary) 25%, transparent);
 }
 .pri-tier-ribbon {
   position: absolute;
@@ -146,8 +146,8 @@
   right: 20px;
   padding: 4px 12px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
-  color: white;
+  background: var(--brand-gradient);
+  color: var(--brand-primary-foreground);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
@@ -168,7 +168,7 @@
   color: var(--ink);
 }
 .pri-tier-price.gradient {
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  background: var(--brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -225,9 +225,9 @@
   transition: all 0.16s;
 }
 .pri-tier-cta.primary {
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
-  color: white;
-  box-shadow: 0 8px 22px -8px rgba(139, 92, 246, 0.5);
+  background: var(--brand-gradient);
+  color: var(--brand-primary-foreground);
+  box-shadow: 0 8px 22px -8px color-mix(in oklch, var(--brand-primary) 50%, transparent);
 }
 .pri-tier-cta.primary:hover {
   transform: translateY(-1px);
@@ -290,8 +290,8 @@
   font-size: 14px;
   border-bottom: 1px solid var(--line);
 }
-.pri-matrix th {
-  background: rgba(139, 92, 246, 0.04);
+.pri-matrix thead th {
+  background: color-mix(in oklch, var(--brand-primary) 4%, transparent);
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
@@ -299,23 +299,33 @@
   text-transform: uppercase;
   color: var(--ink-2);
 }
+.pri-matrix tbody th {
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+}
 .pri-matrix th:not(:first-child),
 .pri-matrix td:not(:first-child) {
   text-align: center;
   width: 130px;
 }
+.pri-matrix tr:last-child th,
 .pri-matrix tr:last-child td {
   border-bottom: none;
 }
-.pri-matrix tr:hover td {
-  background: rgba(139, 92, 246, 0.02);
+.pri-matrix tr:hover td,
+.pri-matrix tr:hover th[scope="row"] {
+  background: color-mix(in oklch, var(--brand-primary) 2%, transparent);
 }
 .pri-check {
   color: var(--teal);
   display: inline-flex;
 }
 .pri-empty {
-  color: #d4d4d8;
+  color: var(--muted-foreground);
   font-size: 16px;
   display: inline-block;
 }
@@ -334,8 +344,8 @@
   transition: all 0.16s;
 }
 .pri-faq-item.open {
-  border-color: rgba(139, 92, 246, 0.3);
-  box-shadow: 0 12px 24px -12px rgba(139, 92, 246, 0.15);
+  border-color: color-mix(in oklch, var(--brand-primary) 30%, transparent);
+  box-shadow: 0 12px 24px -12px color-mix(in oklch, var(--brand-primary) 15%, transparent);
 }
 .pri-faq-q {
   width: 100%;
@@ -371,8 +381,8 @@
   margin: 16px 64px 80px;
   padding: 72px 56px;
   border-radius: 28px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899, #ff6b6b);
-  color: white;
+  background: var(--brand-gradient-3);
+  color: var(--brand-primary-foreground);
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -390,7 +400,7 @@
   background: linear-gradient(
     115deg,
     transparent 30%,
-    rgba(255, 255, 255, 0.14) 50%,
+    color-mix(in oklch, var(--brand-primary-foreground) 14%, transparent) 50%,
     transparent 70%
   );
   transform: translateX(-100%);
@@ -409,13 +419,13 @@
   font-family: var(--font-audiowide);
   font-size: 42px;
   font-weight: 400;
-  color: white;
+  color: var(--brand-primary-foreground);
   margin: 0 0 16px;
   position: relative;
 }
 .pri-final p {
   font-size: 17px;
-  color: rgba(255, 255, 255, 0.92);
+  color: color-mix(in oklch, var(--brand-primary-foreground) 92%, transparent);
   margin: 0 auto 28px;
   max-width: 560px;
   position: relative;
@@ -426,7 +436,7 @@
   gap: 8px;
   padding: 14px 28px;
   border-radius: 12px;
-  background: white;
+  background: var(--brand-primary-foreground);
   color: var(--brand-primary);
   font-size: 15px;
   font-weight: 700;

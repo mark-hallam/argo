@@ -1,14 +1,14 @@
 import { ogContentType, ogSize, renderOg } from "../_og/template";
 
 export const runtime = "nodejs";
-export const alt = "SKYCOT Customers — 300+ teams shipping with AI teammates";
+export const alt = "SKYCOT Customers — representative deployment profiles";
 export const size = ogSize;
 export const contentType = ogContentType;
 
 export default async function OpenGraphImage() {
   return renderOg({
-    eyebrow: "Customers",
-    headline: "300+ teams shipping with AI teammates",
-    pill: "From solo founders to Fortune 500",
+    eyebrow: "Representative profiles",
+    headline: "Teams SKYCOT is built to support",
+    pill: "Design partners onboarding",
   });
 }

@@ -1,13 +1,13 @@
 .land {
-  --purple: #8b5cf6;
-  --pink: #ec4899;
-  --coral: #ff6b6b;
-  --teal: #14b8a6;
-  --ink: #1e1b4b;
-  --ink-2: #3f3f46;
-  --ink-3: #52525b;
-  --bg: #fafaff;
-  --line: #ece9f5;
+  --purple: var(--brand-primary);
+  --pink: var(--brand-pink);
+  --coral: var(--brand-coral);
+  --teal: var(--brand-teal);
+  --ink: var(--foreground);
+  --ink-2: var(--muted-foreground);
+  --ink-3: var(--muted-foreground);
+  --bg: var(--background);
+  --line: var(--border);
   font-family: "Inter", sans-serif;
   background: var(--bg);
   color: var(--ink);
@@ -23,7 +23,7 @@
   right: -10%;
   width: 700px;
   height: 700px;
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.13) 0%, transparent 70%);
+  background: radial-gradient(circle, color-mix(in oklch, var(--brand-primary) 13%, transparent) 0%, transparent 70%);
   z-index: 0;
   pointer-events: none;
 }
@@ -34,7 +34,7 @@
   left: -10%;
   width: 800px;
   height: 800px;
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.1) 0%, transparent 70%);
+  background: radial-gradient(circle, color-mix(in oklch, var(--brand-pink) 10%, transparent) 0%, transparent 70%);
   z-index: 0;
   pointer-events: none;
 }
@@ -69,7 +69,7 @@
   font-weight: 700;
   padding: 6px 14px;
   border-radius: 999px;
-  background: rgba(139, 92, 246, 0.1);
+  background: color-mix(in oklch, var(--brand-primary) 10%, transparent);
   color: var(--purple);
   margin-bottom: 24px;
 }
@@ -90,7 +90,7 @@
 }
 .land-hero-h1 strong {
   font-weight: 400;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899, #ff6b6b);
+  background: var(--brand-gradient-3);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -124,14 +124,14 @@
   gap: 8px;
   padding: 14px 24px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
-  color: white;
+  background: var(--brand-gradient);
+  color: var(--brand-primary-foreground);
   font-size: 15px;
   font-weight: 700;
   border: none;
   cursor: pointer;
   text-decoration: none;
-  box-shadow: 0 8px 24px -6px rgba(139, 92, 246, 0.45);
+  box-shadow: 0 8px 24px -6px color-mix(in oklch, var(--brand-primary) 45%, transparent);
 }
 .land-btn-secondary {
   display: inline-flex;
@@ -182,21 +182,21 @@
   inset: 0;
   background: radial-gradient(
     circle at center,
-    rgba(139, 92, 246, 0.18),
-    rgba(236, 72, 153, 0.12) 40%,
+    color-mix(in oklch, var(--brand-primary) 18%, transparent),
+    color-mix(in oklch, var(--brand-pink) 12%, transparent) 40%,
     transparent 70%
   );
   border-radius: 50%;
 }
 .land-art-bubble {
   position: absolute;
-  background: white;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 14px 18px;
   font-size: 13.5px;
   color: var(--ink);
-  box-shadow: 0 10px 30px -10px rgba(139, 92, 246, 0.18);
+  box-shadow: 0 10px 30px -10px color-mix(in oklch, var(--brand-primary) 18%, transparent);
   font-weight: 500;
   min-width: 220px;
   max-width: 280px;
@@ -218,14 +218,14 @@
   width: 88px;
   height: 88px;
   border-radius: 22px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  background: var(--brand-gradient);
   display: grid;
   place-items: center;
-  color: white;
+  color: var(--brand-primary-foreground);
   font-family: var(--font-audiowide);
   font-size: 11px;
   letter-spacing: 0.16em;
-  box-shadow: 0 20px 50px -10px rgba(139, 92, 246, 0.5);
+  box-shadow: 0 20px 50px -10px color-mix(in oklch, var(--brand-primary) 50%, transparent);
 }
 .land-art-bubble-1 {
   top: 16%;
@@ -286,7 +286,7 @@
 }
 .land-section-title strong {
   font-weight: 400;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  background: var(--brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -318,23 +318,23 @@
   }
 }
 .land-feature {
-  background: white;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 22px;
   transition: all 0.18s;
 }
 .land-feature:hover {
-  border-color: rgba(139, 92, 246, 0.3);
+  border-color: color-mix(in oklch, var(--brand-primary) 30%, transparent);
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px -10px rgba(139, 92, 246, 0.15);
+  box-shadow: 0 12px 24px -10px color-mix(in oklch, var(--brand-primary) 15%, transparent);
 }
 .land-feature-icon {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
-  color: white;
+  background: var(--brand-gradient);
+  color: var(--brand-primary-foreground);
   display: grid;
   place-items: center;
   margin-bottom: 14px;
@@ -369,7 +369,7 @@
 .land-how-n {
   font-family: var(--font-audiowide);
   font-size: 36px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  background: var(--brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -409,18 +409,18 @@
   }
 }
 .land-diff-card {
-  background: white;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 22px;
-  box-shadow: 0 10px 28px -22px rgba(139, 92, 246, 0.45);
+  box-shadow: 0 10px 28px -22px color-mix(in oklch, var(--brand-primary) 45%, transparent);
 }
 .land-diff-icon {
   width: 40px;
   height: 40px;
   border-radius: 10px;
   background: var(--brand-gradient);
-  color: white;
+  color: var(--brand-primary-foreground);
   display: grid;
   place-items: center;
   margin-bottom: 14px;
@@ -473,7 +473,7 @@
   align-items: center;
   gap: 10px;
   padding: 14px 18px;
-  background: white;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 12px;
   font-family: var(--font-mono);
@@ -487,8 +487,8 @@
   width: 26px;
   height: 26px;
   border-radius: 6px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
-  color: white;
+  background: var(--brand-gradient);
+  color: var(--brand-primary-foreground);
   display: grid;
   place-items: center;
   font-family: var(--font-audiowide);
@@ -510,7 +510,7 @@
   }
 }
 .land-quote-card {
-  background: white;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 26px;
@@ -523,7 +523,7 @@
   align-self: flex-start;
   padding: 4px 9px;
   border-radius: 999px;
-  background: rgba(139, 92, 246, 0.08);
+  background: color-mix(in oklch, var(--brand-primary) 8%, transparent);
   color: var(--purple);
   font-family: var(--font-mono);
   font-size: 9.5px;
@@ -532,15 +532,15 @@
   text-transform: uppercase;
 }
 .land-quote-card:hover {
-  border-color: rgba(139, 92, 246, 0.3);
+  border-color: color-mix(in oklch, var(--brand-primary) 30%, transparent);
   transform: translateY(-2px);
-  box-shadow: 0 14px 28px -12px rgba(139, 92, 246, 0.18);
+  box-shadow: 0 14px 28px -12px color-mix(in oklch, var(--brand-primary) 18%, transparent);
 }
 .land-quote-mark {
   font-family: var(--font-audiowide);
   font-size: 36px;
   line-height: 1;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  background: var(--brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -563,8 +563,8 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
-  color: white;
+  background: var(--brand-gradient);
+  color: var(--brand-primary-foreground);
   display: grid;
   place-items: center;
   font-family: var(--font-audiowide);
@@ -589,8 +589,8 @@
   margin: 32px 64px 0;
   padding: 56px 48px;
   border-radius: 24px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899, #ff6b6b);
-  color: white;
+  background: var(--brand-gradient-3);
+  color: var(--brand-primary-foreground);
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -608,7 +608,7 @@
   background: linear-gradient(
     115deg,
     transparent 30%,
-    rgba(255, 255, 255, 0.14) 50%,
+    color-mix(in oklch, var(--brand-primary-foreground) 14%, transparent) 50%,
     transparent 70%
   );
   transform: translateX(-100%);
@@ -627,13 +627,13 @@
   font-family: var(--font-audiowide);
   font-size: 36px;
   font-weight: 400;
-  color: white;
+  color: var(--brand-primary-foreground);
   margin: 0 0 14px;
   position: relative;
 }
 .land-compare-band p {
   font-size: 16px;
-  color: rgba(255, 255, 255, 0.92);
+  color: color-mix(in oklch, var(--brand-primary-foreground) 92%, transparent);
   margin: 0 0 26px;
   max-width: 580px;
   margin-left: auto;
@@ -646,8 +646,8 @@
   gap: 8px;
   padding: 14px 28px;
   border-radius: 12px;
-  background: white;
-  color: #8b5cf6;
+  background: var(--brand-primary-foreground);
+  color: var(--brand-primary);
   font-size: 15px;
   font-weight: 700;
   text-decoration: none;
@@ -666,7 +666,7 @@
 }
 .land-final h2 strong {
   font-weight: 400;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  background: var(--brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

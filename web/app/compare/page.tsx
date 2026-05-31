@@ -151,7 +151,7 @@ export default function ComparePage() {
       <MarketingNav />
       <div className="compare-stage">
         <div className="compare-eyebrow">
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#14b8a6" }} />
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--brand-teal)" }} />
           COMPARE
         </div>
 

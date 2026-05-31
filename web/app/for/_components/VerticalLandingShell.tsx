@@ -45,7 +45,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           right: -10%;
           width: 700px;
           height: 700px;
-          background: radial-gradient(circle, var(--accent-tint, rgba(139, 92, 246, 0.13)) 0%, transparent 70%);
+          background: radial-gradient(circle, var(--accent-tint, color-mix(in oklch, var(--brand-primary) 13%, transparent)) 0%, transparent 70%);
           z-index: 0;
           pointer-events: none;
         }
@@ -56,7 +56,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           left: -10%;
           width: 800px;
           height: 800px;
-          background: radial-gradient(circle, rgba(236, 72, 153, 0.1) 0%, transparent 70%);
+          background: radial-gradient(circle, color-mix(in oklch, var(--brand-pink) 10%, transparent) 0%, transparent 70%);
           z-index: 0;
           pointer-events: none;
         }
@@ -80,8 +80,8 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           width: 28px;
           height: 28px;
           border-radius: 7px;
-          background: linear-gradient(135deg, var(--purple), var(--pink));
-          box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.3);
+          background: var(--brand-gradient);
+          box-shadow: 0 4px 12px -2px color-mix(in oklch, var(--brand-primary) 30%, transparent);
         }
         .vland-brand-name {
           font-family: var(--font-audiowide);
@@ -136,7 +136,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           min-width: 280px;
           grid-template-columns: 1fr;
           gap: 4px;
-          box-shadow: 0 18px 40px -16px rgba(30, 27, 75, 0.18);
+          box-shadow: 0 18px 40px -16px color-mix(in oklch, var(--brand-ink) 18%, transparent);
           z-index: 50;
         }
         .vland-for-item {
@@ -146,7 +146,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           color: var(--ink);
         }
         .vland-for-item:hover {
-          background: rgba(139, 92, 246, 0.06);
+          background: color-mix(in oklch, var(--brand-primary) 6%, transparent);
         }
         .vland-for-item-label {
           font-weight: 600;
@@ -172,12 +172,12 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
         .vland-cta-pill {
           padding: 9px 18px;
           border-radius: 999px;
-          background: linear-gradient(135deg, var(--purple), var(--pink));
-          color: white;
+          background: var(--brand-gradient);
+          color: var(--brand-primary-foreground);
           font-size: 14px;
           font-weight: 700;
           text-decoration: none;
-          box-shadow: 0 6px 18px -4px rgba(139, 92, 246, 0.45);
+          box-shadow: 0 6px 18px -4px color-mix(in oklch, var(--brand-primary) 45%, transparent);
         }
         .vland-hero {
           padding: 80px 64px 56px;
@@ -207,7 +207,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           font-weight: 700;
           padding: 6px 14px;
           border-radius: 999px;
-          background: var(--accent-eyebrow-bg, rgba(139, 92, 246, 0.1));
+          background: var(--accent-eyebrow-bg, color-mix(in oklch, var(--brand-primary) 10%, transparent));
           color: var(--accent-eyebrow-fg);
           margin-bottom: 24px;
         }
@@ -228,7 +228,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
         }
         .vland-h1 strong {
           font-weight: 400;
-          background: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
+          background: var(--brand-gradient-3);
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
@@ -254,14 +254,14 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           gap: 8px;
           padding: 14px 24px;
           border-radius: 12px;
-          background: linear-gradient(135deg, var(--purple), var(--pink));
-          color: white;
+          background: var(--brand-gradient);
+          color: var(--brand-primary-foreground);
           font-size: 15px;
           font-weight: 700;
           border: none;
           cursor: pointer;
           text-decoration: none;
-          box-shadow: 0 8px 24px -6px rgba(139, 92, 246, 0.45);
+          box-shadow: 0 8px 24px -6px color-mix(in oklch, var(--brand-primary) 45%, transparent);
         }
         .vland-btn-secondary {
           display: inline-flex;
@@ -363,16 +363,16 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           transition: all 0.18s;
         }
         .vland-card:hover {
-          border-color: rgba(139, 92, 246, 0.3);
+          border-color: color-mix(in oklch, var(--brand-primary) 30%, transparent);
           transform: translateY(-2px);
-          box-shadow: 0 14px 28px -12px rgba(139, 92, 246, 0.18);
+          box-shadow: 0 14px 28px -12px color-mix(in oklch, var(--brand-primary) 18%, transparent);
         }
         .vland-card-icon {
           width: 40px;
           height: 40px;
           border-radius: 10px;
-          background: linear-gradient(135deg, var(--purple), var(--pink));
-          color: white;
+          background: var(--brand-gradient);
+          color: var(--brand-primary-foreground);
           display: grid;
           place-items: center;
           margin-bottom: 14px;
@@ -457,7 +457,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           font-family: var(--font-audiowide);
           font-size: 44px;
           line-height: 1;
-          background: linear-gradient(135deg, var(--purple), var(--pink));
+          background: var(--brand-gradient);
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
@@ -478,12 +478,25 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           text-transform: uppercase;
           font-weight: 600;
         }
+        .vland-quote-status {
+          display: inline-flex;
+          margin: 0 0 14px;
+          padding: 5px 10px;
+          border-radius: 999px;
+          background: color-mix(in oklch, var(--brand-primary) 9%, transparent);
+          color: var(--purple);
+          font-family: var(--font-mono);
+          font-size: 10px;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          font-weight: 700;
+        }
         .vland-cta-band {
           margin: 24px 64px 0;
           padding: 56px 48px;
           border-radius: 24px;
-          background: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
-          color: white;
+          background: var(--brand-gradient-3);
+          color: var(--brand-primary-foreground);
           text-align: center;
           position: relative;
           overflow: hidden;
@@ -498,7 +511,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           content: "";
           position: absolute;
           inset: 0;
-          background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.14) 50%, transparent 70%);
+          background: linear-gradient(115deg, transparent 30%, color-mix(in oklch, var(--brand-primary-foreground) 14%, transparent) 50%, transparent 70%);
           transform: translateX(-100%);
           animation: vland-shine 6s ease-in-out infinite;
           pointer-events: none;
@@ -511,13 +524,13 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           font-family: var(--font-audiowide);
           font-size: 34px;
           font-weight: 400;
-          color: white;
+          color: var(--brand-primary-foreground);
           margin: 0 0 12px;
           position: relative;
         }
         .vland-cta-band p {
           font-size: 15px;
-          color: rgba(255, 255, 255, 0.92);
+          color: color-mix(in oklch, var(--brand-primary-foreground) 92%, transparent);
           margin: 0 auto 24px;
           max-width: 520px;
           position: relative;
@@ -528,7 +541,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           gap: 8px;
           padding: 14px 28px;
           border-radius: 12px;
-          background: white;
+          background: var(--brand-primary-foreground);
           color: var(--purple);
           font-size: 15px;
           font-weight: 700;
@@ -573,10 +586,10 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
             <div className="vland-brand-mark" />
             <div className="vland-brand-name">SKYCOT</div>
           </Link>
-          <nav className="vland-nav">
+          <nav className="vland-nav" aria-label="Vertical landing pages">
             <Link href="/landing#how">How it works</Link>
             <span className="vland-for-wrap">
-              <button className="vland-for-trigger" type="button" aria-haspopup="true">
+              <button className="vland-for-trigger" type="button" aria-haspopup="menu" aria-label="Browse vertical pages">
                 For <ArrowRight size={12} style={{ transform: "rotate(90deg)" }} />
               </button>
               <div className="vland-for-menu" role="menu">
@@ -630,7 +643,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
             ))}
             <span className="vland-trust-item">
               <span className="vland-trust-dot" />
-              2,847 teams this month
+              Hash-chained audit log
             </span>
           </div>
         </section>
@@ -675,13 +688,14 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           </div>
         </section>
 
-        {/* Customer quote (placeholder for v1; marked for find-replace) */}
+        {/* Representative profile, visible by design until real customer quotes are cleared. */}
         <section className="vland-section">
-          <p className="vland-section-label">WHAT TEAMS SAY</p>
+          <p className="vland-section-label">REPRESENTATIVE PROFILE</p>
           <h2 className="vland-section-title">
-            From the <strong>early hires</strong>.
+            A representative <strong>early hire</strong>.
           </h2>
           <article className="vland-quote" data-pending-quote="true">
+            <p className="vland-quote-status">Representative profile</p>
             <div className="vland-quote-mark">&ldquo;</div>
             <p className="vland-quote-text">{vertical.customerQuote.text}</p>
             <p className="vland-quote-byline">

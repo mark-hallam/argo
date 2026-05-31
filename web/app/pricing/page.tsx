@@ -163,6 +163,22 @@ const FAQ: FaqItem[] = [
   },
 ];
 
+function AvailabilityMark({ included }: { included: boolean }) {
+  if (included) {
+    return (
+      <span className="pri-check" role="img" aria-label="Included">
+        <Check size={18} aria-hidden="true" />
+      </span>
+    );
+  }
+
+  return (
+    <span className="pri-empty" aria-label="Not included">
+      -
+    </span>
+  );
+}
+
 export default function PricingPage() {
   return (
     <Suspense fallback={null}>
@@ -250,26 +266,29 @@ function PricingPageContent() {
           <p className="pri-section-label">FEATURE MATRIX</p>
           <h2 className="pri-section-title">Compare every line.</h2>
           <div className="pri-matrix-wrap">
-          <table className="pri-matrix">
-            <thead>
-              <tr>
-                <th>Feature</th>
-                <th>Free</th>
-                <th>Pro</th>
-                <th>Enterprise</th>
-              </tr>
-            </thead>
-            <tbody>
-              {MATRIX.map((row) => (
-                <tr key={row.label}>
-                  <td>{row.label}</td>
-                  <td>{row.free ? <span className="pri-check"><Check size={18} /></span> : <span className="pri-empty">—</span>}</td>
-                  <td>{row.pro ? <span className="pri-check"><Check size={18} /></span> : <span className="pri-empty">—</span>}</td>
-                  <td>{row.enterprise ? <span className="pri-check"><Check size={18} /></span> : <span className="pri-empty">—</span>}</td>
+            <table className="pri-matrix">
+              <caption className="sr-only">
+                Pricing feature availability across Free, Pro, and Enterprise plans.
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Feature</th>
+                  <th scope="col">Free</th>
+                  <th scope="col">Pro</th>
+                  <th scope="col">Enterprise</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {MATRIX.map((row) => (
+                  <tr key={row.label}>
+                    <th scope="row">{row.label}</th>
+                    <td><AvailabilityMark included={row.free} /></td>
+                    <td><AvailabilityMark included={row.pro} /></td>
+                    <td><AvailabilityMark included={row.enterprise} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
 
@@ -277,20 +296,26 @@ function PricingPageContent() {
           <p className="pri-section-label">FAQ</p>
           <h2 className="pri-section-title">Frequently asked questions.</h2>
           <div className="pri-faq">
-            {FAQ.map((item, idx) => (
-              <div key={item.q} className={`pri-faq-item${open === idx ? " open" : ""}`}>
-                <button
-                  type="button"
-                  className="pri-faq-q"
-                  onClick={() => setOpen(open === idx ? null : idx)}
-                  aria-expanded={open === idx}
-                >
-                  <span>{item.q}</span>
-                  <ChevronDown size={18} />
-                </button>
-                {open === idx && <div className="pri-faq-a">{item.a}</div>}
-              </div>
-            ))}
+            {FAQ.map((item, idx) => {
+              const answerId = `pricing-faq-answer-${idx}`;
+              return (
+                <div key={item.q} className={`pri-faq-item${open === idx ? " open" : ""}`}>
+                  <button
+                    type="button"
+                    className="pri-faq-q"
+                    onClick={() => setOpen(open === idx ? null : idx)}
+                    aria-expanded={open === idx}
+                    aria-controls={answerId}
+                  >
+                    <span>{item.q}</span>
+                    <ChevronDown size={18} />
+                  </button>
+                  <div id={answerId} className="pri-faq-a" hidden={open !== idx}>
+                    {item.a}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
 

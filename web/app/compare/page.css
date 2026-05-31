@@ -9,15 +9,15 @@
   gap: 6px;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--muted-foreground, #52525b);
+  color: var(--muted-foreground);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   font-weight: 700;
   margin-bottom: 18px;
   padding: 5px 14px;
   border-radius: 999px;
-  border: 1px solid var(--border, #ece9f5);
-  background: var(--background, #fafaff);
+  border: 1px solid var(--border);
+  background: var(--background);
 }
 .compare-hero {
   font-family: var(--font-audiowide);
@@ -26,12 +26,12 @@
   font-weight: 400;
   letter-spacing: 0;
   margin: 0 0 14px;
-  color: var(--foreground, #1e1b4b);
+  color: var(--foreground);
   max-width: 740px;
 }
 .compare-hero strong {
   font-weight: 400;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  background: var(--brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -39,7 +39,7 @@
 .compare-sub {
   font-size: 16px;
   font-weight: 300;
-  color: var(--muted-foreground, #3f3f46);
+  color: var(--muted-foreground);
   margin: 0 0 36px;
   max-width: 620px;
 }
@@ -55,25 +55,30 @@
   }
 }
 .compare-position-card {
-  border: 1px solid var(--border, #ece9f5);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 16px;
   background: var(--card);
 }
 .compare-position-card.us {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.06), rgba(236, 72, 153, 0.06));
-  border-color: rgba(139, 92, 246, 0.3);
+  background: linear-gradient(
+      135deg,
+      color-mix(in oklch, var(--brand-primary) 6%, transparent),
+      color-mix(in oklch, var(--brand-pink) 6%, transparent)
+    ),
+    var(--card);
+  border-color: color-mix(in oklch, var(--brand-primary) 30%, transparent);
 }
 .compare-position-name {
   font-weight: 700;
   font-size: 16px;
-  color: var(--foreground, #1e1b4b);
+  color: var(--foreground);
   margin: 0 0 4px;
 }
 .compare-position-name.us {
   font-family: var(--font-audiowide);
   font-weight: 400;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  background: var(--brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -84,18 +89,18 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-weight: 600;
-  color: var(--muted-foreground, #52525b);
+  color: var(--muted-foreground);
   margin: 0 0 8px;
 }
 .compare-position-blurb {
   font-size: 12.5px;
-  color: var(--muted-foreground, #3f3f46);
+  color: var(--muted-foreground);
   line-height: 1.5;
   margin: 0;
 }
 .compare-table-wrap {
   background: var(--card);
-  border: 1px solid var(--border, #ece9f5);
+  border: 1px solid var(--border);
   border-radius: 14px;
   /* Mobile-scroll wrap (a11y + responsive — wave 2): keep the
      5-column matrix scrollable horizontally instead of
@@ -128,45 +133,46 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 700;
-  color: var(--muted-foreground, #52525b);
-  background: var(--background, #fafaff);
-  border-bottom: 1px solid var(--border, #ece9f5);
+  color: var(--muted-foreground);
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
 }
 .compare-table thead th.us-col {
-  color: #8b5cf6;
+  color: var(--brand-primary);
 }
 .compare-table tbody td.us-col {
-  background: rgba(139, 92, 246, 0.04);
+  background: color-mix(in oklch, var(--brand-primary) 4%, transparent);
 }
 .compare-table tbody tr {
-  border-bottom: 1px solid var(--border, #ece9f5);
+  border-bottom: 1px solid var(--border);
 }
 .compare-table tbody tr:last-child {
   border-bottom: none;
 }
+.compare-group-row th,
 .compare-group-row td {
-  background: var(--background, #fafaff);
+  background: var(--background);
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   font-weight: 700;
-  color: var(--muted-foreground, #52525b);
+  color: var(--muted-foreground);
   padding-top: 18px;
   padding-bottom: 10px;
-  border-top: 1px solid var(--border, #ece9f5);
+  border-top: 1px solid var(--border);
 }
-.compare-group-row td:first-child {
-  color: var(--foreground, #1e1b4b);
+.compare-group-row th:first-child {
+  color: var(--foreground);
 }
 .compare-question-cell {
   font-size: 14px;
   font-weight: 500;
-  color: var(--foreground, #1e1b4b);
+  color: var(--foreground);
 }
 .compare-caption {
   font-size: 12px;
-  color: var(--muted-foreground, #52525b);
+  color: var(--muted-foreground);
   margin-top: 4px;
   font-weight: 400;
   line-height: 1.45;
@@ -188,23 +194,23 @@
   font-family: "Inter", sans-serif;
 }
 .compare-score.yes {
-  background: rgba(20, 184, 166, 0.15);
-  color: #0f766e;
+  background: color-mix(in oklch, var(--success) 15%, transparent);
+  color: var(--success);
 }
 .compare-score.yes::before {
   content: "✓";
 }
 .compare-score.no {
-  background: rgba(244, 63, 94, 0.12);
-  color: #be123c;
+  background: color-mix(in oklch, var(--destructive) 12%, transparent);
+  color: var(--destructive);
 }
 .compare-score.no::before {
   content: "✕";
   font-size: 13px;
 }
 .compare-score.partial {
-  background: rgba(245, 158, 11, 0.15);
-  color: #b45309;
+  background: color-mix(in oklch, var(--warning) 15%, transparent);
+  color: var(--warning);
 }
 .compare-score.partial::before {
   content: "–";
@@ -212,10 +218,14 @@
 .compare-footer-row td {
   padding-top: 28px;
   padding-bottom: 28px;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.06), rgba(236, 72, 153, 0.06));
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--brand-primary) 6%, transparent),
+    color-mix(in oklch, var(--brand-pink) 6%, transparent)
+  );
   text-align: center;
   font-size: 13.5px;
-  color: var(--muted-foreground, #3f3f46);
+  color: var(--muted-foreground);
 }
 .compare-cta {
   display: inline-flex;
@@ -223,15 +233,15 @@
   gap: 8px;
   padding: 12px 22px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
-  color: white;
+  background: var(--brand-gradient);
+  color: var(--brand-primary-foreground);
   font-family: "Inter", sans-serif;
   font-size: 14px;
   font-weight: 700;
   border: none;
   cursor: pointer;
   text-decoration: none;
-  box-shadow: 0 6px 16px -4px rgba(139, 92, 246, 0.45);
+  box-shadow: 0 6px 16px -4px color-mix(in oklch, var(--brand-primary) 45%, transparent);
   margin-top: 12px;
 }
 @media (max-width: 768px) {
