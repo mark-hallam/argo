@@ -16,6 +16,7 @@ const EXPECTED_PUBLIC_MODULES: &[&str] = &[
     "pitch_runner",
     "regression",
     "self_healing",
+    "replay",
     "teammate",
     "teammate_runner",
     "teammate_scorecard",

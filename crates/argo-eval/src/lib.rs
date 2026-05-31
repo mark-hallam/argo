@@ -53,6 +53,7 @@ mod runner;
 pub mod self_healing;
 mod streaming;
 mod task;
+pub mod replay;
 pub mod teammate;
 pub mod teammate_runner;
 pub mod teammate_scorecard;

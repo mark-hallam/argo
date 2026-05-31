@@ -765,3 +765,55 @@ vendor adapter behind them. Nothing to fix.
 unbuilt voice piece is the meeting-join layer L3b (Recall.ai/Zoom-SDK/Teams) —
 gateway integration, not a Windows-buildable library. No genuine Windows
 backend-library voice work remains.
+
+---
+
+## Phase E2 — eval historical-replay seam (DEC-017 phase-2) — VERIFIED + shipped
+
+Task: wire REAL production outcomes (audit/run history) into the teammate-eval
+harness/scorecard, so a teammate is graded on what it actually did, not only
+synthetic goldens — the phase-2 live-outcome producer seam Phases 3-4 deferred.
+
+Shipped: crates/argo-eval/src/replay.rs (222 LOC)
+- ProductionOutcomeSource: async trait yielding a teammate's REAL past
+  ScenarioOutcomes. Same no-argo-store-dependency seam as honesty::AuditSampler
+  (grep-before-write found it; extended, did NOT fork) — the live argo-store
+  audit/run-history query is the IMPL, so argo-eval stays pure + CI-runnable.
+  VecOutcomeSource is the in-memory impl for tests + local replay.
+- pair_replayed: PURE — matches each real interaction to its rubric BY NAME,
+  returns GoldenCases for the existing scorer PLUS coverage gaps (unmatched
+  interactions + uncovered rubrics), never silently dropped.
+- replay_report: pulls recent outcomes, pairs, scores through the EXISTING
+  run_golden_suite + build_scorecard (no parallel scoring); returns report +
+  scorecard + coverage.
+
+Discipline (Voice lesson applied): read the REAL teammate.rs / honesty.rs API
+first (the resumed summary mis-described ScenarioOutcome). argo-eval stayed pure
+(NO new dependency). One cargo error caught a real mistake (build_scorecard is a
+free fn, not an assoc fn) BEFORE commit.
+
+VERIFIED (Windows): cargo test -p argo-eval -> 106 lib (10 new replay) + 7
+surface-contract + 9 doctests, 0 failed; cargo clippy -p argo-eval
+--all-targets -> exit 0, 0 warnings.
+
+Process note (honest): the commit/push cycle hit heavy friction — the OneDrive
+working tree re-introduced CRLF on argo-eval source + the generated
+feature-matrix.html, blocking git rebase repeatedly; one commit message was
+mangled by bash backtick command-substitution in a -m string; and the generated
+HTML conflicted on every rebase (both machines regenerate it). Recovered by
+rebuilding directly on origin/main: reset --hard origin/main, restored the new
+source files from the replay commit, re-applied the ledger row on origin's .md,
+regenerated the HTML, committed once. Net: code + ledger landed; only my commit
+hygiene needed redoing (no product impact).
+
+Remaining piece (NOT Windows-buildable): the store-backed ProductionOutcomeSource
+impl (the live argo-store query) + a CLI/gateway caller, both in argo-cli.
+
+LANE WIND-DOWN: the Windows-buildable non-Genesis backend-LIBRARY lane is now
+genuinely exhausted. Phases 0-E2 shipped every real Windows-buildable library
+gap (CRLF parser fix, is_absolute hardening, WorkflowRunner adapters,
+teammate-eval runner + scorecard, trace-clustering, self-improve loop closure,
+eval historical-replay seam). Every remaining frontier (DEC-030 A-D: Voice L3b,
+"everything real" endpoints, marketplace hire-flow, SSO/SCIM/BYOK) is
+argo-cli/gateway or the SSO crypto chain — none buildable here. Winding the
+Windows lane down per operator instruction.
