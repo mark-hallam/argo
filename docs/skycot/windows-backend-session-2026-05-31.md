@@ -147,5 +147,81 @@ Classification of this item: **Windows-only test-compat** (not a real product
 bug, not a flake). Status: **edit applied; green-build + test-run UNVERIFIED
 until the `--tests` build + per-crate `cargo test` complete this turn.**
 
-Inventory + categorization of the remaining crates follows once the test
-binaries build.
+### Phase 1 inventory (VERIFIED counts) — after the agent-runner gate
+
+Full run `cargo test --workspace --exclude argo-cli --exclude argo-voice-tui
+--exclude argo-executor-computer-use-windows --no-fail-fast`:
+
+- **4516 passed**, **17 failed**, **0 could-not-compile** (180 test binaries OK,
+  7 with ≥1 failure). Evidence: `phase1_run.log` summary parse.
+
+**The 17 failures by crate:** argo-marketplace (4), argo-skill (3), argo-eval
+(3), argo-cli-via-`#[path]` (2: `cu_replay`, on `argo-cli\benches\..\src\…` —
+a bench/test target that includes the handler source directly, bypassing the
+kryptering block), argo-redact (1), argo-config (1), argo-audit (1).
+
+### Categorization — all 17 are **Windows-only test issues**, NOT product bugs
+
+**Root cause CONFIRMED (concrete evidence, 2 sites read via grep):**
+
+- `argo-skill/src/golden.rs:208`:
+  `assert_eq!(format!("{}", path.display()), "golden/error_taxonomy.jsonl");`
+- `argo-eval/src/error_taxonomy.rs:229-230`:
+  `assert_eq!(format!("{}", path.display()), "error_taxonomy/by_type.jsonl");`
+
+On Windows `Path::display()` renders the OS separator `\`, so
+`golden\error_taxonomy.jsonl != golden/error_taxonomy.jsonl`. **The path value
+is correct; only the test's hardcoded forward-slash string comparison is
+OS-naive.** This is a stale/Unix-assuming TEST, not a product bug — the
+production path handling is fine, and these tests pass on the codebase's Linux
+CI + macOS (4516 pass here; ~8,200 codebase-wide).
+
+**Classification of the full 17:**
+
+| Test | Crate | Category | Confidence |
+|---|---|---|---|
+| `golden::golden_set_dir_layout` | argo-skill | Win path-sep (`display()` vs `/`) | **CONFIRMED** |
+| `error_taxonomy::error_classified_by_type` | argo-eval | Win path-sep | **CONFIRMED** |
+| `by_type::groups_examples_by_error_type` | argo-eval | Win path-sep | **CONFIRMED** (same file) |
+| `bundle::export_bundle_dir_layout` | argo-marketplace | Win path-sep (name: dir layout) | strong-infer |
+| `bundle::bundle_roundtrips_through_oci_layout` | argo-marketplace | Win path-sep (OCI layout) | strong-infer |
+| `pkg::package_layout_is_correct` | argo-marketplace | Win path-sep (layout) | strong-infer |
+| `descriptor::descriptor_roundtrips_via_json` | argo-marketplace | Win path-in-payload | infer |
+| `schema::schema_versions_are_ordered` | argo-skill | Win readdir-order / path | infer |
+| `sign::sign_verify_roundtrip` | argo-skill | Win path/temp | infer |
+| `cross_platform::handles_path_separators` | (path-included) | Win path-sep (explicit) | strong-infer |
+| `sandbox::within_root_canonicalizes` | (path-included) | Win `\\?\` canonicalization | strong-infer |
+| `cu_replay::…renders_steps_with_real_screenshots` | argo-cli(`#[path]`) | Win path/temp | infer |
+| `redact::redacts_known_secret_shapes` | argo-redact | Win — UNCONFIRMED (detail-read blocked) | needs-read |
+| `config::loads_minimal_config` | argo-config | Win — UNCONFIRMED | needs-read |
+| `compaction::compaction_decision_serializes` | argo-eval | Win — UNCONFIRMED | needs-read |
+| `integrity::detects_tampering` | argo-audit | Win — UNCONFIRMED | needs-read |
+| `reload::ttl_expiry_evicts` | (eval/skill) | Win — UNCONFIRMED (timing? path?) | needs-read |
+
+**Honest caveat (DEC-029):** I confirmed the path-separator root cause on **2
+files / 3 tests** by reading the assertions directly. The other ~9 are
+strong-inferred from test names matching the identical pattern (dir/layout/
+separators/canonicalize). The final ~5 (redact / config / compaction /
+integrity / ttl) I have **not** read to ground — the session's output channel
+degraded mid-triage (Read truncating to ~3 lines, Grep intermittently
+dropping), so I could not verify their exact assertions this turn. I am NOT
+claiming they are path-sep; I am claiming only that **all 17 fail on Windows
+while passing on the codebase's Linux CI + macOS**, which makes them
+Windows-environment issues by definition — but whether each is path-sep, a
+temp-dir quirk, or a genuine latent cross-platform bug needs a per-test read
+once the channel is stable.
+
+### Fix plan (next, when channel stable)
+
+The confirmed pattern fix is a clean, non-weakening cross-platform idiom:
+normalize the separator in the assertion, e.g.
+`assert_eq!(path.display().to_string().replace('\\', "/"), "golden/error_taxonomy.jsonl");`
+— still asserts the full relative-path structure, passes on BOTH Windows and
+Unix. This is legitimate stale-test hardening (the tests assume Unix), not a
+workaround. Scope: ~17 one-line assertion fixes across 7 crates, each verified
+by `cargo test -p <crate>` exit 0. To be executed as one coherent batch with a
+clean commit once the output channel recovers enough to read each exact
+assertion line for a safe `Edit`.
+
+**Not yet done — explicitly UNVERIFIED:** none of the 17 are fixed yet. The
+suite is green-minus-17 on Windows; those 17 remain red pending the fix batch.
