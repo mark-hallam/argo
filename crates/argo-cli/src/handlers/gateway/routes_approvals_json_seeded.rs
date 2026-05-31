@@ -186,8 +186,18 @@ fn build_row(row: &ApprovalRow, ask: Option<&Value>, worker: Option<(WorkerId, S
         .and_then(|v| v.get("channel"))
         .and_then(Value::as_str)
         .unwrap_or("web");
+    // Map the persisted `approval_request.status` to the SPA's
+    // approve/refuse decision label. The store writes the
+    // `ApprovalStatus` column via `ApprovalDecision::as_store_str()`
+    // (argo-types), which serialises an APPROVED row as "granted" and a
+    // refused row as "denied" — NOT "approve"/"refuse". The original
+    // arm only matched "approved", so every seeded approved row fell to
+    // `None` (counted as still-pending) and the /approvals "Approval
+    // rate" ring read 0% even with resolved rows present. The token-form
+    // aliases ("approved"/"refused") are kept for defence-in-depth in
+    // case a future writer stores the token string instead.
     let decision = match row.status.as_str() {
-        "approved" => Some("approve"),
+        "granted" | "approved" => Some("approve"),
         "denied" | "refused" | "expired" => Some("refuse"),
         _ => None,
     };

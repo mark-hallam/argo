@@ -94,6 +94,61 @@ describe("/pitch page", () => {
     });
   });
 
+  it("reads a canonical deferral as Deferred (not green Allowed) on the rehearsal channel", async () => {
+    // The /pitch surface sends channel:"Rehearsal", where the
+    // private-rehearsal policy returns disposition:"Allow" for a
+    // valuation question even though the canonical answer Portia ships
+    // is a refusal. The pill must read "Deferred", never green "Allowed".
+    pitchApi.askPitch.mockResolvedValueOnce({
+      matched: true,
+      source: "canonical",
+      entry_id: "valuation-deferral",
+      answer:
+        "I'm not authorized to share valuation publicly. Mark, do you want to take that one?",
+      declared_claim_classes: ["valuation"],
+      disposition: "Allow",
+      block_reason: null,
+      channel: "Rehearsal",
+      latency_ms: 1,
+    });
+    render(<PitchPage />);
+    fireEvent.change(screen.getByTestId("pitch-input"), {
+      target: { value: "What's the valuation?" },
+    });
+    fireEvent.click(screen.getByTestId("pitch-submit"));
+    await waitFor(() => {
+      expect(screen.getByTestId("pitch-pill-disposition")).toHaveTextContent(/deferred/i);
+    });
+    // The fix is label-only: it must NOT have flipped to the green allow pill.
+    expect(screen.getByTestId("pitch-pill-disposition")).not.toHaveTextContent(/allowed/i);
+  });
+
+  it("keeps the green Allowed pill for a non-deferral canonical Allow", async () => {
+    // A normal in-corpus answer (architecture) declares no deferral class,
+    // so it must still render the green "Allowed" pill — the deferral
+    // relabel is scoped to the sensitive classes only.
+    pitchApi.askPitch.mockResolvedValueOnce({
+      matched: true,
+      source: "canonical",
+      entry_id: "tech-stack",
+      answer: "Rust single-binary core.",
+      declared_claim_classes: ["architecture"],
+      disposition: "Allow",
+      block_reason: null,
+      channel: "Rehearsal",
+      latency_ms: 2,
+    });
+    render(<PitchPage />);
+    fireEvent.change(screen.getByTestId("pitch-input"), {
+      target: { value: "What's the tech stack?" },
+    });
+    fireEvent.click(screen.getByTestId("pitch-submit"));
+    await waitFor(() => {
+      expect(screen.getByTestId("pitch-pill-disposition")).toHaveTextContent(/allowed/i);
+    });
+    expect(screen.getByTestId("pitch-pill-disposition")).not.toHaveTextContent(/deferred/i);
+  });
+
   it("surfaces an error banner on gateway 5xx", async () => {
     pitchApi.askPitch.mockRejectedValueOnce(
       new ApiError(503, "gateway down", "service_unavailable"),

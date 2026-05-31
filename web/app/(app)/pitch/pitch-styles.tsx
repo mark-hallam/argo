@@ -248,6 +248,14 @@ export function PitchStyles() {
         background: rgba(239, 68, 68, 0.14);
         color: #991b1b;
       }
+      /* Deferred: a canonical refusal that the rehearsal channel
+         technically allows the operator to hear. Amber — "held / pointed
+         to Mark", matching the /marketing "Held for review" convention —
+         so it never reads as a green allow. */
+      .pitch-pill.is-deferred {
+        background: rgba(217, 119, 6, 0.14);
+        color: #92400e;
+      }
       .pitch-pill.is-entry {
         background: rgba(139, 92, 246, 0.12);
         color: #5b21b6;

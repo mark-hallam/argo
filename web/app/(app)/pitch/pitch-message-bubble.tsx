@@ -11,10 +11,44 @@
  * via `voiceMeta` below.
  */
 
-import { ShieldAlert, ShieldCheck, ShieldQuestion } from "lucide-react";
+import { ShieldAlert, ShieldCheck, ShieldMinus, ShieldQuestion } from "lucide-react";
 import type { PitchAskResponse, PitchDisposition } from "@/lib/api/pitch";
 import type { PitchTurnResponse } from "@/lib/api/voice";
 import { sourcePill, tokensLabel } from "./pitch-source-chip";
+
+/**
+ * Claim classes whose canonical answer is a *deferral* — the agent
+ * declines to state a number and points the asker at Mark / the public
+ * site. These are Forbid on the public-pitch policy but Allow on the
+ * private-rehearsal policy (the operator is the audience), so on the
+ * `/pitch` rehearsal surface the gateway returns `disposition: "Allow"`
+ * even though the answer Portia ships is a refusal. Without this set the
+ * pill would read a green "Allowed" on what is visibly a deferral.
+ *
+ * This is a LABEL concern only — the substance (Portia defers, fabricates
+ * nothing) is already correct server-side. See
+ * `policies/truth-boundary/skycot-private-rehearsal.toml`.
+ */
+const DEFERRAL_CLAIM_CLASSES: ReadonlySet<string> = new Set([
+  "valuation",
+  "revenue",
+  "customer-count",
+]);
+
+/**
+ * True when a canonical answer is a deferral: it matched a canonical
+ * entry (so the answer is the operator-approved refusal text) AND the
+ * entry declares a sensitive class we defer on. LLM-path answers are
+ * never treated this way — the truth boundary handles those via the
+ * explicit `Block` disposition + `llm_blocked_canonical_refused` source.
+ */
+function isCanonicalDeferral(meta: PitchAskResponse): boolean {
+  if (meta.source && meta.source !== "canonical") return false;
+  if (!meta.matched) return false;
+  return (meta.declared_claim_classes ?? []).some((c) =>
+    DEFERRAL_CLAIM_CLASSES.has(c),
+  );
+}
 
 export interface OperatorMessage {
   id: string;
@@ -51,12 +85,19 @@ export function voiceMeta(turn: PitchTurnResponse): PitchAskResponse {
   };
 }
 
-function dispositionPill(disposition: PitchDisposition) {
-  if (disposition === "Block") {
+function dispositionPill(meta: PitchAskResponse) {
+  if (meta.disposition === "Block") {
     return { Icon: ShieldAlert, label: "Blocked", className: "pitch-pill is-block" };
   }
-  if (disposition === "Escalate") {
+  if (meta.disposition === "Escalate") {
     return { Icon: ShieldQuestion, label: "Escalated", className: "pitch-pill is-escalate" };
+  }
+  // A canonical deferral on the rehearsal channel comes back `Allow`
+  // (the operator may hear the financials) but the answer is still a
+  // refusal — render it as "Deferred", not green "Allowed", so the
+  // truth-boundary moment reads like the refusal it is. Label-only.
+  if (isCanonicalDeferral(meta)) {
+    return { Icon: ShieldMinus, label: "Deferred", className: "pitch-pill is-deferred" };
   }
   return { Icon: ShieldCheck, label: "Allowed", className: "pitch-pill is-allow" };
 }
@@ -70,7 +111,7 @@ export function MessageBubble({ message }: { message: Message }) {
     );
   }
   const meta = message.meta;
-  const pill = meta ? dispositionPill(meta.disposition) : null;
+  const pill = meta ? dispositionPill(meta) : null;
   const source = meta ? sourcePill(meta.source) : null;
   const tokens = meta ? tokensLabel(meta.tokens) : null;
   const isSwapped = meta?.source === "llm_blocked_canonical_refused";

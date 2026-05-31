@@ -2,7 +2,8 @@
 # Pre-record roster guard for scripts/demo-dry-run.sh.
 #
 # Validates that the demo gateway has been seeded with the canonical
-# five-worker roster (Mariah / Peta / Priya / Jamal / Nori) AND
+# eight-worker roster (Mariah / Peta / Priya / Jamal / Nori / Portia /
+# Grant / Marcus — read from scripts/lib/demo-roster.txt) AND
 # non-zero skills + verticals catalogs. Without this guard, a
 # roster-mismatched gateway (e.g. one stuck on the "Maya" boot-seed)
 # passes the dry-run silently and the operator only finds out

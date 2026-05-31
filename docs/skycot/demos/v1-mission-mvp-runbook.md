@@ -30,7 +30,7 @@ into the narration; the tests are source material, not the story.
 
 - [ ] `git pull --ff-only origin main` and `cargo build --release -p argo-cli`. Confirm `target/release/argo --version` prints a sha from current main.
 - [ ] Local `argo` gateway is FRESH (schema_version on `/health` matches the highest `crates/argo-store/src/migrations/v*.rs`). If stale, restart it.
-- [ ] `bash scripts/demo-dry-run.sh --demo-mode` exits 0. The `--demo-mode` branch validates `SKYCOT_DB_KEY_BASE64` is exported, that `POST /api/v1/demo/mint-principal` answers `ok: true` on the running gateway, and (via `scripts/check-demo-roster.sh`) that `/api/v1/team` returns the canonical seven-worker roster (Mariah / Peta / Priya / Jamal / Nori / Portia / Grant) plus non-empty `/api/v1/skills` and `/api/v1/verticals`. **This script is the SINGLE pre-record gate — if it fails for any reason, do not record; re-seed and retry until it exits 0.**
+- [ ] `bash scripts/demo-dry-run.sh --demo-mode` exits 0. The `--demo-mode` branch validates `SKYCOT_DB_KEY_BASE64` is exported, that `POST /api/v1/demo/mint-principal` answers `ok: true` on the running gateway, and (via `scripts/check-demo-roster.sh`) that `/api/v1/team` returns the canonical eight-worker roster (Mariah / Peta / Priya / Jamal / Nori / Portia / Grant / **Marcus** — DEC-028 added Marcus, the marketing teammate, as the third hero) plus non-empty `/api/v1/skills` and `/api/v1/verticals`. **This script is the SINGLE pre-record gate — if it fails for any reason, do not record; re-seed and retry until it exits 0.** (Maya is hired live during Scene 3 via Genesis, so she is NOT in the seed roster.)
 - [ ] Six claim regression tests pass against `origin/main` (see "Verifying the live-test sources" at the bottom of this doc).
 - [ ] `SKYCOT_DB_KEY_BASE64` exported in the recording terminal — a fresh 32-byte secret for a throwaway demo store. Generate with `export SKYCOT_DB_KEY_BASE64="$(openssl rand -base64 32)"`.
 - [ ] macOS permissions granted on the `argo` binary: Accessibility + Screen Recording (required by Scene 5).
@@ -75,14 +75,14 @@ into the narration; the tests are source material, not the story.
   ARGO_DEMO_SEED_PROVIDER_KEY="${ARGO_DEMO_SEED_PROVIDER_KEY:?set throwaway provider key}" \
     argo demo seed --tenant "$ARGO_DEMO_TENANT_ID"
   curl -fsS http://127.0.0.1:7400/api/v1/team | jq '.workers | length'
-  # expected: 7  (Mariah, Peta, Priya, Jamal, Nori, Portia, Grant)
+  # expected: 8  (Mariah, Peta, Priya, Jamal, Nori, Portia, Grant, Marcus)
   curl -fsS http://127.0.0.1:7400/api/v1/workflows | jq '.workflows | length'
   # expected: >0
   curl -fsS http://127.0.0.1:7400/api/v1/skills | jq '.skills | length'
   # expected: >0
   ```
 
-  Re-running is idempotent: worker count remains exactly `7`, and the
+  Re-running is idempotent: worker count remains exactly `8`, and the
   approval inbox is no longer duplicated on re-seed (the demo-seed
   approval block is now skip-if-exists). For an offline smoke only, add
   `--skip-pass-a-turns`; do not use that flag for recording. If any count is zero, confirm the tenant id came from
@@ -117,21 +117,22 @@ role-membership over time. You don't run it; you delegate to it.
 The regression test uses a five-worker fixture: five workers persist
 across a file-store restart with stable worker_ids, identical names,
 vertical ids, duty entries, and memory namespaces; one is re-summoned
-by name post-restart. (The *demo tenant* now seeds seven heroes — the
-five above plus Portia + Grant — so the on-camera `/team` shows seven;
-the persistence proof is the same.)
+by name post-restart. (The *demo tenant* now seeds eight heroes — the
+five above plus Portia + Grant + Marcus — so the on-camera `/team` shows
+eight; the persistence proof is the same.)
 
 **Visual / operator action**:
 1. Operator clicks **Team** in the sidebar (the canonical roster
    entry — the duplicate "Workers" nav item was removed in the
    nav-dedup; `/workers` still resolves + redirects to `/team`). The
-   camera lands on `/team` with seven teammates already hired (Mariah,
+   camera lands on `/team` with eight teammates already hired (Mariah,
    Peta, Priya, Jamal, Nori, Portia — the pitch agent who will pitch
-   SKYCOT itself later in this demo — and Grant, the GTM engineer who
-   drafts inbound follow-ups). Brand-loud trading-card deck visible.
+   SKYCOT itself later in this demo — Grant, the GTM engineer who
+   drafts inbound follow-ups, and Marcus, the marketing teammate who
+   drafts public-voice replies). Brand-loud trading-card deck visible.
 2. Operator stops the gateway in the off-screen terminal.
 3. Operator restarts the gateway. Browser auto-refreshes.
-4. Same seven teammates reappear — same names, same avatars, same
+4. Same eight teammates reappear — same names, same avatars, same
    trait chips, same level badges (Mariah at LEVEL 5).
 5. Click Mariah's card. `/workers/${workerId}` shows her overview
    tab with personality chips, great-at / escalate-when bullets,
@@ -139,15 +140,15 @@ the persistence proof is the same.)
 
 **Talk track**:
 > "Your AI hires are colleagues. Mariah, Peta, Priya, Jamal, Nori,
-> Portia, Grant — seven teammates I hired last week. I'm going to stop
-> the gateway, restart it, and they're all still here. Same names. Same
-> personalities. Same memory. They're not jobs I run; they're
-> teammates I delegate to."
+> Portia, Grant, Marcus — eight teammates I hired last week. I'm going
+> to stop the gateway, restart it, and they're all still here. Same
+> names. Same personalities. Same memory. They're not jobs I run;
+> they're teammates I delegate to."
 >
-> (After restart) "Same seven. Same Mariah. I can summon her by
+> (After restart) "Same eight. Same Mariah. I can summon her by
 > name a day from now and she remembers what we discussed."
 
-**Pass cue**: Seven worker cards re-render post-restart with
+**Pass cue**: Eight worker cards re-render post-restart with
 identical names and identical worker_ids in the URL when clicked
 through. Mariah's overview tab opens at `/workers/${workerId}`
 without a 404.
@@ -207,12 +208,19 @@ per-duty Run-now affordance is a follow-up brief.)
 
 > **Vocab pin** — Scene 2 narration uses the words the on-camera UI
 > actually renders. Personality is a **card on Overview** (not a
-> tab). Responsibilities is a **card on Overview** (not a tab; no
-> "Schedules" tab exists). The visible worker-detail tabs are
-> pinned against `web/components/skycot/WorkerTabs.tsx`
-> (`WORKER_TAB_IDS` / `WORKER_TAB_LABELS`): Overview, Activity,
-> Memory, Skills, Trust, Escalation, Settings. If you rename, add,
-> or remove a tab there, re-check this scene before recording.
+> tab). The teammate's standing duties show in **two** equivalent
+> places: the **Responsibilities card on Overview** (the at-a-glance
+> list Scene 2 lands on) AND a dedicated **"Schedules" tab** — the tab
+> reuses the same duty card (`WorkerSchedulesContent` →
+> `DutiesCard`), so it is data-equivalent to the Overview list. The
+> word **"Schedules" is the locked operator-facing vocabulary**
+> ([DEC-004](../decisions/DEC-004-vocabulary-schedule-not-duty.md):
+> code / SQL / audit keep "duty"; every operator-facing surface says
+> "Schedule"). The visible worker-detail tabs are pinned against
+> `web/components/skycot/WorkerTabs.tsx` (`WORKER_TAB_IDS` /
+> `WORKER_TAB_LABELS`): **Overview, Schedules, Activity, Memory,
+> Skills, Trust, Escalation, Settings.** If you rename, add, or
+> remove a tab there, re-check this scene before recording.
 
 ---
 
@@ -229,32 +237,55 @@ one of the generated action types runs successfully through the
 `WorkerSessionRunner` with a `workflow.step.executed` audit row.
 
 **Visual / operator action**:
-1. Navigate to `/onboarding/first-hire`. Empty form, single
-   composer.
+1. Click **Genesis** in the sidebar (eyebrow "Genesis · onboarding
+   studio"). The hero reads "Onboard a new teammate." A single
+   composer + an optional "attach one SOP / playbook" upload. (This
+   IS the first-hire path under the MVP-with-Genesis scope — do **not**
+   use a `/onboarding/first-hire` roster-picker; that picker was
+   reverted on 2026-05-28, see
+   `feedback_scene_1_canonical_picker_was_wrong_for_mvp_genesis`.)
 2. Operator types the charter:
    > A marketing intern named Maya who drafts blog posts based on
    > briefs and asks for approval before publishing.
-3. Click **Hire Maya**. Progress shimmer: "Generating
-   vertical… Writing prompts… Seeding evals… Hiring Maya."
-4. Lands on `/workers/${workerId}` with Maya's profile already
-   populated — vertical id, action vocabulary, eval seeds count.
-5. Operator clicks **Run a workflow** → picks the auto-generated
-   `draft_post` workflow → fills the brief → submits.
-6. Workflow finishes; an output artifact appears under the run's
-   detail page; `/audit` shows the `workflow.step.executed` row.
+3. Press Enter. The page opens a live Server-Sent-Events stream
+   (`POST /api/v1/genesis`) and a progress strip advances through the
+   real phases: **Drafting persona → Compiling charter → Generating
+   skill bundle → Validating eval seeds → Running safety gate →
+   Ready** (an extra **Ingesting your SOP** step appears only if a
+   document was attached). No mock — every phase is a real backend
+   event.
+4. On **Ready** a **role-contract review** card renders
+   (`data-testid="genesis-role-contract-review"`): the generated role
+   name (**"Maya"**, not the old "Genesis Teammate (…)" placeholder —
+   fixed 2026-05-31 in commit `7712f2c0d`), what she's **approval-gated
+   on**, what she can do **autonomously**, what she **will not** do, and
+   the draft-only integrations. Operator ticks the "I've reviewed what
+   Maya can and can't do…" confirm checkbox.
+5. Click **Confirm & hire Maya**. This `POST /api/v1/workers` (HTTP
+   201) materialises the worker and the browser navigates to
+   `/workers/${workerId}` with Maya's profile populated — vertical id,
+   action vocabulary, eval-seed count.
+6. (If budget holds) Operator runs Maya's auto-generated workflow →
+   fills the brief → submits. The run finishes with real output and
+   `/audit` shows the `workflow.step.executed` row. The
+   `claim_3_live_genesis_to_run.rs` regression pins this end to end.
 
 **Talk track**:
 > "I'm hiring my next teammate the way I'd brief a human. One
 > sentence — what the job is, what the constraints are. No TOML.
-> No YAML. No template picker beyond the vertical seed."
+> No YAML. No template picker."
 >
-> "Skycot turns that sentence into a real vertical — system
-> prompt, action vocabulary, memory schema, eval seeds — and into
-> a worker who can immediately run her first workflow."
+> "Skycot turns that sentence into a real teammate — persona,
+> charter, skill bundle, eval seeds, a safety gate — live, in front of
+> you. Before she's hired I get a contract: here's exactly what Maya
+> can do on her own, here's what she has to ask me about, here's what
+> she can't do at all. I tick the box, and she's on the roster."
 
-**Pass cue**: A workflow run finishes with real output (not just
-files on disk), and `/audit` shows exactly one
-`workflow.step.executed` row keyed to the new worker's tenant.
+**Pass cue**: The role-contract card shows the real persona name
+**"Maya"** (never a "Genesis Teammate (…)" placeholder), and confirming
+lands on `/workers/${workerId}` (201). If the optional workflow beat
+runs, `/audit` shows exactly one `workflow.step.executed` row keyed to
+the new worker's tenant.
 
 **Timing**: 2:30 – 4:00 (90 s).
 
@@ -425,7 +456,16 @@ come back from any of these channels" — replacing the old
 all-CLI inbound story. Skip if the run is over budget; the page
 is operator-discoverable independent of the demo.
 
-**Audit drill-in deep-link contract** (Scene 6 row-click target):
+**Audit surface — the B3 chain-explorer** (Scene 6 anchor):
+- `/audit` renders the locked **B3 chain-explorer** (component
+  `AuditChainExplorerHero` + `AuditPageHeader`): an Etherscan-style
+  hash-chained feed grouped by day, with a filter chip rail and an
+  evidence-bundle exporter. The hash-chain link on each row is the
+  load-bearing "every row links to the previous one's hash" visual the
+  Scene 6 talk track points at — hover it for ≥2 s so viewers can read
+  it. Rows render over the **real** audit feed only when
+  `NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1` (see the recording-mode env profile
+  below); without it the feed short-circuits to bundled mock rows.
 - Row click pushes a full route, not a modal:
   `/audit/action/<actionId>` (and `/audit/action/<actionId>/replay`
   for the Replay sub-flow). Deep-linkable, browser back-button
@@ -540,6 +580,48 @@ triage, real LLM, real audit, real approval — no theater.
 
 ---
 
+## Marcus, the Marketing teammate (`/marketing`) — third-hero B-roll
+
+**Marcus** (DEC-028) is the third real working teammate. The
+`/marketing` console pairs naturally with the Portia beat or Scene 2 —
+he owns top-of-funnel marketing + social as a standing *responsibility*,
+drafts a reply or an article in Mark's voice, and **never auto-posts**:
+every draft routes to the approval queue and the operator hand-posts the
+approved copy. A 20–30 s insert.
+
+**Route**: `/marketing` — sidebar entry "Marketing" with the megaphone
+icon, sits after Pitch + GTM.
+
+**Camera path**:
+
+1. Click the **Marketing** sidebar item — the brand-loud hero reads
+   "Watch Marcus draft your public voice."
+2. Leave **Mode = Reply** and **Channel = X**, then paste a mention into
+   the field — e.g. a sceptical tweet: *"AI agents are just fancy
+   autocomplete — they can't actually own anything."* Click **Draft it**.
+3. The **draft** appears (live LLM, `claude-sonnet-4-6`) — a reply in
+   Mark's voice — with a **Brand-safe** disposition pill, the `llm`
+   source + model + token chips, and a channel chip ("X · reply").
+4. Below it, a **"Filed to approvals — review before you post it"**
+   link. Marcus **never posts** — the draft is filed to the queue.
+5. Click the link → the draft is the top item in `/approvals`, requested
+   by **Marcus** (the row's `worker.name` resolves to "Marcus" from the
+   `approval_request.requested_by` column), awaiting the operator's
+   decision.
+
+**Backing endpoint**: `POST /api/v1/marketing/draft-response` — reuses
+Portia's + Grant's LLM + truth-boundary + audit primitives (same Sonnet
+floor, same forbidden-class gate). A draft that would breach an approved
+fact is held for review (**Held for review** pill) instead of being
+filed. No mock — every draft hits the gateway.
+
+**What this proves on camera**: the same recursive story as Portia and
+Grant — SKYCOT's own marketing runs on a SKYCOT teammate — and the same
+*responsibility-not-task + approval-first* shape. Real LLM, real
+truth-boundary, real audit, real approval gate, draft-only — no theater.
+
+---
+
 ## Total timing budget
 
 | Scene | Window | Length |
@@ -602,10 +684,10 @@ fetchers in `web/lib/api/*.ts` (skills, team, workflows, cohorts,
 verticals, …) short-circuit to seed fixtures **before** any HTTP
 request leaves the browser. That is correct for offline UI iteration
 but **dangerous for recording prep**: every Scene 4/5/6 gateway-
-dependent beat would render the same six skills, seven workers, seven
-workflows regardless of whether the gateway is running, populated,
-empty, or completely down. The operator can rehearse an 8-minute take
-against a stone-cold gateway and never know.
+dependent beat would render the same bundled seed fixtures (a fixed set
+of skills, workers, and workflows) regardless of whether the gateway is
+running, populated, empty, or completely down. The operator can
+rehearse an 8-minute take against a stone-cold gateway and never know.
 
 The fix is one env var flipped between two profiles. Keep both in
 `.claude/launch.json` (which is `.gitignore`'d on every workstation,
@@ -649,23 +731,46 @@ so each operator maintains their own copy):
 
 1. Stop the running SPA dev server (`Ctrl-C` in the terminal it owns
    or `claude preview stop web`).
-2. Start the recording profile: `claude preview start web-demo-recording`.
-   In a sibling terminal:
+2. Start the **recording profile** (auth-bypass OFF — this is the
+   `web-demo-recording` block, `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=0`):
+   `claude preview start web-demo-recording`. In a sibling terminal,
+   bring the gateway up FRESH on :7400, then run a **fresh seed**
+   (`restart-live-gateway.sh` does NOT seed — seed explicitly) and the
+   dry-run gate:
 
    ```bash
-   bash scripts/restart-live-gateway.sh   # FRESH on :7400 + seed
-   bash scripts/demo-dry-run.sh --demo-mode
+   bash scripts/restart-live-gateway.sh        # FRESH gateway on :7400
+   argo demo seed --tenant "$ARGO_DEMO_TENANT_ID"   # clean 8-hero roster
+   bash scripts/demo-dry-run.sh --demo-mode    # SINGLE pre-record gate
    ```
 
-3. Open Chrome DevTools → Network → filter `/api/v1/`. Reload `/skills`,
+   `demo-dry-run.sh --demo-mode` gates on the clean **eight-hero**
+   roster (Mariah / Peta / Priya / Jamal / Nori / Portia / Grant /
+   Marcus) via `scripts/check-demo-roster.sh`. If it fails, re-seed and
+   retry until it exits 0 — do not record against a stale roster.
+3. **Pre-warm the dynamic routes** so no route cold-compiles on camera:
+
+   ```bash
+   bash scripts/demo-prewarm.sh
+   ```
+
+   First cold run can take 5–15 min; warm runs are <5 s (see the T-0
+   pre-flight checklist above for the full route list).
+4. Open Chrome DevTools → Network → filter `/api/v1/`. Reload `/skills`,
    then `/team`, then `/workflows`. EACH page must fire a real `GET`
    against `http://127.0.0.1:7400` (status 200, JSON envelope visible
-   in the response panel). If any of those pages does NOT show a
-   gateway request, the recording profile did not take effect — go
-   back to step 1.
-4. Confirm the SPA console shows NO `DEMO-RECORDING WARNING` line. If
+   in the response panel). `/team` must return **8** workers. If any of
+   those pages does NOT show a gateway request, the recording profile
+   did not take effect — go back to step 1.
+5. Confirm the SPA console shows NO `DEMO-RECORDING WARNING` line. If
    the warning appears, the dev profile took effect instead of the
    recording profile; restart with the correct one.
+6. **Intro avoids `/auth/signup`.** In the recording profile auth is
+   bypassed, so open the demo on a signed-in `(app)` surface (e.g.
+   `/team` for Scene 1) — do **not** stage the intro on `/auth/signup`.
+   The "Demo mode — auth bypass" banner and the "try a demo workspace"
+   button on `/auth/signup` are offline-iteration affordances, not part
+   of the recorded take.
 
 ### What the boot warning means
 
@@ -715,9 +820,9 @@ artifact.
 - No key reveals. Provider key paste happens off-screen. Throwaway
   email is fine to show.
 - No live customer data. Workspace name "Acme Co". Worker names are
-  the seven seeded teammates (Mariah, Peta, Priya, Jamal, Nori, Portia,
-  Grant), plus **Maya** — hired live during Scene 3 via Genesis, so she
-  is not in the seed; she's the just-hired teammate Scenes 4 + 6
+  the eight seeded teammates (Mariah, Peta, Priya, Jamal, Nori, Portia,
+  Grant, Marcus), plus **Maya** — hired live during Scene 3 via Genesis,
+  so she is not in the seed; she's the just-hired teammate Scenes 4 + 6
   continue with.
 - The Slack ✅ click in Scene 6 must be on-screen — that is the
   core round-trip beat.

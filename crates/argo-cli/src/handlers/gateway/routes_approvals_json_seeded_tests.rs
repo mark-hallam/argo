@@ -46,6 +46,56 @@ fn blank_requested_by_falls_back_to_pending_teammate() {
     );
 }
 
+fn row_with_status(status: &str) -> ApprovalRow {
+    ApprovalRow {
+        status: status.to_string(),
+        ..row("Mariah")
+    }
+}
+
+#[test]
+fn granted_status_maps_to_approve_decision() {
+    // Regression for the /approvals "Approval rate 0%" bug: the store
+    // serialises an APPROVED row as "granted" (ApprovalDecision::
+    // as_store_str), but the adapter only matched "approved", so every
+    // approved seeded row fell to a null decision and the rate ring read
+    // 0% even with resolved rows. "granted" must surface as "approve".
+    assert_eq!(
+        build_row(&row_with_status("granted"), None, None).json["decision"],
+        "approve"
+    );
+}
+
+#[test]
+fn denied_and_expired_statuses_map_to_refuse_decision() {
+    for status in ["denied", "refused", "expired"] {
+        assert_eq!(
+            build_row(&row_with_status(status), None, None).json["decision"],
+            "refuse",
+            "status {status} should map to refuse"
+        );
+    }
+}
+
+#[test]
+fn pending_status_has_null_decision() {
+    // A still-pending row must NOT be counted as resolved.
+    assert_eq!(
+        build_row(&row_with_status("pending"), None, None).json["decision"],
+        Value::Null
+    );
+}
+
+#[test]
+fn legacy_approved_token_still_maps_to_approve() {
+    // Defence-in-depth: if a writer ever stored the token string
+    // "approved" instead of the canonical "granted", it still resolves.
+    assert_eq!(
+        build_row(&row_with_status("approved"), None, None).json["decision"],
+        "approve"
+    );
+}
+
 #[test]
 fn resolved_persona_wins_over_requested_by() {
     // When the audit payload resolved a real worker persona, that name
