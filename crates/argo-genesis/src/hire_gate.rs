@@ -129,6 +129,17 @@ pub struct GateVerdict {
     pub comprehension_total: usize,
     /// Observed comprehension pass rate (0.0 when no questions).
     pub comprehension_pass_rate: f64,
+    /// Whether an SOP document was uploaded at onboarding (Genesis P6,
+    /// DEC-025 #4 + #5). When `false` the SOP axis is *not applicable* — it
+    /// passes vacuously and the other four axes still gate.
+    pub sop_applicable: bool,
+    /// Honest count of doc-grounded SOP-comprehension questions the teammate's
+    /// ingested knowledge answered (all doc-specific keywords present).
+    pub sop_passed: usize,
+    /// Total SOP-comprehension questions asked (0 when no SOP uploaded).
+    pub sop_total: usize,
+    /// Observed SOP-comprehension pass rate (0.0 when no questions).
+    pub sop_pass_rate: f64,
     /// The semantic safety-judge verdict token (`allow` /
     /// `allow_with_disclaimer` / `block` / `unavailable`).
     pub safety_verdict: String,
@@ -152,20 +163,24 @@ pub struct GateVerdict {
 }
 
 impl GateVerdict {
-    /// Compose the final verdict from the four independent signals: the
+    /// Compose the final verdict from the five independent signals: the
     /// deterministic eval floor, the role-contract comprehension gate, the
-    /// semantic safety judge, and the **operator confirmation of the role
-    /// contract** (DEC-025 #1 + #4).
+    /// **SOP-comprehension gate** (Genesis P6), the semantic safety judge, and
+    /// the **operator confirmation of the role contract** (DEC-025 #1 + #4 +
+    /// #5).
     ///
     /// `contract` is the teammate's truthful role contract (derived from its
     /// actual bound capability profile) plus the operator's confirmation
-    /// state for it.
+    /// state for it. `sop` is the doc-grounded comprehension outcome — *not
+    /// applicable* (vacuous pass) when no SOP was uploaded, fail-closed when
+    /// one was.
     ///
     /// Precedence (fail-closed):
     /// 1. A hard `Block` from any check that *ran* → [`GateState::Blocked`]:
-    ///    eval floor below the bar, a comprehension governance miss, a
-    ///    safety-judge `Block`, **or a contract-confirmation `Mismatch`** (a
-    ///    forged/stale confirmation must never activate a teammate).
+    ///    eval floor below the bar, a comprehension governance miss, **an
+    ///    uploaded SOP the teammate failed to comprehend**, a safety-judge
+    ///    `Block`, **or a contract-confirmation `Mismatch`** (a forged/stale
+    ///    confirmation must never activate a teammate).
     /// 2. Else a check that could not run / has not yet happened →
     ///    [`GateState::NeedsReview`]: a degraded safety signal, **or an
     ///    `Unconfirmed` contract** (human-review-before-activation is ON by
@@ -173,13 +188,14 @@ impl GateVerdict {
     ///    confirms the surfaced contract).
     /// 3. Else [`GateState::Pass`].
     ///
-    /// Comprehension is an all-must-pass invariant gate, so any miss is a
-    /// hard block. Operator confirmation is required for activation, so an
-    /// unconfirmed contract can NEVER reach `Pass`.
+    /// Comprehension + SOP-comprehension are all-must-pass invariant gates, so
+    /// any miss is a hard block. Operator confirmation is required for
+    /// activation, so an unconfirmed contract can NEVER reach `Pass`.
     #[must_use]
     pub fn compose(
         eval: EvalFloorOutcome,
         comprehension: crate::comprehension::ComprehensionOutcome,
+        sop: crate::sop::SopComprehensionOutcome,
         safety: SafetySignal,
         contract: ContractGateInput,
     ) -> Self {
@@ -205,6 +221,22 @@ impl GateVerdict {
                  (all required — the contract did not demonstrate a scope or \
                  governance boundary)",
                 comprehension.passed, comprehension.total,
+            ));
+        }
+
+        // The SOP-comprehension axis (Genesis P6 — the moat). Only gates when a
+        // SOP was actually uploaded (`applicable`); otherwise it is a vacuous
+        // pass (DEC-025 #5, SOP is optional). When applicable, it is
+        // all-must-pass: a teammate that did not demonstrably absorb the
+        // uploaded document is hard-blocked — no hire without comprehension of
+        // the SPECIFIC SOP.
+        if sop.applicable && !sop.passed_floor {
+            blocked = true;
+            reasons.push(format!(
+                "SOP-comprehension failed: {}/{} doc-grounded questions answered \
+                 (all required — the teammate did not demonstrate it absorbed the \
+                 uploaded procedure document)",
+                sop.passed, sop.total,
             ));
         }
 
@@ -284,6 +316,10 @@ impl GateVerdict {
             comprehension_passed: comprehension.passed,
             comprehension_total: comprehension.total,
             comprehension_pass_rate: comprehension.pass_rate,
+            sop_applicable: sop.applicable,
+            sop_passed: sop.passed,
+            sop_total: sop.total,
+            sop_pass_rate: sop.pass_rate,
             safety_verdict,
             role_contract: contract.role_contract,
             contract_digest,

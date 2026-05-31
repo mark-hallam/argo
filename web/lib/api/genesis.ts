@@ -203,12 +203,16 @@ export async function draftWorker(req: DraftWorkerRequest): Promise<DraftWorkerR
 // `POST /api/v1/workers` hire so the operator lands on `/workers/{id}`.
 // ---------------------------------------------------------------------------
 
-/** Phase ids the Rust streaming handler emits via `event: progress`. */
+/** Phase ids the Rust streaming handler emits via `event: progress`.
+ *  `ingesting_sop` only fires when the operator attached an SOP document
+ *  (Genesis P6); it sits between bundle-generation and seed-validation. */
 export const GENESIS_PHASES = [
   "drafting_persona",
   "compiling_charter",
   "generating_skill_bundle",
+  "ingesting_sop",
   "validating_eval_seeds",
+  "running_safety_gate",
   "ready",
 ] as const;
 export type GenesisPhase = (typeof GENESIS_PHASES)[number];
@@ -253,6 +257,24 @@ export interface RoleContract {
   draft_integrations: string[];
 }
 
+/** The honest gate evidence block the SSE `vertical_ready` payload carries
+ *  (mirrors the Rust `gate` object). Fields the SPA reads to render the moat
+ *  surface; all optional for forward-compat with older gateways. */
+export interface GenesisGateDetail {
+  state?: string;
+  eval_passed?: number;
+  eval_total?: number;
+  comprehension_passed?: number;
+  comprehension_total?: number;
+  /** Genesis P6: whether an SOP was uploaded + graded. */
+  sop_applicable?: boolean;
+  sop_passed?: number;
+  sop_total?: number;
+  sop_quiz_questions?: number;
+  safety_verdict?: string;
+  reasons?: string[];
+}
+
 export interface GenesisVerticalReadyEvent {
   vertical_id: string;
   vertical_dir_path: string;
@@ -270,6 +292,13 @@ export interface GenesisVerticalReadyEvent {
    *  without it the Genesis hire is held in `needs_review`
    *  (human-review-before-activation, DEC-025 #1). */
   contract_digest?: string;
+  /** Genesis P6 — the moat: `true` when the operator attached a SOP document
+   *  and the teammate was graded against a doc-grounded comprehension quiz. */
+  sop_uploaded?: boolean;
+  /** The ingested SOP's source label (filename), when one was uploaded. */
+  sop_source_label?: string | null;
+  /** Honest gate evidence (eval / comprehension / SOP / safety pass-rates). */
+  gate?: GenesisGateDetail;
 }
 
 export interface GenesisErrorEvent {
@@ -298,6 +327,16 @@ export interface StreamGenesisRequest {
    *  same role doesn't trip the idempotency check.
    *  See `fix-genesis-idempotency-output-dir-not-empty`. */
   overwrite?: boolean;
+  /** Optional single SOP / playbook document the teammate must comprehend
+   *  before hire (Genesis P6 — the moat; DEC-025 #5). Plain text, OR a
+   *  base64-encoded PDF when `sopDocumentFormat === "pdf_base64"`. When set,
+   *  the gateway ingests it into tenant-scoped knowledge and the teammate must
+   *  pass a doc-grounded comprehension quiz to clear the hire gate. */
+  sopDocument?: string;
+  /** How to interpret `sopDocument`: `"text"` (default) or `"pdf_base64"`. */
+  sopDocumentFormat?: "text" | "pdf_base64";
+  /** Operator-supplied filename for the SOP (surfaced on the review screen). */
+  sopFilename?: string;
   /** Aborts the in-flight stream when the caller unmounts / retries. */
   signal?: AbortSignal;
 }
@@ -388,6 +427,16 @@ export async function streamGenesis(
     role_description: req.roleDescription,
     ...(req.persona !== undefined ? { persona: req.persona } : {}),
     ...(req.overwrite ? { overwrite: true } : {}),
+    // Genesis P6 — the moat (DEC-025 #5): optional single SOP doc the teammate
+    // must comprehend before hire. Omitted entirely when no SOP is attached so
+    // the wire shape is unchanged for the text-only path.
+    ...(req.sopDocument
+      ? {
+          sop_document: req.sopDocument,
+          sop_document_format: req.sopDocumentFormat ?? "text",
+          ...(req.sopFilename ? { sop_filename: req.sopFilename } : {}),
+        }
+      : {}),
   });
   const res = await fetch(url, {
     method: "POST",

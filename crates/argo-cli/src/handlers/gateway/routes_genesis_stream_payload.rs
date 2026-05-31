@@ -27,6 +27,7 @@ pub(super) fn build_final_payload(
     eval_seed_count: usize,
     gate: &GateVerdict,
     dry_run_until: Option<&str>,
+    sop: Option<(&str, usize)>,
 ) -> Value {
     let actions = plan
         .manifest
@@ -46,6 +47,13 @@ pub(super) fn build_final_payload(
         .as_ref()
         .and_then(|c| serde_json::to_value(c).ok())
         .unwrap_or(Value::Null);
+    // SOP-comprehension surface (Genesis P6). `sop_uploaded` lets the SPA render
+    // the moat moment ("this teammate read your playbook and passed a quiz on
+    // it"); the gate block carries the honest doc-quiz pass-rate.
+    let (sop_label, sop_quiz_questions) = match sop {
+        Some((label, len)) => (Value::String(label.to_string()), Value::from(len as u64)),
+        None => (Value::Null, Value::from(0u64)),
+    };
     json!({
         "vertical_id": plan.vertical_id,
         "vertical_dir_path": vertical_dir.to_string_lossy(),
@@ -67,6 +75,8 @@ pub(super) fn build_final_payload(
         "hireable": gate.state.allows_hire(),
         "role_contract": role_contract,
         "contract_digest": gate.contract_digest,
+        "sop_uploaded": gate.sop_applicable,
+        "sop_source_label": sop_label,
         "gate": {
             "state": gate.state.as_str(),
             "eval_passed": gate.eval_passed,
@@ -75,6 +85,11 @@ pub(super) fn build_final_payload(
             "comprehension_passed": gate.comprehension_passed,
             "comprehension_total": gate.comprehension_total,
             "comprehension_pass_rate": gate.comprehension_pass_rate,
+            "sop_applicable": gate.sop_applicable,
+            "sop_passed": gate.sop_passed,
+            "sop_total": gate.sop_total,
+            "sop_pass_rate": gate.sop_pass_rate,
+            "sop_quiz_questions": sop_quiz_questions,
             "safety_verdict": gate.safety_verdict,
             "contract_confirmation": gate.contract_confirmation,
             "contract_digest": gate.contract_digest,
@@ -82,6 +97,18 @@ pub(super) fn build_final_payload(
             "dry_run_until": dry_run_until,
         },
     })
+}
+
+/// Read `dry_run_until` from the freshly-written `worker.toml` so the payload
+/// can surface the probation window the teammate starts in. Lives here (next to
+/// the payload that consumes it) to keep the SSE handler under the LOC ceiling.
+pub(super) fn read_dry_run_until(vertical_dir: &Path) -> Option<String> {
+    let body = std::fs::read_to_string(vertical_dir.join("worker.toml")).ok()?;
+    let parsed: toml::Value = toml::from_str(&body).ok()?;
+    parsed
+        .get("dry_run_until")
+        .and_then(toml::Value::as_str)
+        .map(str::to_string)
 }
 
 /// Audit the synthesis + the REAL gate verdict so every Genesis run carries
@@ -107,6 +134,9 @@ pub(super) async fn emit_audit(
         "gate_eval_total": gate.eval_total,
         "gate_comprehension_passed": gate.comprehension_passed,
         "gate_comprehension_total": gate.comprehension_total,
+        "gate_sop_applicable": gate.sop_applicable,
+        "gate_sop_passed": gate.sop_passed,
+        "gate_sop_total": gate.sop_total,
         "gate_safety_verdict": gate.safety_verdict,
         "gate_contract_confirmation": gate.contract_confirmation,
         "gate_contract_digest": gate.contract_digest,

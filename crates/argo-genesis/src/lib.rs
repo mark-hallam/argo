@@ -62,6 +62,8 @@ pub mod quality;
 pub mod refine;
 pub mod role_contract;
 pub mod safety_judge;
+pub mod sop;
+pub mod sop_store;
 pub mod spec;
 pub mod synthesizer;
 pub mod templates;
@@ -98,6 +100,11 @@ pub use hire_gate::{
 pub use hire_gate_contract::{ContractConfirmation, ContractGateInput};
 pub use hire_gate_disk::{gate_inputs_from_dir, DiskGateInputs};
 pub use role_contract::{verify_contract_matches, ContractAction, RoleContract};
+pub use sop::{
+    build_sop_quiz, extract_sop_pdf_text, ingest_sop, SopComprehensionOutcome, SopKnowledge,
+    SopQuestion, MIN_SOP_CHARS,
+};
+pub use sop_store::{read_sop_knowledge, write_sop_knowledge, DiskSop};
 pub use job_description::{
     genesis_from_job_description, genesis_from_job_description_with, GenesisDraft, JobDescInput,
 };

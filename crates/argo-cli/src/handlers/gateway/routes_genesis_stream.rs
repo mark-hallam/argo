@@ -53,6 +53,22 @@ struct GenesisRequest {
     persona: Option<String>,
     #[serde(default)]
     overwrite: bool,
+    /// Optional single SOP / playbook document the teammate must comprehend
+    /// before hire (Genesis P6 — the moat; DEC-025 #5: text role + *optionally*
+    /// one SOP doc). Plain-text body OR a base64-encoded PDF (see
+    /// [`sop_document_format`]). When present, the teammate is ingested against
+    /// it and must pass a doc-grounded comprehension quiz to clear the gate.
+    #[serde(default)]
+    sop_document: Option<String>,
+    /// How to interpret [`Self::sop_document`]: `"text"` (default) or
+    /// `"pdf_base64"` (a base64-encoded PDF the gateway extracts via the same
+    /// `pdf_extract` path the job-description ingest uses).
+    #[serde(default)]
+    sop_document_format: Option<String>,
+    /// Operator-supplied filename for the SOP (surfaced on the review screen +
+    /// audit row). Defaults to a generic label when absent.
+    #[serde(default)]
+    sop_filename: Option<String>,
 }
 
 /// Path-prefix check used by the connection router to peel this
@@ -182,6 +198,31 @@ pub(super) async fn serve_genesis_stream(
         .await;
     }
 
+    // SOP-upload ingestion (Genesis P6 — the moat; DEC-025 #5). If the operator
+    // attached ONE SOP doc, ingest it into tenant-scoped knowledge under
+    // `<vertical_dir>/knowledge/` + derive a doc-grounded quiz, BEFORE the hire
+    // gate runs (the gate reads it from disk). A supplied-but-unusable SOP
+    // (empty / image-only / malformed) fails closed with a precise, recoverable
+    // error rather than silently dropping the moat. See `routes_genesis_sop`.
+    let sop_status = match super::routes_genesis_sop::ingest_request_sop(
+        parsed.sop_document.as_deref(),
+        parsed.sop_document_format.as_deref(),
+        parsed.sop_filename.as_deref(),
+        &super::routes_genesis_sop::role_text_for_plan(&plan),
+        &vertical_dir,
+    ) {
+        super::routes_genesis_sop::SopIngestOutcome::Rejected(reason) => {
+            let msg = format!("SOP could not be ingested: {reason}");
+            return write_error_event(out, "ingesting_sop", &msg, true).await;
+        }
+        super::routes_genesis_sop::SopIngestOutcome::Ingested { source_label, quiz_len } => {
+            let msg = format!("Ingested SOP '{source_label}' → {quiz_len} comprehension questions");
+            write_progress(out, "ingesting_sop", &msg, 80).await?;
+            Some((source_label, quiz_len))
+        }
+        super::routes_genesis_sop::SopIngestOutcome::None => None,
+    };
+
     write_progress(
         out,
         "validating_eval_seeds",
@@ -246,8 +287,8 @@ pub(super) async fn serve_genesis_stream(
         92,
     )
     .await?;
-    let gate = super::routes_genesis_gate::run_hire_gate(&plan).await;
-    let dry_run_until = read_dry_run_until(&vertical_dir);
+    let gate = super::routes_genesis_gate::run_hire_gate(&plan, Some(&vertical_dir)).await;
+    let dry_run_until = super::routes_genesis_stream_payload::read_dry_run_until(&vertical_dir);
     let final_payload = super::routes_genesis_stream_payload::build_final_payload(
         &plan,
         &vertical_dir,
@@ -256,6 +297,7 @@ pub(super) async fn serve_genesis_stream(
         eval_seed_count,
         &gate,
         dry_run_until.as_deref(),
+        sop_status.as_ref().map(|(label, len)| (label.as_str(), *len)),
     );
 
     write_progress(out, "ready", "Vertical ready", 100).await?;
@@ -272,17 +314,6 @@ pub(super) async fn serve_genesis_stream(
     )
     .await;
     out.shutdown().await
-}
-
-/// Read `dry_run_until` from the freshly-written `worker.toml` so the
-/// payload can surface the probation window the teammate starts in.
-fn read_dry_run_until(vertical_dir: &Path) -> Option<String> {
-    let body = std::fs::read_to_string(vertical_dir.join("worker.toml")).ok()?;
-    let parsed: toml::Value = toml::from_str(&body).ok()?;
-    parsed
-        .get("dry_run_until")
-        .and_then(toml::Value::as_str)
-        .map(str::to_string)
 }
 
 fn provider_key_present() -> bool {

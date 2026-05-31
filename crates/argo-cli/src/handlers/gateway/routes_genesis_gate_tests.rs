@@ -150,7 +150,7 @@ async fn broad_path_full_gate_is_needs_review_not_blocked_without_a_provider() {
     let _g = ProviderGuard::unresolvable().await;
     let p = broad_path_plan();
     let digest = argo_genesis::RoleContract::derive_from_manifest(&p.manifest).digest();
-    let verdict = run_hire_gate_with_confirmation(&p, Some(&digest)).await;
+    let verdict = run_hire_gate_with_confirmation(&p, None, Some(&digest)).await;
     assert_eq!(verdict.eval_total, 10);
     assert!(
         verdict.eval_passed >= 5,
@@ -195,7 +195,7 @@ async fn full_gate_on_rich_plan_is_needs_review_without_provider_never_blocked()
         "maya",
     )
     .expect("plan builds");
-    let verdict = run_hire_gate(&p).await;
+    let verdict = run_hire_gate(&p, None).await;
     assert_eq!(verdict.eval_total, 10);
     assert!(verdict.eval_passed >= 5, "eval floor cleared on a rich plan");
     assert_eq!(
@@ -302,7 +302,7 @@ async fn plan_gate_holds_for_review_without_a_confirmed_contract() {
 
     // No digest → unconfirmed → not hireable (one of the block reasons is the
     // awaiting-confirmation hold).
-    let unconfirmed = run_hire_gate_with_confirmation(&p, None).await;
+    let unconfirmed = run_hire_gate_with_confirmation(&p, None, None).await;
     assert!(!unconfirmed.state.allows_hire());
     assert_eq!(unconfirmed.contract_confirmation, "unconfirmed");
     assert!(
@@ -334,7 +334,7 @@ async fn plan_gate_with_correct_digest_resolves_confirmed_leaving_only_safety_to
     .expect("plan builds");
     let digest = truthful_digest(&p);
 
-    let verdict = run_hire_gate_with_confirmation(&p, Some(&digest)).await;
+    let verdict = run_hire_gate_with_confirmation(&p, None, Some(&digest)).await;
     assert_eq!(verdict.contract_confirmation, "confirmed");
     assert!(
         !verdict
@@ -357,7 +357,7 @@ async fn plan_gate_hard_blocks_a_forged_or_stale_contract_confirmation() {
     // actually saw. This is a Blocked, outranking the degraded safety signal.
     let _g = ProviderGuard::unresolvable().await;
     let p = plan("be my marketing intern, run weekly campaigns", "maya").expect("plan");
-    let verdict = run_hire_gate_with_confirmation(&p, Some("not-the-real-digest")).await;
+    let verdict = run_hire_gate_with_confirmation(&p, None, Some("not-the-real-digest")).await;
     assert_eq!(verdict.state, GateState::Blocked);
     assert!(!verdict.state.allows_hire());
     assert_eq!(verdict.contract_confirmation, "mismatch");

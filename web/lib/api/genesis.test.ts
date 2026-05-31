@@ -402,6 +402,55 @@ describe("streamGenesis", () => {
     expect(parsed.overwrite).toBeUndefined();
   });
 
+  it("forwards an attached SOP document in the POST body (P6 moat)", async () => {
+    let capturedBody: string | null = null;
+    const stream = new ReadableStream({ start: (c) => c.close() });
+    globalThis.fetch = vi.fn((_url: string, init?: RequestInit) => {
+      capturedBody = (init?.body as string) ?? null;
+      return Promise.resolve(
+        new Response(stream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+      );
+    }) as unknown as typeof fetch;
+    await streamGenesis(
+      {
+        roleDescription: "Refund desk agent",
+        tenantId: "op-test",
+        sopDocument: "Escalate refunds above the threshold to Priyanka.",
+        sopDocumentFormat: "text",
+        sopFilename: "refund-policy.txt",
+      },
+      { onProgress: () => {}, onVerticalReady: () => {}, onError: () => {} },
+    );
+    const parsed = JSON.parse(capturedBody!);
+    expect(parsed.sop_document).toContain("Priyanka");
+    expect(parsed.sop_document_format).toBe("text");
+    expect(parsed.sop_filename).toBe("refund-policy.txt");
+  });
+
+  it("omits SOP fields entirely on the text-only path (no theater)", async () => {
+    let capturedBody: string | null = null;
+    const stream = new ReadableStream({ start: (c) => c.close() });
+    globalThis.fetch = vi.fn((_url: string, init?: RequestInit) => {
+      capturedBody = (init?.body as string) ?? null;
+      return Promise.resolve(
+        new Response(stream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+      );
+    }) as unknown as typeof fetch;
+    await streamGenesis(
+      { roleDescription: "Refund desk agent", tenantId: "op-test" },
+      { onProgress: () => {}, onVerticalReady: () => {}, onError: () => {} },
+    );
+    const parsed = JSON.parse(capturedBody!);
+    expect(parsed.sop_document).toBeUndefined();
+    expect(parsed.sop_document_format).toBeUndefined();
+  });
+
   it("throws ApiError on non-2xx", async () => {
     globalThis.fetch = vi.fn(() =>
       Promise.resolve(

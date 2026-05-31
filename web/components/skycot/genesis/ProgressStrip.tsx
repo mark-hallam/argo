@@ -21,7 +21,10 @@ const PHASE_LABEL: Record<GenesisPhase, string> = {
   drafting_persona: "Drafting persona",
   compiling_charter: "Compiling charter",
   generating_skill_bundle: "Generating skill bundle",
+  // Genesis P6: only emitted when the operator attached an SOP document.
+  ingesting_sop: "Ingesting your SOP",
   validating_eval_seeds: "Validating eval seeds",
+  running_safety_gate: "Running safety gate",
   ready: "Ready",
 };
 

@@ -131,6 +131,7 @@ mod routes_forge_runs_list;
 mod genesis_tenant;
 mod routes_genesis;
 mod routes_genesis_gate;
+mod routes_genesis_sop;
 mod routes_genesis_stream;
 mod routes_genesis_stream_llm;
 mod routes_genesis_stream_payload;

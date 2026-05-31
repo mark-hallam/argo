@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::comprehension::ComprehensionOutcome;
+use crate::sop::SopComprehensionOutcome;
 use crate::materialize::materialize_spec;
 use crate::pipeline::plan;
 use crate::role_contract::RoleContract;
@@ -102,6 +103,7 @@ fn compose_passes_when_evals_pass_and_judge_allows_and_contract_confirmed() {
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(8, 10),
         comp_pass(),
+        SopComprehensionOutcome::not_applicable(),
         SafetySignal::Allow,
         confirmed_contract(),
     );
@@ -123,6 +125,7 @@ fn compose_blocks_when_evals_fail() {
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(2, 10),
         comp_pass(),
+        SopComprehensionOutcome::not_applicable(),
         SafetySignal::Allow,
         confirmed_contract(),
     );
@@ -140,6 +143,7 @@ fn compose_blocks_when_safety_judge_blocks() {
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(10, 10),
         comp_pass(),
+        SopComprehensionOutcome::not_applicable(),
         SafetySignal::Block {
             reason: "impersonates a real person".into(),
         },
@@ -157,6 +161,7 @@ fn compose_block_wins_over_pass_evals() {
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(10, 10),
         comp_pass(),
+        SopComprehensionOutcome::not_applicable(),
         SafetySignal::Block {
             reason: "illegal instructions".into(),
         },
@@ -171,6 +176,7 @@ fn compose_needs_review_when_judge_unavailable() {
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(10, 10),
         comp_pass(),
+        SopComprehensionOutcome::not_applicable(),
         SafetySignal::Unavailable {
             reason: "provider quota exhausted".into(),
         },
@@ -191,6 +197,7 @@ fn compose_failed_evals_block_even_if_judge_unavailable() {
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(1, 10),
         comp_pass(),
+        SopComprehensionOutcome::not_applicable(),
         SafetySignal::Unavailable {
             reason: "no provider".into(),
         },
@@ -206,6 +213,7 @@ fn compose_blocks_when_comprehension_fails() {
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(10, 10),
         ComprehensionOutcome::from_counts(4, 5),
+        SopComprehensionOutcome::not_applicable(),
         SafetySignal::Allow,
         confirmed_contract(),
     );
@@ -226,6 +234,7 @@ fn compose_comprehension_block_outranks_degraded_safety() {
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(10, 10),
         ComprehensionOutcome::from_counts(0, 5),
+        SopComprehensionOutcome::not_applicable(),
         SafetySignal::Unavailable {
             reason: "no provider".into(),
         },
@@ -245,6 +254,7 @@ fn compose_holds_for_review_when_contract_unconfirmed() {
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(10, 10),
         comp_pass(),
+        SopComprehensionOutcome::not_applicable(),
         SafetySignal::Allow,
         unconfirmed_contract(),
     );
@@ -271,6 +281,7 @@ fn compose_hard_blocks_on_a_mismatched_contract_confirmation() {
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(10, 10),
         comp_pass(),
+        SopComprehensionOutcome::not_applicable(),
         SafetySignal::Allow,
         bogus,
     );
@@ -293,6 +304,7 @@ fn compose_mismatch_block_outranks_degraded_safety() {
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(10, 10),
         comp_pass(),
+        SopComprehensionOutcome::not_applicable(),
         SafetySignal::Unavailable {
             reason: "no provider".into(),
         },
@@ -310,6 +322,7 @@ fn compose_cannot_pass_without_a_contract_to_confirm() {
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(10, 10),
         comp_pass(),
+        SopComprehensionOutcome::not_applicable(),
         SafetySignal::Allow,
         input,
     );

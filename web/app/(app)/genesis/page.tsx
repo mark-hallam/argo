@@ -8,6 +8,10 @@ import { HeroInput } from "@/components/skycot/genesis/HeroInput";
 import { ProgressStrip } from "@/components/skycot/genesis/ProgressStrip";
 import { RoleContractReview } from "@/components/skycot/genesis/RoleContractReview";
 import {
+  SopUpload,
+  type SopSelection,
+} from "@/components/skycot/genesis/SopUpload";
+import {
   GENESIS_PHASES,
   hireFromGenesis,
   streamGenesis,
@@ -60,6 +64,9 @@ type Status = "idle" | "streaming" | "ready" | "hiring" | "error";
 export default function GenesisPage() {
   const router = useRouter();
   const [roleDescription, setRoleDescription] = useState("");
+  // Genesis P6 — the moat (DEC-025 #5): an optional SOP the teammate must
+  // comprehend before hire. `null` until the operator attaches one.
+  const [sop, setSop] = useState<SopSelection | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [activePhase, setActivePhase] = useState<GenesisPhase | null>(null);
   const [vertical, setVertical] = useState<GenesisVerticalReadyEvent | null>(null);
@@ -111,6 +118,15 @@ export default function GenesisPage() {
         roleDescription,
         tenantId: tenantIdRef.current,
         overwrite: isRetry,
+        // P6: attach the SOP (if any) so the teammate is ingested + quizzed
+        // against the SPECIFIC document before it can be hired.
+        ...(sop
+          ? {
+              sopDocument: sop.document,
+              sopDocumentFormat: sop.format,
+              sopFilename: sop.filename,
+            }
+          : {}),
         signal: controller.signal,
       },
       {
@@ -153,7 +169,7 @@ export default function GenesisPage() {
       );
       setStatus("error");
     });
-  }, [roleDescription, status, activePhase]);
+  }, [roleDescription, sop, status, activePhase]);
 
   const handleHire = useCallback(async () => {
     if (!vertical) return;
@@ -265,7 +281,7 @@ export default function GenesisPage() {
             pulseDot
             title="Onboard a new teammate."
             titleAccent="teammate"
-            sub="Describe the role, upload your SOPs, wiki pages, Slack threads or voice notes, then scope their access. Genesis trains the teammate and checks comprehension before they start work."
+            sub="Describe the role, then optionally attach one SOP or playbook. Genesis builds the teammate and checks it comprehends your document before it can start work."
             subMaxWidth={560}
           />
           <HeroInput
@@ -274,6 +290,9 @@ export default function GenesisPage() {
             onSubmit={handleSubmit}
             isBusy={isBusy}
           />
+          {status === "idle" || status === "error" ? (
+            <SopUpload value={sop} onChange={setSop} disabled={isBusy} />
+          ) : null}
           {(status === "streaming" ||
             status === "ready" ||
             status === "hiring" ||

@@ -129,8 +129,13 @@ pub(super) async fn enforce_first_hire_gate(
 ) -> Result<(), (&'static str, String)> {
     match outcome.plan.as_ref() {
         Some(plan) => {
+            // The first-hire plan is in-memory only (catalog `vertical_id`, no
+            // written `.genesis/` dir) and carries no uploaded SOP through this
+            // seam, so the SOP axis is not applicable here (`vertical_dir =
+            // None`). SOP upload is a `/genesis` SSE-path feature (P6).
             let gate = super::routes_genesis_gate::run_hire_gate_with_confirmation(
                 plan,
+                None,
                 confirmed_digest,
             )
             .await;

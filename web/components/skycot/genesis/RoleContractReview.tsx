@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
+  BookCheck,
   CheckCircle2,
   Loader2,
   ShieldCheck,
@@ -72,6 +73,38 @@ function GateBadge({ ready }: { ready: GenesisVerticalReadyEvent }) {
   );
 }
 
+/**
+ * The moat moment (Genesis P6): when the operator attached an SOP, show that
+ * the teammate was quizzed on it and how it scored. Only renders when a SOP was
+ * actually uploaded + graded (`sop_uploaded`), so the text-only path is
+ * unaffected and we never claim a comprehension check that didn't run.
+ */
+function SopBadge({ ready }: { ready: GenesisVerticalReadyEvent }) {
+  if (!ready.sop_uploaded) return null;
+  const gate = ready.gate;
+  const total = gate?.sop_total ?? 0;
+  const passed = gate?.sop_passed ?? 0;
+  const allPassed = total > 0 && passed === total;
+  const label =
+    total > 0
+      ? `Read your SOP · ${passed}/${total} comprehension questions`
+      : "Read your SOP";
+  const cls = allPassed ? "rc-gate-pass" : "rc-gate-review";
+  return (
+    <span
+      className={`rc-gate-badge ${cls}`}
+      data-testid="genesis-sop-badge"
+      title={
+        ready.sop_source_label
+          ? `Ingested document: ${ready.sop_source_label}`
+          : undefined
+      }
+    >
+      <BookCheck size={13} aria-hidden /> {label}
+    </span>
+  );
+}
+
 function ActionRow({ action }: { action: RoleContractAction }) {
   return (
     <li className="rc-action" data-testid="genesis-contract-action">
@@ -132,7 +165,10 @@ export function RoleContractReview({
             <h2 className="rc-name">{contract.role_name}</h2>
             {contract.does ? <p className="rc-does">{contract.does}</p> : null}
           </div>
-          <GateBadge ready={ready} />
+          <div className="rc-badges">
+            <GateBadge ready={ready} />
+            <SopBadge ready={ready} />
+          </div>
         </div>
 
         <div className="rc-grid">
@@ -322,6 +358,12 @@ const styles = `
     font-size: 14.5px;
     line-height: 1.55;
     max-width: 56ch;
+  }
+  .rc-badges {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
   }
   .rc-gate-badge {
     display: inline-flex;
