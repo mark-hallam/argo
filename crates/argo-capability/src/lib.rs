@@ -16,6 +16,9 @@ use std::sync::Arc;
 
 mod audit_emit;
 
+/// Conservative default truth-boundary policy for Genesis-generated
+/// teammates (DEC-025 #6 / Genesis P5 — truth-boundary bound at birth).
+pub mod genesis_truth_boundary;
 /// Refusal-template lookup table for truth-boundary enforcement.
 pub mod refusal_registry;
 pub mod truth_boundary;
@@ -27,6 +30,9 @@ pub mod worker_profile;
 #[cfg(test)]
 mod truth_boundary_tests;
 
+pub use genesis_truth_boundary::{
+    genesis_default_policy, GENESIS_DEFAULT_POLICY_ID, GENESIS_GATED_CLAIM_CLASSES,
+};
 pub use refusal_registry::RefusalTemplateRegistry;
 pub use worker_profile::{
     is_irreversible_action, WorkerCapabilityProfile, IRREVERSIBLE_ACTION_VERBS,

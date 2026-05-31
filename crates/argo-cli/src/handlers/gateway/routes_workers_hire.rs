@@ -106,7 +106,7 @@ pub(super) async fn hire_response(
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
 
-    if !vertical_exists(&draft.suggested_vertical) {
+    if !vertical_exists(&draft.suggested_vertical, &tenant_id.to_string()) {
         return bad_request(&format!("unknown vertical '{}'", draft.suggested_vertical));
     }
 
@@ -220,7 +220,7 @@ async fn resolve_tenant_principal(
     Ok((tenant, principal_id))
 }
 
-fn vertical_exists(id: &str) -> bool {
+fn vertical_exists(id: &str, tenant_id: &str) -> bool {
     let dir = crate::handlers::vertical::resolve_verticals_dir();
     let in_catalog = argo_vertical::load_dir(&dir)
         .map(|(reg, _)| reg.get(id).is_some())
@@ -228,8 +228,11 @@ fn vertical_exists(id: &str) -> bool {
     // `POST /api/v1/genesis` writes tenant-scoped verticals under
     // `<root>/.genesis/<tenant_slug>/<vertical_id>/`. Those stay out of
     // the global catalog, but the SPA hire that commits the freshly-
-    // generated draft must still find them here.
-    in_catalog || super::routes_workers_hire_gate::genesis_vertical_exists(&dir, id)
+    // generated draft must still find them here — scoped to the caller's OWN
+    // tenant (P5 (b)): a vertical another tenant generated is NOT visible, so
+    // the hire fails closed (`400 unknown vertical`) rather than resolving
+    // cross-tenant.
+    in_catalog || super::routes_workers_hire_gate::genesis_vertical_exists(&dir, tenant_id, id)
 }
 
 fn idempotency_key(req: &str) -> Option<String> {

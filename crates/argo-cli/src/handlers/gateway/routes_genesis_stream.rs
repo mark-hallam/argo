@@ -358,23 +358,12 @@ fn derive_persona(role_description: &str) -> String {
     }
 }
 
+/// Canonical tenant→slug map for the `.genesis/<slug>/` tree. Delegates to
+/// the shared [`super::genesis_tenant::sanitize_tenant`] so the slug this
+/// writer writes under matches the slug the hire gate + runtime fence read
+/// under (P5 (b) tenant-match enforcement — no parallel definition).
 fn sanitize_tenant(tenant_id: &str) -> String {
-    let cleaned: String = tenant_id
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || c == '-' {
-                c.to_ascii_lowercase()
-            } else {
-                '-'
-            }
-        })
-        .collect();
-    let trimmed = cleaned.trim_matches('-');
-    if trimmed.is_empty() {
-        "anonymous".to_string()
-    } else {
-        trimmed.to_string()
-    }
+    super::genesis_tenant::sanitize_tenant(tenant_id)
 }
 
 fn resolve_vertical_dir(tenant_slug: &str, vertical_id: &str) -> Result<PathBuf, String> {

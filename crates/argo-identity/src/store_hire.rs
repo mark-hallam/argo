@@ -112,6 +112,29 @@ pub const PROBATION_PROVENANCE_PREFIX: &str = "probation_until=";
 /// this cross-reference rather than imported.
 pub const PROBATION_HOURS: i64 = 24;
 
+/// `provenance_chain` prefix that marks the truth-boundary `policy_id`
+/// bound to a Genesis-hired teammate (DEC-025 #6 / Genesis P5 part (a)),
+/// e.g. `truth_boundary_policy_id=genesis-default-conservative`.
+///
+/// Stamped at the single hire chokepoint ([`build_provenance_chain`]) for
+/// every Genesis hire so BOTH the flagship SSE path and
+/// `/onboarding/first-hire` carry it. Read at runtime by
+/// `argo_agent_runner` off the SAME session-boot worker-row read that
+/// resolves the capability fence + probation; when present, the runner
+/// loads the conservative default truth-boundary policy
+/// (`argo_capability::genesis_default_policy`) bound to the worker's
+/// tenant, replacing the env-var-only activation. Same JSON-encoded
+/// persisted column as [`GENESIS_PLAN_PROVENANCE_PREFIX`].
+pub const TRUTH_BOUNDARY_PROVENANCE_PREFIX: &str = "truth_boundary_policy_id=";
+
+/// The policy id stamped for every Genesis teammate. Mirrors
+/// `argo_capability::GENESIS_DEFAULT_POLICY_ID` by value; `argo-identity`
+/// does not depend on `argo-capability`, so the constant is mirrored here
+/// with this cross-reference (a `debug_assert` in the runner pins them in
+/// lock-step). Changing one without the other would silently unbind the
+/// policy at session boot.
+pub const GENESIS_DEFAULT_TRUTH_BOUNDARY_POLICY_ID: &str = "genesis-default-conservative";
+
 /// Approval-policy bucket the frontend hire flow surfaces. Richer
 /// per-policy caps land later via the existing [`AutoApprovalPolicy`]
 /// fields once the UX exposes them.
@@ -243,6 +266,31 @@ pub fn is_in_probation(chain: &[String], now: chrono::DateTime<chrono::Utc>) -> 
     probation_until_from_provenance(chain).is_some_and(|until| until > now)
 }
 
+/// Extract the truth-boundary `policy_id` (if any) bound to a teammate from
+/// its persona `provenance_chain` (DEC-025 #6 / Genesis P5 part (a)). Reads
+/// the canonical [`TRUTH_BOUNDARY_PROVENANCE_PREFIX`] marker the hire path
+/// stamps for Genesis teammates. Returns `None` for a non-Genesis worker (no
+/// marker) so the runner falls back to its historical (env-var) activation.
+///
+/// ```
+/// use argo_identity::truth_boundary_policy_id_from_provenance;
+/// let chain = vec!["truth_boundary_policy_id=genesis-default-conservative".into()];
+/// assert_eq!(
+///     truth_boundary_policy_id_from_provenance(&chain).as_deref(),
+///     Some("genesis-default-conservative"),
+/// );
+/// assert!(truth_boundary_policy_id_from_provenance(&[]).is_none());
+/// ```
+#[must_use]
+pub fn truth_boundary_policy_id_from_provenance(chain: &[String]) -> Option<String> {
+    chain
+        .iter()
+        .find_map(|entry| entry.strip_prefix(TRUTH_BOUNDARY_PROVENANCE_PREFIX))
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
 pub(crate) fn validate_hire_draft(draft: &HireDraft) -> ArgoResult<()> {
     if draft.suggested_name.trim().is_empty() {
         return Err(ArgoError::Schema(
@@ -280,19 +328,22 @@ pub(crate) fn validate_hire_draft(draft: &HireDraft) -> ArgoResult<()> {
 
 /// Build the persona `provenance_chain` for a hire. When the draft
 /// carries a (non-empty) Genesis plan id, the worker is a Genesis hire:
-/// it gets BOTH the [`GENESIS_PLAN_PROVENANCE_PREFIX`] marker (for the
-/// `/workers/{id}/overview` provenance chip) AND a
-/// [`PROBATION_PROVENANCE_PREFIX`] marker pinned at `now + PROBATION_HOURS`
-/// (DEC-025 #2 / Genesis P3 — every action approval-gated until it
-/// passes). A non-Genesis hire (no plan id) gets an empty chain: it is
-/// not a generated teammate, so it is governed by its ordinary approval
-/// policy with no probation window. `now` is a parameter so the stamp is
-/// deterministically testable.
+/// it gets THREE markers — the [`GENESIS_PLAN_PROVENANCE_PREFIX`] marker
+/// (for the `/workers/{id}/overview` provenance chip + the capability
+/// fence), a [`PROBATION_PROVENANCE_PREFIX`] marker pinned at `now +
+/// PROBATION_HOURS` (DEC-025 #2 / Genesis P3 — every action approval-gated
+/// until it passes), AND a [`TRUTH_BOUNDARY_PROVENANCE_PREFIX`] marker
+/// binding the conservative default truth-boundary policy (DEC-025 #6 /
+/// Genesis P5 — declared financial/legal/medical/factual claims escalate).
+/// A non-Genesis hire (no plan id) gets an empty chain: it is not a
+/// generated teammate, so it is governed by its ordinary approval policy
+/// with no probation window and no auto-bound claim policy. `now` is a
+/// parameter so the stamp is deterministically testable.
 ///
 /// This is the SINGLE chokepoint both Genesis hire paths funnel through
 /// (`assemble_worker_from_draft` ← `create_worker_from_draft` ← flagship
 /// SSE hire AND `/onboarding/first-hire`), so no Genesis hire can reach
-/// the persisted worker row without the probation marker.
+/// the persisted worker row without ALL THREE markers.
 #[must_use]
 fn build_provenance_chain(
     genesis_plan_id: Option<&str>,
@@ -303,6 +354,9 @@ fn build_provenance_chain(
         return chain;
     };
     chain.push(format!("{GENESIS_PLAN_PROVENANCE_PREFIX}{plan_id}"));
+    chain.push(format!(
+        "{TRUTH_BOUNDARY_PROVENANCE_PREFIX}{GENESIS_DEFAULT_TRUTH_BOUNDARY_POLICY_ID}"
+    ));
     let until = (now + Duration::hours(PROBATION_HOURS)).to_rfc3339();
     chain.push(format!("{PROBATION_PROVENANCE_PREFIX}{until}"));
     chain
@@ -374,93 +428,5 @@ pub(crate) fn assemble_worker_from_draft(
 }
 
 #[cfg(test)]
-mod probation_tests {
-    use super::*;
-
-    fn draft_with_plan(plan: Option<&str>) -> HireDraft {
-        HireDraft {
-            suggested_name: "Maya".into(),
-            charter: "Own outbound marketplace follow-up end-to-end.".into(),
-            suggested_vertical: "marketplace-seller".into(),
-            approval_policy: ApprovalPolicyChoice {
-                level: "balanced".into(),
-            },
-            duties: vec![HireDutyDraft {
-                cron: "0 9 * * 1-5".into(),
-                entry_action: "follow_up".into(),
-                description: "Send approved follow-up.".into(),
-                default_enabled: true,
-            }],
-            voice_profile: None,
-            tagline: None,
-            genesis_plan_id: plan.map(str::to_string),
-        }
-    }
-
-    #[test]
-    fn genesis_hire_stamps_both_plan_and_probation_markers() {
-        let now = Utc::now();
-        let chain = build_provenance_chain(Some("marketing-intern-maya"), now);
-        assert_eq!(
-            genesis_plan_id_from_provenance(&chain).as_deref(),
-            Some("marketing-intern-maya")
-        );
-        let until = probation_until_from_provenance(&chain).expect("probation marker present");
-        // Pinned exactly PROBATION_HOURS after `now`.
-        assert_eq!((until - now).num_hours(), PROBATION_HOURS);
-        // A freshly-hired teammate is in probation right now.
-        assert!(is_in_probation(&chain, now));
-    }
-
-    #[test]
-    fn non_genesis_hire_has_no_probation_window() {
-        // No Genesis plan id ⇒ empty chain ⇒ never in probation. A
-        // hand-authored / pre-Genesis worker is governed by its ordinary
-        // policy, not gated.
-        let chain = build_provenance_chain(None, Utc::now());
-        assert!(chain.is_empty());
-        assert!(!is_in_probation(&chain, Utc::now()));
-        assert!(probation_until_from_provenance(&chain).is_none());
-        // Blank / whitespace plan id is treated as no plan id.
-        assert!(build_provenance_chain(Some("   "), Utc::now()).is_empty());
-    }
-
-    #[test]
-    fn probation_graduates_after_the_window() {
-        let now = Utc::now();
-        let chain = build_provenance_chain(Some("p"), now);
-        // Just before the boundary → still gated.
-        let pre = now + Duration::hours(PROBATION_HOURS) - Duration::minutes(1);
-        assert!(is_in_probation(&chain, pre));
-        // After the boundary → graduated (normal policy).
-        let post = now + Duration::hours(PROBATION_HOURS) + Duration::minutes(1);
-        assert!(!is_in_probation(&chain, post));
-    }
-
-    #[test]
-    fn both_hire_paths_stamp_probation_via_the_single_chokepoint() {
-        // Every Genesis hire (flagship SSE + /onboarding/first-hire) builds
-        // its `HireDraft` with `genesis_plan_id: Some(..)` and funnels
-        // through `assemble_worker_from_draft`. Proving the assembled
-        // persona carries the probation marker proves neither path can
-        // mint a Genesis worker that skips probation.
-        let worker = assemble_worker_from_draft(
-            &draft_with_plan(Some("marketing-intern-maya")),
-            TenantId::new(),
-            "human:founder@acme.test",
-        );
-        assert!(
-            is_in_probation(&worker.persona.provenance_chain, Utc::now()),
-            "a Genesis-hired worker must start in probation"
-        );
-
-        // The fallback (no plan id) path is NOT a generated teammate and
-        // carries no probation window.
-        let plain = assemble_worker_from_draft(
-            &draft_with_plan(None),
-            TenantId::new(),
-            "human:founder@acme.test",
-        );
-        assert!(!is_in_probation(&plain.persona.provenance_chain, Utc::now()));
-    }
-}
+#[path = "store_hire_provenance_tests.rs"]
+mod probation_tests;

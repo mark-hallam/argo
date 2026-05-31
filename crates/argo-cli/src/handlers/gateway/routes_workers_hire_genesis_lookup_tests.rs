@@ -7,7 +7,9 @@
 //! `POST /api/v1/genesis` streaming handler. Brief:
 //! `mission-genesis-spa-page-describe-and-watch`.
 
-use super::tests::{env_lock, hire_req, mem_store, set_test_env, valid_draft};
+use super::tests::{
+    env_lock, hire_req, hire_tenant_slug, mem_store, set_test_env, valid_draft,
+};
 use super::{hire_response, reset_idem_cache_for_tests};
 use serde_json::{json, Value};
 
@@ -47,10 +49,14 @@ async fn hire_gate_blocks_a_thin_genesis_vertical_with_no_eval_suite() {
     std::fs::create_dir_all(&verticals_root).expect("create verticals root");
     std::env::set_var("ARGO_VERTICALS_DIR", &verticals_root);
     std::env::set_var("ARGO_GENESIS_LLM_PROVIDER", "definitely-not-a-real-provider-xyz");
-    plant_thin_genesis_vertical(&verticals_root, "op-test", "customer-support-agent-mariah");
 
     reset_idem_cache_for_tests();
     let store = mem_store().await;
+    // P5 (b): plant under the SAME tenant segment the hire will resolve,
+    // proving the same-tenant lookup still finds the freshly-generated
+    // vertical (the demo's `/genesis`→hire flow).
+    let slug = hire_tenant_slug(&store).await;
+    plant_thin_genesis_vertical(&verticals_root, &slug, "customer-support-agent-mariah");
     let mut draft = valid_draft();
     draft["suggestedVertical"] = json!("customer-support-agent-mariah");
     let body = json!({
@@ -83,15 +89,17 @@ async fn hire_gate_holds_a_full_genesis_vertical_for_review_without_a_live_judge
     std::fs::create_dir_all(&verticals_root).expect("create verticals root");
     std::env::set_var("ARGO_VERTICALS_DIR", &verticals_root);
     std::env::set_var("ARGO_GENESIS_LLM_PROVIDER", "definitely-not-a-real-provider-xyz");
-    let vertical_id = plant_full_genesis_vertical(
-        &verticals_root,
-        "op-test",
-        "be my marketing intern, run weekly campaigns to cold leads and draft newsletters",
-        "maya",
-    );
 
     reset_idem_cache_for_tests();
     let store = mem_store().await;
+    // P5 (b): plant under the hire's own tenant segment (same-tenant lookup).
+    let slug = hire_tenant_slug(&store).await;
+    let vertical_id = plant_full_genesis_vertical(
+        &verticals_root,
+        &slug,
+        "be my marketing intern, run weekly campaigns to cold leads and draft newsletters",
+        "maya",
+    );
     let mut draft = valid_draft();
     draft["suggestedVertical"] = json!(vertical_id);
     let body = json!({
@@ -112,6 +120,50 @@ async fn hire_gate_holds_a_full_genesis_vertical_for_review_without_a_live_judge
     // The eval floor genuinely ran and cleared (10 seeds, >=5 passed).
     assert_eq!(v["gate"]["eval_total"], 10);
     assert!(v["gate"]["eval_passed"].as_u64().unwrap() >= 5);
+}
+
+#[tokio::test]
+async fn hire_denies_a_genesis_vertical_owned_by_another_tenant() {
+    // P5 (b) tenant-match enforcement, fail-closed: a fully-valid Genesis
+    // vertical that exists ONLY under a DIFFERENT tenant's `.genesis/` segment
+    // must NOT be hireable by this caller — it is denied (403
+    // cross_tenant_vertical), never resolved + gated + hired cross-tenant.
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let verticals_root = tmp.path().join("verticals");
+    std::fs::create_dir_all(&verticals_root).expect("create verticals root");
+    std::env::set_var("ARGO_VERTICALS_DIR", &verticals_root);
+
+    reset_idem_cache_for_tests();
+    let store = mem_store().await;
+    // The caller's own tenant slug — plant the vertical under a DIFFERENT one.
+    let own_slug = hire_tenant_slug(&store).await;
+    let foreign_slug = format!("{own_slug}-other-tenant");
+    let vertical_id = plant_full_genesis_vertical(
+        &verticals_root,
+        &foreign_slug,
+        "be my marketing intern, run weekly campaigns to cold leads and draft newsletters",
+        "maya",
+    );
+
+    let mut draft = valid_draft();
+    draft["suggestedVertical"] = json!(vertical_id);
+    let body = json!({
+        "worker_draft": draft,
+        "problem": "Marketing intern who runs weekly campaigns to cold leads.",
+        "answers": { "source": "genesis_stream" },
+    })
+    .to_string();
+    let (status, body) = hire_response(&hire_req(&body), Some(&store)).await;
+    // Tenant-scoped `vertical_exists` returns false (not the caller's segment),
+    // so the hire is refused at the existence check — fail-closed, never a
+    // cross-tenant resolve.
+    assert_eq!(
+        status, "400 Bad Request",
+        "a vertical owned by another tenant must not be hireable; body: {body}"
+    );
+    assert!(body.contains("unknown vertical"));
 }
 
 #[tokio::test]

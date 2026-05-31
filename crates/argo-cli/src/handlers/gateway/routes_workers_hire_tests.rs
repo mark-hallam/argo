@@ -63,6 +63,25 @@ pub(super) fn hire_req(body: &str) -> String {
     )
 }
 
+/// Resolve the on-disk `.genesis/<slug>/` tenant segment a hire through
+/// `store` will actually use, so a test can plant a Genesis vertical under
+/// the SAME tenant the hire resolves (P5 (b) tenant-scoped lookup). Mirrors
+/// `routes_workers_hire::resolve_tenant_principal` (cwd-derived workspace)
+/// + `genesis_tenant::sanitize_tenant`.
+pub(super) async fn hire_tenant_slug(store: &Arc<SessionStore>) -> String {
+    let cwd = std::env::current_dir().expect("cwd");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, _) = store
+        .ensure_workspace(name, &root)
+        .await
+        .expect("workspace");
+    crate::handlers::gateway::genesis_tenant::sanitize_tenant(&tenant.to_string())
+}
+
 fn hire_req_with_idem(body: &str, key: &str) -> String {
     format!(
         "POST /api/v1/workers HTTP/1.1\r\nHost: x\r\nIdempotency-Key: {key}\r\nContent-Length: {}\r\n\r\n{body}",

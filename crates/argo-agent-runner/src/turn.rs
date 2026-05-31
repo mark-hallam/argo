@@ -185,6 +185,10 @@ mod turn_helpers_truth_boundary;
 #[path = "turn_helpers_truth_boundary_tests.rs"]
 mod turn_helpers_truth_boundary_tests;
 
+#[cfg(test)]
+#[path = "turn_genesis_truth_boundary_tests.rs"]
+mod turn_genesis_truth_boundary_tests;
+
 #[path = "turn_canary.rs"]
 mod turn_canary;
 

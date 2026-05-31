@@ -249,6 +249,7 @@ async fn genesis_worker_bound_to_catalog_id_is_fenced_not_owner() {
     // The Scene-1 worker: Genesis provenance + a catalog vertical id.
     let profile = resolve_worker_profile_in(
         &verticals,
+        argo_types::TenantId(uuid::Uuid::from_u128(1)),
         Some("support-intern"),
         GenesisProvenance::Genesis,
     )
@@ -282,6 +283,7 @@ async fn genesis_worker_with_unresolvable_manifest_fails_closed_not_owner() {
     std::fs::create_dir_all(&empty_root).expect("mkdir empty root");
     let profile = resolve_worker_profile_in(
         &empty_root,
+        argo_types::TenantId(uuid::Uuid::from_u128(1)),
         Some("nonexistent-vertical-xyz"),
         GenesisProvenance::Genesis,
     )

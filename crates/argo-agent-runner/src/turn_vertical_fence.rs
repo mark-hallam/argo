@@ -84,12 +84,29 @@ impl ProbationStatus {
     }
 }
 
-/// Combined Genesis signals for a session, both derived from a single
+/// Genesis P5 (a) truth-boundary binding signal for a session (DEC-025 #6).
+/// Read off the SAME worker-row fetch as [`GenesisProvenance`] +
+/// [`ProbationStatus`]. When `Bound`, the runner loads the conservative
+/// default truth-boundary policy (`argo_capability::genesis_default_policy`)
+/// scoped to the worker's tenant, replacing the env-var-only activation —
+/// so a generated teammate's declared financial/legal/medical/factual claims
+/// escalate (held for operator approval) instead of shipping.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TruthBoundaryBinding {
+    /// The worker carries a `truth_boundary_policy_id=` marker → bind the
+    /// conservative default policy at session boot.
+    Bound,
+    /// No worker / no marker → keep the historical (env-var) activation.
+    None,
+}
+
+/// Combined Genesis signals for a session, all derived from a single
 /// worker-row read. Returned by [`genesis_signals_for_worker`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct GenesisSignals {
     pub(crate) provenance: GenesisProvenance,
     pub(crate) probation: ProbationStatus,
+    pub(crate) truth_boundary: TruthBoundaryBinding,
 }
 
 /// Read the worker row ONCE and derive both the Genesis capability-fence
@@ -122,6 +139,7 @@ pub(crate) async fn genesis_signals_for_worker(
     let normal = GenesisSignals {
         provenance: GenesisProvenance::None,
         probation: ProbationStatus::Normal,
+        truth_boundary: TruthBoundaryBinding::None,
     };
     let Some(worker_id) = worker_id else {
         return normal;
@@ -140,9 +158,26 @@ pub(crate) async fn genesis_signals_for_worker(
             } else {
                 ProbationStatus::Normal
             };
+            // P5 (a): a `truth_boundary_policy_id=` marker → bind the
+            // conservative default claim policy. We pin the marker value to
+            // the canonical constant so a future drift between the two
+            // mirrored constants surfaces in debug builds rather than
+            // silently unbinding the policy.
+            let truth_boundary = match argo_identity::truth_boundary_policy_id_from_provenance(chain)
+            {
+                Some(id) => {
+                    debug_assert_eq!(
+                        id, argo_capability::GENESIS_DEFAULT_POLICY_ID,
+                        "provenance truth-boundary policy id drifted from the canonical constant"
+                    );
+                    TruthBoundaryBinding::Bound
+                }
+                None => TruthBoundaryBinding::None,
+            };
             GenesisSignals {
                 provenance,
                 probation,
+                truth_boundary,
             }
         }
         Ok(None) => normal,
@@ -172,10 +207,16 @@ pub(crate) async fn genesis_signals_for_worker(
 ///   known-Genesis worker.
 #[must_use]
 pub(crate) fn resolve_worker_profile_for_session(
+    tenant_id: TenantId,
     vertical_id: Option<&str>,
     provenance: GenesisProvenance,
 ) -> Option<WorkerCapabilityProfile> {
-    resolve_worker_profile_in(&argo_vertical::default_dir(), vertical_id, provenance)
+    resolve_worker_profile_in(
+        &argo_vertical::default_dir(),
+        tenant_id,
+        vertical_id,
+        provenance,
+    )
 }
 
 /// Root-parameterized core of [`resolve_worker_profile_for_session`].
@@ -183,9 +224,17 @@ pub(crate) fn resolve_worker_profile_for_session(
 /// mutating the process-global `$ARGO_VERTICALS_DIR` (which would race
 /// other tests in the same binary). Production callers go through the
 /// public wrapper, which passes [`argo_vertical::default_dir()`].
+///
+/// `tenant_id` scopes the `.genesis/<tenant>/` lookup to the worker's OWN
+/// tenant (P5 (b) tenant-match enforcement): a manifest another tenant wrote
+/// under the same `vertical_id` is NOT resolved, so a Genesis worker can
+/// never derive its capability profile from a foreign tenant's manifest. A
+/// cross-tenant-only id falls through to the catalog lookup and then to the
+/// deny-all fail-closed profile.
 #[must_use]
 pub(crate) fn resolve_worker_profile_in(
     verticals_root: &Path,
+    tenant_id: TenantId,
     vertical_id: Option<&str>,
     provenance: GenesisProvenance,
 ) -> Option<WorkerCapabilityProfile> {
@@ -195,7 +244,7 @@ pub(crate) fn resolve_worker_profile_in(
         // malformed manifest yields a deny-all profile, NEVER `owner`.
         GenesisProvenance::Genesis => Some(
             vertical_id
-                .and_then(|vid| resolve_genesis_manifest(verticals_root, vid))
+                .and_then(|vid| resolve_genesis_manifest(verticals_root, tenant_id, vid))
                 .map_or_else(deny_all_profile, |m| derive_profile_from_manifest(&m)),
         ),
     }
@@ -216,16 +265,19 @@ fn deny_all_profile() -> WorkerCapabilityProfile {
 }
 
 /// Locate + parse a Genesis worker's bound vertical manifest, wherever it
-/// lives: first under `.genesis/<tenant>/<id>/vertical.toml` (SSE-hired
-/// workers), then in the hand-authored catalog via `load_dir`
-/// (first-hire / catalog-bound Genesis workers). Returns `None` only when
-/// neither lookup yields a parseable manifest.
+/// lives: first under the worker's OWN `.genesis/<tenant>/<id>/vertical.toml`
+/// (SSE-hired workers; tenant-scoped per P5 (b)), then in the hand-authored
+/// catalog via `load_dir` (first-hire / catalog-bound Genesis workers).
+/// Returns `None` only when neither lookup yields a parseable manifest. A
+/// manifest another tenant wrote under the same `vertical_id` is invisible
+/// here.
 #[must_use]
 fn resolve_genesis_manifest(
     verticals_root: &Path,
+    tenant_id: TenantId,
     vertical_id: &str,
 ) -> Option<argo_vertical::VerticalManifest> {
-    if let Some(dir) = genesis_vertical_dir_in(verticals_root, vertical_id) {
+    if let Some(dir) = genesis_vertical_dir_in(verticals_root, tenant_id, vertical_id) {
         if let Some(manifest) = parse_manifest_in_dir(&dir) {
             return Some(manifest);
         }
@@ -241,17 +293,45 @@ fn manifest_from_catalog(root: &Path, id: &str) -> Option<argo_vertical::Vertica
     registry.get(id).map(|loaded| loaded.manifest.clone())
 }
 
-/// Locate a Genesis-generated vertical's on-disk directory under
-/// `<verticals_root>/.genesis/<tenant_slug>/<id>/`. Mirrors the
-/// gateway hire-gate's resolver (`routes_workers_hire_gate.rs`) so the
-/// runtime fence and the hire fence agree on what "is a Genesis
-/// vertical" means.
-fn genesis_vertical_dir_in(verticals_root: &Path, id: &str) -> Option<PathBuf> {
-    let entries = std::fs::read_dir(verticals_root.join(".genesis")).ok()?;
-    entries.flatten().find_map(|e| {
-        let dir = e.path().join(id);
-        dir.join("vertical.toml").is_file().then_some(dir)
-    })
+/// Locate a Genesis-generated vertical's on-disk directory under the
+/// worker's OWN tenant segment `<verticals_root>/.genesis/<tenant_slug>/<id>/`
+/// (P5 (b) tenant-match enforcement). Mirrors the gateway hire-gate's
+/// tenant-scoped resolver (`genesis_tenant::genesis_vertical_dir_for_tenant`)
+/// so the runtime fence and the hire fence agree on what "is THIS tenant's
+/// Genesis vertical" means — neither scans other tenants' segments.
+fn genesis_vertical_dir_in(
+    verticals_root: &Path,
+    tenant_id: TenantId,
+    id: &str,
+) -> Option<PathBuf> {
+    let slug = sanitize_tenant(&tenant_id.to_string());
+    let dir = verticals_root.join(".genesis").join(slug).join(id);
+    dir.join("vertical.toml").is_file().then_some(dir)
+}
+
+/// Canonical tenant-id → `.genesis/<slug>/` segment map. Mirrors
+/// `argo_cli::handlers::gateway::genesis_tenant::sanitize_tenant` by value
+/// (this crate does not depend on `argo-cli`); the two MUST stay
+/// byte-identical so the slug the gateway writes a vertical under matches
+/// the slug this fence reads it under.
+#[must_use]
+fn sanitize_tenant(tenant_id: &str) -> String {
+    let cleaned: String = tenant_id
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let trimmed = cleaned.trim_matches('-');
+    if trimmed.is_empty() {
+        "anonymous".to_string()
+    } else {
+        trimmed.to_string()
+    }
 }
 
 /// Parse the `vertical.toml` at `dir`. `None` on any IO / parse error.
@@ -294,179 +374,5 @@ pub(crate) fn derive_profile_from_manifest(
 mod probation_tests;
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use argo_vertical::{
-        ActionDeclaration, ActionsSection, McpServerDeclaration, McpServersSection, ToolsSection,
-        VerticalIdentity, VerticalManifest, SCHEMA_VERSION,
-    };
-    use std::collections::BTreeMap;
-
-    fn manifest_with(
-        actions: &[&str],
-        allowed: &[&str],
-        denied: &[&str],
-        mcp_servers: &[&str],
-    ) -> VerticalManifest {
-        let mut action_map: BTreeMap<String, ActionDeclaration> = BTreeMap::new();
-        for a in actions {
-            action_map.insert((*a).to_string(), ActionDeclaration::default());
-        }
-        let mut servers: BTreeMap<String, McpServerDeclaration> = BTreeMap::new();
-        for s in mcp_servers {
-            servers.insert(
-                (*s).to_string(),
-                McpServerDeclaration {
-                    transport: "stdio".into(),
-                    command: "npx".into(),
-                    args: vec![],
-                },
-            );
-        }
-        VerticalManifest {
-            schema_version: SCHEMA_VERSION.to_string(),
-            vertical: VerticalIdentity {
-                id: "demo".into(),
-                name: "Demo".into(),
-                version: "0.0.1".into(),
-                ..VerticalIdentity::default()
-            },
-            actions: Some(ActionsSection {
-                actions: action_map,
-            }),
-            tools: Some(ToolsSection {
-                allowed: allowed.iter().map(|s| (*s).to_string()).collect(),
-                denied: denied.iter().map(|s| (*s).to_string()).collect(),
-            }),
-            mcp_servers: (!servers.is_empty()).then_some(McpServersSection { servers }),
-            ..VerticalManifest::default()
-        }
-    }
-
-    #[test]
-    fn derive_maps_actions_and_allowed_tools() {
-        let m = manifest_with(
-            &["draft_reply", "summarize_ticket"],
-            &["web_search"],
-            &[],
-            &[],
-        );
-        let profile = derive_profile_from_manifest(&m);
-        assert!(profile.permits_tool("draft_reply"));
-        assert!(profile.permits_tool("summarize_ticket"));
-        assert!(profile.permits_tool("web_search"));
-        assert!(!profile.permits_tool("terminal"));
-    }
-
-    #[test]
-    fn derive_keeps_mcp_servers_draft_only() {
-        let m = manifest_with(&["draft_reply"], &[], &[], &["gmail", "stripe"]);
-        let profile = derive_profile_from_manifest(&m);
-        // Recorded as draft integrations, NOT live dispatchable tools.
-        assert_eq!(profile.draft_integrations(), vec!["gmail", "stripe"]);
-        assert!(!profile.permits_tool("gmail"));
-        assert!(!profile.permits_tool("stripe"));
-    }
-
-    #[test]
-    fn derive_respects_deny_list() {
-        let m = manifest_with(&["send_email"], &["send_email"], &["send_email"], &[]);
-        let profile = derive_profile_from_manifest(&m);
-        assert!(!profile.permits_tool("send_email"));
-    }
-
-    #[test]
-    fn empty_manifest_yields_deny_all_profile() {
-        let m = VerticalManifest {
-            schema_version: SCHEMA_VERSION.to_string(),
-            vertical: VerticalIdentity {
-                id: "bare".into(),
-                name: "Bare".into(),
-                version: "0.0.1".into(),
-                ..VerticalIdentity::default()
-            },
-            ..VerticalManifest::default()
-        };
-        let profile = derive_profile_from_manifest(&m);
-        assert!(profile.allowed_tools().is_empty());
-        assert!(!profile.permits_tool("anything"));
-    }
-
-    #[test]
-    fn non_genesis_worker_is_not_fenced() {
-        // A session whose worker carries NO Genesis provenance keeps the
-        // historical owner binding — `None` regardless of vertical id.
-        // (Uses the public wrapper; `default_dir()` is irrelevant on the
-        // `None` arm — it short-circuits before any disk read.)
-        assert!(resolve_worker_profile_for_session(None, GenesisProvenance::None).is_none());
-        assert!(resolve_worker_profile_for_session(
-            Some("ai-receptionist"),
-            GenesisProvenance::None
-        )
-        .is_none());
-    }
-
-    #[test]
-    fn genesis_worker_bound_to_catalog_id_is_fenced() {
-        // The bypass this closes: a Genesis-provenance worker bound to a
-        // CATALOG vertical id (not under `.genesis/`) MUST resolve to a
-        // least-privilege profile derived from that catalog manifest — not
-        // `None` (which the caller would bind to owner). Race-free: points
-        // the resolver at a tempdir catalog via the root-parameterized
-        // inner fn instead of mutating the process-global env var.
-        let tmp = tempfile::tempdir().expect("tmpdir");
-        let vdir = tmp.path().join("intern");
-        std::fs::create_dir_all(&vdir).expect("mkdir");
-        std::fs::write(
-            vdir.join("vertical.toml"),
-            "schema_version = \"1\"\n\
-             [vertical]\nid = \"intern\"\nname = \"Intern\"\nversion = \"0.1.0\"\n\
-             [actions.draft_reply]\nrisk = \"low\"\nrequires_approval = false\n\
-             description = \"Draft a reply.\"\n\
-             [tools]\nallowed = [\"web_search\"]\ndenied = []\n",
-        )
-        .expect("write manifest");
-
-        let profile =
-            resolve_worker_profile_in(tmp.path(), Some("intern"), GenesisProvenance::Genesis)
-                .expect("Genesis worker must always yield a profile, never None/owner");
-        assert!(
-            profile.permits_tool("draft_reply"),
-            "declared action allowed"
-        );
-        assert!(profile.permits_tool("web_search"), "allowed tool allowed");
-        assert!(
-            !profile.permits_tool("terminal"),
-            "undeclared tool must stay denied under the fence"
-        );
-    }
-
-    #[test]
-    fn genesis_worker_with_unresolvable_manifest_fails_closed() {
-        // A known-Genesis worker whose manifest can't be resolved (no
-        // matching .genesis/ dir, not in the catalog) must NOT fall back
-        // to owner — it gets a deny-all profile so the fence fails CLOSED.
-        let tmp = tempfile::tempdir().expect("tmpdir");
-        let profile = resolve_worker_profile_in(
-            tmp.path(),
-            Some("a-vertical-that-does-not-exist-anywhere"),
-            GenesisProvenance::Genesis,
-        )
-        .expect("known-Genesis session must always yield a profile, never None");
-        assert!(
-            profile.allowed_tools().is_empty(),
-            "fail-closed profile must have an empty allow-set"
-        );
-        assert!(!profile.permits_tool("terminal"));
-        assert!(!profile.permits_tool("send_email"));
-    }
-
-    #[test]
-    fn genesis_worker_with_no_vertical_id_fails_closed() {
-        // Defensive: a Genesis worker with a missing vertical binding is
-        // still fenced (deny-all), never owner.
-        let profile = resolve_worker_profile_for_session(None, GenesisProvenance::Genesis)
-            .expect("known-Genesis session must always yield a profile");
-        assert!(profile.allowed_tools().is_empty());
-    }
-}
+#[path = "turn_vertical_fence_derive_tests.rs"]
+mod derive_tests;

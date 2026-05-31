@@ -97,6 +97,26 @@ pub(super) fn load_truth_boundary_ctx(
     ))
 }
 
+/// Build the truth-boundary gate for a Genesis-generated teammate (DEC-025
+/// #6 / Genesis P5 part (a)). Binds `argo_capability::genesis_default_policy`
+/// scoped to `tenant_id`, so the teammate's declared financial/legal/medical/
+/// factual claims **escalate** (queue an approval, hold the reply) regardless
+/// of the process-global `ARGO_TRUTH_BOUNDARY_POLICY_PATH`.
+///
+/// Channel is [`ChannelKind::Chat`] (the conservative all-channels default
+/// for a generated teammate); the gate's per-turn tenant guard
+/// (`active_policy_for`) still applies the policy only to `tenant_id`'s
+/// sessions, so this can never gate another tenant. No refusal templates are
+/// needed — every gated class is `Escalate`, not `Forbid`.
+#[must_use]
+pub(super) fn genesis_default_truth_boundary_ctx(tenant_id: TenantId) -> TruthBoundaryTurnCtx {
+    TruthBoundaryTurnCtx::new(
+        argo_capability::genesis_default_policy(tenant_id),
+        ChannelKind::Chat,
+        RefusalTemplateRegistry::empty(),
+    )
+}
+
 #[cfg(test)]
 pub(super) async fn with_test_truth_boundary_ctx<F, Fut, T>(ctx: TruthBoundaryTurnCtx, f: F) -> T
 where

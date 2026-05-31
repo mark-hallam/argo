@@ -11,7 +11,7 @@ use argo_genesis::GateVerdict;
 use argo_store::SessionStore;
 use argo_types::TenantId;
 use serde_json::{json, Value};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 /// Audit-log redactor for the hire context. Delegates to
@@ -75,7 +75,27 @@ pub(super) async fn enforce_genesis_hire_gate(
     vertical_id: &str,
     confirmed_digest: Option<&str>,
 ) -> Option<(&'static str, String)> {
-    let genesis_dir = genesis_vertical_dir(vertical_id)?;
+    let root = crate::handlers::vertical::resolve_verticals_dir();
+    let tenant_str = tenant_id.to_string();
+    // P5 (b) tenant-match enforcement (fail-closed): resolve ONLY under the
+    // caller's own `.genesis/<tenant>/` segment. A vertical that exists for a
+    // DIFFERENT tenant but not this one is a cross-tenant resolve attempt — we
+    // refuse it (audited 403), never silently gate+hire another tenant's
+    // teammate. A genuinely unknown id (exists nowhere) is `None` → the catalog
+    // hire path handles it (this gate only covers Genesis verticals).
+    let Some(genesis_dir) =
+        super::genesis_tenant::genesis_vertical_dir_for_tenant(&root, &tenant_str, vertical_id)
+    else {
+        if super::genesis_tenant::genesis_vertical_exists_for_other_tenant(
+            &root,
+            &tenant_str,
+            vertical_id,
+        ) {
+            emit_cross_tenant_denied_audit(store, tenant_id, principal_id, vertical_id).await;
+            return Some(cross_tenant_denied_response(vertical_id));
+        }
+        return None;
+    };
     let gate = super::routes_genesis_gate::run_hire_gate_from_dir_with_confirmation(
         &genesis_dir,
         confirmed_digest,
@@ -89,27 +109,58 @@ pub(super) async fn enforce_genesis_hire_gate(
     }
 }
 
-/// Resolve the on-disk directory of a Genesis-generated vertical
-/// (`<root>/.genesis/<tenant_slug>/<id>/`) using the default verticals
-/// root. Returns `None` for hand-authored catalog verticals (which Genesis
-/// P0's gate does not cover) or when the id isn't a Genesis vertical.
-fn genesis_vertical_dir(id: &str) -> Option<PathBuf> {
-    let root = crate::handlers::vertical::resolve_verticals_dir();
-    genesis_vertical_dir_in(&root, id)
+/// `true` when `id` resolves to a Genesis-generated vertical under the
+/// caller's OWN tenant segment (`<verticals_root>/.genesis/<tenant>/<id>/`).
+/// Tenant-scoped (P5 (b)): a vertical owned by a different tenant is not
+/// visible here.
+pub(super) fn genesis_vertical_exists(verticals_root: &Path, tenant_id: &str, id: &str) -> bool {
+    super::genesis_tenant::genesis_vertical_exists_for_tenant(verticals_root, tenant_id, id)
 }
 
-/// `true` when `id` resolves to a Genesis-generated vertical under
-/// `<verticals_root>/.genesis/<tenant>/<id>/`.
-pub(super) fn genesis_vertical_exists(verticals_root: &Path, id: &str) -> bool {
-    genesis_vertical_dir_in(verticals_root, id).is_some()
+/// `403 Forbidden` when a hire targets a Genesis vertical that belongs to a
+/// DIFFERENT tenant (P5 (b) fail-closed cross-tenant denial). Distinct from
+/// the `400 unknown vertical` an id-that-exists-nowhere gets, so a probe for
+/// another tenant's teammate is legible in the audit + the response.
+fn cross_tenant_denied_response(vertical_id: &str) -> (&'static str, String) {
+    (
+        "403 Forbidden",
+        json!({
+            "error": {
+                "code": "cross_tenant_vertical",
+                "message": format!(
+                    "vertical '{vertical_id}' is not available to this tenant"
+                ),
+            }
+        })
+        .to_string(),
+    )
 }
 
-fn genesis_vertical_dir_in(verticals_root: &Path, id: &str) -> Option<PathBuf> {
-    let entries = std::fs::read_dir(verticals_root.join(".genesis")).ok()?;
-    entries.flatten().find_map(|e| {
-        let dir = e.path().join(id);
-        (dir.join("vertical.toml").is_file()).then_some(dir)
-    })
+/// Audit a refused cross-tenant Genesis hire (tamper-evident security row).
+async fn emit_cross_tenant_denied_audit(
+    store: &Arc<SessionStore>,
+    tenant_id: TenantId,
+    principal_id: &str,
+    vertical_id: &str,
+) {
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
+    let payload = json!({
+        "endpoint": "workers.hire.cross_tenant_denied",
+        "vertical_id": vertical_id,
+        "tenant_id": tenant_id.to_string(),
+        "outcome": "denied",
+    });
+    if let Err(e) = sink
+        .write(None, AuditKind::HttpRequest, payload, Some(principal_id.to_string()))
+        .await
+    {
+        tracing::warn!(
+            target: "gateway::workers_hire",
+            error = %e,
+            vertical_id = %vertical_id,
+            "cross-tenant-denied audit write failed"
+        );
+    }
 }
 
 /// `422 Unprocessable Entity` when the Genesis hire gate refuses to

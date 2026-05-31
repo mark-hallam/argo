@@ -104,7 +104,11 @@ pub(super) async fn build_turn_dispatch_ctx(
         ),
         Err(_) => ContextWindowPolicy::disabled(),
     };
-    let truth_boundary = load_truth_boundary_ctx(cwd, session.tenant_id)?;
+    // Default activation reads `ARGO_TRUTH_BOUNDARY_POLICY_PATH` (env-var
+    // only). A Genesis-hired teammate overrides this below with its
+    // conservative bound-at-birth policy once the worker-row read resolves
+    // (P5 (a)).
+    let mut truth_boundary = load_truth_boundary_ctx(cwd, session.tenant_id)?;
     // claude-memory-tool-wire: thread the live MemoryStore + workspace
     // through dispatch so the in-core `memory` tool can actually persist.
     // Vertical-bound writes go through `append_for_vertical` when
@@ -143,10 +147,28 @@ pub(super) async fn build_turn_dispatch_ctx(
     // it is, `resolve_tool_call` forces EVERY action approval-gated (held
     // pending, never executed unsupervised) regardless of its normal policy.
     // Read once here at session boot — never per-action on the hot loop.
+    //
+    // DEC-025 #6 Genesis P5 (a) truth-boundary bound at birth: the SAME
+    // worker-row read also yields whether the teammate carries the
+    // `truth_boundary_policy_id=` marker. When it does, bind the conservative
+    // default claim policy (Escalate on declared financial/legal/medical/
+    // factual claims) scoped to the worker's tenant — replacing env-var-only
+    // activation so a generated teammate cannot over-claim to a customer.
     use crate::turn_vertical_fence as fence;
     let signals = fence::genesis_signals_for_worker(store, session.tenant_id, worker_id).await;
-    let worker_profile =
-        fence::resolve_worker_profile_for_session(vertical_scope, signals.provenance);
+    if matches!(
+        signals.truth_boundary,
+        fence::TruthBoundaryBinding::Bound
+    ) {
+        truth_boundary = super::turn_helpers_truth_boundary::genesis_default_truth_boundary_ctx(
+            session.tenant_id,
+        );
+    }
+    let worker_profile = fence::resolve_worker_profile_for_session(
+        session.tenant_id,
+        vertical_scope,
+        signals.provenance,
+    );
     let (registry, engine, principal) = build_dispatch_ctx(
         cwd,
         memory_ctx,

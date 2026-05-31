@@ -70,8 +70,9 @@ pub use roster_store::RosterAssignment;
 pub use store::{IdentityStore, LearningEnrollFn};
 pub use store_hire::{
     genesis_plan_id_from_provenance, is_in_probation, probation_until_from_provenance,
-    ApprovalPolicyChoice, HireDraft, HireDutyDraft, GENESIS_PLAN_PROVENANCE_PREFIX, PROBATION_HOURS,
-    PROBATION_PROVENANCE_PREFIX,
+    truth_boundary_policy_id_from_provenance, ApprovalPolicyChoice, HireDraft, HireDutyDraft,
+    GENESIS_DEFAULT_TRUTH_BOUNDARY_POLICY_ID, GENESIS_PLAN_PROVENANCE_PREFIX, PROBATION_HOURS,
+    PROBATION_PROVENANCE_PREFIX, TRUTH_BOUNDARY_PROVENANCE_PREFIX,
 };
 pub use store_skills::BulkAssignSkillOutcome;
 pub use tenant::{Tenant, TenantStatus};

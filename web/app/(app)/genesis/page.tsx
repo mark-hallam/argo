@@ -6,7 +6,7 @@ import { AlertTriangle, RotateCcw } from "lucide-react";
 import { BrandLoudHero } from "@/components/skycot/BrandLoudHero";
 import { HeroInput } from "@/components/skycot/genesis/HeroInput";
 import { ProgressStrip } from "@/components/skycot/genesis/ProgressStrip";
-import { PreviewCard } from "@/components/skycot/genesis/PreviewCard";
+import { RoleContractReview } from "@/components/skycot/genesis/RoleContractReview";
 import {
   GENESIS_PHASES,
   hireFromGenesis,
@@ -311,10 +311,9 @@ export default function GenesisPage() {
           ) : null}
           {vertical && (status === "ready" || status === "hiring") ? (
             <>
-              <PreviewCard
+              <RoleContractReview
                 ready={vertical}
-                roleDescription={roleDescription}
-                onHire={handleHire}
+                onConfirmHire={handleHire}
                 isHiring={status === "hiring"}
               />
               {hireError ? (

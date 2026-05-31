@@ -12,7 +12,9 @@
 //! enforcement; the gate-precedence half is proven by
 //! `turn_helpers_gate::gate_decision_tests`.
 
-use super::{genesis_signals_for_worker, GenesisProvenance, ProbationStatus};
+use super::{
+    genesis_signals_for_worker, GenesisProvenance, ProbationStatus, TruthBoundaryBinding,
+};
 use argo_identity::{ApprovalPolicyChoice, HireDraft, HireDutyDraft, IdentityStore};
 use argo_store::SessionStore;
 use argo_types::TenantId;
@@ -57,7 +59,8 @@ async fn freshly_hired_genesis_worker_is_in_probation_at_runtime() {
         .expect("hire genesis worker");
 
     // The runtime read the dispatch seam performs at session boot must
-    // report BOTH Genesis provenance (fence) AND active probation (P3).
+    // report Genesis provenance (fence), active probation (P3), AND the
+    // truth-boundary binding (P5 (a)) — all three from one worker-row read.
     let signals = genesis_signals_for_worker(&store, tenant, Some(id)).await;
     assert_eq!(signals.provenance, GenesisProvenance::Genesis);
     assert_eq!(
@@ -66,12 +69,18 @@ async fn freshly_hired_genesis_worker_is_in_probation_at_runtime() {
         "a just-hired Genesis teammate must be in probation at the dispatch seam"
     );
     assert!(signals.probation.is_active());
+    assert_eq!(
+        signals.truth_boundary,
+        TruthBoundaryBinding::Bound,
+        "a Genesis teammate must carry the conservative truth-boundary binding (P5 a)"
+    );
 }
 
 #[tokio::test]
-async fn non_genesis_worker_is_not_in_probation() {
+async fn non_genesis_worker_is_not_in_probation_or_truth_boundary_bound() {
     // A worker hired WITHOUT a Genesis plan id (the pre-Genesis fallback)
-    // is not a generated teammate: no fence, no probation window.
+    // is not a generated teammate: no fence, no probation window, no
+    // auto-bound claim policy.
     let store = store().await;
     let tenant = TenantId::new();
     let id = IdentityStore::new(&store)
@@ -83,15 +92,18 @@ async fn non_genesis_worker_is_not_in_probation() {
     assert_eq!(signals.provenance, GenesisProvenance::None);
     assert_eq!(signals.probation, ProbationStatus::Normal);
     assert!(!signals.probation.is_active());
+    assert_eq!(signals.truth_boundary, TruthBoundaryBinding::None);
 }
 
 #[tokio::test]
 async fn ad_hoc_session_with_no_worker_is_not_in_probation() {
-    // No `worker_id` (an ad-hoc chat session) → normal, no probation.
+    // No `worker_id` (an ad-hoc chat session) → normal, no probation, no
+    // truth-boundary binding.
     let store = store().await;
     let signals = genesis_signals_for_worker(&store, TenantId::new(), None).await;
     assert_eq!(signals.provenance, GenesisProvenance::None);
     assert_eq!(signals.probation, ProbationStatus::Normal);
+    assert_eq!(signals.truth_boundary, TruthBoundaryBinding::None);
 }
 
 #[tokio::test]
