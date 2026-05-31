@@ -53,6 +53,7 @@ pub mod regression;
 pub mod relevance_selector;
 mod relevance_selector_markers;
 pub mod scheduled_reeval_cron;
+pub mod self_improve_loop;
 pub mod sign;
 mod skill;
 pub mod slide_controller;
