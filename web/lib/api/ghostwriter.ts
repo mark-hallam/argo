@@ -4,8 +4,9 @@
  * Backs the `/workers/<id>/skills/new` prompt-entry surface.
  * Mirrors the mock-fallback contract used by `skill-ir.ts`:
  *
- *   - `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` → return a mock IR instantly.
+ *   - `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` + `!DEMO_LIVE` → return a mock IR instantly.
  *   - 404 / network error in dev → mock IR so the UI is still testable.
+ *   - `NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1` disables mock bypass/fallback so recording surfaces hit the gateway.
  *   - Strict production (`NODE_ENV === 'production'` AND
  *     `NEXT_PUBLIC_ENV === 'production'`) propagates all errors.
  *
@@ -16,6 +17,7 @@
 
 import { apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 import type { SkillGraph } from "@/lib/types/skill-ir";
 
 export type GhostwriterSource = "gateway" | "mock-offline" | "mock-bypass";
@@ -137,7 +139,7 @@ function mockUuid(seed: string): string {
 }
 
 export async function draftSkillFromPrompt(prompt: string): Promise<GhostwriterDraft> {
-  if (isAuthBypassed()) return mockDraft(prompt, "mock-bypass");
+  if (isAuthBypassed() && !isDemoLive()) return mockDraft(prompt, "mock-bypass");
   try {
     const payload = await apiPost<GatewayPayload, { prompt: string }>(
       "/api/v1/skills/draft-from-prompt",
@@ -152,7 +154,7 @@ export async function draftSkillFromPrompt(prompt: string): Promise<GhostwriterD
       source: "gateway",
     };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockDraft(prompt, "mock-offline");
     }
     throw err;

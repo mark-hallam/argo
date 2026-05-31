@@ -117,6 +117,33 @@ const HOW = [
   },
 ];
 
+const DIFFERENTIATORS = [
+  {
+    icon: <Shield size={22} />,
+    title: "Every action, provable",
+    blurb:
+      "AI teammate actions write to the hash-chained audit ledger, so the record is tamper-evident instead of just a transcript.",
+  },
+  {
+    icon: <MessageSquareText size={22} />,
+    title: "Truth-bounded claims",
+    blurb:
+      "Teammates cannot assert sensitive claims they cannot back up. They defer instead of improvising numbers or promises.",
+  },
+  {
+    icon: <Check size={22} />,
+    title: "Approval-first in 9 channels",
+    blurb:
+      "Risky actions stop for human approval across Slack, Discord, SMS, voice, iMessage, web, push, Teams, and email.",
+  },
+  {
+    icon: <Users2 size={22} />,
+    title: "Persistent teammates",
+    blurb:
+      "You hire named teammates with standing responsibilities, memory, shared skills, and delegated work, not one-off chatbots.",
+  },
+];
+
 export default function MarketingLandingPage() {
   return (
     <>
@@ -263,6 +290,23 @@ export default function MarketingLandingPage() {
           </div>
         </section>
 
+        {/* Verified differentiators */}
+        <section className="land-section land-diff-section">
+          <p className="land-section-label">VERIFIED DIFFERENTIATORS</p>
+          <h2 className="land-section-title">
+            Trust controls competitors <strong>didn&apos;t match</strong>.
+          </h2>
+          <div className="land-diff-grid">
+            {DIFFERENTIATORS.map((item) => (
+              <article key={item.title} className="land-diff-card">
+                <div className="land-diff-icon">{item.icon}</div>
+                <h3>{item.title}</h3>
+                <p>{item.blurb}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
         {/* Features */}
         <section id="features" className="land-section">
           <p className="land-section-label">WHY SKYCOT</p>
@@ -282,17 +326,21 @@ export default function MarketingLandingPage() {
 
         {/* Social proof — logos + testimonials */}
         <section className="land-social">
-          <p className="land-section-label">TRUSTED BY TEAMS LIKE YOURS</p>
+          <p className="land-section-label">REPRESENTATIVE SCENARIOS</p>
           <h2 className="land-section-title" style={{ marginBottom: 28 }}>
-            Already shipping with <strong>SKYCOT</strong>.
+            Example teams SKYCOT is <strong>built to support</strong>.
           </h2>
+          <p className="land-social-note">
+            These are seeded deployment profiles backed by current workflow templates. Real
+            design-partner stories replace them when publication is cleared.
+          </p>
           <div className="land-social-strip">
             {LOGOS.map((logo) => (
               <Link
                 key={logo.name}
                 href={logo.href}
                 className="land-social-card"
-                aria-label={`Read ${logo.name} customer story`}
+                aria-label={`View ${logo.name} representative profile`}
                 style={{ textDecoration: "none" }}
               >
                 <span className="land-social-logo">{logo.initials}</span>
@@ -303,6 +351,7 @@ export default function MarketingLandingPage() {
           <div className="land-quote-grid">
             {TESTIMONIALS.map((t) => (
               <article key={t.name} className="land-quote-card">
+                <div className="land-quote-status">Representative profile</div>
                 <div className="land-quote-mark">&ldquo;</div>
                 <p className="land-quote-text">{t.quote}</p>
                 <div className="land-quote-byline">
@@ -334,7 +383,7 @@ export default function MarketingLandingPage() {
                 textDecoration: "none",
               }}
             >
-              See all customers <ArrowRight size={15} />
+              See all profiles <ArrowRight size={15} />
             </Link>
           </div>
         </section>

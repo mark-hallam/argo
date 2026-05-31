@@ -4,8 +4,9 @@
  * Backs the L4 read-only canvas viewer. Mirrors the mock-fallback
  * contract used by `worker-skills.ts` / `worker-overview.ts`:
  *
- *   - `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` → mock immediately.
+ *   - `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` + `!DEMO_LIVE` → mock immediately.
  *   - 404 / network error in dev → bundled sample IR.
+ *   - `NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1` disables mock bypass/fallback so recording surfaces hit the gateway.
  *   - Strict production (`NODE_ENV === 'production'` AND
  *     `NEXT_PUBLIC_ENV === 'production'`) propagates all errors.
  *
@@ -22,6 +23,7 @@
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { findSampleSkillIr } from "@/lib/sample-skill-ir";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 import type { SkillGraph } from "@/lib/types/skill-ir";
 
 export type SkillIrSource = "gateway" | "mock-offline" | "mock-bypass";
@@ -98,7 +100,7 @@ export async function fetchSkillIr(
   skillId: string,
   version?: string,
 ): Promise<FetchSkillIrResult> {
-  if (isAuthBypassed()) return mockResult(skillId, version, "mock-bypass");
+  if (isAuthBypassed() && !isDemoLive()) return mockResult(skillId, version, "mock-bypass");
 
   const path =
     `/api/v1/skills/${encodeURIComponent(skillId)}/ir` +
@@ -113,7 +115,7 @@ export async function fetchSkillIr(
       source: "gateway",
     };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockResult(skillId, version, "mock-offline");
     }
     if (err instanceof ApiError && err.status === 404) {

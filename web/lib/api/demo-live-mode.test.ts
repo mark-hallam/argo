@@ -25,6 +25,7 @@
  * contract: the guard either calls the gateway or it doesn't.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { SkillGraph } from "@/lib/types/skill-ir";
 
 const apiGetMock = vi.fn();
 const apiPostMock = vi.fn();
@@ -48,6 +49,21 @@ vi.mock("sonner", () => ({
 }));
 
 const ORIGINAL_ENV = { ...process.env };
+
+const TEST_GRAPH: SkillGraph = {
+  entry: "n1",
+  nodes: [
+    {
+      id: "n1",
+      label: "Draft response",
+      kind: { type: "action", instruction: "Draft the response." },
+      annotations: {},
+    },
+  ],
+  edges: [],
+  variables: [],
+  metadata: { name: "Demo-live skill" },
+};
 
 beforeEach(() => {
   apiGetMock.mockReset();
@@ -224,5 +240,169 @@ describe("demo-live recording-mode opt-out — approvals", () => {
     expect(apiPostMock).toHaveBeenCalledTimes(1);
     expect(apiPostMock.mock.calls[0][0]).toBe("/api/v1/approvals/ap_1/undo");
     expect(result.source).toBe("live");
+  });
+});
+
+describe("demo-live recording-mode opt-out — elevated view", () => {
+  const body = {
+    surface: "audit",
+    categories: ["unredacted-email" as const],
+    reason: "Investigating the exact audit evidence for a customer escalation.",
+    duration: "1h" as const,
+  };
+
+  it("auth-bypass alone issues a local grant; gateway is NOT called", async () => {
+    const { submitElevatedViewRequest } = await import("@/lib/api/elevated-view");
+    const result = await submitElevatedViewRequest(body);
+    expect(apiPostMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, status: "auto" });
+  });
+
+  it("auth-bypass + DEMO_LIVE=1 fires POST /api/v1/audit/elevated-view-request", async () => {
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+    apiPostMock.mockResolvedValueOnce({ ok: true, requestId: "ev_live_1", status: "auto" });
+    const { submitElevatedViewRequest } = await import("@/lib/api/elevated-view");
+    const result = await submitElevatedViewRequest(body);
+    expect(apiPostMock).toHaveBeenCalledTimes(1);
+    expect(apiPostMock.mock.calls[0][0]).toBe("/api/v1/audit/elevated-view-request");
+    expect(apiPostMock.mock.calls[0][1]).toEqual(body);
+    expect(result.requestId).toBe("ev_live_1");
+  });
+
+  it("auth-bypass + DEMO_LIVE=1 propagates gateway 404 instead of granting locally", async () => {
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+    const { ApiError } = await import("@/lib/api/types");
+    apiPostMock.mockRejectedValueOnce(new ApiError(404, "not found"));
+    const { submitElevatedViewRequest } = await import("@/lib/api/elevated-view");
+    await expect(submitElevatedViewRequest(body)).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe("demo-live recording-mode opt-out — ghostwriter", () => {
+  const prompt = "Draft a skill that triages inbound customer escalations for owners.";
+
+  it("auth-bypass alone returns a mock draft; gateway is NOT called", async () => {
+    const { draftSkillFromPrompt } = await import("@/lib/api/ghostwriter");
+    const result = await draftSkillFromPrompt(prompt);
+    expect(apiPostMock).not.toHaveBeenCalled();
+    expect(result.source).toBe("mock-bypass");
+  });
+
+  it("auth-bypass + DEMO_LIVE=1 fires POST /api/v1/skills/draft-from-prompt", async () => {
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+    apiPostMock.mockResolvedValueOnce({
+      skillId: "skill_live_ghostwriter",
+      version: "1.0.0",
+      irHash: "sha256:live",
+      graph: TEST_GRAPH,
+    });
+    const { draftSkillFromPrompt } = await import("@/lib/api/ghostwriter");
+    const result = await draftSkillFromPrompt(prompt);
+    expect(apiPostMock).toHaveBeenCalledTimes(1);
+    expect(apiPostMock.mock.calls[0][0]).toBe("/api/v1/skills/draft-from-prompt");
+    expect(apiPostMock.mock.calls[0][1]).toEqual({ prompt });
+    expect(result.source).toBe("gateway");
+  });
+
+  it("auth-bypass + DEMO_LIVE=1 propagates gateway 404 instead of returning mock IR", async () => {
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+    const { ApiError } = await import("@/lib/api/types");
+    apiPostMock.mockRejectedValueOnce(new ApiError(404, "not found"));
+    const { draftSkillFromPrompt } = await import("@/lib/api/ghostwriter");
+    await expect(draftSkillFromPrompt(prompt)).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe("demo-live recording-mode opt-out — Skill IR", () => {
+  it("auth-bypass alone returns bundled Skill IR; gateway is NOT called", async () => {
+    const { fetchSkillIr } = await import("@/lib/api/skill-ir");
+    const result = await fetchSkillIr("skill_screen_applications");
+    expect(apiGetMock).not.toHaveBeenCalled();
+    expect(result.source).toBe("mock-bypass");
+  });
+
+  it("auth-bypass + DEMO_LIVE=1 fires GET /api/v1/skills/<id>/ir", async () => {
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+    apiGetMock.mockResolvedValueOnce({
+      graph: TEST_GRAPH,
+      version: "v1",
+      irHash: "sha256:live-ir",
+    });
+    const { fetchSkillIr } = await import("@/lib/api/skill-ir");
+    const result = await fetchSkillIr("skill_live", "v1");
+    expect(apiGetMock).toHaveBeenCalledTimes(1);
+    expect(apiGetMock.mock.calls[0][0]).toBe("/api/v1/skills/skill_live/ir?version=v1");
+    expect(result.source).toBe("gateway");
+  });
+
+  it("auth-bypass + DEMO_LIVE=1 maps gateway 404 to the honest missing-IR state", async () => {
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+    const { ApiError } = await import("@/lib/api/types");
+    apiGetMock.mockRejectedValueOnce(new ApiError(404, "not found"));
+    const { fetchSkillIr, SkillIrNotFoundError } = await import("@/lib/api/skill-ir");
+    await expect(fetchSkillIr("skill_missing")).rejects.toBeInstanceOf(SkillIrNotFoundError);
+  });
+});
+
+describe("demo-live recording-mode opt-out — Skill IR save/export/import", () => {
+  it("auth-bypass + DEMO_LIVE=1 saves Skill IR through the gateway", async () => {
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+    apiPostMock.mockResolvedValueOnce({
+      skillId: "skill_live",
+      version: "v2",
+      irHash: "sha256:saved",
+      graph: TEST_GRAPH,
+      abTestScheduled: false,
+      abTestRunId: null,
+    });
+    const { saveSkillIr } = await import("@/lib/api/skill-ir-save");
+    const result = await saveSkillIr("skill_live", TEST_GRAPH);
+    expect(apiPostMock).toHaveBeenCalledTimes(1);
+    expect(apiPostMock.mock.calls[0][0]).toBe("/api/v1/skills/skill_live/ir");
+    expect(apiPostMock.mock.calls[0][1]).toEqual({ graph: TEST_GRAPH });
+    expect(result.version).toBe("v2");
+  });
+
+  it("auth-bypass + DEMO_LIVE=1 exports Skill IR through the gateway", async () => {
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+    const bundle = {
+      schemaVersion: "skycot.skill_ir.bundle.v1",
+      sourceSkillId: "skill_live",
+      version: "v2",
+      irHash: "sha256:saved",
+      graph: TEST_GRAPH,
+    };
+    apiGetMock.mockResolvedValueOnce(bundle);
+    const { exportSkillIr } = await import("@/lib/api/skill-ir-export");
+    const result = await exportSkillIr("skill_live", "v2", TEST_GRAPH, "sha256:local");
+    expect(apiGetMock).toHaveBeenCalledTimes(1);
+    expect(apiGetMock.mock.calls[0][0]).toBe("/api/v1/skills/skill_live/ir/export?version=v2");
+    expect(result).toEqual(bundle);
+  });
+
+  it("auth-bypass + DEMO_LIVE=1 imports Skill IR through the gateway", async () => {
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+    const bundle = {
+      schemaVersion: "skycot.skill_ir.bundle.v1" as const,
+      sourceSkillId: "skill_live",
+      version: "v2",
+      irHash: "sha256:saved",
+      graph: TEST_GRAPH,
+    };
+    apiPostMock.mockResolvedValueOnce({
+      skillId: "skill_target",
+      version: "v3",
+      irHash: "sha256:imported",
+      importedHash: "sha256:saved",
+      graph: TEST_GRAPH,
+      abTestScheduled: false,
+      abTestRunId: null,
+    });
+    const { importSkillIr } = await import("@/lib/api/skill-ir-export");
+    const result = await importSkillIr("skill_target", bundle);
+    expect(apiPostMock).toHaveBeenCalledTimes(1);
+    expect(apiPostMock.mock.calls[0][0]).toBe("/api/v1/skills/skill_target/ir/import");
+    expect(apiPostMock.mock.calls[0][1]).toEqual({ bundle });
+    expect(result.skillId).toBe("skill_target");
   });
 });

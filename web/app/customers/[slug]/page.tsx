@@ -10,7 +10,7 @@ import { getCustomerStory } from "@/lib/content/customers";
 import { getTemplate, type TemplateStepKind } from "@/lib/workflow-templates";
 
 /**
- * Per-customer case-study detail — `/customers/[slug]`, exempt from auth.
+ * Representative customer-profile detail — `/customers/[slug]`, exempt from auth.
  *
  * Brand-loud register matching the index. 7-section layout:
  *   1. Hero strip (logo + name + industry/size + headline KPI)
@@ -65,7 +65,7 @@ export default function CustomerStoryPage({ params }: { params: Promise<{ slug: 
 
         <div className="cs-stage">
           <Link href="/customers" className="cs-back">
-            <ArrowLeft size={12} /> All customers
+            <ArrowLeft size={12} /> All profiles
           </Link>
 
           {/* 1. Hero strip */}
@@ -80,6 +80,13 @@ export default function CustomerStoryPage({ params }: { params: Promise<{ slug: 
               <p className="cs-hero-kpi"><strong>{story.headlineKpi}</strong></p>
             </div>
           </section>
+
+          {story.dataPending ? (
+            <p className="cs-pending-note">
+              Representative profile: metrics and quotes are illustrative; the workflow showcase
+              uses current SKYCOT template data.
+            </p>
+          ) : null}
 
           {/* 2. Editorial pull-quote */}
           <div className="cs-section-label">Quote</div>
@@ -122,7 +129,7 @@ export default function CustomerStoryPage({ params }: { params: Promise<{ slug: 
               })}
             </div>
             <p className="cs-flow-caption">
-              {story.name} runs this workflow daily. The first {Math.min(5, template?.steps.length ?? 5)} steps are shown; the full template includes triggers, approval gates, and downstream tool calls.
+              This profile uses the workflow shape shown here. The first {Math.min(5, template?.steps.length ?? 5)} steps are shown; the full template includes triggers, approval gates, and downstream tool calls.
             </p>
           </section>
 

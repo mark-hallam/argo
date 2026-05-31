@@ -5,13 +5,15 @@
  * backend brief `mission-gateway-elevated-view-request-endpoint`
  * implements the server side. v1 behavior here:
  *
- *  - In bypass / dev mode (NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1) the
- *    request is swallowed locally with a console.info; the client
- *    immediately issues a mock grant.
+ *  - In bypass / dev mode (NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1) and
+ *    not demo-live, the request is swallowed locally with a
+ *    console.info; the client immediately issues a mock grant.
  *  - In a regular env, we attempt the POST. If the gateway returns
  *    404 (endpoint not deployed yet), we degrade gracefully and
  *    still issue the client-side grant — matching the rest of the
  *    audit stack's 404→mock-fallback contract.
+ *  - In demo-live, both auth-bypass and 404 fallback are disabled so
+ *    the recording surface cannot silently create a client-only grant.
  *  - 5xx / network errors surface to the caller.
  *
  * Audit-the-audit: every request is logged via the gateway when
@@ -23,6 +25,7 @@
 
 import { apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 import type { GrantDuration } from "@/lib/hooks/use-elevated-view-grant";
 import type { RbacPermission } from "@/lib/redaction/types";
 
@@ -59,7 +62,7 @@ function isAuthBypassed(): boolean {
 export async function submitElevatedViewRequest(
   body: ElevatedViewRequest,
 ): Promise<ElevatedViewRequestResponse> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     if (typeof console !== "undefined") {
       console.info("[skycot/audit] elevated-view-request (bypass)", body);
     }
@@ -71,7 +74,7 @@ export async function submitElevatedViewRequest(
       body,
     );
   } catch (err) {
-    if (err instanceof ApiError && err.status === 404) {
+    if (!isDemoLive() && err instanceof ApiError && err.status === 404) {
       if (typeof console !== "undefined") {
         console.info(
           "[skycot/audit] elevated-view-request (gateway 404 — client-side grant)",

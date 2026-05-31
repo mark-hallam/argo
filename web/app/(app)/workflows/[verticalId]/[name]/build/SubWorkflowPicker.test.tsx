@@ -47,6 +47,7 @@ describe("SubWorkflowPicker", () => {
           authorType: "worker",
           authorWorkerId: "019e6785-928c-72b3-85c6-436fe5004c50",
           risk: "approval-required",
+          substrate: "browser",
         },
       ]),
     );

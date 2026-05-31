@@ -196,6 +196,18 @@
   color: var(--ink-3);
   font-weight: 600;
 }
+.cus-status-chip {
+  align-self: flex-start;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.08);
+  color: var(--purple);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
 .cus-card-foot {
   display: flex;
   gap: 8px;

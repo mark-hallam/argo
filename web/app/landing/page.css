@@ -390,11 +390,67 @@
   margin: 0;
   max-width: 420px;
 }
+.land-diff-section {
+  padding-top: 48px;
+}
+.land-diff-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+@media (max-width: 1080px) {
+  .land-diff-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .land-diff-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.land-diff-card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: 0 10px 28px -22px rgba(139, 92, 246, 0.45);
+}
+.land-diff-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--brand-gradient);
+  color: white;
+  display: grid;
+  place-items: center;
+  margin-bottom: 14px;
+}
+.land-diff-card h3 {
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-size: 16.5px;
+  font-weight: 700;
+}
+.land-diff-card p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
 .land-social {
   padding: 32px 0 72px;
   max-width: 1320px;
   margin: 0 auto;
   overflow: hidden;
+}
+.land-social-note {
+  max-width: 640px;
+  margin: -12px auto 22px;
+  padding: 0 24px;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 13.5px;
+  line-height: 1.55;
 }
 .land-social-strip {
   display: flex;
@@ -462,6 +518,18 @@
   flex-direction: column;
   gap: 16px;
   transition: all 0.18s;
+}
+.land-quote-status {
+  align-self: flex-start;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.08);
+  color: var(--purple);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 .land-quote-card:hover {
   border-color: rgba(139, 92, 246, 0.3);

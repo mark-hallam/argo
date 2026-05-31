@@ -10,6 +10,8 @@ import { NAV_ITEMS } from "@/components/skycot/nav-items";
 // click from any people-surface page — it is the investor-locked
 // Onboarding Studio entry point and was previously orphaned (audit
 // `2026-05-26-2309/onboarding-hire-an-ai-teammate.md` F1).
+// Pitch / GTM / Marketing are the hero teammate consoles and sit
+// before the rest of the catalogue/operator surfaces.
 //
 // The roster has exactly ONE sidebar entry: "Team". The duplicate
 // "Workers" entry was removed (fix-nav-dedup-team-vs-workers-pick-
@@ -25,6 +27,7 @@ describe("sidebar nav order", () => {
       "Genesis",
       "Pitch",
       "GTM",
+      "Marketing",
       "Cohorts",
       "Skills",
       "Workflows",

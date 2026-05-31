@@ -24,7 +24,7 @@ const sessionRef = vi.hoisted(() => ({
     isDemoMode: false,
     email: "owner@acme.example",
     displayName: "Acme Owner",
-    tenantId: "tenant_acme",
+    tenantId: "tenant_acme" as string | null,
     workspaceLabel: "Acme · Owner",
     role: "owner" as const,
   },

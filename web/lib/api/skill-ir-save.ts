@@ -1,4 +1,5 @@
 import { apiPost } from "@/lib/api/client";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 import type { SkillGraph } from "@/lib/types/skill-ir";
 
 export interface SaveSkillIrResult {
@@ -22,7 +23,7 @@ export async function saveSkillIr(
   skillId: string,
   graph: SkillGraph,
 ): Promise<SaveSkillIrResult> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return {
       skillId,
       version: `local-${Date.now()}`,

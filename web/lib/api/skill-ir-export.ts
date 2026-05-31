@@ -1,4 +1,5 @@
 import { apiGet, apiPost } from "@/lib/api/client";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 import type { SkillGraph } from "@/lib/types/skill-ir";
 
 export const SKILL_IR_BUNDLE_SCHEMA = "skycot.skill_ir.bundle.v1";
@@ -69,7 +70,7 @@ export async function exportSkillIr(
   fallbackGraph?: SkillGraph,
   fallbackHash?: string,
 ): Promise<SkillIrBundle> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     if (!fallbackGraph || !version) throw new Error("Local export requires a loaded graph.");
     return buildLocalSkillIrBundle(skillId, version, fallbackGraph, fallbackHash);
   }
@@ -83,7 +84,7 @@ export async function importSkillIr(
   skillId: string,
   bundle: SkillIrBundle,
 ): Promise<ImportSkillIrResult> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return {
       skillId,
       version: `import-${Date.now()}`,

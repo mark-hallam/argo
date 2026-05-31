@@ -126,11 +126,15 @@ describe("/skills marketplace page", () => {
       expect(screen.getAllByTestId("skill-card")).toHaveLength(1);
     });
 
-    // Single-word regression: "pricing" still returns the one card.
+    // Single-word regression: "pricing" still returns the anchor card.
+    // Other legitimate skills may mention pricing in their description.
     fireEvent.change(searchInput, { target: { value: "pricing" } });
     await waitFor(() => {
-      expect(screen.getAllByTestId("skill-card")).toHaveLength(1);
+      expect(screen.getAllByTestId("skill-card").length).toBeGreaterThanOrEqual(1);
     });
+    expect(
+      screen.getByRole("heading", { name: /pricing competitor scrape/i }),
+    ).toBeInTheDocument();
 
     // Empty query: all seed cards rendered.
     fireEvent.change(searchInput, { target: { value: "" } });

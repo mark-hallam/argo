@@ -64,6 +64,8 @@
 .cs-hero-kpi { font-size: 17px; font-weight: 600; color: var(--ink-2); line-height: 1.45; margin: 0; }
 .cs-hero-kpi strong { font-family: var(--font-audiowide); font-weight: 400; background: linear-gradient(135deg, #8b5cf6, #ec4899); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
+.cs-pending-note { margin: -12px 0 32px; padding: 14px 16px; border-radius: 14px; background: rgba(139, 92, 246, 0.08); border: 1px solid rgba(139, 92, 246, 0.16); color: var(--ink-2); font-size: 13.5px; line-height: 1.5; }
+
 .cs-section-label { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; margin: 40px 0 14px; }
 
 .cs-pull { padding: 36px 32px; border-radius: 22px; background: white; border: 1px solid var(--line); border-left: 4px solid; border-image: linear-gradient(180deg, #8b5cf6, #ec4899) 1; box-shadow: 0 14px 28px -16px rgba(139, 92, 246, 0.18); }

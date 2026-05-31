@@ -27,6 +27,7 @@ const JAMAL = { id: "019e6785-928e-7f20-803b-55266e526011", name: "Jamal" };
 const NORI = { id: "019e6785-928f-7281-bf8d-e062bc277478", name: "Nori" };
 const PORTIA = { id: "019e6785-9290-7a41-9c2e-4b8d10f5c7a2", name: "Portia" };
 const GRANT = { id: "019e6785-9291-7b52-8d3f-6c9e21a6d8b3", name: "Grant" };
+const MARCUS = { id: "019e6785-9292-7c63-9e40-7d0f32b7e9c4", name: "Marcus" };
 
 const OPERATOR = { id: "usr_op_mark", name: "Mark" };
 const CFO = { id: "usr_cfo_jenna", name: "Jenna" };
@@ -375,6 +376,14 @@ const GRANT_OVERVIEW: OverviewActivitySeed[] = [
   { idSuffix: 15, minutesAgo: 280, verb: "scored signup hooli.xyz — low fit, no outreach", actionType: "lead_scored", status: "autonomous", skill: { id: "gtm-lead-score", version: "1.0.0" }, cost: 0.005, dataClassification: "internal" },
 ];
 
+const MARCUS_OVERVIEW: OverviewActivitySeed[] = [
+  { idSuffix: 11, minutesAgo: 4, verb: "drafted an X reply to a 'just fancy autocomplete' post", actionType: "marketing_reply_drafted", status: "pending", skill: { id: "marketing-reply-draft", version: "1.0.0" }, cost: 0.009, dataClassification: "public" },
+  { idSuffix: 12, minutesAgo: 30, verb: "drafted a LinkedIn article on ideas as the human moat", actionType: "marketing_article_drafted", status: "pending", skill: { id: "marketing-article-draft", version: "1.0.0" }, cost: 0.018, dataClassification: "public" },
+  { idSuffix: 13, minutesAgo: 75, verb: "held a draft that touched a revenue claim — escalated to founder", actionType: "truth_boundary_escalation", status: "succeeded", approver: MARK, skill: { id: "marketing-truth-boundary", version: "1.0.0" }, dataClassification: "confidential" },
+  { idSuffix: 14, minutesAgo: 150, verb: "summarized a mention so the operator could decide", actionType: "mention_summarized", status: "autonomous", skill: { id: "marketing-mention-summary", version: "1.0.0" }, cost: 0.006, dataClassification: "public" },
+  { idSuffix: 15, minutesAgo: 310, verb: "drafted an X reply welcoming a new launch in the space", actionType: "marketing_reply_drafted", status: "pending", skill: { id: "marketing-reply-draft", version: "1.0.0" }, cost: 0.009, dataClassification: "public" },
+];
+
 /** Build an `AuditDetail` for one row of the full Activity-tab feed
  * (`/workers/<id>/activity`). Mirrors `overviewActivityDetail` but
  * sources the verb / actionType / status / cost from the Activity-tab
@@ -462,6 +471,7 @@ export const SAMPLE_AUDIT_DETAILS: AuditDetail[] = [
   ...PETA_OVERVIEW.map((s) => overviewActivityDetail(PETA, "PETA", s)),
   ...PORTIA_OVERVIEW.map((s) => overviewActivityDetail(PORTIA, "PORTIA", s)),
   ...GRANT_OVERVIEW.map((s) => overviewActivityDetail(GRANT, "GRANT", s)),
+  ...MARCUS_OVERVIEW.map((s) => overviewActivityDetail(MARCUS, "MARCUS", s)),
   ...ACTIVITY_TAB_DETAILS,
 ];
 
