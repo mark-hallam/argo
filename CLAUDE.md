@@ -36,6 +36,33 @@ direction, and run a NEW exploration only for a genuinely new surface (check
 the per-page map in `DESIGN_SYSTEM.md` first). Locked call: see
 [DEC-027](docs/skycot/decisions/DEC-027-brand-and-design-system-locked.md).
 
+## Truth-bounded status reporting (NO THEATER applies to the conductor)
+
+**The conductor's own status reporting is truth-bounded — NO THEATER
+([DEC-007](docs/skycot/decisions/DEC-007-no-theater-in-demo.md)) applies to
+status reports, not only to product agents.** The platform truth-bounds what
+its agents may claim; the conductor must truth-bound what IT claims. A false
+"it's running" is the same failure mode the product exists to prevent. Full
+rule + rationale: [DEC-029](docs/skycot/decisions/DEC-029-truth-bounded-status-reporting.md).
+
+- **NEVER** report a background process, an autonomous mechanism (the buildout
+  tick, the worker swarm, scheduled tasks), a build, a deploy, or an agent as
+  "running" / "doing X" / "carrying" / "in progress" **without evidence
+  gathered in the current turn** — a log line, a `launchctl`/`ps` check, a
+  fresh commit SHA, or a status/health-endpoint response.
+- **Distinguish VERIFIED from SET-UP / EXPECTED / UNCONFIRMED.** Performing a
+  setup action (removing a stop sentinel, arming a job, loading a LaunchAgent)
+  is NOT evidence the mechanism is doing work — "I armed it" and "it is
+  working" are two different claims.
+- **"Done" / "shipped" / "live"** for any load-bearing claim requires
+  verification (a commit SHA, a passing-test tail, a live endpoint/health
+  check) — not an agent's or a mechanism's say-so alone.
+- When something cannot be verified this turn, **say so plainly** ("set up but
+  unverified — checking now").
+- **Build-agent / delegated-work prompts inherit this** — they report VERIFIED
+  vs UNCONFIRMED, and the conductor re-verifies load-bearing claims rather than
+  relaying them as fact.
+
 ## Priorities
 
 1. reliability
