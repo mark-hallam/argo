@@ -83,13 +83,24 @@ describe("recordingModeReadinessWarning", () => {
     expect(recordingModeReadinessWarning()).toBeNull();
   });
 
-  it("returns a warning string when BOTH demo-mode AND auth-bypass are set", () => {
+  it("returns a warning string when demo-mode AND auth-bypass are set (offline-dev, no demo-live)", () => {
     process.env.NEXT_PUBLIC_SKYCOT_DEMO_MODE = "1";
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
     const warning = recordingModeReadinessWarning();
     expect(warning).not.toBeNull();
     expect(warning).toContain("DEMO-RECORDING WARNING");
     expect(warning).toContain("NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=0");
+  });
+
+  it("returns null under the demo-live recording profile (the live fetchers DO hit the gateway)", () => {
+    // demo-live IS the profile the warning tells the operator to reach;
+    // firing it there is stale AND shows as a camera-visible "1 Issue"
+    // chip in the Next.js dev overlay. See
+    // fix-worker-personality-and-dev-overlay-issue.
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_MODE = "1";
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+    expect(recordingModeReadinessWarning()).toBeNull();
   });
 
   it("returns null in production even with both flags set (bypass guard wins)", () => {

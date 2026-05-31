@@ -88,6 +88,10 @@ export function DemoBanner() {
     } catch {
       setDismissed(false);
     }
+    // Returns null under the demo-live recording profile (and in prod),
+    // so this console.warn — which the Next.js dev overlay counts as a
+    // red "1 Issue" chip — only fires in plain offline dev where it's
+    // genuinely useful. See recordingModeReadinessWarning().
     const warning = recordingModeReadinessWarning();
     if (warning) {
       // eslint-disable-next-line no-console -- intentional dev console signal

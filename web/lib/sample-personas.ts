@@ -462,6 +462,30 @@ export function findSamplePersona(id: string): SamplePersona | undefined {
   return SAMPLE_PERSONAS[id];
 }
 
+const PERSONA_BY_NAME: Record<string, SamplePersona> = Object.fromEntries(
+  Object.values(SAMPLE_PERSONAS).map((p) => [p.name.toLowerCase(), p]),
+);
+
+/**
+ * Soft lookup by display name (case-insensitive).
+ *
+ * The live gateway's `argo demo seed` mints fresh UUIDs each time it
+ * seeds a tenant, so the worker ids returned by the gateway no longer
+ * match the hardcoded ids on the spine above — a UUID-keyed
+ * `findSamplePersona(id)` misses in demo-live. The *name* is stable
+ * across re-seeds, though (Marcus is always "Marcus"), so this lets a
+ * consumer recover the canonical persona — including the rich
+ * `personality` copy the gateway doesn't return — from the name the
+ * gateway DOES return. The persona names are unique (guarded by
+ * `sample-personas.test.ts`).
+ */
+export function findSamplePersonaByName(
+  name: string | undefined | null,
+): SamplePersona | undefined {
+  if (!name) return undefined;
+  return PERSONA_BY_NAME[name.toLowerCase()];
+}
+
 /** Minimal {id, name} pair used by audit rows + activity rows. */
 export interface PersonaRef {
   id: string;

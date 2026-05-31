@@ -116,9 +116,19 @@ export function isDataSourceChipVisible(): boolean {
  * normal offline-dev profile sets both flags and the operator would
  * otherwise see a permanent yellow stripe under DemoBanner during
  * routine local work.
+ *
+ * `NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1` suppresses the warning: that flag
+ * IS the recording profile this warning tells the operator to reach —
+ * the demo-live fetchers (audit, team, approvals, replay, …) consult
+ * `isDemoLive()` and DO round-trip the gateway, so the "will NOT hit
+ * the live gateway" premise is false and the warning is stale. Firing
+ * it under demo-live also surfaced as a camera-visible red "1 Issue"
+ * chip in the Next.js dev overlay (the overlay counts `console.warn`),
+ * which reads as broken software to an investor. See
+ * `fix-worker-personality-and-dev-overlay-issue`.
  */
 export function recordingModeReadinessWarning(): string | null {
-  if (isDemoMode() && isGatewayAuthBypassed()) {
+  if (isDemoMode() && isGatewayAuthBypassed() && !isDemoLive()) {
     return (
       "⚠ DEMO-RECORDING WARNING: NEXT_PUBLIC_SKYCOT_DEMO_MODE=1 and " +
       "NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1 are both set — the SPA " +

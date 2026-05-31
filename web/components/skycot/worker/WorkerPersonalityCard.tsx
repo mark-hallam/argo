@@ -2,7 +2,12 @@
 
 import { CheckCircle2, AlertTriangle, Heart } from "lucide-react";
 import { useWorker } from "@/lib/hooks/use-worker";
-import { findSamplePersona, type SamplePersonality } from "@/lib/sample-personas";
+import {
+  findSamplePersona,
+  findSamplePersonaByName,
+  type SamplePersonality,
+} from "@/lib/sample-personas";
+import { parseTraitsFromTagline } from "@/lib/util/worker-traits";
 
 /**
  * Worker personality card — C2 personality locked design (2026-05-19).
@@ -20,11 +25,35 @@ import { findSamplePersona, type SamplePersonality } from "@/lib/sample-personas
  *   - Signature behaviors: 2-3 hallmark choices the worker always
  *     makes (e.g. "Always confirms before posting public listings")
  *
- * Traits + behavior copy are sourced from `sample-personas.ts` —
- * the canonical persona spine — so /team and /workers/<id> stay in
- * sync. The character/charter system on the gateway will surface
- * these in a follow-up brief; the data shape here matches the
- * future API contract.
+ * Data sourcing (worker-specific, never fabricated) — resolved in
+ * priority order so the card reads as THIS teammate, not a template:
+ *
+ *   1. Persona spine `sample-personas.ts` by UUID
+ *      (`findSamplePersona(workerId)`) — the mock-offline path where
+ *      the SPA ids match.
+ *   2. Persona spine by display name (`findSamplePersonaByName`) — the
+ *      demo-live path: `argo demo seed` mints fresh UUIDs each re-seed
+ *      so the id-keyed lookup misses, but the *name* the gateway
+ *      returns is stable, so we still recover the canonical persona
+ *      (including the rich great-at / escalate-when / signature copy
+ *      the gateway doesn't itself return).
+ *   3. Traits parsed off the gateway's `role.tagline` — the seed
+ *      appends "Traits: a, b, c." to every tagline (see
+ *      `crates/argo-demo-seed/src/seed.rs`), so even a worker that
+ *      isn't in the SPA persona registry still shows its REAL traits
+ *      rather than the generic chips.
+ *
+ * Only when none of the above yields data (a hand-typed hire with no
+ * persona + no trait suffix) does the generic fallback below render.
+ *
+ * KNOWN GAP (backend, not fabricated here): the gateway's
+ * `GET /api/v1/workers/<id>` returns name + role.tagline + status, but
+ * NOT the structured great-at / escalate-when / signature-behaviour
+ * copy. Those are recovered from the SPA persona spine by name today.
+ * A worker hired live that ISN'T one of the canonical personas will
+ * show real trait chips (from the tagline) but the generic great-at /
+ * escalate-when lines until the gateway exposes a per-worker
+ * `personality` / charter-derived field to source them from.
  */
 
 const DEFAULT_TRAITS: string[] = ["Reliable", "Curious", "Helpful"];
@@ -49,8 +78,24 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
   const workerQuery = useWorker(workerId);
   const worker = workerQuery.data;
   const name = worker?.name ?? "this teammate";
-  const persona = findSamplePersona(workerId);
-  const traits = persona?.traits ?? DEFAULT_TRAITS;
+
+  // Resolve the canonical persona by UUID first (mock-offline), then by
+  // the stable display name (demo-live, where the gateway re-seeds with
+  // fresh UUIDs). See the file-header note on data sourcing.
+  const persona =
+    findSamplePersona(workerId) ?? findSamplePersonaByName(worker?.name);
+
+  // Traits: real persona traits → traits parsed off the live tagline →
+  // generic. The tagline branch keeps the chips worker-specific even
+  // for a seeded worker that isn't in the SPA persona registry.
+  const taglineTraits = parseTraitsFromTagline(worker?.role.tagline);
+  const traits =
+    persona?.traits ??
+    (taglineTraits.length > 0 ? taglineTraits : DEFAULT_TRAITS);
+
+  // Great-at / escalate-when / signature copy only exists on the spine
+  // today (the gateway doesn't return it). Fall back to the generic
+  // copy when the worker isn't a canonical persona.
   const personality = persona?.personality ?? DEFAULT_PERSONALITY;
 
   return (
