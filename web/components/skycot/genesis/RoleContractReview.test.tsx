@@ -94,7 +94,12 @@ describe("RoleContractReview", () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it("ADVERSARIAL: a non-pass (needs_review) verdict cannot be hired even when confirmed", async () => {
+  it("enables Hire after confirm on a needs_review teammate (the operator confirmation IS the gate)", async () => {
+    // A fresh Genesis teammate is ALWAYS `needs_review` (human-review-before-
+    // activation by design, never `pass` at birth). The operator's confirm tick
+    // is the activation gate; the gateway re-derives + checks the contract
+    // digest server-side. Gating the button on `=== "pass"` left it permanently
+    // disabled — the demo-blocker bug this test now pins against regressing.
     const user = userEvent.setup();
     const onConfirm = vi.fn();
     render(
@@ -104,25 +109,39 @@ describe("RoleContractReview", () => {
         isHiring={false}
       />,
     );
-    // Even after confirming, a held teammate is not hireable.
-    await user.click(screen.getByTestId("genesis-confirm-checkbox"));
     const button = screen.getByTestId("genesis-confirm-hire-button");
+    // Before confirming, the button is still disabled — review can't be skipped.
     expect(button).toBeDisabled();
+    // No "blocked / held" note for a needs_review teammate (only for `blocked`).
+    expect(screen.queryByTestId("genesis-hire-held")).toBeNull();
+    // Tick confirm → button enables → click fires the hire.
+    await user.click(screen.getByTestId("genesis-confirm-checkbox"));
+    expect(button).toBeEnabled();
     await user.click(button);
-    expect(onConfirm).not.toHaveBeenCalled();
-    expect(screen.getByTestId("genesis-hire-held")).toHaveTextContent(/needs_review/);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it("ADVERSARIAL: a blocked verdict shows the blocked gate badge and cannot hire", () => {
+  it("ADVERSARIAL: a blocked verdict cannot be hired even when confirmed", async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
     render(
       <RoleContractReview
         ready={ready({ judge_verdict: "blocked" })}
-        onConfirmHire={() => {}}
+        onConfirmHire={onConfirm}
         isHiring={false}
       />,
     );
     expect(screen.getByTestId("genesis-gate-badge")).toHaveTextContent(/Blocked/);
-    expect(screen.getByTestId("genesis-confirm-hire-button")).toBeDisabled();
+    const button = screen.getByTestId("genesis-confirm-hire-button");
+    expect(button).toBeDisabled();
+    // The blocked note explains the hard block.
+    expect(screen.getByTestId("genesis-hire-held")).toHaveTextContent(/blocked/i);
+    // Even after confirming, a hard-blocked teammate stays un-hireable —
+    // confirming must NOT override the safety gate's block.
+    await user.click(screen.getByTestId("genesis-confirm-checkbox"));
+    expect(button).toBeDisabled();
+    await user.click(button);
+    expect(onConfirm).not.toHaveBeenCalled();
   });
 
   it("surfaces draft-only integrations honestly when the role references some", () => {

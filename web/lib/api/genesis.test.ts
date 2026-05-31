@@ -471,6 +471,37 @@ describe("streamGenesis", () => {
       ),
     ).rejects.toBeInstanceOf(ApiError);
   });
+
+  it("fetches the SAME-ORIGIN /api/v1 path in the browser (no cross-origin SSE → no CORS block)", async () => {
+    // Regression pin for the /genesis demo-blocker: the SSE stream used the
+    // absolute gateway URL, so from localhost:3000 it was a cross-origin
+    // request the browser blocked with `TypeError: Failed to fetch`. In a
+    // browser context (happy-dom defines `window`) the request MUST go to the
+    // relative `/api/v1/genesis` path served by Next's `/api/v1/:path*`
+    // rewrite — never the absolute host — even though NEXT_PUBLIC_GATEWAY_URL
+    // is set to an absolute origin here.
+    process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
+    let capturedUrl: string | null = null;
+    const stream = new ReadableStream({ start: (c) => c.close() });
+    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+      capturedUrl =
+        typeof input === "string" ? input : (input as Request | URL).toString();
+      return Promise.resolve(
+        new Response(stream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+      );
+    }) as unknown as typeof fetch;
+    await streamGenesis(
+      { roleDescription: "x", tenantId: "op" },
+      { onProgress: () => {}, onVerticalReady: () => {}, onError: () => {} },
+    );
+    expect(capturedUrl).toBe("/api/v1/genesis");
+    // Specifically NOT the absolute gateway host (the cross-origin bug).
+    expect(capturedUrl).not.toContain("gw.test");
+    expect(capturedUrl).not.toMatch(/^https?:\/\//);
+  });
 });
 
 describe("hireFromGenesis", () => {

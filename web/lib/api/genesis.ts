@@ -343,9 +343,20 @@ export interface StreamGenesisRequest {
 
 function gatewayBaseForSse(): string {
   // SSE bypasses the JSON `request` helper because we need to consume
-  // the response body incrementally. URL still comes from the
-  // canonical `gateway-url` module so it stays aligned with the CSP
-  // `connect-src` directive.
+  // the response body incrementally — but it must resolve its base URL
+  // the SAME way `lib/api/client.ts::gatewayBase()` does, or the stream
+  // breaks where the equivalent JSON calls succeed.
+  //
+  // In the browser, return "" so the fetch targets the same-origin
+  // `/api/v1/genesis` path served by Next's `/api/v1/:path*` rewrite
+  // (`web/next.config.ts`). Same-origin means the browser never makes a
+  // cross-origin request, so CORS — and the `TypeError: Failed to fetch`
+  // that the absolute `http://127.0.0.1:7400` base produced on the
+  // localhost:3000 dev page — never enters the picture. SSR /
+  // route-handler contexts run inside the Next process (no `window`) and
+  // must use the absolute gateway URL because the Next process, not a
+  // browser, is the requester.
+  if (typeof window !== "undefined") return "";
   return resolveGatewayUrl();
 }
 

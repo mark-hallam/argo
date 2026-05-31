@@ -132,7 +132,15 @@ export function RoleContractReview({
 }: RoleContractReviewProps) {
   const [confirmed, setConfirmed] = useState(false);
   const contract: RoleContract | null | undefined = ready.role_contract;
-  const hireable = ready.judge_verdict === "pass";
+  // The OPERATOR'S confirmation is the activation gate, not the judge verdict.
+  // A fresh Genesis teammate is ALWAYS `needs_review` by design (human-review-
+  // before-activation, DEC-025 #1) — never `"pass"` at birth — so gating the
+  // Hire button on `=== "pass"` left it permanently disabled even after the
+  // operator ticked confirm, while the API hire succeeded via the confirmed
+  // contract-digest echo. So: a `needs_review` teammate IS hireable once the
+  // operator confirms (the gateway re-derives + checks the digest server-side);
+  // a hard-`blocked` teammate is NOT (the safety gate refused it outright).
+  const hireable = ready.judge_verdict !== "blocked";
 
   // No contract derived (manifest unavailable) — surface honestly rather than
   // letting the operator confirm a black box.
@@ -280,9 +288,9 @@ export function RoleContractReview({
           </button>
           {!hireable ? (
             <p className="rc-blocked-note" data-testid="genesis-hire-held">
-              This teammate is held for review and can&apos;t be hired yet —
-              the safety gate verdict is{" "}
-              <strong>{ready.judge_verdict}</strong>.
+              The safety gate <strong>blocked</strong> this teammate, so it
+              can&apos;t be hired — confirming won&apos;t override the block.
+              Regenerate the role with a narrower scope.
             </p>
           ) : null}
         </div>
