@@ -21,6 +21,21 @@ escalation policies, evaluation cases, UI/gateway metadata.
 Never place receptionist/support/PR/sales-specific logic into core
 crates unless the abstraction is reusable across multiple verticals.
 
+## Brand & design system (LOCKED)
+
+**Before ANY UI / design work, read
+[`docs/skycot/brand/DESIGN_SYSTEM.md`](docs/skycot/brand/DESIGN_SYSTEM.md)**
+("READ BEFORE ANY UI/DESIGN WORK — THE BRAND IS LOCKED"). The SKYCOT brand
+and the per-page design directions were chosen via the optometrist method
+and **shipped months ago**: gradient = purple→PINK `#8B5CF6 → #EC4899`
+(purple→cyan is DEPRECATED, never use it); fonts Audiowide / Inter /
+JetBrains Mono; runtime tokens in `web/app/globals.css`. **The optometrist /
+from-scratch "show me wildly varied mockups" method does NOT apply to a page
+that already has a locked direction** — consume the tokens + the locked
+direction, and run a NEW exploration only for a genuinely new surface (check
+the per-page map in `DESIGN_SYSTEM.md` first). Locked call: see
+[DEC-027](docs/skycot/decisions/DEC-027-brand-and-design-system-locked.md).
+
 ## Priorities
 
 1. reliability

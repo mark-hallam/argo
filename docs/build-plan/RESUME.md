@@ -62,6 +62,11 @@ If you're spinning the worker-loop on a fresh host, run the host-setup canary fi
 4. **`docs/build-plan/PRODUCT_ROADMAP.md`** (frontend / UX work).
    Operative plan for the post-MVP product-surface program (Tracks
    A–G). Read before touching any UI / persona / journey row.
+   **→ Also read [`docs/skycot/brand/DESIGN_SYSTEM.md`](../skycot/brand/DESIGN_SYSTEM.md)
+   first: the brand + per-page design directions are LOCKED. Don't
+   re-explore a page that's already locked — consume the tokens + the
+   locked direction (gradient purple→PINK `#8B5CF6→#EC4899`; purple→cyan
+   is DEPRECATED). Optometrist rounds are for genuinely NEW surfaces only.**
 
 5. **Active + queued operator directives**, named in the
    BUILD_STATUS.md header's "Live directives" block:

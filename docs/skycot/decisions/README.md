@@ -59,6 +59,7 @@ as a product feature ("your AI workforce's decision log"). Not before.
 
 | ID | Date | Decision | Status |
 |----|------|----------|--------|
+| [DEC-027](DEC-027-brand-and-design-system-locked.md) | 2026-05-31 | Brand + per-page design directions are LOCKED (gradient purple→PINK `#8B5CF6→#EC4899`; purple→cyan DEPRECATED; Audiowide/Inter/JetBrains Mono). The optometrist / from-scratch design method does NOT apply to already-locked pages — consume the tokens + locked direction; explore only genuinely new surfaces. Entry point: `docs/skycot/brand/DESIGN_SYSTEM.md` | active |
 | [DEC-026](DEC-026-overnight-autonomous-genesis-completion.md) | 2026-05-31 | Overnight autonomous Genesis-completion run authorized — P1 (materializer) → P3–P7 via the DEC-020 auto-resume tick, "never stop till launch-ready"; each phase implement → adversarial bypass-hunt → deploy → live-verify; NO THEATER | active |
 | [DEC-025](DEC-025-genesis-done-right-full-synthesis.md) | 2026-05-30 | Genesis done right — full from-scratch (archetype-free) teammate synthesis is the committed core build, to a production-quality bar (teammates do real work + can't ruin a business); design-first via workflow → operator alignment → build; ultracode effort. LLM-archetype-selection (3f8a6f3) is a stepping stone, not the destination | active |
 | [DEC-024](DEC-024-build-agents-opus-no-downtiering.md) | 2026-05-30 | Conductor build-agents run on Opus 4.8 — no task-based down-tiering to Sonnet (quality/drift-avoidance over speed/cost); distinct from DEC-013/014 product routing | active |
