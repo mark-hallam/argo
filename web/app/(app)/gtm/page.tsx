@@ -487,7 +487,7 @@ export default function GtmPage() {
                   {result.draft}
                 </p>
                 {result.approval_id ? (
-                  <Link className="gtm-filed" href="/" data-testid="gtm-filed">
+                  <Link className="gtm-filed" href="/approvals" data-testid="gtm-filed">
                     <Inbox /> Filed to approvals — review before it sends
                   </Link>
                 ) : null}

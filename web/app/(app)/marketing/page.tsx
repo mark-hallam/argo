@@ -496,7 +496,7 @@ export default function MarketingPage() {
                   {result.draft}
                 </p>
                 {result.approval_id ? (
-                  <Link className="mk-filed" href="/" data-testid="mk-filed">
+                  <Link className="mk-filed" href="/approvals" data-testid="mk-filed">
                     <Inbox /> Filed to approvals — review before you post it
                   </Link>
                 ) : null}
