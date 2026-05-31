@@ -254,3 +254,94 @@ fn broad_outcome_materialize_seam_is_no_longer_terminal() {
     let (_registry, errors) = argo_vertical::load_dir(dir.path()).expect("load_dir");
     assert!(errors.is_empty(), "chief vibes officer load errors: {errors:?}");
 }
+
+// --- Display-name derivation (demo-blocker fix) ---------------------------
+// Regression guard: a Genesis-hired teammate's `vertical.name` (surfaced as the
+// SSE `display_name` and persisted as `persona.name` at hire) must read like a
+// real person's name, NEVER the old `"Genesis Teammate (<persona>)"`
+// placeholder. The live repro was a charter naming "Maya" → a worker called
+// "Genesis Teammate (sales)".
+
+/// A from-scratch spec for a marketing intern, with an explicit persona slug +
+/// charter. Mirrors the real `from_broad_draft` (`from_scratch = true`) path —
+/// the exact path that produced the placeholder bug.
+fn named_spec(charter: &str, persona: &str) -> CapabilitySpec {
+    let draft = BroadRoleDraft {
+        charter: charter.into(),
+        persona: persona.into(),
+        persona_description: "Drafts and schedules marketing content.".into(),
+        action_vocabulary: vec!["draft_post".into(), "schedule_post".into()],
+        success_metrics: vec!["posts shipped on time".into()],
+        onboarding_script: "Hi, I run the content calendar.".into(),
+    };
+    CapabilitySpec::from_broad_draft(draft, Archetype::MarketingIntern)
+}
+
+#[test]
+fn genesis_hire_naming_maya_in_charter_yields_display_name_maya() {
+    // Even when the persona slug is a generic synthesis fallback, an explicit
+    // "named Maya" in the charter wins — the operator said the name out loud.
+    let spec = named_spec(
+        "a marketing intern named Maya who drafts and schedules social posts",
+        "operator",
+    );
+    let plan = materialize_spec(&spec).expect("materialize a named teammate");
+    assert_eq!(
+        plan.manifest.vertical.name, "Maya",
+        "charter `named Maya` must surface as the display name"
+    );
+    // And the placeholder must be gone entirely.
+    assert!(
+        !plan.manifest.vertical.name.contains("Genesis Teammate"),
+        "display name must never be the generic placeholder"
+    );
+}
+
+#[test]
+fn genesis_hire_naming_variants_all_extract_the_name() {
+    for charter in [
+        "a sdr whose name is Sasha and who books meetings",
+        "an analyst, call her Priya, who summarises reports",
+        "a coordinator called Marcus who keeps the calendar tight",
+        "a researcher who goes by Nori and triages inbound",
+    ] {
+        let spec = named_spec(charter, "operator");
+        let name = materialize_spec(&spec).expect("materialize").manifest.vertical.name;
+        assert!(
+            ["Sasha", "Priya", "Marcus", "Nori"].contains(&name.as_str()),
+            "charter `{charter}` extracted unexpected name `{name}`"
+        );
+    }
+}
+
+#[test]
+fn genesis_hire_no_name_in_charter_humanizes_the_persona_slug() {
+    // No naming phrase in the charter, but a real persona slug → Title-Cased
+    // name from the slug (`maya` → "Maya", `maria-garcia` → "Maria Garcia").
+    let spec = named_spec("a marketing intern who drafts social posts", "maya");
+    assert_eq!(materialize_spec(&spec).expect("materialize").manifest.vertical.name, "Maya");
+
+    let spec = named_spec("a marketing intern who drafts social posts", "maria-garcia");
+    assert_eq!(
+        materialize_spec(&spec).expect("materialize").manifest.vertical.name,
+        "Maria Garcia"
+    );
+}
+
+#[test]
+fn genesis_hire_no_name_and_generic_slug_falls_back_to_role_label_not_placeholder() {
+    // Worst case: no name anywhere AND a generic synthesis-fallback slug. The
+    // display name must still be a real role label, NOT "Genesis Teammate".
+    for slug in ["operator", "worker", "pioneer"] {
+        let spec = named_spec("someone who drafts and schedules social posts", slug);
+        let name = materialize_spec(&spec).expect("materialize").manifest.vertical.name;
+        assert_eq!(
+            name, "Marketing Intern",
+            "generic slug `{slug}` must fall back to the archetype label"
+        );
+        assert!(
+            !name.contains("Genesis Teammate"),
+            "fallback must never be the generic placeholder"
+        );
+    }
+}
