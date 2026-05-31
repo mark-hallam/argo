@@ -55,6 +55,7 @@ mod streaming;
 mod task;
 pub mod teammate;
 pub mod teammate_runner;
+pub mod teammate_scorecard;
 
 #[cfg(test)]
 mod pitch_runner_tests;

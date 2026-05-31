@@ -18,6 +18,7 @@ const EXPECTED_PUBLIC_MODULES: &[&str] = &[
     "self_healing",
     "teammate",
     "teammate_runner",
+    "teammate_scorecard",
 ];
 
 const EXPECTED_REEXPORTS: &[&str] = &[
