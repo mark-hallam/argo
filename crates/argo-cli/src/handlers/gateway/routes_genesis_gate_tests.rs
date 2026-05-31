@@ -72,6 +72,107 @@ async fn empty_seed_set_fails_the_floor_closed() {
     assert!(!eval.passed_floor, "zero seeds must fail the floor");
 }
 
+/// A legitimate from-scratch teammate generated through the SAME
+/// `BroadRoleDraft → CapabilitySpec → materialize_spec` seam the flagship
+/// `POST /api/v1/genesis` SSE page uses (the `broad` / LLM path). Built
+/// in-test (no provider) so the eval-floor assertions are deterministic.
+fn broad_path_plan() -> GenesisPlan {
+    use argo_genesis::{materialize_spec, Archetype, BroadRoleDraft, CapabilitySpec};
+    let draft = BroadRoleDraft {
+        charter: "a vineyard logistics coordinator who schedules harvests, \
+                  drafts trucking plans, and dispatches haulage to the winery"
+            .into(),
+        persona: "vinny".into(),
+        persona_description: "Coordinates vineyard harvest scheduling and haulage logistics."
+            .into(),
+        action_vocabulary: vec![
+            "schedule_harvest".into(),
+            "draft_truck_plan".into(),
+            "send_dispatch_notice".into(),
+        ],
+        success_metrics: vec!["zero missed harvest windows".into()],
+        onboarding_script: "Hi, I keep the harvest calendar tight.".into(),
+    };
+    let spec = CapabilitySpec::from_broad_draft(draft, Archetype::CalendarCoordinator);
+    materialize_spec(&spec).expect("broad-path teammate materializes")
+}
+
+#[tokio::test]
+async fn broad_llm_path_teammate_clears_the_eval_floor_through_the_real_runner() {
+    // REGRESSION for the flagship `/genesis` SSE 0/10 bug: a legitimate
+    // broad/LLM-path teammate previously scored 0/10 on the deterministic floor
+    // (eval-seed keyword tokenizer deleted `-`/`_` from the boilerplate
+    // description; the contract kept them → no keyword could ever match) and
+    // was permanently `blocked`. Drive the ACTUAL canonical
+    // `argo_eval::run_eval` scorer via `run_eval_floor` and assert it now
+    // clears its own >=50% floor.
+    let p = broad_path_plan();
+    let inputs = build_gate_eval_inputs(&p).expect("broad-path inputs");
+    let eval = run_eval_floor(&inputs.seeds, &inputs.contract_text).await;
+    assert_eq!(eval.total, 10, "ten starter seeds graded");
+    assert!(
+        eval.passed_floor,
+        "a legitimate broad/LLM-path teammate must clear its own starter floor \
+         through the real runner; got {}/{} ({:.0}%)",
+        eval.passed,
+        eval.total,
+        eval.pass_rate * 100.0
+    );
+}
+
+#[tokio::test]
+async fn broad_path_degenerate_contract_still_fails_the_floor() {
+    // DISCRIMINATION (no theater on the safety gate): the SAME seeds the
+    // legitimate broad-path teammate clears must FAIL when scored against a
+    // thin/degenerate contract (the empty-worker case the floor exists to
+    // catch). Proves the fix did not make the floor pass unconditionally.
+    let p = broad_path_plan();
+    let inputs = build_gate_eval_inputs(&p).expect("broad-path inputs");
+    let eval = run_eval_floor(&inputs.seeds, "i am a helpful assistant.").await;
+    assert_eq!(eval.total, 10);
+    assert!(
+        !eval.passed_floor,
+        "a thin/degenerate teammate must STILL fail the floor; got {}/{} ({:.0}%)",
+        eval.passed,
+        eval.total,
+        eval.pass_rate * 100.0
+    );
+    assert_eq!(eval.passed, 0, "no seed should match an empty-stub contract");
+}
+
+#[tokio::test]
+async fn broad_path_full_gate_is_needs_review_not_blocked_without_a_provider() {
+    // END-TO-END: the full hire gate on a legitimate broad-path teammate, with
+    // no live safety-judge provider, must land NeedsReview (degraded safety) —
+    // NEVER a hard Blocked from a failing eval floor (the bug) and never a
+    // silent Pass. This is the user-visible promise: an SSE-generated teammate
+    // can become hireable once the operator confirms + a provider is present.
+    let _g = ProviderGuard::unresolvable().await;
+    let p = broad_path_plan();
+    let digest = argo_genesis::RoleContract::derive_from_manifest(&p.manifest).digest();
+    let verdict = run_hire_gate_with_confirmation(&p, Some(&digest)).await;
+    assert_eq!(verdict.eval_total, 10);
+    assert!(
+        verdict.eval_passed >= 5,
+        "the eval floor must clear on a legit broad-path teammate; got {}/{} reasons={:?}",
+        verdict.eval_passed,
+        verdict.eval_total,
+        verdict.reasons
+    );
+    assert!(
+        !verdict.reasons.iter().any(|r| r.contains("eval floor failed")),
+        "the eval floor must NOT be a block reason on a legit teammate; got {:?}",
+        verdict.reasons
+    );
+    assert_eq!(
+        verdict.state,
+        GateState::NeedsReview,
+        "degraded (no-provider) broad-path gate is needs_review, not blocked; got {:?} {:?}",
+        verdict.state,
+        verdict.reasons
+    );
+}
+
 #[tokio::test]
 async fn safety_judge_degrades_to_needs_review_without_a_live_provider() {
     let _g = ProviderGuard::unresolvable().await;

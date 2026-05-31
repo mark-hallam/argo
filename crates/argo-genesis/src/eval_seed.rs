@@ -169,12 +169,8 @@ fn expected_for(difficulty: Difficulty, action: &EvalSeedAction) -> String {
 fn keywords(primary: &str, action: &EvalSeedAction) -> Vec<String> {
     let mut out = Vec::new();
     push_keyword(&mut out, primary);
-    for part in action.name.split('_') {
-        push_keyword(&mut out, part);
-    }
-    for part in action.description.split_whitespace() {
-        push_keyword(&mut out, part);
-    }
+    push_keyword(&mut out, &action.name);
+    push_keyword(&mut out, &action.description);
     out.truncate(5);
     if out.is_empty() {
         out.push("worker".into());
@@ -182,29 +178,49 @@ fn keywords(primary: &str, action: &EvalSeedAction) -> Vec<String> {
     out
 }
 
+/// Emit every contiguous alphanumeric run in `raw` (lowercased, length
+/// >= 3, de-duplicated) as a rubric keyword.
+///
+/// CRITICAL — tokenization parity with the eval subject: the deterministic
+/// floor scores these keywords with `SubstringContains` against the teammate's
+/// *behaviour contract* text (see `hire_gate::behaviour_contract_text`), which
+/// is only lowercased — it keeps every `-`/`_`/punctuation boundary. So a
+/// keyword must be a SINGLE contiguous alphanumeric run; if we instead deleted
+/// the separators from the middle of a word (turning `"genesis-synthesized"`
+/// into `"genesissynthesized"`, or the action name `"schedule_report"` into
+/// `"schedulereport"`) the keyword could never be a substring of the contract,
+/// and the seed would score 0 no matter how legitimate the teammate is. By
+/// splitting ON the boundaries instead of deleting them, both sides tokenize
+/// identically: every emitted keyword appears verbatim in the contract iff its
+/// source word does.
 fn push_keyword(out: &mut Vec<String>, raw: &str) {
-    let cleaned = clean_keyword(raw);
-    if cleaned.len() >= 3 && !out.contains(&cleaned) {
-        out.push(cleaned);
+    for token in tokenize(raw) {
+        if token.len() >= 3 && !out.contains(&token) {
+            out.push(token);
+        }
     }
+}
+
+/// Split `raw` into lowercased contiguous-alphanumeric tokens, treating every
+/// non-alphanumeric character (`-`, `_`, whitespace, punctuation) as a
+/// boundary — the same boundaries the lowercased behaviour-contract text
+/// preserves, so a token is a substring of the contract iff its source word is.
+fn tokenize(raw: &str) -> Vec<String> {
+    raw.split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.chars().flat_map(char::to_lowercase).collect())
+        .collect()
 }
 
 fn primary_keyword(role: &str) -> Option<String> {
     role.split_whitespace()
-        .map(clean_keyword)
+        .flat_map(tokenize)
         .find(|w| w.len() >= 3 && !is_stopword(w))
 }
 
 fn clean_sentence(raw: &str) -> Option<String> {
     let words: Vec<_> = raw.split_whitespace().collect();
     (!words.is_empty()).then(|| words.join(" "))
-}
-
-fn clean_keyword(raw: &str) -> String {
-    raw.chars()
-        .filter(|c| c.is_ascii_alphanumeric())
-        .flat_map(char::to_lowercase)
-        .collect()
 }
 
 fn is_stopword(word: &str) -> bool {

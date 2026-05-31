@@ -177,14 +177,16 @@ impl CapabilitySpec {
     /// escalation set is the union of every approval-gated action.
     #[must_use]
     pub fn from_broad_draft(draft: BroadRoleDraft, nearest_archetype: Archetype) -> Self {
+        // Derive a short role descriptor once so every capability's
+        // description is anchored in the teammate's ACTUAL role (DEC-025 #7:
+        // the deterministic eval floor must validate a real teammate, not the
+        // presence of a boilerplate token).
+        let role_descriptor = role_descriptor(&draft);
         let capabilities: Vec<CapabilityDecl> = draft
             .action_vocabulary
             .iter()
             .map(|name| {
-                CapabilityDecl::from_action_name(
-                    name,
-                    format!("Genesis-synthesized capability: {name}"),
-                )
+                CapabilityDecl::from_action_name(name, synthesized_intent(name, &role_descriptor))
             })
             .collect();
         let human_approval_required: Vec<String> = capabilities
@@ -249,6 +251,79 @@ pub(crate) fn sanitize_action_name(raw: &str) -> String {
         "perform_task".to_string()
     } else {
         out
+    }
+}
+
+/// Build a **meaningful** one-line capability description anchored in the
+/// teammate's actual role (DEC-025 #7). Replaces the prior boilerplate
+/// `"Genesis-synthesized capability: {name}"`, whose only useful token was the
+/// word "capability" present in *every* contract — a weak eval seed even once
+/// it tokenized. Here the description is the de-snake-cased action verb phrase
+/// (`schedule_harvest` → "schedule harvest") plus the role descriptor, so the
+/// eval floor's rubric keywords are drawn from the teammate's real action
+/// vocabulary + domain. The text is plain English (spaces only), so it
+/// tokenizes byte-identically on the eval-seed side and the behaviour-contract
+/// side (no embedded `-`/`_` to diverge on).
+fn synthesized_intent(action_name: &str, role_descriptor: &str) -> String {
+    let phrase = humanize_action_name(action_name);
+    if role_descriptor.is_empty() {
+        capitalize_first(&phrase)
+    } else {
+        format!("{} as the {role_descriptor}", capitalize_first(&phrase))
+    }
+}
+
+/// Turn a `snake_case` action name into a lower-case space-separated verb
+/// phrase (`draft_truck_plan` → "draft truck plan"). Falls back to "perform a
+/// task" for an empty/degenerate name so the description is never blank.
+fn humanize_action_name(action_name: &str) -> String {
+    let words: Vec<&str> = action_name
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .collect();
+    if words.is_empty() {
+        "perform a task".to_string()
+    } else {
+        words.join(" ").to_lowercase()
+    }
+}
+
+/// Extract a short, role-relevant descriptor from the draft — the first few
+/// meaningful charter words (stopwords + the persona handle dropped). Used as
+/// the noun phrase every capability description hangs off, so the eval floor
+/// validates the teammate's real domain vocabulary. Empty when the charter has
+/// no usable content (the description then degrades to the bare verb phrase).
+fn role_descriptor(draft: &BroadRoleDraft) -> String {
+    let persona = draft.persona.to_lowercase();
+    let words: Vec<String> = draft
+        .charter
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .map(str::to_lowercase)
+        .filter(|w| w.len() >= 3 && !is_descriptor_stopword(w) && *w != persona)
+        .take(4)
+        .collect();
+    words.join(" ")
+}
+
+/// Stopwords dropped from the role descriptor so it carries domain content,
+/// not filler. Intentionally small — the goal is a recognisable role phrase,
+/// not perfect grammar.
+fn is_descriptor_stopword(word: &str) -> bool {
+    const STOPWORDS: &[&str] = &[
+        "the", "and", "for", "with", "who", "that", "this", "from", "into", "are", "you", "your",
+        "our", "all", "any", "but", "not", "can", "will", "role", "agent", "worker", "team",
+        "help", "helps", "assist", "assists",
+    ];
+    STOPWORDS.contains(&word)
+}
+
+/// Capitalize the first ASCII letter of a phrase, leaving the rest untouched.
+fn capitalize_first(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
     }
 }
 
