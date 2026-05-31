@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeftCircle, Clock3, GitMerge, Mail } from "lucide-react";
+import { ArrowLeftCircle, Clock3, GitMerge, Mail, Zap, type LucideIcon } from "lucide-react";
 import { RedactedText } from "@/components/skycot/RedactedText";
 import type { RedactionPolicy } from "@/lib/redaction/redact";
 import type { AuditDetailInputs, AuditTriggerKind } from "@/lib/types/audit-detail";
@@ -10,7 +10,28 @@ import type { AuditDetailInputs, AuditTriggerKind } from "@/lib/types/audit-deta
  * Inputs card — what triggered this action and any predecessor link.
  * The predecessor link routes to its own drill-in surface preserving
  * the audit-feed back-stack via the browser.
+ *
+ * `triggerKind` arrives off the gateway audit-detail envelope. The
+ * gateway reads `trigger_kind` straight from the (free-form) audit
+ * event payload (`routes_audit_detail_render.rs::build_inputs`) and
+ * the SPA's `normalizeInputs` casts it through with
+ * `stringValue(...) as AuditTriggerKind` — neither side clamps it to
+ * the {@link AuditTriggerKind} union. So a payload carrying a
+ * `trigger_kind` the union doesn't know (a future kind, a webhook/
+ * slack trigger, a typo) would otherwise resolve `ICONS[kind]` to
+ * `undefined` and render `<undefined />`, taking the whole audit
+ * drill-in down via the route error boundary. Every lookup below
+ * resolves through a `?? <fallback>` so an off-union kind degrades to
+ * a neutral icon + humanized label instead — defense-in-depth, same
+ * pattern as ChannelChip / NotificationRow.
  */
+
+const FALLBACK_ICON: LucideIcon = Zap;
+
+/** Title-case an unknown trigger token for display (e.g. "webhook" → "Webhook"). */
+function humanizeTriggerKind(token: string): string {
+  return token.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export interface ActionInputsCardProps {
   inputs: AuditDetailInputs;
@@ -18,7 +39,11 @@ export interface ActionInputsCardProps {
 }
 
 export function ActionInputsCard({ inputs, policy }: ActionInputsCardProps) {
-  const Icon = ICONS[inputs.triggerKind];
+  // Resolve icon + label defensively: an unmapped trigger kind must
+  // render a neutral chip, never return `undefined` from the icon map
+  // (that renders `<undefined />` and takes the whole drill-in down).
+  const Icon = ICONS[inputs.triggerKind] ?? FALLBACK_ICON;
+  const kindLabel = KIND_LABEL[inputs.triggerKind] ?? humanizeTriggerKind(inputs.triggerKind);
   return (
     <section
       data-testid="audit-inputs-card"
@@ -28,7 +53,7 @@ export function ActionInputsCard({ inputs, policy }: ActionInputsCardProps) {
       <header className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[var(--foreground)]">Inputs</h2>
         <span className="text-[11px] uppercase tracking-wider text-[var(--muted-foreground)]">
-          {KIND_LABEL[inputs.triggerKind]}
+          {kindLabel}
         </span>
       </header>
 
@@ -76,7 +101,7 @@ const KIND_LABEL: Record<AuditTriggerKind, string> = {
   dependent_action: "Dependent action",
 };
 
-const ICONS: Record<AuditTriggerKind, typeof Mail> = {
+const ICONS: Record<AuditTriggerKind, LucideIcon> = {
   message: Mail,
   cron: Clock3,
   dependent_action: GitMerge,
