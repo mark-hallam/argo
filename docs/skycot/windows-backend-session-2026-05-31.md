@@ -641,3 +641,73 @@ the natural hand-off to the Mac session. The library primitives it needs are
 all now shipped + verified.
 
 **Phase 6 final state: `HEAD == origin == 0a260272a`, 0/0, clean.**
+
+---
+
+## Phase 6 re-confirmation + lane-exhaustion assessment (truth-bounded)
+
+Phase 6 (self-improve loop closure) is VERIFIED on origin:
+`self_improve_loop.rs` present, commits `0a260272a` (feat) + `dbabed87c`
+(doc). Nothing to redo.
+
+### The Windows-buildable backend-LIBRARY queue is exhausted for high-value work
+
+Evidence (not assertion):
+
+1. **Operator locked the next order today — DEC-030 (A→B→C→D).** It explicitly
+   lists "the eval + self-improvement loop (DEC-017)" among the **COMPLETED**
+   three-lane push — i.e. the loop I just closed was the genuine end of that
+   thread; there is no further self-improve library work to invent.
+
+2. **Every DEC-030 frontier requires a crate that CANNOT build on this Windows
+   machine** (kryptering/LLP64 blocks `argo-cli`; DEC-030 itself says the SSO
+   crypto chain is non-Windows):
+   - **A. Voice (active frontier)** → `argo-cli/src/handlers/gateway/routes_voice_io*`
+     — argo-cli (gateway). Not buildable here.
+   - **B. "Everything real"** → `/api/v1/api-keys`, `/api/v1/providers/keys`,
+     `/api/doctor/channels` — argo-cli gateway endpoints. Not buildable here.
+   - **C. Marketplace depth** → new hero teammates (vertical/pack TOML + gateway
+     hire-flow); the wired side is argo-cli.
+   - **D. Enterprise governance** → DEC-030 line 70 states outright the SSO crypto
+     chain can't build on Windows; "Plan D work on macOS/Linux."
+
+3. **The two candidate library crates named for a fallback have no real gap:**
+   - `argo-memory`: the only hits are a test-only Dreams `stub` + two "follow-up"
+     comments on already-✅-Live paths. No flagged Partial.
+   - `argo-marketplace`: the only hit is the deliberately-deferred OCI-registry
+     stub (§23.3, enterprise-deferred). Not a high-value Windows-lane gap.
+   - FEATURE_MATRIX grep: the ONLY Partial row in a Windows-buildable non-Genesis
+     library crate is the teammate-eval row — which is my own Phases 3–4 work,
+     already as complete as the deferred DEC-017 phase-2 (live-outcome producer)
+     seam allows.
+
+### Recommendation: repoint or wind down the Windows backend-library lane
+
+Over Phases 0–6 this lane shipped the genuine gaps it could find on Windows:
+- Phase 0: compat map (85/89 crates build).
+- Phase 1: CRLF SKILL.md parser bug (real cross-platform fix) + Unix-only test
+  gating.
+- Phase 2: WorkflowRunner production adapters (`argo-agent-runner`).
+- Phase 3: teammate-eval golden-suite runner + `argo-vertical` is_absolute
+  isolation hardening (closed a Group-C Windows security gap).
+- Phase 4: teammate-eval scorecard.
+- Phase 5: production-trace clustering.
+- Phase 6: self-improve loop closure (cluster→cohort bridge + promotion gate).
+
+What remains is **not Windows-buildable-library work**: the self-improve loop's
+last piece is the cron/CLI DRIVER (argo-cli), and the entire DEC-030 A→B→C→D
+frontier is gateway/argo-cli or the SSO crypto chain. Continuing in this lane
+would mean inventing library scope with no flagged gap — against the
+"subtract before adding / question the requirement" rule.
+
+**Options for the operator:**
+- **Hand the cron driver + the A (Voice) frontier to the Mac** (both argo-cli,
+  Mac-buildable) and stand down this Windows lane; OR
+- **Repoint this machine** to non-library Windows-doable work: e.g. a backend
+  test-hardening pass on the remaining pre-existing Windows test failures
+  (the `claim_4` elevation artifact + the Group-B/C path-assertion failures
+  catalogued in Phase 1 but not all fixed), which IS Windows-doable and
+  improves suite trustworthiness; OR a specific new capability the operator has
+  in mind.
+
+Not recommended: picking another library module just to have something to build.
