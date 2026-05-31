@@ -317,9 +317,16 @@ export interface StreamGenesisRequest {
   roleDescription: string;
   /** Optional persona slug override; gateway derives one if omitted. */
   persona?: string;
-  /** Stable tenant id forwarded as `X-Argo-Tenant-Id`; both Genesis and
-   *  Hire must read the same tenant so the generated vertical is visible
-   *  to the hire endpoint's `.genesis/<tenant>/` lookup. */
+  /** Display/audit tenant id forwarded as `X-Argo-Tenant-Id`. Under DEC-025 #9
+   *  (single-tenant-per-cwd for v1) the gateway no longer routes the generated
+   *  vertical's `.genesis/<tenant>/` segment off this header: BOTH the Genesis
+   *  SSE write AND the hire-commit read resolve the cwd-derived workspace tenant
+   *  (`ensure_workspace`), so the manifest is always written and read in the
+   *  same segment regardless of this value. (Previously the SSE wrote under this
+   *  header while the hire ignored it and read the cwd tenant → a stale/unique
+   *  header produced `422 genesis_gate_failed`.) Still sent for the audit trail
+   *  + as the display tenant; multi-tenant header routing is the DEFERRED
+   *  enterprise follow-up. */
   tenantId: string;
   /** Wipes any pre-existing `.genesis/<tenant>/<persona>/` before
    *  writing. The first attempt for a role should leave this `false`;
@@ -418,11 +425,12 @@ export function dispatchGenesisEvent(
  * gateway streams them back. Resolves when the stream closes; rejects
  * on network / non-2xx failure so callers can surface a clear error.
  *
- * The SPA does not bury the `tenantId` in cwd or session storage — it
- * is passed explicitly so the SAME id flows into the follow-up
- * `hireFromGenesis` call. That keeps both endpoints in lockstep when
- * the hire-side vertical lookup walks the per-tenant `.genesis/<id>/`
- * subtree.
+ * The same `tenantId` still flows into the follow-up `hireFromGenesis` call
+ * for the audit/display trail, but it is no longer the mechanism that keeps
+ * the two endpoints in lockstep: under DEC-025 #9 the gateway resolves the
+ * cwd-derived workspace tenant for BOTH the SSE write and the hire read, so
+ * the `.genesis/<tenant>/` segment matches by construction regardless of this
+ * header. (Multi-tenant header routing is the DEFERRED enterprise follow-up.)
  */
 export async function streamGenesis(
   req: StreamGenesisRequest,
@@ -553,9 +561,12 @@ function buildHireDraftFromGenesis(
  * gateway's `{ workerId }` (or `{ worker_id }`) field as `workerId` so
  * the SPA can route to `/workers/{id}`.
  *
- * Sends the SAME `X-Argo-Tenant-Id` header as the streaming call so the
- * hire endpoint's vertical lookup can find the freshly-written
- * `.genesis/<tenant>/<vertical_id>/`.
+ * Sends the SAME `X-Argo-Tenant-Id` header as the streaming call for a
+ * consistent audit/display tenant. Note: under DEC-025 #9 the hire endpoint
+ * resolves the cwd-derived workspace tenant (NOT this header) for its vertical
+ * lookup, and the SSE writes under that same cwd tenant — so the freshly-
+ * written `.genesis/<tenant>/<vertical_id>/` is found in the matching segment
+ * by construction, regardless of this header.
  */
 export async function hireFromGenesis(
   req: HireFromGenesisRequest,

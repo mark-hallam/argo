@@ -27,9 +27,25 @@
 //! leading dot keeps them out of the global `GET /api/v1/verticals`
 //! listing (DB-backed off `workflow_definition_index`; the
 //! loader-driven manifest sweep skips the un-walked tenant subtree).
-//! Cross-tenant isolation is filesystem-enforced — tenant B cannot
-//! observe tenant A's path because the segment is keyed off
-//! `X-Argo-Tenant-Id`.
+//!
+//! Under DEC-025 #9 (single-tenant-per-cwd for v1; multi-tenant header
+//! routing is the DEFERRED enterprise follow-up) the manifest is written
+//! under the SAME **cwd-derived workspace tenant the hire reads under**
+//! (`SessionStore::ensure_workspace(name, cwd)` — byte-identical to
+//! `routes_workers_hire::resolve_tenant_principal`), NOT the request
+//! `X-Argo-Tenant-Id` header. The header used to drive the write segment,
+//! but the hire-commit endpoint (`POST /api/v1/workers`) ignores the header
+//! and resolves the cwd tenant — so a SPA that sent a fresh/unique session
+//! header wrote the manifest under the header slug while the hire searched
+//! the cwd slug, and the operator's confirmed digest was compared against a
+//! stale/absent manifest → `422 genesis_gate_failed`. Resolving both write
+//! and read off the same cwd-derived workspace tenant keeps
+//! write-segment == read-segment, so a Genesis vertical the SSE writes is
+//! always found by the hire in the same segment. The header is retained only
+//! as the fallback when no store is wired (test / CLI callers) and as the
+//! display `tenant_id` echoed in the payload. Cross-tenant isolation stays
+//! filesystem-enforced once multi-tenant routing lands (the segment is still
+//! keyed off the resolved tenant slug).
 
 use super::routes_genesis_stream_llm::resolve_plan;
 use argo_genesis::{name_to_persona_slug, write_vertical_with_overwrite};
@@ -143,7 +159,15 @@ pub(super) async fn serve_genesis_stream(
         .await;
     }
     let persona = persona_for(parsed.persona.as_deref(), &role_description);
-    let tenant_id = request_tenant_id(req);
+    // DEC-025 #9 (single-tenant-per-cwd): write the manifest under the SAME
+    // cwd-derived workspace tenant the hire-commit endpoint reads under, so the
+    // write segment and the hire's read segment can never diverge (the bug:
+    // the SSE wrote under the `X-Argo-Tenant-Id` header slug while the hire
+    // ignored the header and searched the cwd slug → `422 genesis_gate_failed`
+    // when the SPA sent a fresh session header). When no store is wired (test /
+    // CLI callers) we fall back to the request header, preserving prior
+    // behaviour for those paths.
+    let tenant_id = super::routes_genesis_stream_tenant::resolve_write_tenant(store, req).await;
     let tenant_slug = sanitize_tenant(&tenant_id);
 
     open_sse_stream(out, &cors_headers).await?;
@@ -327,43 +351,6 @@ fn provider_key_present() -> bool {
 
 fn body_from_request(req: &str) -> &str {
     req.split_once("\r\n\r\n").map(|(_h, b)| b).unwrap_or("")
-}
-
-/// Genesis owns its own tenant extraction so test + production both
-/// honour the operator-facing `X-Argo-Tenant-Id` header (the rate-limit
-/// helper reads a separate `X-Tenant-Id` convention). Falls back to
-/// `?tenant=` query param, then `anonymous`.
-fn request_tenant_id(req: &str) -> String {
-    if let Some(value) = header_value(req, "x-argo-tenant-id") {
-        if !value.is_empty() {
-            return value;
-        }
-    }
-    if let Some(target) = req.lines().next().and_then(|l| l.split_whitespace().nth(1)) {
-        if let Some((_, qs)) = target.split_once('?') {
-            for kv in qs.split('&') {
-                if let Some(("tenant", value)) = kv.split_once('=') {
-                    if !value.is_empty() {
-                        return value.to_string();
-                    }
-                }
-            }
-        }
-    }
-    "anonymous".to_string()
-}
-
-fn header_value(req: &str, name_lower: &str) -> Option<String> {
-    let headers = req
-        .split_once("\r\n\r\n")
-        .map_or(req, |(headers, _body)| headers);
-    headers.lines().skip(1).find_map(|line| {
-        let (name, value) = line.split_once(':')?;
-        name.trim()
-            .eq_ignore_ascii_case(name_lower)
-            .then(|| value.trim().to_string())
-            .filter(|s| !s.is_empty())
-    })
 }
 
 fn persona_for(explicit: Option<&str>, role_description: &str) -> String {
