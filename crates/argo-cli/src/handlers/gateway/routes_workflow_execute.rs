@@ -163,11 +163,19 @@ async fn handle_post(
 
     let actor = principal_to_actor(&principal);
     let dispatched_at = Utc::now();
-    let report =
-        match run_workflow_against_definition(store, &head, &parsed, dispatched_at).await {
-            Ok(r) => r,
-            Err(msg) => return internal(&msg),
-        };
+    let report = match run_workflow_against_definition(
+        store,
+        &head,
+        &parsed,
+        &principal,
+        tenant,
+        dispatched_at,
+    )
+    .await
+    {
+        Ok(r) => r,
+        Err(msg) => return internal(&msg),
+    };
 
     emit_dispatch_audit(
         store,
@@ -203,15 +211,27 @@ async fn run_workflow_against_definition(
     store: &Arc<SessionStore>,
     head: &WorkflowDefinition,
     parsed: &argo_vertical::Workflow,
+    principal: &Principal,
+    tenant: TenantId,
     started_at: chrono::DateTime<Utc>,
 ) -> Result<RunReport, String> {
+    use super::routes_workflow_execute_runner::{build_real_runner, real_runner_enabled};
     let dag = vertical_workflow_to_dag(parsed);
-    let exec = Executor::new(MockRunner::echo());
-    let request = ExecutionRequest::new(dag);
-    let exec_report = exec
-        .execute(request)
-        .await
-        .map_err(|e| format!("execute: {e}"))?;
+    let request = ExecutionRequest::new(dag).with_auth(principal.clone(), tenant);
+    // Flag-gated: default path keeps the deterministic MockRunner so the
+    // demo surface is unchanged; the opt-in path dispatches real tools.
+    let exec_report = if real_runner_enabled() {
+        let runner = build_real_runner(store, principal, tenant)?;
+        Executor::new(runner)
+            .execute(request)
+            .await
+            .map_err(|e| format!("execute: {e}"))?
+    } else {
+        Executor::new(MockRunner::echo())
+            .execute(request)
+            .await
+            .map_err(|e| format!("execute: {e}"))?
+    };
     let finished_at = Utc::now();
     persist_workflow_run(store, head, &exec_report, started_at, finished_at).await?;
     let verdicts = serde_json::to_value(&exec_report.task_verdicts)
