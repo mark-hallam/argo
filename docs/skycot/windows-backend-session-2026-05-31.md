@@ -731,15 +731,13 @@ by the Mac session**, at `crates/argo-cli/src/handlers/gateway/routes_voice_io/o
   at-a-glance, updated 2026-05-31): TTS→`audio/mpeg`, STT round-trip verbatim,
   pitch-turn over-claim deferred with no `$`.
 
-**Why I shipped nothing.** Building a second OpenAI adapter in `argo-voice-io`
-would be a **parallel abstraction** (forbidden by SWARM_PROTOCOL / DRIFT_
-PREVENTION) against a *different* trait — `argo-voice-io`'s
-`SpeechToText`/`TextToSpeech` (`&[u8]`/`&str`+`VoiceId`, `ArgoResult`) vs the
-gateway's `VoiceProvider` (`transcribe(audio,mime)->String`,
-`synthesize(text)->(bytes,mime)`, `VoiceProviderError`). Mine could not share
-the live-verified path; wiring it would require changing the gateway (argo-cli,
-non-Windows-buildable) and would risk the working path. Correct call:
-**subtract, don't add.**
+**Why I shipped nothing.** The OpenAI adapter behind the `argo-voice-io`
+traits **already exists** — `routes_voice_io/openai.rs` is exactly
+`impl SpeechToText for OpenAiStt` + `impl TextToSpeech for OpenAiTts`, and it is
+live-verified. A second adapter implementing those same traits in `argo-voice-io`
+would be redundant. (My draft was additionally written against an API the
+compaction summary had INVENTED — see the process note — so it was both
+duplicate AND broken.) Correct call: **subtract, don't add.**
 
 **Process note (honest):** my first pass wrote 3 files
 (`openai.rs`/`http.rs`/`openai_tests.rs`) against an API that the compaction
@@ -751,14 +749,16 @@ already-shipped Mac adapter. The orphan files were deleted; **working tree is
 clean == origin (`39a859f2c`), nothing committed to code.** The failed wire-up
 was the safety net that prevented shipping broken/duplicate code.
 
-**Architectural observation for the Mac (not acted on — argo-cli lane):**
-`argo-voice-io` is **still an orphan crate — zero workspace callers**
-(`grep -rl argo-voice-io crates/*/Cargo.toml` → 0). The gateway reimplemented
-the voice abstraction (`routes_voice_io/provider.rs::VoiceProvider`) instead of
-depending on the L1 `argo-voice-io` traits. So there are now **two voice
-abstractions**. Either (a) make the gateway depend on `argo-voice-io` and delete
-its private trait, or (b) delete `argo-voice-io` as dead scaffold. Both are
-argo-cli-side / Mac decisions. Flagging per the no-parallel-abstractions rule.
+**Architecture is clean (earlier note RETRACTED — DEC-029 self-correction).**
+I first flagged a "parallel abstraction / orphan crate" — that was a **misread of
+a grep hit** and is WRONG. Evidence: `argo-cli` DOES depend on `argo-voice-io`
+(caller count 1, not an orphan); `routes_voice_io/openai.rs` IMPLEMENTS the
+`argo-voice-io` traits (`use argo_voice_io::{SpeechToText, TextToSpeech,
+Transcript, AudioClip, VoiceId}` + `impl SpeechToText for OpenAiStt`); and
+`provider.rs` is just a selector enum (`Provider::{Mock,OpenAi}`) returning
+`Box<dyn SpeechToText>` — no competing trait exists. This is the intended split:
+`argo-voice-io` owns traits + mocks + value-types, the gateway owns the real
+vendor adapter behind them. Nothing to fix.
 
 **Reinforces the prior lane-exhaustion assessment:** the live voice frontier
 (L1b adapter, L2 gateway loop, L3a browser mic) is done or Mac-owned; the only
