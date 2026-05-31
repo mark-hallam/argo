@@ -227,7 +227,21 @@ pub async fn refine_plan_with_cap(
     caller: &dyn AnthropicCaller,
     max_vocab_size: usize,
 ) -> Result<(GenesisPlan, Vec<String>), GenesisError> {
-    let max_new_actions = max_new_actions_from_env();
+    refine_plan_with_caps(plan, caller, max_new_actions_from_env(), max_vocab_size).await
+}
+
+/// Core refinement with BOTH caps passed in explicitly — no process-global
+/// env read. [`refine_plan_with_cap`] is the production caller (it sources
+/// `max_new_actions` from `ARGO_GENESIS_REFINE_MAX_ACTIONS` via
+/// [`max_new_actions_from_env`]); tests call this form directly with an
+/// explicit `max_new_actions` so they never mutate the process-global env and
+/// therefore cannot race a concurrently-running sibling test.
+async fn refine_plan_with_caps(
+    plan: GenesisPlan,
+    caller: &dyn AnthropicCaller,
+    max_new_actions: usize,
+    max_vocab_size: usize,
+) -> Result<(GenesisPlan, Vec<String>), GenesisError> {
     let prompt = build_prompt(&plan, max_new_actions);
     let raw = match caller.call(prompt).await {
         Ok(r) => r,

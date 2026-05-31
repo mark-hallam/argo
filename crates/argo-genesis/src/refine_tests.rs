@@ -139,6 +139,15 @@ async fn five_additional_actions_all_land() {
     // responses were rejected as a parse error). The new
     // default cap is RefineConfig::DEFAULT_MAX_NEW_ACTIONS (8),
     // so 5 actions must all land in the manifest.
+    //
+    // Inject the cap explicitly via `refine_plan_with_caps` (rather than
+    // `refine_plan`, which reads `ARGO_GENESIS_REFINE_MAX_ACTIONS` from the
+    // process-global env). The env is shared across the whole test binary, so
+    // the sibling `configurable_cap_truncates_excess_actions` setting it to 2
+    // would otherwise leak into THIS test when both run multi-threaded and cap
+    // us at 2 (only 2 actions land, not 5). Passing the cap as a parameter
+    // removes the shared-state dependency, so the suite is green at the default
+    // `--test-threads` with no serialization needed.
     let response = serde_json::json!({
         "archetype_confirmed": true,
         "additional_actions": [
@@ -160,7 +169,14 @@ async fn five_additional_actions_all_land() {
         .unwrap()
         .actions
         .len();
-    let refined = refine_plan(sample_plan(), &caller).await.expect("refine");
+    let (refined, _evolved) = refine_plan_with_caps(
+        sample_plan(),
+        &caller,
+        RefineConfig::DEFAULT_MAX_NEW_ACTIONS,
+        RefineConfig::DEFAULT_MAX_VOCAB_SIZE,
+    )
+    .await
+    .expect("refine");
     let refined_count = refined.manifest.actions.as_ref().unwrap().actions.len();
     assert_eq!(
         refined_count,
@@ -175,10 +191,14 @@ async fn five_additional_actions_all_land() {
 
 #[tokio::test]
 async fn configurable_cap_truncates_excess_actions() {
-    // Set the env var so refine_plan reads max_new_actions=2,
-    // then send 5 proposed actions. Exactly 2 must land.
-    let prev = std::env::var("ARGO_GENESIS_REFINE_MAX_ACTIONS").ok();
-    std::env::set_var("ARGO_GENESIS_REFINE_MAX_ACTIONS", "2");
+    // Pass max_new_actions=2 directly (NOT via the process-global
+    // `ARGO_GENESIS_REFINE_MAX_ACTIONS` env var), then send 5 proposed
+    // actions. Exactly 2 must land. Previously this test set that env var,
+    // which is shared across the whole test binary and leaked into the
+    // concurrent `five_additional_actions_all_land` (capping it at 2 → flake at
+    // the default `--test-threads`). Injecting the cap as a parameter tests the
+    // SAME truncation behaviour with zero shared state; the env→cap *wiring* is
+    // covered separately + race-free by `max_new_actions_env_override_is_read`.
     let response = serde_json::json!({
         "archetype_confirmed": true,
         "additional_actions": [
@@ -200,12 +220,14 @@ async fn configurable_cap_truncates_excess_actions() {
         .unwrap()
         .actions
         .len();
-    let result = refine_plan(sample_plan(), &caller).await;
-    match prev {
-        Some(v) => std::env::set_var("ARGO_GENESIS_REFINE_MAX_ACTIONS", v),
-        None => std::env::remove_var("ARGO_GENESIS_REFINE_MAX_ACTIONS"),
-    }
-    let refined = result.expect("refine");
+    let (refined, _evolved) = refine_plan_with_caps(
+        sample_plan(),
+        &caller,
+        2,
+        RefineConfig::DEFAULT_MAX_VOCAB_SIZE,
+    )
+    .await
+    .expect("refine");
     let refined_count = refined.manifest.actions.as_ref().unwrap().actions.len();
     assert_eq!(
         refined_count,
@@ -214,12 +236,57 @@ async fn configurable_cap_truncates_excess_actions() {
     );
 }
 
+#[test]
+fn max_new_actions_env_override_is_read() {
+    // The env→cap wiring `refine_plan_with_cap` relies on: a valid override is
+    // parsed, a zero/garbage value falls back to the default, and an unset var
+    // is the default. Self-contained (save + restore) so it does not perturb
+    // any sibling — and no other test reads this key any more (the truncation
+    // tests now pass the cap as a parameter), so it cannot race.
+    let prev = std::env::var("ARGO_GENESIS_REFINE_MAX_ACTIONS").ok();
+
+    std::env::set_var("ARGO_GENESIS_REFINE_MAX_ACTIONS", "2");
+    assert_eq!(max_new_actions_from_env(), 2, "valid override is read");
+
+    std::env::set_var("ARGO_GENESIS_REFINE_MAX_ACTIONS", "0");
+    assert_eq!(
+        max_new_actions_from_env(),
+        RefineConfig::DEFAULT_MAX_NEW_ACTIONS,
+        "zero is rejected → default",
+    );
+
+    std::env::set_var("ARGO_GENESIS_REFINE_MAX_ACTIONS", "not-a-number");
+    assert_eq!(
+        max_new_actions_from_env(),
+        RefineConfig::DEFAULT_MAX_NEW_ACTIONS,
+        "garbage is rejected → default",
+    );
+
+    std::env::remove_var("ARGO_GENESIS_REFINE_MAX_ACTIONS");
+    assert_eq!(
+        max_new_actions_from_env(),
+        RefineConfig::DEFAULT_MAX_NEW_ACTIONS,
+        "unset → default",
+    );
+
+    match prev {
+        Some(v) => std::env::set_var("ARGO_GENESIS_REFINE_MAX_ACTIONS", v),
+        None => std::env::remove_var("ARGO_GENESIS_REFINE_MAX_ACTIONS"),
+    }
+}
+
 #[tokio::test]
 async fn safety_judge_fires_on_refined_sensitive_verb_with_uncapped_actions() {
     // Lifting the count cap must NOT lift the safety gate. With
     // 5 proposed actions (all of which land under the default
     // cap of 8), the sensitive-verb one must still get its
     // requires_approval flag auto-fixed to true.
+    //
+    // Pass the cap explicitly via `refine_plan_with_caps` so this test does not
+    // depend on `ARGO_GENESIS_REFINE_MAX_ACTIONS` — a sibling env-mutating test
+    // can't shrink this count out from under us. (It asserts all 5 land, so a
+    // leaked cap of 2 would otherwise flake it the same way it flaked
+    // `five_additional_actions_all_land`.)
     let response = serde_json::json!({
         "archetype_confirmed": true,
         "additional_actions": [
@@ -234,7 +301,14 @@ async fn safety_judge_fires_on_refined_sensitive_verb_with_uncapped_actions() {
     let caller = NoopCaller {
         response: response.to_string(),
     };
-    let refined = refine_plan(sample_plan(), &caller).await.expect("refine");
+    let (refined, _evolved) = refine_plan_with_caps(
+        sample_plan(),
+        &caller,
+        RefineConfig::DEFAULT_MAX_NEW_ACTIONS,
+        RefineConfig::DEFAULT_MAX_VOCAB_SIZE,
+    )
+    .await
+    .expect("refine");
     let actions = refined.manifest.actions.as_ref().unwrap();
     assert!(
         actions.actions.contains_key("send_invoice"),

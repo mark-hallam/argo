@@ -414,12 +414,11 @@ pub(super) mod test_overrides {
         }
     }
 
-    /// Convenience: force a clean `Pass` verdict (the common case for tests
-    /// that just need the hire to commit). The forced verdict carries a
-    /// `confirmed` contract so it represents a fully gate-cleared,
-    /// operator-confirmed hire.
-    pub(crate) fn force_pass() {
-        set_forced_verdict(GateVerdict {
+    /// A fully gate-cleared, operator-`confirmed` `Pass` verdict with no SOP
+    /// and no rubric axis applicable — the base both `force_*` convenience fns
+    /// build from (the common shape for tests not exercising those axes).
+    fn base_pass_verdict() -> GateVerdict {
+        GateVerdict {
             state: GateState::Pass,
             eval_passed: 10,
             eval_total: 10,
@@ -427,16 +426,11 @@ pub(super) mod test_overrides {
             comprehension_passed: 5,
             comprehension_total: 5,
             comprehension_pass_rate: 1.0,
-            // No SOP in the forced-pass fixture — the SOP axis is not
-            // applicable (the common case for downstream-persistence tests).
             sop_applicable: false,
             sop_passed: 0,
             sop_total: 0,
             sop_pass_rate: 0.0,
             safety_verdict: "allow".to_string(),
-            // The rubric is not applicable in the forced-pass fixture (the
-            // common case for downstream-persistence tests that aren't about
-            // the rubric axis).
             rubric_applicable: false,
             rubric_degraded: false,
             rubric_score: 0.0,
@@ -446,7 +440,37 @@ pub(super) mod test_overrides {
             contract_digest: String::new(),
             contract_confirmation: "confirmed".to_string(),
             reasons: Vec::new(),
-        });
+        }
+    }
+
+    /// Convenience: force a clean `Pass` verdict (the common case for tests
+    /// that just need the hire to commit).
+    pub(crate) fn force_pass() {
+        set_forced_verdict(base_pass_verdict());
+    }
+
+    /// Convenience: force a HARD `Blocked` verdict whose eval floor genuinely
+    /// FAILED (4/10 < the 50% bar) — the in-memory analogue of the disk test
+    /// `disk_gate_hard_blocks_a_teammate_that_fails_its_evals`, which truncates
+    /// the on-disk seed file so no seed grades. The first-hire seam's plan is
+    /// in-memory only (a catalog `vertical_id`, no written `.genesis/` dir), and
+    /// a classifiable archetype always synthesises a manifest whose own seed
+    /// keywords appear in its contract, so a real first-hire plan can never
+    /// score below the floor through `genesis_plan` — the only way to exercise
+    /// the failed-eval-floor → HARD-block routing AT THIS SEAM is to inject the
+    /// degenerate verdict here. The reason carries the canonical
+    /// "deterministic eval floor failed" string `GateVerdict::compose` emits, so
+    /// the block reason cites the eval floor exactly as a live failure would.
+    /// One-shot, consumed by the next `run_hire_gate` call under the env lock.
+    pub(crate) fn force_eval_floor_block() {
+        let mut verdict = base_pass_verdict();
+        verdict.state = GateState::Blocked;
+        verdict.eval_passed = 4;
+        verdict.eval_pass_rate = 0.4;
+        verdict.reasons = vec![
+            "deterministic eval floor failed: 4/10 seeds passed (40% < 50% required)".to_string(),
+        ];
+        set_forced_verdict(verdict);
     }
 
     /// Clear any pending forced verdict (defensive reset under the env lock).

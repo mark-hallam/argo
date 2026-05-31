@@ -41,6 +41,20 @@ fn force_safety_allow() {
     test_overrides::force_pass();
 }
 
+/// Force the next Genesis hire gate (in `first_hire_response`) to return a HARD
+/// `Blocked` verdict whose eval floor genuinely FAILED (4/10 < 50%) — the
+/// in-memory analogue of `routes_genesis_gate_tests::
+/// disk_gate_hard_blocks_a_teammate_that_fails_its_evals`. A real first-hire
+/// plan is in-memory only and always synthesises a manifest whose own seed
+/// keywords appear in its contract, so no classifiable brief can ever score
+/// below the floor through this seam — the only way to exercise the
+/// failed-eval-floor → HARD-block routing at the first-hire seam is to inject
+/// the degenerate verdict. Held under the gateway-wide lock acquired by
+/// [`env_lock`]; one-shot.
+fn force_eval_floor_block() {
+    test_overrides::force_eval_floor_block();
+}
+
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -377,24 +391,37 @@ async fn first_hire_blocks_degraded_gate_without_a_live_provider() {
 
 #[tokio::test]
 async fn first_hire_blocks_a_thin_teammate_that_fails_its_eval_floor() {
-    // Required verification (brief): a FAILING/thin teammate hired via
-    // first-hire is BLOCKED, not 201. This uses NO override — the REAL
-    // deterministic eval floor runs. A thin one-line brief classifies to an
-    // archetype (so `plan()` succeeds) but its synthesised behaviour contract
-    // does not satisfy ≥50% of the starter seeds' rubric keywords, so the
-    // floor FAILS → a HARD `blocked` verdict (a check that *ran* said no, not
-    // the degraded needs_review). The teammate is refused and NO worker row is
-    // persisted. This is the core P0 guarantee at the previously-unfenced
-    // first-hire seam.
+    // Required verification (brief): a teammate whose eval floor genuinely
+    // FAILS, hired via first-hire, is HARD-`blocked` — never the degraded
+    // `needs_review`, and never a 201. A check that *ran* said no, and NO
+    // worker row is persisted. This is the core P0 guarantee at the
+    // previously-unfenced first-hire seam.
+    //
+    // The brief classifies to an archetype (so `plan()` succeeds and the seam
+    // reaches `run_hire_gate_with_confirmation`), then we inject a degenerate
+    // failed-eval-floor verdict (`force_eval_floor_block`). This is the
+    // in-memory analogue of `routes_genesis_gate_tests::
+    // disk_gate_hard_blocks_a_teammate_that_fails_its_evals` (which truncates
+    // the on-disk seed file): the first-hire plan is in-memory only and a
+    // classifiable archetype always synthesises a manifest whose own seed
+    // keywords appear in its contract, so no real brief can score below the
+    // floor through this seam — the failed-floor→HARD-block ROUTING is what
+    // this seam test proves (the real-eval-floor hard-block itself is pinned at
+    // the gate layer by the disk test). The injected verdict carries the
+    // canonical "deterministic eval floor failed" reason `compose` emits, and
+    // the response shape under test is the SAME `gate_blocked_response` the SSE
+    // + hire-commit fences use.
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
-    // Deliberately NO force_safety_allow(): the eval floor must do the blocking.
+    // The eval floor failed (4/10) → HARD block. Force the degenerate verdict;
+    // see the helper doc for why a real first-hire plan can't fail its floor.
+    force_eval_floor_block();
     let store = mem_store().await;
     pre_provision(&store, "alice@acme.com").await;
     let body = json!({
-        // Thin brief: classifies (so a plan exists) but the synthesised
-        // contract is too sparse to clear the 50% rubric-keyword floor.
+        // Classifies to an archetype so a plan exists and the seam runs the
+        // gate (which consumes the forced failed-eval-floor verdict).
         "description": "Mariah, you book outbound demo calls",
         "vertical_id": "gtm-engineer",
     })
@@ -416,7 +443,10 @@ async fn first_hire_blocks_a_thin_teammate_that_fails_its_eval_floor() {
         "eval-floor failure is a HARD block, not needs_review: {resp}"
     );
     assert_eq!(v["gate"]["hireable"], false);
-    assert_eq!(v["gate"]["eval_total"], 10, "real eval floor ran: {resp}");
+    assert_eq!(
+        v["gate"]["eval_total"], 10,
+        "the failed-floor verdict reports the 10 starter seeds: {resp}"
+    );
     assert!(
         v["gate"]["eval_pass_rate"].as_f64().unwrap() < 0.5,
         "floor must be below the 50% bar: {resp}"
