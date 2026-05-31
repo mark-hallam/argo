@@ -160,3 +160,72 @@ fn accepts_legitimate_subdir_paths() {
     .unwrap();
     check_isolation(&m, dir.path()).expect("legitimate subdir paths must pass");
 }
+
+// ---- cross-OS absolute-path hardening (is_absolute_any_os) ----------
+// `Path::is_absolute` is host-dependent, so a path absolute only under the
+// OTHER OS's convention slips through. These pin the host-independent
+// predicate directly.
+
+#[test]
+fn unix_absolute_is_rejected_on_any_host() {
+    assert!(is_absolute_any_os("/etc/passwd"));
+    assert!(is_absolute_any_os("/"));
+    assert!(is_absolute_any_os("/var/lib/secret"));
+}
+
+#[test]
+fn windows_drive_absolute_is_rejected_on_any_host() {
+    assert!(is_absolute_any_os("C:\\Windows\\System32"));
+    assert!(is_absolute_any_os("C:/Windows/System32"));
+    assert!(is_absolute_any_os("D:\\data"));
+    // Drive-relative (`C:rel`, no root slash) is non-portable too.
+    assert!(is_absolute_any_os("C:relative"));
+}
+
+#[test]
+fn windows_unc_and_rooted_backslash_is_rejected_on_any_host() {
+    assert!(is_absolute_any_os("\\\\server\\share\\x"));
+    assert!(is_absolute_any_os("\\\\?\\C:\\x"));
+    assert!(is_absolute_any_os("\\rooted"));
+}
+
+#[test]
+fn legitimate_relative_paths_are_not_absolute() {
+    assert!(!is_absolute_any_os("prompts/system.md"));
+    assert!(!is_absolute_any_os("memory.schema.toml"));
+    assert!(!is_absolute_any_os("eval/main.jsonl"));
+    assert!(!is_absolute_any_os(""));
+    // A single letter then a path separator is NOT a drive (no colon).
+    assert!(!is_absolute_any_os("c/system.md"));
+}
+
+#[test]
+fn rejects_unix_absolute_system_prompt_through_manifest() {
+    // Integration path: a Unix-absolute system_prompt must be refused at
+    // `check_isolation` regardless of host OS. Before the hardening this
+    // passed on Windows (`Path::is_absolute("/etc/passwd")` is false there).
+    let dir = fixture_root();
+    let m = parse(
+        "schema_version = \"1\"\n\
+         [vertical]\nid = \"demo\"\nname = \"D\"\nversion = \"0.1.0\"\n\
+         [role]\nsystem_prompt = \"/etc/passwd\"\n",
+    )
+    .unwrap();
+    let err = check_isolation(&m, dir.path()).unwrap_err();
+    assert!(format!("{err}").contains("absolute"), "got: {err}");
+}
+
+#[test]
+fn rejects_windows_absolute_system_prompt_through_manifest() {
+    // Mirror case: a Windows-absolute path must be refused on a Unix host
+    // too (where `Path::is_absolute` returns false for it).
+    let dir = fixture_root();
+    let m = parse(
+        "schema_version = \"1\"\n\
+         [vertical]\nid = \"demo\"\nname = \"D\"\nversion = \"0.1.0\"\n\
+         [role]\nsystem_prompt = \"C:\\\\Windows\\\\System32\\\\drivers\\\\etc\\\\hosts\"\n",
+    )
+    .unwrap();
+    let err = check_isolation(&m, dir.path()).unwrap_err();
+    assert!(format!("{err}").contains("absolute"), "got: {err}");
+}

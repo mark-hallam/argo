@@ -72,9 +72,32 @@ pub fn check_isolation(manifest: &VerticalManifest, root: &Path) -> ArgoResult<(
     Ok(())
 }
 
+/// Reject paths absolute under EITHER the Unix or the Windows convention,
+/// regardless of the host OS this check runs on.
+///
+/// [`Path::is_absolute`] is host-dependent: on Windows it returns `false`
+/// for the Unix-absolute `/etc/passwd` (no drive prefix), and on Unix it
+/// returns `false` for `C:\Windows`. A vertical manifest is portable across
+/// hosts, so an asset path absolute under *either* convention must be
+/// refused wherever the check runs — otherwise a manifest authored to
+/// escape on Unix would pass validation on a Windows builder (and vice
+/// versa). This is a strict superset of `Path::is_absolute` on both
+/// platforms, so it replaces it outright (security boundary, #676).
+fn is_absolute_any_os(rel: &str) -> bool {
+    let bytes = rel.as_bytes();
+    // Unix-absolute (`/etc/…`) OR Windows rooted / UNC (`\foo`,
+    // `\\server\share`, `\\?\C:\…`): a leading `/` or `\`.
+    if matches!(bytes.first(), Some(b'/') | Some(b'\\')) {
+        return true;
+    }
+    // Windows drive-qualified (`C:\…`, `C:/…`) or drive-relative (`C:rel`):
+    // an ASCII letter followed by `:`. Any drive prefix is non-portable.
+    bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
+}
+
 fn check_path_within(rel: &str, root: &Path, label: &str) -> ArgoResult<()> {
     let p = Path::new(rel);
-    if p.is_absolute() {
+    if is_absolute_any_os(rel) {
         return Err(ArgoError::Schema(format!(
             "{label}: path '{rel}' is absolute; vertical asset paths must be relative to the vertical's root (security boundary, #676)"
         )));
