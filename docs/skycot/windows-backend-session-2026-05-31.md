@@ -152,8 +152,17 @@ until the `--tests` build + per-crate `cargo test` complete this turn.**
 Full run `cargo test --workspace --exclude argo-cli --exclude argo-voice-tui
 --exclude argo-executor-computer-use-windows --no-fail-fast`:
 
-- **4516 passed**, **17 failed**, **0 could-not-compile** (180 test binaries OK,
-  7 with ≥1 failure). Evidence: `phase1_run.log` summary parse.
+- **5539 passed**, **28 failed**, **0 could-not-compile** (381 binaries OK,
+  9 with ≥1 failure). Evidence: `phase1_run.log` summary parse.
+
+  > **⚠️ CORRECTION (this commit):** an earlier draft of this section said
+  > "4516 passed / 17 failed, mostly path-separator." That was WRONG — it
+  > predated the full no-fail-fast run completing. The authoritative numbers
+  > are **5539 / 28**, and the dominant cause is **Unix-only subprocess
+  > spawning**, not path separators. The accurate per-test categorization is in
+  > the "Phase 1 inventory — CORRECTED" section at the bottom of this file.
+  > Per DEC-029 the wrong claim is corrected in-band rather than silently
+  > overwritten.
 
 **The 17 failures by crate:** argo-marketplace (4), argo-skill (3), argo-eval
 (3), argo-cli-via-`#[path]` (2: `cu_replay`, on `argo-cli\benches\..\src\…` —
@@ -225,3 +234,86 @@ assertion line for a safe `Edit`.
 
 **Not yet done — explicitly UNVERIFIED:** none of the 17 are fixed yet. The
 suite is green-minus-17 on Windows; those 17 remain red pending the fix batch.
+
+---
+
+## Phase 1 inventory — CORRECTED (authoritative)
+
+Full run evidence: `phase1_run.log`. **5539 passed / 28 failed / 0 compile
+errors.** Every one of the 28 fails on Windows while passing on the codebase's
+Linux CI + macOS (the platforms the product actually ships on, DEC-002). **Zero
+are product bugs affecting the shipping product.** Categories (each grounded in
+the actual panic message read from the log):
+
+### A — Unix-only subprocess spawn (16) — gate `#[cfg(unix)]`
+- **argo-provider `claude_code_cli` (10):** spawn `tests/fixtures/mock-claude.sh`
+  → `%1 is not a valid Win32 application (os error 193)`. The test exec's a
+  shell script; Windows can't. `tests.rs:197,212,227,243,259,282,296,353,387,411`.
+- **argo-orchestrator `worker_supervisor` (6):** spawn `/bin/true`, `sleep`, etc
+  → `Os { code: 3, NotFound }`. Unix binaries. `worker_supervisor_tests.rs:94,108,130,159,177,199`.
+- Fix = `#![cfg(unix)]` on each test module. Zero coverage lost (CI + Mac run
+  them). Same idiom as the agent-runner fix already shipped (`c30e377bf`).
+
+### B — argo-tool path/process (8) — mixed
+- **path-traversal error-string assertions (5):** `path_guard` ×2, `file_read`
+  ×1, `send_message` ×1, `vision_dispatch` ×1. The guard **correctly refuses**
+  on Windows (security works), but the panic is the refusal message itself —
+  the tests assert exact error text and Windows renders `\?\C:\…` extended
+  paths. **Test-string-format issue, not a security regression.** Needs
+  per-test read to fix the assertion safely.
+- **process_registry (2):** `reap_finished_drops_exited_entries`,
+  `tail_returns_recent_stdout` — spawn real child processes; Unix assumptions.
+  Likely `#[cfg(unix)]`.
+
+### C — single-test, mixed (4)
+- **argo-capability `workspace_defaults_scope_user_filesystem_caps`:** glob
+  built as `/tmp/ws\**` vs expected `/tmp/ws/**`. A `Path::join` renders `\` on
+  Windows. **Borderline:** if the capability engine ever ran on Windows the
+  glob would mis-match — but product is Unix, so latent. Test-or-product call.
+- **argo-memory `author_stamp_survives_round_trip`:** `…456675Z` vs
+  `…456675100Z` — Windows `Utc::now()` carries 100 ns precision; the store
+  round-trip truncates to µs. Windows-clock-precision artifact.
+- **argo-skill `claim4_…` (e2e):** `SKILL.md frontmatter ---  must be followed
+  by a newline`. A `---\r\n` (CRLF) fixture vs a parser expecting `---\n`.
+  **Genuine cross-platform-robustness candidate** — a Windows-authored skill
+  file with CRLF would break the parser on ANY platform. Worth a real fix if
+  the parser is in-lane; needs a read of the frontmatter parser to decide
+  test-fixture vs product-hardening. (Repo has NO `.gitattributes` +
+  `autocrlf=false`, so source files carry CRLF on this checkout — 367 CR in
+  `argo-skill/src/sign.rs` — confirming CRLF is live here.)
+- **argo-vertical `isolation::rejects_absolute_system_prompt`:**
+  `unwrap_err()` on an `Ok` — the test feeds a Unix-absolute path expecting
+  rejection, but `Path::is_absolute()` returns false on Windows for `/etc/…`
+  (no drive letter), so the isolation check passes it. **Latent
+  cross-platform security gap candidate** (product is Unix, so not live), worth
+  flagging for a real `is_absolute`-hardening decision.
+
+### D — NOT Windows; flagged to the Mac, NOT touched (1)
+- **argo-vertical-packs `pitch_agent_pack_loads_and_adapts_into_vertical`:**
+  `left: "Portia"  right: "Pitch"`. Pure content assertion (no path / line-end
+  / subprocess). The pack persona is now **Portia** (DEC-016 renamed
+  Pitch→Portia); the test still hardcodes `"Pitch"`. **This is a stale test
+  that should be red on macOS/Linux too** — i.e. it may already be red on
+  `origin/main`'s CI, OR there is an env-dependent load. It sits in the
+  **pitch/persona domain (the Mac's hero-teammate lane)**, so I am NOT editing
+  it — flagged here for the Mac session to reconcile against DEC-016.
+
+### Honest assessment (brutal)
+
+All 28 are Windows-environment artifacts; **none degrade the macOS/Linux
+product.** "Fixing" the 16 Group-A subprocess tests via `#[cfg(unix)]` is the
+correct, proportionate move — it makes THIS machine's `cargo test` trustworthy
+so Phase-2 feature work can be verified here — but it is **test-compat
+housekeeping, not product improvement.** The only items with potential
+product value are the CRLF parser (C) and the `is_absolute` gap (C) — both
+candidates, both needing a read to confirm, both arguably Mac-lane-adjacent
+(skill = claim-4, vertical isolation = security). Plan: gate Group A now
+(biggest, safest, clearly-correct), then judge B/C individually; do not
+rabbit-hole Windows-hardening on a Mac-shipped product when Phase 2
+(WorkerSessionRunner adapters) is the real value.
+
+### Status (truth-bounded)
+- Group A gate: **NOT YET APPLIED** as of this doc commit — applied + verified
+  in the following commit(s).
+- Groups B/C: triaged, not fixed.
+- Group D: flagged to Mac, intentionally untouched.
