@@ -238,6 +238,16 @@ async fn api_v1_dispatch(
     {
         return Some(super::routes_gtm_draft_followup::draft_followup_response(req, store).await);
     }
+    // marketing-teammate-marcus-draft-response (DEC-028) — Marcus (the
+    // Marketing teammate) drafts a truth-bounded reply (from a pasted
+    // mention/URL) or article (from a topic) for X or LinkedIn, files it
+    // to the approval queue + audit, and NEVER posts. Reuses the Pitch
+    // Agent's LLM + truth-boundary primitives, exactly like Grant.
+    if req.starts_with("POST /api/v1/marketing/draft-response ")
+        || req.starts_with("POST /api/v1/marketing/draft-response?")
+    {
+        return Some(super::routes_marketing_draft_response::draft_response(req, store).await);
+    }
     // voice-V2 — conversational STT/TTS + the spoken pitch loop over
     // argo-voice-io. `pitch-turn` reuses the live `/pitch/ask` truth
     // boundary in-process (no duplicated LLM/gating logic). Provider is

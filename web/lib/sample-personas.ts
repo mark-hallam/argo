@@ -344,6 +344,48 @@ const GRANT: SamplePersona = {
   },
 };
 
+const MARCUS: SamplePersona = {
+  id: "019e6785-9292-7c63-9e40-7d0f32b7e9c4",
+  name: "Marcus",
+  initials: "MC",
+  slug: "marcus",
+  role: {
+    tagline: "drafts replies + thought-leadership in Mark's voice — draft-only, never auto-posted",
+    vertical: "marketing-agent",
+    title: "Marketing",
+    team: "Brand & Marketing",
+  },
+  headline: {
+    bullets: [
+      "4 reply drafts waiting on you",
+      "held 1 draft that touched an unverified claim — escalated to founder",
+    ],
+    tomorrow: "morning mention sweep at 08:30",
+  },
+  traits: ["On-voice", "Listening-first", "Truth-bounded", "Draft-only"],
+  pronouns: "they/them",
+  level: 6,
+  personality: {
+    greatAt: [
+      "Drafting replies that add a real point of view, not a generic 'great post!'",
+      "Writing thought-leadership in Mark's voice — concrete open, idea built, a take to land on",
+      "Listening for SKYCOT mentions + the conversations the company should be in",
+      "Knowing the exact boundary of what's approved to say — and deferring the rest",
+    ],
+    escalateWhen: [
+      "A draft would need a valuation, revenue, funding, or customer-count number",
+      "A reply would commit to pricing, a date, or an unannounced feature",
+      "A conversation is contentious enough that the company's reputation is on the line",
+      "Any public/transmit step — those are ALWAYS approval-gated; Marcus drafts, you post",
+    ],
+    signatureBehaviors: [
+      "Files every draft to the approval queue — never auto-posts",
+      "Varies the angle so the same hook doesn't repeat on the same channel",
+      "Holds a draft that strays into a guarded topic for founder review",
+    ],
+  },
+};
+
 export const SAMPLE_PERSONAS: Record<string, SamplePersona> = {
   [PRIYA.id]: PRIYA,
   [MARIAH.id]: MARIAH,
@@ -352,6 +394,7 @@ export const SAMPLE_PERSONAS: Record<string, SamplePersona> = {
   [PETA.id]: PETA,
   [PORTIA.id]: PORTIA,
   [GRANT.id]: GRANT,
+  [MARCUS.id]: MARCUS,
 };
 
 // Canonical sample-worker UUIDs aligned with the `argo demo seed`
@@ -366,6 +409,7 @@ export const SAMPLE_JAMAL_ID = JAMAL.id;
 export const SAMPLE_NORI_ID = NORI.id;
 export const SAMPLE_PORTIA_ID = PORTIA.id;
 export const SAMPLE_GRANT_ID = GRANT.id;
+export const SAMPLE_MARCUS_ID = MARCUS.id;
 
 /** Canonical roster — Scene-1 demo lockup. Keep in /team display order. */
 export const SAMPLE_PERSONA_IDS: readonly string[] = [
@@ -376,6 +420,7 @@ export const SAMPLE_PERSONA_IDS: readonly string[] = [
   NORI.id,
   PORTIA.id,
   GRANT.id,
+  MARCUS.id,
 ];
 
 function toDemoSeedPersona(persona: SamplePersona): DemoSeedPersona {
@@ -389,7 +434,8 @@ function toDemoSeedPersona(persona: SamplePersona): DemoSeedPersona {
   };
 }
 
-/** Canonical v1 demo seed roster. Scene 1 narrates exactly these seven. */
+/** Canonical v1 demo seed roster. Scene 1 narrates exactly these eight
+ * (DEC-028 added Marcus, the marketing teammate, as the third hero). */
 export const DEMO_SEED_PERSONAS: readonly DemoSeedPersona[] = [
   toDemoSeedPersona(MARIAH),
   toDemoSeedPersona(PETA),
@@ -398,6 +444,7 @@ export const DEMO_SEED_PERSONAS: readonly DemoSeedPersona[] = [
   toDemoSeedPersona(NORI),
   toDemoSeedPersona(PORTIA),
   toDemoSeedPersona(GRANT),
+  toDemoSeedPersona(MARCUS),
 ];
 
 /** Lookup with a fall-through that throws on unknown id — seeds */

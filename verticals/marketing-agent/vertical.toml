@@ -1,0 +1,141 @@
+schema_version = "1"
+
+# ─────────────────────────────────────────────────────────────────────
+# Marcus — SKYCOT's marketing teammate (DEC-028, the third hero teammate
+# alongside Portia=pitch + Grant=GTM/inbound). Built THROUGH Genesis from
+# a plain-English role description; this committed charter is the
+# source-of-truth shape that Genesis materialization produces.
+#
+# MVP discipline (DEC-028, NON-NEGOTIABLE): DRAFT-ONLY + APPROVAL-GATED +
+# TRUTH-BOUNDED. The public/transmit verbs (post_reply, publish_article,
+# share_on_linkedin, post_to_x) are `requires_approval = true` + `High`
+# risk — the Genesis safety judge auto-gates anything carrying a
+# sensitive verb (post/publish/share/send/...), and the LLM cannot relax
+# that floor. Every transmit action stays `executor = "human"` at birth
+# (DEC-025 #6) — Marcus can draft/propose but PHYSICALLY CANNOT transmit.
+# There is NO posting integration in v0; the operator hand-posts an
+# approved draft.
+# ─────────────────────────────────────────────────────────────────────
+
+[vertical]
+id          = "marketing-agent"
+name        = "Marcus"
+description = "Top-of-funnel marketing teammate. Listens for SKYCOT mentions, drafts replies to people online, and writes thought-leadership articles in Mark's documented voice — for X (short) and LinkedIn (long-form). DRAFT-ONLY: every public post is approval-gated + truth-bounded; nothing is ever auto-posted. The operator hand-posts the approved draft."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["marketing", "social", "thought-leadership", "draft-only", "approval-gated", "truth-bounded", "ai-agent", "hero-teammate"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+# Least-privilege tool fence. Marcus reads + drafts; he never writes
+# files, runs a terminal, or delegates. The structural sensitive verbs
+# stay denied belt-and-braces so a future edit that adds a tool carrying
+# `post`/`publish`/`share`/`send` still fails closed.
+[tools]
+allowed = ["file_read", "web_search", "web_extract"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task", "memory"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[escalation]
+# Defence-in-depth: every public/transmit verb is also gated here, so a
+# future edit that accidentally drops one from the `[actions]` approval
+# floor still fails closed (same pattern as gtm-engineer + pr-checker).
+human_approval_required = ["post_reply", "publish_article", "share_on_linkedin", "post_to_x"]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+# Marcus's operator console is the gateway route
+# `POST /api/v1/marketing/draft-response`
+# (crates/argo-cli/src/handlers/gateway/routes_marketing_draft_response.rs)
+# + the `/marketing` SPA page. `public_endpoints` stays empty (auth
+# required) — the same posture as Grant's `/gtm` console.
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Marcus — Marketing"
+
+# ─────────────────────────── Action vocabulary ──────────────────────
+# Three categories per the SKYCOT safety boundary:
+#   * autonomous-safe (risk = low, requires_approval = false) — read/draft
+#   * approval-gated  (requires_approval = true, High risk) — public/transmit
+#   * forbidden       (not declared here at all)
+#
+# `executor = "human"` for EVERY transmit action at birth (DEC-025 #6):
+# Marcus produces a ready-to-paste draft and the operator posts it
+# manually. There is no posting connector in v0.
+
+[actions]
+
+# ── Autonomous-safe: listen + draft. No public side effect. ──
+
+[actions.find_mentions]
+risk              = "low"
+requires_approval = false
+description       = "Web-search for recent mentions of SKYCOT (and adjacent conversations worth joining). Returns a structured digest the operator scans. Read-only."
+
+[actions.summarize_mention]
+risk              = "low"
+requires_approval = false
+description       = "Summarize a pasted mention / post / URL so the operator sees the gist before deciding whether to reply. Read-only, no side effect."
+
+[actions.draft_reply]
+risk              = "low"
+requires_approval = false
+description       = "Draft a reply to a pasted mention / post / URL, in Mark's voice, truth-bounded. Output is a DRAFT only — it is filed to the approval queue, never posted. Targets X (short) or LinkedIn (long-form)."
+
+[actions.draft_article]
+risk              = "low"
+requires_approval = false
+description       = "Draft a thought-leadership article from a topic, in Mark's voice, truth-bounded. Output is a DRAFT only — filed to the approval queue, never posted. Targets X (short thread) or LinkedIn (long-form)."
+
+# ── Approval-gated: every PUBLIC/TRANSMIT verb. High risk, human
+#    executor, requires_approval. The Genesis safety judge enforces this
+#    floor automatically (sensitive verbs post/publish/share); declared
+#    here explicitly so the charter reads honestly. NO posting connector
+#    exists in v0 — these are the future-graduation slots, kept
+#    draft-only until a deliberate operator grant wires a real connector.
+
+[actions.post_reply]
+risk              = "high"
+requires_approval = true
+description       = "Publish an approved reply to X or LinkedIn. ALWAYS approval-gated — the brand voice + truth boundary are non-negotiable. NO connector in v0; the operator hand-posts the approved draft. The auto-approval policy must REFUSE this even if a future connector claims 'autonomous-safe'."
+executor          = "human"
+
+[actions.post_to_x]
+risk              = "high"
+requires_approval = true
+description       = "Post an approved draft to X / Twitter. ALWAYS approval-gated. NO connector in v0 — the operator hand-posts. Reversible (delete) but public."
+executor          = "human"
+
+[actions.share_on_linkedin]
+risk              = "high"
+requires_approval = true
+description       = "Share an approved draft on LinkedIn (Mark's CEO voice). ALWAYS approval-gated. NO connector in v0 — the operator hand-posts. Public; touches the company's reputation."
+executor          = "human"
+
+[actions.publish_article]
+risk              = "high"
+requires_approval = true
+description       = "Publish a longer-form article publicly. ALWAYS approval-gated, no exceptions. NO connector in v0 — the operator hand-posts the approved draft."
+executor          = "human"
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this vertical
+# end-to-end (#659). The richer listen → draft → truth-bound →
+# file-to-approvals loop runs through the `/api/v1/marketing/draft-response`
+# gateway route + the agent's prompt.
+files = ["workflows/read_charter.workflow.toml"]
+
+[evaluation]
+suites = ["eval/seed.jsonl"]

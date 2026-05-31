@@ -18,7 +18,7 @@ import "./page.css";
  * a brittle marketing-to-product handoff (e2e-ux-audit F6 [P1]).
  *
  * This page replaces that link with a public-friendly roster that
- * showcases the seven canonical Day-1 teammates without exposing the
+ * showcases the eight canonical Day-1 teammates without exposing the
  * in-app chrome. Static, server-rendered, no session required.
  */
 

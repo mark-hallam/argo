@@ -235,6 +235,30 @@ const GRANT: WorkerOverview = {
   ],
 };
 
+const MARCUS_P = pronounsFor("019e6785-9292-7c63-9e40-7d0f32b7e9c4");
+const MARCUS: WorkerOverview = {
+  charter: `Marcus helps the Brand & Marketing team fill the top of the funnel in Mark's voice. ${MARCUS_P.subjectCap} ${v(MARCUS_P, "listen")} for SKYCOT mentions, ${v(MARCUS_P, "draft")} replies and thought-leadership, and ${v(MARCUS_P, "hold")} any draft that strays into an unverified claim — every draft is approval-gated and ${MARCUS_P.subject} never auto-posts.`,
+  duties: [
+    duty("d-listen", "Listen for SKYCOT mentions worth replying to", "morning sweep + ad hoc"),
+    duty("d-reply", "Draft replies to mentions in Mark's voice (X / LinkedIn)", "on demand"),
+    duty("d-article", "Draft thought-leadership articles from a topic", "on demand"),
+    duty("d-hold", "Hold drafts that touch a guarded claim for founder review", "as detected"),
+  ],
+  kpis: [
+    kpi("k-drafts", "reply + article drafts in review", "4", [2, 3, 3, 4, 4, 4, 4], 10),
+    kpi("k-held", "drafts held for founder review this week", "1", [0, 0, 1, 1, 1, 1, 1], 0),
+    kpi("k-posted", "approved drafts you posted this week", "6", [2, 3, 4, 5, 5, 6, 6], 12),
+    kpi("k-cycle", "median paste → drafted", "40s", [120, 90, 70, 55, 48, 44, 40], -30),
+  ],
+  recentActivity: [
+    activity("act_01J0MARCUS_011", 4, "drafted an X reply to a 'just fancy autocomplete' post", "needs review"),
+    activity("act_01J0MARCUS_012", 30, "drafted a LinkedIn article on ideas as the human moat", "needs review"),
+    activity("act_01J0MARCUS_013", 75, "held a draft that touched a revenue claim — escalated to founder", "approved by Mark"),
+    activity("act_01J0MARCUS_014", 150, "summarized a mention so the operator could decide", "auto-sent"),
+    activity("act_01J0MARCUS_015", 310, "drafted an X reply welcoming a new launch in the space", "needs review"),
+  ],
+};
+
 const OVERVIEWS_BY_ID: Record<string, WorkerOverview> = {
   "019e6785-928d-78b1-a6b2-136d9ed263ce": PRIYA,
   "019e6785-928a-7270-a766-f945b6cd7161": MARIAH,
@@ -243,6 +267,7 @@ const OVERVIEWS_BY_ID: Record<string, WorkerOverview> = {
   "019e6785-928c-72b3-85c6-436fe5004c50": PETA,
   "019e6785-9290-7a41-9c2e-4b8d10f5c7a2": PORTIA,
   "019e6785-9291-7b52-8d3f-6c9e21a6d8b3": GRANT,
+  "019e6785-9292-7c63-9e40-7d0f32b7e9c4": MARCUS,
 };
 
 export function findSampleWorkerOverview(id: string): WorkerOverview | undefined {

@@ -84,6 +84,11 @@ const RUNTIME_OVERLAY: Record<string, RuntimeOverlay> = {
     status: "working",
     lastActiveAt: new Date(now - 9 * minute).toISOString(),
   },
+  "019e6785-9292-7c63-9e40-7d0f32b7e9c4": {
+    // Marcus — waiting on operator approval for reply + article drafts.
+    status: "waiting",
+    lastActiveAt: new Date(now - 4 * minute).toISOString(),
+  },
 };
 
 function isPending(item: ApprovalItem): boolean {

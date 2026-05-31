@@ -32,13 +32,14 @@ pub struct DemoPersona {
     pub traits: &'static [&'static str],
 }
 
-/// The six canonical demo personas, in `/team` display order (Mariah
-/// is the demo "headliner" the camera lands on first; Portia, the
-/// Track-P Pitch Agent, is the sixth — promoted from a former
-/// dept-filler so every `/team` card is a real, demo-quality teammate.
-/// The prior "dept-filler" rows (Fin / Devon / Lex) were removed:
-/// fake roster rows seeded only to populate `/cohorts` tabs are
-/// theater, so the demo tenant now carries exactly the real six).
+/// The canonical demo personas, in `/team` display order (Mariah is the
+/// demo "headliner" the camera lands on first). Portia (Pitch Agent),
+/// Grant (GTM Engineer), and Marcus (Marketing) are the three hero
+/// teammates — each promoted from a former dept-filler so every `/team`
+/// card is a real, demo-quality teammate. The prior "dept-filler" rows
+/// (Fin / Devon / Lex) were removed: fake roster rows seeded only to
+/// populate `/cohorts` tabs are theater, so the demo tenant now carries
+/// exactly the real eight (DEC-028 added Marcus as the third hero).
 pub const DEMO_SEED_PERSONAS: &[DemoPersona] = &[
     DemoPersona {
         name: "Mariah",
@@ -116,6 +117,19 @@ pub const DEMO_SEED_PERSONAS: &[DemoPersona] = &[
             "Pipeline-minded",
         ],
     },
+    DemoPersona {
+        name: "Marcus",
+        title: "Marketing",
+        tagline: "drafts replies + thought-leadership in Mark's voice — draft-only, never auto-posted",
+        vertical_id: "marketing-agent",
+        team: "Brand & Marketing",
+        traits: &[
+            "On-voice",
+            "Listening-first",
+            "Truth-bounded",
+            "Draft-only",
+        ],
+    },
 ];
 
 #[cfg(test)]
@@ -125,11 +139,12 @@ mod tests {
     #[test]
     fn roster_is_scene_one_canon() {
         let names: Vec<_> = DEMO_SEED_PERSONAS.iter().map(|p| p.name).collect();
-        // Portia (Pitch Agent) + Grant (GTM Engineer) are first-class
-        // hero teammates — the deck is now seven.
+        // Portia (Pitch Agent) + Grant (GTM Engineer) + Marcus (Marketing)
+        // are first-class hero teammates — the deck is now eight (DEC-028
+        // added Marcus as the third hero).
         assert_eq!(
             names,
-            vec!["Mariah", "Peta", "Priya", "Jamal", "Nori", "Portia", "Grant"]
+            vec!["Mariah", "Peta", "Priya", "Jamal", "Nori", "Portia", "Grant", "Marcus"]
         );
     }
 
@@ -164,10 +179,12 @@ mod tests {
     }
 
     #[test]
-    fn hero_roster_covers_seven_demo_depts() {
-        // The demo tenant seeds exactly the seven real teammates; /cohorts
-        // shows the seven departments they actually staff (no fake filler
-        // rows). Every hero vertical must be present + distinct.
+    fn hero_roster_covers_eight_demo_depts() {
+        // The demo tenant seeds exactly the eight real teammates; /cohorts
+        // shows the eight departments they actually staff (no fake filler
+        // rows). Every hero vertical must be present + distinct. Note
+        // `marketing` (Nori, Brand Comms) and `marketing-agent` (Marcus,
+        // the DEC-028 marketing teammate) are distinct verticals.
         let verts: std::collections::HashSet<&str> =
             DEMO_SEED_PERSONAS.iter().map(|p| p.vertical_id).collect();
         for v in [
@@ -178,9 +195,10 @@ mod tests {
             "marketing",
             "pitch-agent",
             "gtm",
+            "marketing-agent",
         ] {
             assert!(verts.contains(v), "demo dept vertical {v} not staffed");
         }
-        assert_eq!(verts.len(), 7, "expected exactly seven distinct hero verticals");
+        assert_eq!(verts.len(), 8, "expected exactly eight distinct hero verticals");
     }
 }

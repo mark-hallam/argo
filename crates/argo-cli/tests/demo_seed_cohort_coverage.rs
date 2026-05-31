@@ -23,7 +23,7 @@ async fn open_store() -> Arc<SessionStore> {
 }
 
 #[tokio::test]
-async fn demo_seed_produces_six_cohorts_one_per_real_dept() {
+async fn demo_seed_produces_eight_cohorts_one_per_real_dept() {
     let store = open_store().await;
     let tenant = TenantId::new();
     let mut opts = SeedOptions::canonical_v1(tenant);
@@ -32,15 +32,15 @@ async fn demo_seed_produces_six_cohorts_one_per_real_dept() {
 
     let report = run_canonical_v1_seed(&store, &opts).await.unwrap();
     assert_eq!(
-        report.workers_created, 7,
-        "demo tenant seeds exactly the seven real hero teammates (incl. Portia + Grant)"
+        report.workers_created, 8,
+        "demo tenant seeds exactly the eight real hero teammates (incl. Portia + Grant + Marcus)"
     );
 
     let cohorts = list_cohorts(store.as_ref(), tenant).await.unwrap();
     assert_eq!(
         cohorts.len(),
-        7,
-        "expected exactly 7 cohorts (one per real staffed dept); got {} ({:?})",
+        8,
+        "expected exactly 8 cohorts (one per real staffed dept); got {} ({:?})",
         cohorts.len(),
         cohorts.iter().map(|c| c.vertical.clone()).collect::<Vec<_>>()
     );
@@ -92,6 +92,7 @@ async fn demo_seed_covers_each_hero_dept_vertical() {
         "marketing",
         "pitch-agent",
         "gtm",
+        "marketing-agent",
     ] {
         assert!(
             verticals.contains(required),

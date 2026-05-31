@@ -86,3 +86,30 @@ Related: [[DEC-010]] (Genesis is MVP-must-have), [[DEC-018]] (Grant, the 2nd her
 teammate; the funnel boundary), [[DEC-025]] (Genesis done right — don't ruin a
 business; the safety bar this teammate's draft-only discipline serves),
 [[DEC-007]] (NO THEATER — drafts are real, the approval is real, the audit is real).
+
+## Confirmed scope + v0 shipped (operator-confirmed 2026-05-31)
+
+Operator confirmed the v0 build scope 2026-05-31: **name = Marcus**; use-cases =
+**both** (paste-a-mention/URL → drafted reply AND topic → drafted article);
+channels = **both** (X/Twitter short AND LinkedIn long-form). v0 shipped the same
+turn:
+
+- **Endpoint** `POST /api/v1/marketing/draft-response`
+  (`crates/argo-cli/src/handlers/gateway/routes_marketing_draft_response.rs`) —
+  clones Grant's proven route: live-LLM draft (Sonnet floor) → same truth-boundary
+  Portia/Grant use → pending approval row + hash-chained audit row →
+  **never posts**. 15 cargo unit tests (both modes × both channels, truth-boundary
+  swap, draft-only). The operator hand-posts the approved draft (NO posting
+  integration — greenfield per [`MARKETING_TEAMMATE_PLAN.md`](../marketing/MARKETING_TEAMMATE_PLAN.md)).
+- **Charter** `verticals/marketing-agent/vertical.toml` ("Marcus") — public/transmit
+  verbs (`post_reply`/`publish_article`/`share_on_linkedin`/`post_to_x`) are
+  `requires_approval = true` + High risk + `executor = "human"` (the Genesis
+  safety-judge floor; the LLM can't relax it); `draft_reply`/`draft_article` are
+  autonomous-safe.
+- **Console** `/marketing` SPA page (mirrors `/gtm`; LOCKED brand) + `lib/api/marketing.ts`.
+- **Roster** Marcus added as the 3rd named hero (alongside Portia + Grant); demo
+  roster bumped 7 → 8 consistently across `personas.rs` + `sample-personas.ts` +
+  count assertions.
+- **Deferred (fast-follow):** auto social-listening (no public-social/web-search
+  connector exists) — v0 operator pastes the mention; a live hire-through-Genesis
+  demo.

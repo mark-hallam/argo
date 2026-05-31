@@ -33,7 +33,7 @@ async fn skip_pass_a_seeds_dressing_only() {
     opts.skip_pass_a_turns = true;
     opts.dressing_audit_rows = 25;
     let report = run_canonical_v1_seed(&store, &opts).await.unwrap();
-    assert_eq!(report.workers_created, 7);
+    assert_eq!(report.workers_created, 8);
     assert_eq!(report.foreign_workers_created, 1);
     assert_eq!(report.workflows_created, 1);
     assert_eq!(report.skills_created, 3);
@@ -68,10 +68,11 @@ async fn skip_pass_a_seeds_dressing_only() {
     assert!(!report.pass_a_real_llm);
 
     // Vacuous-pass guard (round-37 pattern): seeded tenant sees the
-    // seven real hero teammates; a DIFFERENT tenant sees zero.
+    // eight real hero teammates (incl. Marcus, DEC-028); a DIFFERENT
+    // tenant sees zero.
     let identities = IdentityStore::new(&store);
     let seeded_workers = identities.list_workers(tenant, false).await.unwrap();
-    assert_eq!(seeded_workers.len(), 7);
+    assert_eq!(seeded_workers.len(), 8);
     let other_tenant = TenantId::new();
     let other_workers = identities.list_workers(other_tenant, false).await.unwrap();
     assert_eq!(other_workers.len(), 0);

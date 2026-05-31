@@ -1,0 +1,20 @@
+schema_version = "1"
+
+# Marcus's memory shape. Append-only, operator-readable. Nothing here is
+# a public side effect — these are the notes Marcus keeps so he stays
+# on-voice and on-topic across drafts.
+
+[[entry]]
+key     = "mentions"
+type    = "list-of-objects"
+purpose = "SKYCOT mentions + adjacent conversations Marcus has surfaced, with source URL + a one-line summary. Append-only; listening-first."
+
+[[entry]]
+key     = "drafts"
+type    = "list-of-objects"
+purpose = "Reply + article drafts Marcus has produced, with mode (reply/article), channel (x/linkedin), disposition (Allow/Escalate), and the approval id they were filed under. DRAFT-ONLY — nothing here was ever posted."
+
+[[entry]]
+key     = "voice_notes"
+type    = "list-of-objects"
+purpose = "Running notes on Mark's voice + the themes already covered recently, so Marcus varies the angle and stays on-voice (anti-repetition window)."

@@ -1,0 +1,25 @@
+schema_version = "1"
+
+# Smoke workflow per the spec ("keep workflows simple"): two tool_call
+# steps that read Marcus's charter + system prompt to confirm the runner
+# is wired against this vertical end-to-end (#659). The richer marketing
+# loop (listen → draft → truth-bound → file-to-approvals) runs through
+# the `/api/v1/marketing/draft-response` gateway route + the agent's
+# prompt, not a pre-baked workflow file.
+
+[workflow]
+name        = "read_charter"
+description = "Smoke: read Marcus's charter + system prompt so the runner is wired against the marketing-agent pack end-to-end."
+
+[[step]]
+name = "read_manifest"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/marketing-agent/vertical.toml" }
+
+[[step]]
+name = "read_system_prompt"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/marketing-agent/prompts/system.md" }
+depends_on = ["read_manifest"]
