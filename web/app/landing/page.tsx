@@ -300,7 +300,6 @@ export default function MarketingLandingPage() {
 
         {/* The moat — verified differentiators, led hard, right under the hero */}
         <section className="land-section land-moat" id="why">
-          <p className="land-section-label">THE MOAT · VERIFIED AGAINST 25 COMPETITORS</p>
           <h2 className="land-section-title">
             Four things <strong>nobody else</strong> ships.
           </h2>

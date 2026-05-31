@@ -20,7 +20,9 @@ describe("MarketingLandingPage", () => {
   it("leads with the four verified-unique differentiators (the moat)", () => {
     render(<MarketingLandingPage />);
 
-    expect(screen.getByText(/the moat/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /four things.*ships/i }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /Every action, provable/i }),
     ).toBeInTheDocument();
