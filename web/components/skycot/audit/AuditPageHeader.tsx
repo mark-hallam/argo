@@ -14,16 +14,8 @@ import {
 } from "@/lib/types/audit";
 
 /**
- * Sticky page header for the `/audit` route. Renders:
- *  - title "Audit" + subtitle "Every action, hash-chained and replayable."
- *  - action row: Filter trigger (icon-only — E5-b ships the popover
- *    via the optional `filterTrigger` slot; absent ⇒ legacy button
- *    wired to `onFilterClick`), time-range dropdown (8 options +
- *    Custom), Export trigger (E5-e implements the dialog)
- *  - full-width search input below
- *
- * URL state lives on the parent page; this component is presentational
- * and routes every change through the supplied callbacks.
+ * Sticky B3-enterprise header for `/audit`. URL state lives on the
+ * parent page; this component only renders controls and callbacks.
  */
 
 const CUSTOM_VALUE = "custom";
@@ -55,18 +47,37 @@ export function AuditPageHeader({
     : range;
 
   return (
-    <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-5">
+    <div
+      data-testid="audit-page-header"
+      className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/90 backdrop-blur-md"
+    >
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="space-y-1">
-            <h1 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
-              Audit
+          <div className="min-w-0 space-y-1">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+              Audit · Chain explorer
+            </p>
+            <h1
+              className="text-2xl leading-tight text-[var(--foreground)] sm:text-3xl"
+              style={{ fontFamily: "var(--font-audiowide)" }}
+            >
+              Audit{" "}
+              <span
+                style={{
+                  background: "var(--brand-gradient-3)",
+                  WebkitBackgroundClip: "text",
+                  backgroundClip: "text",
+                  color: "transparent",
+                }}
+              >
+                chain
+              </span>
             </h1>
             <p
               className="text-sm text-[var(--muted-foreground)]"
               data-testid="audit-subtitle"
             >
-              Every action, hash-chained and replayable.
+              Every live action, hash-linked and replayable.
             </p>
           </div>
 
@@ -119,7 +130,7 @@ export function AuditPageHeader({
             onKeyUp={(e) => {
               if (!(e.metaKey || e.ctrlKey)) e.stopPropagation();
             }}
-            placeholder="Search action, worker, or action ID..."
+            placeholder="Search action, worker, hash, or action ID..."
             aria-label="Search audit timeline"
             data-testid="audit-search-input"
             className="w-full h-10 pl-9 pr-3 rounded-[var(--radius-md)] border border-[var(--input)] bg-[var(--card)]/60 text-sm placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent transition-shadow"

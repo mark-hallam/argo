@@ -109,17 +109,61 @@ afterEach(() => {
 });
 
 describe("AuditPage", () => {
-  it("renders the page header (title, subtitle, action row, search)", () => {
+  it("renders the B3 chain-explorer header (title, subtitle, action row, search)", () => {
     useFeedMock.mockReturnValue(feedState());
     render(<AuditPage />);
-    expect(screen.getByRole("heading", { name: "Audit" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Audit chain/i }),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("audit-subtitle")).toHaveTextContent(
-      /every action, hash-chained and replayable\./i,
+      /every live action, hash-linked and replayable\./i,
     );
     expect(screen.getByTestId("audit-filter-trigger")).toBeInTheDocument();
     expect(screen.getByTestId("audit-range-select")).toBeInTheDocument();
     expect(screen.getByTestId("audit-export-trigger")).toBeInTheDocument();
     expect(screen.getByTestId("audit-search-input")).toBeInTheDocument();
+  });
+
+  it("renders the B3 chain evidence panel from returned audit rows without claiming browser verification", () => {
+    useFeedMock.mockReturnValue(
+      feedState({
+        data: {
+          pages: [
+            {
+              rows: [
+                makeRow({
+                  id: "act_hash_head",
+                  selfHash: "7f3a91c20b8e688a1d44b8e6",
+                  parentHash: "d4c81a9f1c20af3b8a912e4a",
+                  cost: { usd: 0.123 },
+                }),
+                makeRow({
+                  id: "act_hash_parent",
+                  selfHash: "d4c81a9f1c20af3b8a912e4a",
+                  parentHash: "000a1b2c0001",
+                  status: "pending",
+                  cost: { usd: 0.05 },
+                }),
+              ],
+              nextCursor: null,
+              totalPages: 1,
+            },
+          ],
+        },
+      }),
+    );
+
+    render(<AuditPage />);
+
+    const hero = screen.getByTestId("audit-chain-hero");
+    expect(within(hero).getByTestId("audit-chain-status")).toHaveTextContent(
+      /Hash evidence present in current view/i,
+    );
+    expect(within(hero).getByText("act_hash_head")).toBeInTheDocument();
+    expect(within(hero).getByText("2/2")).toBeInTheDocument();
+    expect(within(hero).getByTestId("audit-chain-verifier-note")).toHaveTextContent(
+      /CLI verify not run in browser/i,
+    );
   });
 
   it("changing the time-range dropdown writes ?range= to the URL", async () => {

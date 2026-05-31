@@ -11,6 +11,7 @@ import { useToast } from "@/lib/ui/use-toast";
 import { AuditDayGroup } from "@/components/skycot/audit/AuditDayGroup";
 import { AuditFilterChipRail } from "@/components/skycot/audit/AuditFilterChipRail";
 import { AuditFilterPopover } from "@/components/skycot/audit/AuditFilterPopover";
+import { AuditChainExplorerHero } from "@/components/skycot/audit/AuditChainExplorerHero";
 import { AuditPageHeader } from "@/components/skycot/audit/AuditPageHeader";
 import { EvidenceBundleExporter } from "@/components/skycot/audit/EvidenceBundleExporter";
 import { RedactionBanner } from "@/components/skycot/audit/RedactionBanner";
@@ -49,15 +50,9 @@ const SEARCH_DEBOUNCE_MS = 200;
 const FILTER_DEBOUNCE_MS = 250;
 
 /**
- * `/audit` — cross-worker forensic timeline. URL is the source of
- * truth for filters (`?range=`, `?q=`, and the 7 multi-select
- * dimensions threaded through `web/lib/filters/audit.ts`). `useAuditFeed`
- * only re-queries on `range` + `q`; the multi-select dimensions are
- * applied client-side. Server-side push for scopes > 5000 rows is a
- * Track-H hardening brief (`mission-enterprise-audit-server-filter`).
- *
- * E5-c implements `/audit/action/<id>` (this brief routes to it).
- * E5-e implements the export dialog (placeholder toast for now).
+ * `/audit` — B3 chain-explorer surface over real audit feed rows. URL
+ * filters remain source-of-truth; multi-select dimensions are applied
+ * client-side until server-side enterprise filtering ships.
  */
 export default function AuditPage() {
   return (
@@ -69,7 +64,7 @@ export default function AuditPage() {
 
 function AuditPageFallback() {
   return (
-    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8" data-testid="audit-loading">
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8" data-testid="audit-loading">
       <Loader2 className="size-5 mx-auto animate-spin text-[var(--muted-foreground)]" />
     </div>
   );
@@ -212,7 +207,14 @@ function AuditPageContent() {
         }
       />
 
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-4">
+      <AuditChainExplorerHero
+        rows={rows}
+        range={range}
+        isFiltered={!isPristine}
+        onExportClick={() => setExporterOpen(true)}
+      />
+
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 space-y-4">
         {showRedactionBanner ? (
           <RedactionBanner
             policy={policy}

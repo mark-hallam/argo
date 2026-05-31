@@ -16,4 +16,16 @@ describe("MarketingLandingPage", () => {
     expect(document.body).not.toHaveTextContent(/multi-provider routing/i);
     expect(document.body).not.toHaveTextContent(/provider routing/i);
   });
+
+  it("surfaces the four verified differentiators on the locked landing page", () => {
+    render(<MarketingLandingPage />);
+
+    expect(
+      screen.getByText(/verified differentiators/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Every action, provable/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Truth-bounded claims/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Approval-first in 9 channels/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Persistent teammates/i })).toBeInTheDocument();
+  });
 });

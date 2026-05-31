@@ -212,7 +212,7 @@ export default function MarketingLandingPage() {
                 zIndex: 2,
               }}
             >
-              <strong style={{ color: "#8b5cf6" }}>Mariah</strong>: 3 listings live, 2 buyers waiting on you.
+              <strong style={{ color: "var(--brand-primary)" }}>Mariah</strong>: 3 listings live, 2 buyers waiting on you.
             </div>
             <div
               className="land-art-bubble land-art-bubble-2"
@@ -225,7 +225,7 @@ export default function MarketingLandingPage() {
                 zIndex: 2,
               }}
             >
-              <strong style={{ color: "#ec4899" }}>Peta</strong>: standup digest drafted, 3 action items chased.
+              <strong style={{ color: "var(--gradient-end)" }}>Peta</strong>: standup digest drafted, 3 action items chased.
             </div>
             <div
               className="land-art-bubble land-art-bubble-3"
@@ -238,7 +238,7 @@ export default function MarketingLandingPage() {
                 zIndex: 2,
               }}
             >
-              <strong style={{ color: "#8b5cf6" }}>Priya</strong>: 8 candidates screened today.
+              <strong style={{ color: "var(--brand-primary)" }}>Priya</strong>: 8 candidates screened today.
             </div>
             <div
               className="land-art-bubble land-art-bubble-4"
@@ -251,7 +251,7 @@ export default function MarketingLandingPage() {
                 zIndex: 2,
               }}
             >
-              <strong style={{ color: "#14b8a6" }}>Jamal</strong>: 12 tickets resolved, median reply 4m.
+              <strong style={{ color: "var(--brand-teal)" }}>Jamal</strong>: 12 tickets resolved, median reply 4m.
             </div>
             <div
               className="land-art-bubble"
@@ -265,7 +265,7 @@ export default function MarketingLandingPage() {
                 zIndex: 2,
               }}
             >
-              <strong style={{ color: "#14b8a6" }}>Nori</strong>: Q2 update draft ready for review.
+              <strong style={{ color: "var(--brand-teal)" }}>Nori</strong>: Q2 update draft ready for review.
             </div>
             <div className="land-art-center" style={{ left: "40%", zIndex: 1 }}>
               SKYCOT
