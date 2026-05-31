@@ -3,9 +3,13 @@
 import {
   AlertOctagon,
   AlertTriangle,
+  Bell,
+  CheckCircle2,
   DollarSign,
   FileText,
   KeyRound,
+  PlayCircle,
+  RefreshCw,
   Sparkles,
   TrendingDown,
   X,
@@ -19,7 +23,12 @@ import type { NotificationItem, NotificationKind } from "@/lib/sample-notificati
 
 type IconTone = "info" | "success" | "warning" | "destructive";
 
-const KIND_META: Record<NotificationKind, { Icon: LucideIcon; tone: IconTone }> = {
+interface KindMeta {
+  Icon: LucideIcon;
+  tone: IconTone;
+}
+
+const KIND_META: Record<NotificationKind, KindMeta> = {
   "budget-approaching": { Icon: DollarSign, tone: "warning" },
   "budget-exceeded": { Icon: AlertTriangle, tone: "destructive" },
   "skill-promoted": { Icon: Sparkles, tone: "success" },
@@ -28,7 +37,21 @@ const KIND_META: Record<NotificationKind, { Icon: LucideIcon; tone: IconTone }> 
   "duty-output-ready": { Icon: FileText, tone: "info" },
   "autonomy-promotion-suggested": { Icon: Zap, tone: "info" },
   incident: { Icon: AlertOctagon, tone: "destructive" },
+  // Live gateway kinds (seeded by argo-demo-seed/seed_notifications.rs):
+  "approval-pending": { Icon: CheckCircle2, tone: "warning" },
+  "workflow-run-complete": { Icon: PlayCircle, tone: "success" },
+  "skill-reeval": { Icon: RefreshCw, tone: "info" },
 };
+
+/**
+ * Fallback meta for any `kind` the gateway emits that isn't in
+ * `KIND_META`. The gateway's notification `kind` is a free-form string,
+ * so the SPA must degrade gracefully on an unknown kind rather than
+ * crash — an unguarded `KIND_META[item.kind]` destructure previously
+ * took the whole bell-popover (and its host page) down with a
+ * `TypeError` whenever the live data carried a kind the union missed.
+ */
+const FALLBACK_META: KindMeta = { Icon: Bell, tone: "info" };
 
 const TONE_CLASSES: Record<IconTone, string> = {
   info: "text-[var(--primary)] bg-[var(--primary)]/10",
@@ -68,7 +91,7 @@ export interface NotificationRowProps {
 }
 
 export function NotificationRow({ item, onDismiss, onCtaCallback }: NotificationRowProps) {
-  const { Icon, tone } = KIND_META[item.kind];
+  const { Icon, tone } = KIND_META[item.kind] ?? FALLBACK_META;
   const unread = !item.read;
 
   function handleCta() {

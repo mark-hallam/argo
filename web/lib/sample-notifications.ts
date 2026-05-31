@@ -7,6 +7,19 @@
  * in the main inbox).
  */
 
+/**
+ * Notification kinds. The first block are the original mock-demo kinds;
+ * the second block (`approval-pending`, `workflow-run-complete`,
+ * `skill-reeval`) are the kinds the LIVE gateway actually emits — the
+ * canonical demo seeder (`crates/argo-demo-seed/src/seed_notifications.rs`)
+ * inserts real rows with these kinds. They must be in the union (and in
+ * `KIND_META` in `NotificationRow`) or the popover crashes on real data.
+ *
+ * NOTE: the gateway's `kind` column is a free-form string, so the SPA
+ * must also tolerate an *unknown* kind gracefully (see the fallback in
+ * `NotificationRow`'s `KIND_META` lookup) — never destructure the meta
+ * unguarded.
+ */
 export type NotificationKind =
   | "budget-approaching"
   | "budget-exceeded"
@@ -15,7 +28,11 @@ export type NotificationKind =
   | "oauth-needs-reauth"
   | "duty-output-ready"
   | "autonomy-promotion-suggested"
-  | "incident";
+  | "incident"
+  // Live gateway kinds (seeded by argo-demo-seed):
+  | "approval-pending"
+  | "workflow-run-complete"
+  | "skill-reeval";
 
 export type NotificationCtaAction = "dismiss" | "callback";
 

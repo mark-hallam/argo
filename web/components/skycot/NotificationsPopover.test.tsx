@@ -161,6 +161,54 @@ describe("NotificationsPopover", () => {
     expect(within(content).getByTestId("notifications-empty")).toBeInTheDocument();
     expect(fetchSpy).toHaveBeenCalled();
   });
+
+  it("renders the LIVE gateway notification kinds without crashing", async () => {
+    // Regression: the live gateway (seeded by argo-demo-seed) emits
+    // `approval-pending`, `workflow-run-complete`, and `skill-reeval` —
+    // kinds the original `KIND_META` map lacked. Opening the popover on
+    // real data threw `Cannot destructure property 'Icon' of undefined`
+    // in NotificationRow and crashed the whole host page (HTTP 500).
+    const user = userEvent.setup();
+    const items: NotificationItem[] = [
+      makeItem({
+        id: "live-1",
+        kind: "approval-pending",
+        title: "Marcus drafted a reply for review — approval pending in your inbox.",
+      }),
+      makeItem({
+        id: "live-2",
+        kind: "workflow-run-complete",
+        title: "Workflow customer_research_followup finished a run.",
+      }),
+      makeItem({
+        id: "live-3",
+        kind: "skill-reeval",
+        title: "Skill competitor pricing scrape passed its weekly re-evaluation.",
+        read: true,
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60_000).toISOString(),
+      }),
+    ];
+    renderPopover({ items });
+    const content = await openPopover(user);
+    expect(within(content).getByText(/Marcus drafted a reply/)).toBeInTheDocument();
+    expect(within(content).getByText(/customer_research_followup/)).toBeInTheDocument();
+    expect(within(content).getByText(/competitor pricing scrape/)).toBeInTheDocument();
+  });
+
+  it("degrades gracefully on an unknown kind instead of crashing", async () => {
+    // The gateway `kind` is a free-form string; an unknown kind must
+    // render via the Bell fallback meta, never throw.
+    const user = userEvent.setup();
+    const item = makeItem({
+      id: "unknown",
+      // a kind that exists in neither the union nor KIND_META
+      kind: "some-future-kind" as NotificationItem["kind"],
+      title: "A brand-new kind we have not mapped yet.",
+    });
+    renderPopover({ items: [item] });
+    const content = await openPopover(user);
+    expect(within(content).getByText(/brand-new kind/)).toBeInTheDocument();
+  });
 });
 
 describe("NotificationsBell", () => {
