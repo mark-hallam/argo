@@ -20,6 +20,18 @@ const TEAM_KEY = ["team"] as const;
  * has rich fallback paths (demo SAMPLE_TEAM, unreachable empty),
  * so one quick retry is enough to recover from a flapping gateway
  * without burning seconds on exponential backoff.
+ *
+ * IMPORTANT (Scene-1 regression, fixed 2026-06-01): these options only
+ * take effect once the observer actually mounts. On `/team` the observer
+ * was being gated by the page's `useSearchParams()` Suspense boundary,
+ * which sits inside `RouteTransition`'s `<AnimatePresence>` (see
+ * `lib/motion/primitives.tsx`): when that boundary suspended on hydration
+ * it never committed on the client, so `queryFn` never fired and the page
+ * showed a perpetual loading skeleton with NO `/api/v1/workers` request.
+ * The fix lives in `web/app/(app)/team/page.tsx`: `useTeam()` is now
+ * called ABOVE that boundary. Keep this fetch out of any
+ * `useSearchParams()`-suspending subtree. Pinned by
+ * `web/app/(app)/team/team-fetch-fires.test.tsx`.
  */
 export function useTeam() {
   return useQuery<FetchTeamResult>({

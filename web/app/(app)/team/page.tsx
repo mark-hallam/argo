@@ -42,14 +42,73 @@ const LOADING_SKELETON_COUNT = 6;
 const URL_DEBOUNCE_MS = 150;
 
 export default function TeamPage() {
+  // The data fetch lives in this OUTER component — deliberately ABOVE the
+  // `useSearchParams()` Suspense boundary below.
+  //
+  // Why this matters (the camera-visible Scene-1 regression this closes):
+  // `useSearchParams()` triggers React's client-side-rendering bailout — a
+  // suspend — on this route. That Suspense boundary sits inside the route
+  // group's `RouteTransition` (`<AnimatePresence><motion.div>` in
+  // `lib/motion/primitives.tsx`). When a boundary suspends during hydration
+  // *inside* AnimatePresence, the subtree can fail to commit on the client:
+  // its passive effects never flush, so React Query's observer never
+  // subscribes and `queryFn` never fires. `/team` then shows the dehydrated
+  // SSR skeleton FOREVER and the browser issues NO `/api/v1/workers`
+  // request at all. (Verified: input had no React props → never hydrated;
+  // 1 pending / 0 completed Suspense template.) The prior fix #2444 /
+  // commit d81042118 tuned the hook's `staleTime`/`refetchOnMount`/`retry`,
+  // but that only helps once the observer mounts — and the boundary above
+  // was gating whether it ever mounts.
+  //
+  // Hoisting `useTeam()` + `useAuditFeed()` here means the queries mount in
+  // a component that does NOT call `useSearchParams()`. It hydrates
+  // normally, its effects flush, and the `/api/v1/workers` fetch fires
+  // regardless of the inner boundary's AnimatePresence interaction. The
+  // search-param-driven filter UI stays inside the boundary (it genuinely
+  // needs the URL); it now only filters already-fetched data, so a slow or
+  // wedged boundary can never gate the roster from loading.
+  //
+  // Pinned by `web/app/(app)/team/team-fetch-fires.test.tsx`.
+  const teamQuery = useTeam();
+  const auditQuery = useAuditFeed({ range: "7d" });
+
+  const workers = Array.isArray(teamQuery.data?.workers) ? teamQuery.data.workers : [];
+  const workingCount = workers.filter((w) => w.status === "working").length;
+  // weeklyActions reads from the real /api/v1/audit?range=7d feed —
+  // brand-new tenants surface a real 0. Hours-saved is intentionally
+  // omitted: no real signal exists to derive it honestly.
+  const weeklyActions = auditQuery.data?.pages?.[0]?.rows.length ?? 0;
+
   return (
-    <Suspense fallback={<TeamPageFallback />}>
-      <TeamPageContent />
-    </Suspense>
+    <>
+      <TeamHero
+        total={workers.length}
+        working={workingCount}
+        weeklyActions={weeklyActions}
+      />
+      <Suspense fallback={<TeamFiltersFallback query={teamQuery} workers={workers} />}>
+        <TeamFilteredView query={teamQuery} workers={workers} />
+      </Suspense>
+    </>
   );
 }
 
-function TeamPageFallback() {
+// Suspense fallback for the filter bar + body — shown only for the brief
+// window while `useSearchParams()` resolves. It renders the SAME body the
+// committed view would (loading / error / roster), driven by the already-
+// mounted query, so the roster is NEVER gated behind the boundary
+// resolving. The header is the static, non-interactive variant.
+function TeamFiltersFallback({
+  query,
+  workers,
+}: {
+  query: UseQueryResult<FetchTeamResult>;
+  workers: Worker[];
+}) {
+  const sorted = useMemo<Worker[]>(
+    () => [...workers].sort(compareWorkersForGrid),
+    [workers],
+  );
   return (
     <>
       <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
@@ -58,14 +117,28 @@ function TeamPageFallback() {
         </div>
       </div>
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
-        <LoadingGrid />
+        {renderTeamBody({
+          query,
+          total: workers.length,
+          filtered: sorted,
+          filters: EMPTY_FILTERS,
+          onClearAll: NOOP,
+        })}
       </div>
     </>
   );
 }
 
-function TeamPageContent() {
-  const teamQuery = useTeam();
+const EMPTY_FILTERS: TeamFilters = { q: "", status: null };
+const NOOP = () => {};
+
+function TeamFilteredView({
+  query: teamQuery,
+  workers,
+}: {
+  query: UseQueryResult<FetchTeamResult>;
+  workers: Worker[];
+}) {
   const router = useRouter();
   const pathname = usePathname() ?? "/team";
   const searchParams = useSearchParams();
@@ -135,7 +208,8 @@ function TeamPageContent() {
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [pathname, router, searchParams]);
 
-  const workers = Array.isArray(teamQuery.data?.workers) ? teamQuery.data.workers : [];
+  // `workers` is fetched by the parent and passed down — see the
+  // `TeamPage` doc-comment for why the fetch lives above this boundary.
   const total = workers.length;
   const dataSource = teamQuery.isPending
     ? "loading"
@@ -148,20 +222,8 @@ function TeamPageContent() {
     [workers, filters],
   );
 
-  // weeklyActions reads from the real /api/v1/audit?range=7d feed —
-  // brand-new tenants surface a real 0. Hours-saved is intentionally
-  // omitted: no real signal exists to derive it honestly.
-  const workingCount = workers.filter((w) => w.status === "working").length;
-  const auditQuery = useAuditFeed({ range: "7d" });
-  const weeklyActions = auditQuery.data?.pages?.[0]?.rows.length ?? 0;
-
   return (
     <>
-      <TeamHero
-        total={total}
-        working={workingCount}
-        weeklyActions={weeklyActions}
-      />
       <PageHeader
         total={total}
         filteredCount={filtered.length}
