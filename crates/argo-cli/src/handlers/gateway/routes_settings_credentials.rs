@@ -8,12 +8,10 @@
 //!
 //! * `GET /api/v1/api-keys` — the SKYCOT service-token roster
 //!   (`ApiKeyRow[]`: id, name, masked prefix, scopes, created/last-used).
-//!   There is no first-class api-key store yet (the SPA's scope/cohort
-//!   model has no Rust home — `service_token_binding` only stores a
-//!   token *hash* + principal, not a named, scoped key), so this returns
-//!   an empty array (`200 []`) and the page renders its empty state.
-//!   Follow-up: a dedicated `api_key` store (see
-//!   `mission-gateway-api-keys-endpoint`).
+//!   This now delegates to the first-class `api_key` store
+//!   (`routes_api_keys::list_response`, migration v86) — a tenant-scoped
+//!   read of named, scoped keys, metadata only (NEVER a token or
+//!   token-hash). Create + revoke live in `routes_api_keys.rs`.
 //!
 //! * `GET /api/v1/providers/keys` — BYOK upstream-provider key STATUS
 //!   (`ProviderKeyStatus[]`: provider, configured, masked_preview,
@@ -60,21 +58,14 @@ pub(super) async fn dispatch_get(
     }
     let bare = bare_path(req);
     if bare == API_KEYS_PATH {
-        return Some(api_keys_response());
+        // Delegated to the first-class `api_key` store (v86). This file
+        // keeps only the provider-key STATUS read below.
+        return Some(super::routes_api_keys::list_response(req, store).await);
     }
     if bare == PROVIDER_KEYS_PATH {
         return Some(provider_keys_response(req, store).await);
     }
     None
-}
-
-/// `GET /api/v1/api-keys` — service-token roster, metadata only.
-///
-/// No api-key store exists yet, so the honest answer is an empty list:
-/// the page shows its empty state rather than fabricating rows. Never
-/// returns a token value.
-fn api_keys_response() -> (&'static str, String) {
-    ("200 OK", "[]".to_string())
 }
 
 /// `GET /api/v1/providers/keys` — BYOK provider-key STATUS, metadata

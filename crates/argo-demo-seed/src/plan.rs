@@ -164,4 +164,11 @@ pub struct SeedReport {
     /// instead of the `draft`-default unreviewed floor. See
     /// [`crate::seed_trust_grades`].
     pub trust_grades_set: usize,
+    /// Number of metadata-only `api_key` rows seeded so
+    /// `/settings/api-keys` (`GET /api/v1/api-keys`) shows a real key
+    /// roster instead of an empty state. The canonical seed inserts 3
+    /// rows ("Production CI" / "Staging dashboard" / "Analytics
+    /// read-only") with random throwaway hashes — NOT working
+    /// credentials, no plaintext secret. See [`crate::seed_api_keys`].
+    pub api_keys_seeded: usize,
 }

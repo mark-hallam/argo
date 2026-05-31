@@ -314,6 +314,13 @@ async fn api_v1_dispatch(
     if let Some(resp) = super::routes_me_export::dispatch(req, store).await {
         return Some(resp);
     }
+    // Frontier-B SPEC 2 — `POST /api/v1/api-keys` create one named,
+    // scoped, tenant-isolated API key (mint token → store hash +
+    // metadata → bind for auth → return token once). The matching
+    // DELETE revoke is wired in `routes_dispatch_delete::dispatch_delete`.
+    if let Some(resp) = super::routes_api_keys::dispatch_post(req, store).await {
+        return Some(resp);
+    }
     if let Some(resp) = super::routes_skill_ir::dispatch_post(req, store).await {
         return Some(resp);
     }

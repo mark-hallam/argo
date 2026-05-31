@@ -1,4 +1,5 @@
-//! DELETE-route dispatch for the J11 worker hard-delete endpoint.
+//! DELETE-route dispatch for the J11 worker hard-delete endpoint plus
+//! the Frontier-B SPEC 2 api-key revoke.
 //!
 //! Pure router. Returns `Some(resp)` on a match, `None` otherwise so the
 //! caller in `dispatch_post` can fall through to its existing
@@ -8,8 +9,23 @@
 use argo_store::SessionStore;
 use std::sync::Arc;
 
-/// Dispatch DELETE verbs anchored under `/api/v1/workers/<id>`.
+/// Dispatch DELETE verbs this hub owns: `/api/v1/api-keys/<id>` (revoke)
+/// and `/api/v1/workers/<id>` (hard-delete). Each sub-arm returns `None`
+/// for a non-matching path so the caller falls through.
 pub(super) async fn dispatch_delete(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> Option<(&'static str, String)> {
+    // Frontier-B SPEC 2 — revoke one API key (tenant-verified inside the
+    // handler; a cross-tenant id matches no row → 404).
+    if let Some(resp) = super::routes_api_keys::dispatch_delete(req, store).await {
+        return Some(resp);
+    }
+    dispatch_worker_delete(req, store).await
+}
+
+/// `DELETE /api/v1/workers/<id>` — J11 hard-delete.
+async fn dispatch_worker_delete(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> Option<(&'static str, String)> {

@@ -83,6 +83,7 @@ mod v82;
 mod v83;
 mod v84;
 mod v85;
+mod v86;
 mod v9;
 
 mod duplicate_slot_validator;

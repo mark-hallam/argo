@@ -4,6 +4,13 @@
 
 pub mod anomaly;
 mod anomaly_persistence;
+/// First-class, tenant-scoped named API keys backing the
+/// `/settings/api-keys` SPA surface (Frontier-B depth, SPEC 2). Stores
+/// the SHA-256 token *hash* + masked preview + scopes / cohorts /
+/// lifecycle metadata; the raw secret never lands in the database.
+/// Composes with [`service_token_binding`] for auth-time principal +
+/// tenant resolution. Schema owned by migration `v86`.
+pub mod api_key;
 /// Server-defined approval bundles (Stream
 /// `mission-approval-bundle-ui`). A worker that emits N coherent
 /// low-risk actions can group them under one bundle id so the
@@ -368,7 +375,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 85;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 86;
 
 #[cfg(test)]
 #[path = "handoff_stats_query_tests.rs"]

@@ -139,6 +139,7 @@ fn print_text_report(args: &DemoSeedArgs, report: &SeedReport, elapsed: std::tim
     println!("  workflow_runs_seeded:       {}", report.workflow_runs_seeded);
     println!("  knowledge_docs_seeded:      {}", report.knowledge_docs_seeded);
     println!("  trust_grades_set:           {}", report.trust_grades_set);
+    println!("  api_keys_seeded:            {}", report.api_keys_seeded);
     println!();
     println!("Cross-tenant invisibility (Scene 6 negative check):");
     println!("  foreign_workers_created:    {}", report.foreign_workers_created);

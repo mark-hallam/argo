@@ -33,14 +33,18 @@ async fn store() -> Arc<SessionStore> {
 }
 
 #[tokio::test]
-async fn api_keys_returns_empty_array_200() {
+async fn api_keys_delegates_to_store_empty_on_fresh_tenant() {
+    // The api-keys GET now delegates to the first-class `api_key` store
+    // (v86) via `routes_api_keys::list_response`. On a fresh tenant the
+    // honest answer is still a bare empty array — but it is a real
+    // tenant-scoped DB read, not a hard-coded stub.
     let s = store().await;
     let req = "GET /api/v1/api-keys HTTP/1.1\r\nHost: x\r\n\r\n";
     let (status, body) = dispatch_get(req, Some(&s)).await.expect("api-keys dispatch");
     assert_eq!(status, "200 OK");
     let parsed: serde_json::Value = serde_json::from_str(&body).expect("json");
     let arr = parsed.as_array().expect("bare array");
-    assert!(arr.is_empty(), "no api-key store yet → empty list: {body}");
+    assert!(arr.is_empty(), "fresh tenant has no keys: {body}");
 }
 
 #[tokio::test]

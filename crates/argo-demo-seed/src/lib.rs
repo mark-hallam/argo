@@ -41,6 +41,7 @@ mod personas;
 mod plan;
 mod retros;
 mod seed;
+mod seed_api_keys;
 mod seed_knowledge;
 mod seed_notifications;
 mod seed_trust_grades;
