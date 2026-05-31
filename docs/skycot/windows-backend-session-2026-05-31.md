@@ -711,3 +711,57 @@ would mean inventing library scope with no flagged gap — against the
   in mind.
 
 Not recommended: picking another library module just to have something to build.
+
+---
+
+## Phase V1 (Voice) — NO CODE SHIPPED: provider already exists + live-verified (stale premise)
+
+**Task:** implement the OpenAI STT/TTS provider in `argo-voice-io` behind
+the voice trait + `ARGO_VOICE_PROVIDER=openai`.
+
+**Finding (grep-before-write / re-validate-intent):** the premise was stale.
+The real OpenAI voice provider is **already on origin, shipped + live-verified
+by the Mac session**, at `crates/argo-cli/src/handlers/gateway/routes_voice_io/openai.rs`:
+- STT `POST /v1/audio/transcriptions` (multipart, `whisper-1`) → text
+- TTS `POST /v1/audio/speech` (JSON, `tts-1`) → audio bytes + content-type
+- behind the gateway `VoiceProvider` trait, selected by
+  `provider::resolve_voice_provider()` reading `ARGO_VOICE_PROVIDER=openai` +
+  `OPENAI_API_KEY`; its own `openai_tests.rs` alongside.
+- **Live-verified 2026-05-30 against a real key** (DEC-023 P2; FEATURE_MATRIX
+  at-a-glance, updated 2026-05-31): TTS→`audio/mpeg`, STT round-trip verbatim,
+  pitch-turn over-claim deferred with no `$`.
+
+**Why I shipped nothing.** Building a second OpenAI adapter in `argo-voice-io`
+would be a **parallel abstraction** (forbidden by SWARM_PROTOCOL / DRIFT_
+PREVENTION) against a *different* trait — `argo-voice-io`'s
+`SpeechToText`/`TextToSpeech` (`&[u8]`/`&str`+`VoiceId`, `ArgoResult`) vs the
+gateway's `VoiceProvider` (`transcribe(audio,mime)->String`,
+`synthesize(text)->(bytes,mime)`, `VoiceProviderError`). Mine could not share
+the live-verified path; wiring it would require changing the gateway (argo-cli,
+non-Windows-buildable) and would risk the working path. Correct call:
+**subtract, don't add.**
+
+**Process note (honest):** my first pass wrote 3 files
+(`openai.rs`/`http.rs`/`openai_tests.rs`) against an API that the compaction
+summary had **mis-described** (it invented `AudioFormat`/`SpeechRequest`/
+`VoiceError`/`&AudioClip` signatures the crate does not have). Two `Edit`s to
+wire them (Cargo.toml + lib.rs) FAILED because the real files differ — which
+*forced* a read of the real source and surfaced both the API mismatch and the
+already-shipped Mac adapter. The orphan files were deleted; **working tree is
+clean == origin (`39a859f2c`), nothing committed to code.** The failed wire-up
+was the safety net that prevented shipping broken/duplicate code.
+
+**Architectural observation for the Mac (not acted on — argo-cli lane):**
+`argo-voice-io` is **still an orphan crate — zero workspace callers**
+(`grep -rl argo-voice-io crates/*/Cargo.toml` → 0). The gateway reimplemented
+the voice abstraction (`routes_voice_io/provider.rs::VoiceProvider`) instead of
+depending on the L1 `argo-voice-io` traits. So there are now **two voice
+abstractions**. Either (a) make the gateway depend on `argo-voice-io` and delete
+its private trait, or (b) delete `argo-voice-io` as dead scaffold. Both are
+argo-cli-side / Mac decisions. Flagging per the no-parallel-abstractions rule.
+
+**Reinforces the prior lane-exhaustion assessment:** the live voice frontier
+(L1b adapter, L2 gateway loop, L3a browser mic) is done or Mac-owned; the only
+unbuilt voice piece is the meeting-join layer L3b (Recall.ai/Zoom-SDK/Teams) —
+gateway integration, not a Windows-buildable library. No genuine Windows
+backend-library voice work remains.
