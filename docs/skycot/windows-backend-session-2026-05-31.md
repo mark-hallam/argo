@@ -543,3 +543,55 @@ merged `.md` (never hand-merging generated HTML). My Teammate-eval row
 auto-merged cleanly (outside the conflict block).
 
 **Phase 4 final state: `HEAD == origin == 4c8f1f44e`, 0/0, clean.**
+
+---
+
+## Phase 5 — production-trace clustering (self-improve loop) — VERIFIED + shipped
+
+**Picked:** the self-improvement / skill-learning loop. First verified state
+against FEATURE_MATRIX: the pieces the brief named were mostly ALREADY shipped —
+skill A/B-by-eval (`ab_eval.rs`, DEC-023 P4), training-data export (`7e84ba7d6`),
+regression gate (`regression.rs`), cross-tenant trust graph (`trust_graph.rs`,
+wired to CLI + store). The "Self-improve" row (line 206) + the competitive
+feedback-mining row (line 250) BOTH listed **trace-clustering** as the
+remaining backlog item. That was the genuine greenfield gap → built it.
+
+**Shipped (commit `653ec4d47`):**
+- `crates/argo-skill/src/trace_cluster.rs` (198 LOC) —
+  `cluster_traces(&[TraceFingerprint], min_similarity) -> Vec<TraceCluster>`:
+  greedy single-pass, seed-anchored clustering of CU traces by
+  action-sequence similarity, **across the `(vertical, action)` cohort-key
+  boundary** that `dreams_distillation::group_into_cohorts` cannot cross — so
+  a recurring shape emitted under two different verticals/actions becomes ONE
+  distillation candidate. Reuses the proven
+  `dreams_distillation::trajectory_similarity` (bag-of-tokens cosine — no
+  parallel metric). `distillation_candidates(&[TraceCluster], min_size,
+  min_mean_success)` selects clusters meeting size + mean-success floors,
+  sorted strongest-first. Deterministic (output depends only on input order).
+- `trace_cluster_tests.rs` (13 tests) + `pub mod trace_cluster;` in lib.rs.
+
+**VERIFIED (Windows):** `cargo test -p argo-skill` lib unittests → **405 passed
+/ 0 failed**, incl. the 13 new trace_cluster tests; `cargo clippy -p argo-skill
+--lib` → exit 0, 0 warnings on the new module.
+
+**Boundary note (pre-existing, NOT this change):** the `claim_4_live_install_invoke`
+integration test fails on THIS Windows machine with `os error 740` ("requires
+elevation" — the test binary cannot *launch*, "never executed"). Same
+Windows-environment artifact catalogued in the Phase-1 inventory (Group C); it
+passes on the Linux CI + macOS. An additive library module cannot affect a
+binary-launch failure. Reported truth-bounded: lib green, that one integration
+binary red for an environment reason, not a regression.
+
+**Honest mistake caught by verification:** my first draft imported a
+`sequence_similarity` that does not exist — the real function is
+`trajectory_similarity`. `cargo` would have failed; I fixed the import (and a
+"Jaccard" mislabel — the metric is cosine) before it ever ran. Wrong version
+never left the machine.
+
+**Ledger:** FEATURE_MATRIX "Self-improve" (206) + feedback-mining (250) rows
+flipped trace-clustering backlog → SHIPPED, both kept 🟡 Partial (the
+feedback→Dreams auto-retrain TRIGGER — the cron/CLI consumer that feeds
+`cluster_traces` output into the proposal pipeline — is the next backlog item;
+this is the library primitive). HTML regenerated, same commit.
+
+**Phase 5 final state: `HEAD == origin == 653ec4d47`, 0/0, clean.**
