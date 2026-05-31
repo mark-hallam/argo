@@ -171,4 +171,24 @@ pub struct SeedReport {
     /// read-only") with random throwaway hashes — NOT working
     /// credentials, no plaintext secret. See [`crate::seed_api_keys`].
     pub api_keys_seeded: usize,
+    /// Number of real memory facts written into the hero workers' own
+    /// `WorkerSelf` namespaces (via the live
+    /// [`argo_memory::MemoryStore::append_in_namespace`] path) so the
+    /// worker Memory tab's "Facts she knows" panel
+    /// (`GET /api/v1/workers/<id>/memory` → `facts`) shows real,
+    /// persona-tied knowledge instead of an empty state. Idempotent per
+    /// worker. See [`crate::seed_worker_memory`].
+    pub worker_memory_facts_seeded: usize,
+    /// Number of open conversation threads seeded into the
+    /// `worker_conversation_thread` store (migration v87) so the Memory
+    /// tab's "Active conversations" panel (`→ active_conversations`)
+    /// renders real persona-tied threads. Idempotent per worker. See
+    /// [`crate::seed_worker_memory`].
+    pub worker_conversation_threads_seeded: usize,
+    /// Number of non-canonical (stray) workers pruned — archived — from
+    /// the demo tenant for record-readiness, so a freshly-seeded tenant is
+    /// EXACTLY the canonical roster + enrichment. Runs ONLY on the demo
+    /// path (`run_canonical_v1_seed`); canonical workers are never touched.
+    /// See [`crate::seed_prune`].
+    pub workers_pruned: usize,
 }

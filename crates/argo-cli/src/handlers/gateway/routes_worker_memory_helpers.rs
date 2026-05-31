@@ -203,6 +203,159 @@ pub(super) fn fact_json(row: &FactRow, policy: &RedactionPolicy) -> Value {
     })
 }
 
+// ----- active conversations ------------------------------------------------
+
+/// Max conversation threads / recent decisions returned per worker. The
+/// SPA cards cap their own render (`RecentDecisionsCard` at 10); this
+/// bounds the read so the payload stays small.
+const CONVERSATION_LIMIT: i64 = 10;
+const DECISION_LIMIT: i64 = 10;
+
+/// Read a worker's open conversation threads from the
+/// `worker_conversation_thread` store (migration v87) and shape them into
+/// the camelCase objects the `ActiveConversationsCard` renders directly
+/// (`conversationId` / `counterpartyHandle` / `topic` / `lastMessageAt` /
+/// `href`). The handle + topic are pre-redacted here (the card re-wraps
+/// them in `<RedactedText>` for a second layer). Tenant + worker-scoped by
+/// the store query — no cross-tenant / cross-worker leak.
+pub(super) async fn fetch_active_conversations(
+    store: &Arc<SessionStore>,
+    ctx: &WorkerCtx,
+    policy: &RedactionPolicy,
+) -> ArgoResult<Vec<Value>> {
+    let ns = &ctx.worker.memory_namespace;
+    let rows = argo_store::conversation_thread::list_for_worker(
+        store.pool(),
+        &ns.tenant_id.to_string(),
+        ns.worker_id.0.as_bytes().as_slice(),
+        CONVERSATION_LIMIT,
+    )
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| {
+            let (handle, _) = redact_text(&r.counterparty_handle, policy);
+            let (topic, _) = redact_text(&r.topic, policy);
+            let last = Utc
+                .timestamp_micros(r.last_message_at)
+                .single()
+                .map_or_else(String::new, |dt| dt.to_rfc3339());
+            json!({
+                "conversationId": r.id,
+                "counterpartyHandle": handle,
+                "topic": topic,
+                "lastMessageAt": last,
+                "href": r.audit_href.unwrap_or_default(),
+            })
+        })
+        .collect())
+}
+
+// ----- recent decisions ----------------------------------------------------
+
+/// Derive a worker's recent material decisions from the audit log — the
+/// approval log IS the decision record. Reads the worker's
+/// `approval.asked` audit rows (which carry `approval_id` + a human
+/// `label`), looks up the canonical decision on `approval_request`, and
+/// emits one camelCase `RecentDecision` per **decided** request
+/// (`decisionId` / `label` / `outcome` "approved"|"refused" / `decidedAt`
+/// / `href`). Pending requests are not decisions and are skipped, so a
+/// worker with only open asks honestly shows no decisions. No new table —
+/// this is a read over existing rows.
+pub(super) async fn fetch_recent_decisions(
+    store: &Arc<SessionStore>,
+    ctx: &WorkerCtx,
+    policy: &RedactionPolicy,
+) -> ArgoResult<Vec<Value>> {
+    // Spine: the worker's approval-asked audit rows (newest-first).
+    let rows: Vec<(Vec<u8>, String, i64)> = sqlx::query_as(
+        "SELECT id, payload_json, created_at FROM audit_record \
+         WHERE tenant_id = ? AND worker_id = ? AND kind = 'approval.asked' \
+         ORDER BY created_at DESC LIMIT ?",
+    )
+    .bind(ctx.tenant.to_string())
+    .bind(ctx.worker.id.to_string())
+    .bind(DECISION_LIMIT)
+    .fetch_all(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("recent-decisions audit scan: {e}")))?;
+
+    let mut out = Vec::new();
+    for (audit_id, payload_json, created_at) in rows {
+        let payload: Value = serde_json::from_str(&payload_json).unwrap_or(Value::Null);
+        let Some(approval_id) = payload.get("approval_id").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(decision) = lookup_decision(store, ctx.tenant, approval_id).await? else {
+            // Still pending / not found — not a decision.
+            continue;
+        };
+        let label = payload
+            .get("label")
+            .or_else(|| payload.get("summary"))
+            .and_then(Value::as_str)
+            .unwrap_or("Approval decision");
+        let (label, _) = redact_text(label, policy);
+        let decided_at = Utc
+            .timestamp_micros(decision.decided_at_micros.unwrap_or(created_at))
+            .single()
+            .map_or_else(String::new, |dt| dt.to_rfc3339());
+        let href = Uuid::from_slice(&audit_id)
+            .map(|u| format!("/audit/action/{u}"))
+            .unwrap_or_default();
+        out.push(json!({
+            "decisionId": approval_id,
+            "label": label,
+            "outcome": decision.outcome,
+            "decidedAt": decided_at,
+            "href": href,
+        }));
+    }
+    Ok(out)
+}
+
+struct DecidedApproval {
+    /// `"approved"` or `"refused"` — the SPA chip value.
+    outcome: &'static str,
+    decided_at_micros: Option<i64>,
+}
+
+/// Look up the canonical decision for `approval_id` under `tenant`.
+/// Returns `None` when the request is still pending or does not exist
+/// (so the caller skips it). Tenant-scoped: a cross-tenant id matches no
+/// row. Maps the stored status `granted`→approved, `denied`/`expired`→
+/// refused.
+async fn lookup_decision(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    approval_id: &str,
+) -> ArgoResult<Option<DecidedApproval>> {
+    let Ok(id) = Uuid::parse_str(approval_id) else {
+        return Ok(None);
+    };
+    let row: Option<(String, Option<i64>)> = sqlx::query_as(
+        "SELECT status, decided_at FROM approval_request \
+         WHERE id = ? AND tenant_id = ?",
+    )
+    .bind(id.as_bytes().as_slice())
+    .bind(tenant.0.as_bytes().as_slice())
+    .fetch_optional(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("recent-decisions approval lookup: {e}")))?;
+    let Some((status, decided_at)) = row else {
+        return Ok(None);
+    };
+    let outcome = match status.as_str() {
+        "granted" => "approved",
+        "denied" | "expired" => "refused",
+        _ => return Ok(None), // pending — not a decision
+    };
+    Ok(Some(DecidedApproval {
+        outcome,
+        decided_at_micros: decided_at,
+    }))
+}
+
 // ----- voice profile -------------------------------------------------------
 
 pub(super) fn voice_profile_json(worker: &Worker) -> Value {

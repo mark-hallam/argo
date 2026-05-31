@@ -98,6 +98,14 @@ pub async fn run_canonical_v1_seed(
     let worker_ids = seed_demo_workers(&identities, opts.tenant_id).await?;
     report.workers_created = worker_ids.len();
 
+    // Record-readiness: prune the demo tenant to EXACTLY the canonical
+    // roster (archive stray workers like Genesis-hired "Maya"). DEMO PATH
+    // ONLY, canonical-protected, tenant-scoped, reversible — see seed_prune.
+    let canonical_names: Vec<&str> = DEMO_SEED_PERSONAS.iter().map(|p| p.name).collect();
+    report.workers_pruned =
+        crate::seed_prune::prune_demo_tenant_to_canonical(store, opts.tenant_id, &canonical_names)
+            .await?;
+
     let foreign_tenant = TenantId::new();
     let foreign_worker_id = seed_foreign_worker(&identities, foreign_tenant).await?;
     report.foreign_workers_created = 1;
@@ -107,9 +115,8 @@ pub async fn run_canonical_v1_seed(
     report.foreign_skills_created = seed_foreign_skill(store, foreign_tenant).await?;
     report.marketplace_skills_created =
         seed_demo_marketplace_skills(store, opts.tenant_id).await?;
-    // Assign real catalog skills to the hero workers so Claim 4's
-    // adoption surfaces (`/skills/<id>/usage`, "learned this month")
-    // show genuine usage. Runs AFTER the catalog rows exist.
+    // Assign real catalog skills to the hero workers (Claim 4 adoption:
+    // `/skills/<id>/usage` + "learned this month"). After catalog rows.
     report.worker_skills_assigned =
         crate::seed_worker_overlays::seed_worker_skill_assignments(
             store,
@@ -130,17 +137,11 @@ pub async fn run_canonical_v1_seed(
     .await?;
 
     // ── Pass A — real LLM turns (deferred per fix-brief split) ────
-    // The brief calls for 10-20 real `AgentRunner::run_turn` calls
-    // that produce real audit rows the camera drills into. The
-    // wire-up requires a fully-constructed `AgentDeps` (provider
-    // manifest, MCP tool registry, capability engine, sessions)
-    // that the one-shot CLI does not currently materialize. The
-    // sibling brief `mission-demo-seed-real-llm-driver` covers that
-    // wire-up. Here we honor the fail-closed contract (above) and
-    // accumulate the Pass A row count from the deterministic shape
-    // — `TurnStart` + `AssistantMessage` + `TurnEnd` per turn — so
-    // the drill-in beats in Scenes 2/6 land on real-schema rows
-    // bound to real worker ids.
+    // Real `AgentRunner::run_turn` wire-up needs a full `AgentDeps` the
+    // one-shot CLI does not materialize (sibling brief
+    // `mission-demo-seed-real-llm-driver`). Here we honor the fail-closed
+    // contract and seed the deterministic `TurnStart`/`AssistantMessage`/
+    // `TurnEnd` shape so Scenes 2/6 drill into real-schema rows.
     if pass_a_real {
         report.pass_a_real_llm = true;
         report.pass_a_audit_rows = seed_pass_a_turn_shaped_rows(
@@ -158,9 +159,8 @@ pub async fn run_canonical_v1_seed(
         seed_pass_b_dressing(store, opts.tenant_id, &worker_ids, opts.dressing_audit_rows).await?;
     report.audit_backstory_rows = seed_audit_backstory(store, opts.tenant_id, &worker_ids).await?;
 
-    // Cross-tenant audit row — the camera does not drill into this
-    // one; it just needs to exist for the Scene 6 SQL to return a
-    // real empty row count against the demo tenant.
+    // Cross-tenant audit row — exists so Scene 6's SQL returns a real
+    // empty count against the demo tenant (camera doesn't drill in).
     report.foreign_audit_rows =
         seed_foreign_audit_row(store, foreign_tenant, foreign_worker_id).await?;
 
@@ -188,34 +188,30 @@ pub async fn run_canonical_v1_seed(
     Ok(report)
 }
 
-/// Seed the REAL-but-empty surfaces — bell notifications, Scene-5
-/// workflow run history, the `/settings/knowledge` handbook, honest
-/// per-worker trust grades, and the `/settings/api-keys` roster — onto
-/// `report`. Each writes real rows the live endpoint serves; idempotent.
+/// Seed the REAL-but-empty surfaces — bell notifications, workflow run
+/// history, knowledge handbook, trust grades, API-key roster, and worker
+/// memory (facts + conversation threads) — onto `report`. Each writes real
+/// rows the live endpoint serves; idempotent.
 async fn seed_enrichment_surfaces(
     store: &Arc<SessionStore>,
     tenant_id: TenantId,
     worker_ids: &[argo_identity::WorkerId],
     report: &mut SeedReport,
 ) -> SeedResult<()> {
-    // Broadcast bell notifications mirroring the seeded approvals /
-    // workers / workflow so the bell shows real rows, not "Nothing new."
+    // Broadcast bell notifications so the bell shows real rows.
     report.notifications_seeded =
         crate::seed_notifications::seed_notifications(store, tenant_id).await?;
 
-    // Run history for the Scene-5 `customer_research_followup` workflow.
-    // NB `workflow_run` is NOT tenant-scoped (migration 18); rows match
-    // on the compound `{vertical}/{name}` key the live route builds.
+    // Run history for the Scene-5 workflow (`workflow_run` is NOT
+    // tenant-scoped, mig 18; rows match the `{vertical}/{name}` key).
     report.workflow_runs_seeded = crate::seed_workflow_runs::seed_workflow_runs(store).await?;
 
-    // Workplace-knowledge handbook docs so /settings/knowledge lists
-    // real wiki pages.
+    // Workplace-knowledge handbook docs so /settings/knowledge lists pages.
     report.knowledge_docs_seeded =
         crate::seed_knowledge::seed_knowledge(store, tenant_id).await?;
 
     // Honest per-worker trust grades so the Trust tab shows a real grade
-    // instead of the draft-default floor. Positional-aligned with
-    // DEMO_SEED_PERSONAS, the same spine seed_demo_workers walked.
+    // (positional-aligned with DEMO_SEED_PERSONAS).
     report.trust_grades_set =
         crate::seed_trust_grades::seed_trust_grades(store, tenant_id, DEMO_SEED_PERSONAS, worker_ids)
             .await?;
@@ -223,6 +219,10 @@ async fn seed_enrichment_surfaces(
     // Metadata-only API-key roster (throwaway hashes, no plaintext
     // secret) so /settings/api-keys shows real cards (Frontier-B SPEC 2).
     report.api_keys_seeded = crate::seed_api_keys::seed_api_keys(store, tenant_id).await?;
+
+    // Real worker-memory facts (live append path) + open conversation
+    // threads (v87 store) so the Memory tab renders real persona-tied data.
+    crate::seed_worker_memory::seed_worker_memory(store, tenant_id, worker_ids, report).await?;
 
     Ok(())
 }

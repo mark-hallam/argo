@@ -8,12 +8,15 @@
 //!   tombstone marker body ([`FACT_TOMBSTONE_MARKER`]); the audit
 //!   row carries the original text. Real `deleted_at` arrives with
 //!   `mission-enterprise-memory-retention`.
-//! - **Active conversations / recent decisions.** v1 has no
-//!   `conversation_thread` table and `audit_record` rows carry
-//!   neither `counterparty_handle` nor a `decision_meta.material`
-//!   marker, so both sections are stable empty arrays in v1. Shape
-//!   is preserved so the frontend renders "no activity yet" until
-//!   the named follow-up briefs populate the underlying signals.
+//! - **Active conversations / recent decisions.** Both are now backed
+//!   by real signals. Open threads are read from the
+//!   `worker_conversation_thread` store (migration v87, tenant +
+//!   worker-scoped). Recent decisions are *derived* — no parallel
+//!   table: the worker's `approval.asked` audit rows are the spine
+//!   (worker_id + human label) and the canonical `approval_request`
+//!   row supplies the outcome, so the audit log IS the decision
+//!   record. A worker with no threads / no decided approvals honestly
+//!   renders the empty states.
 //! - **PUT/DELETE routing.** No dedicated PUT/DELETE dispatchers;
 //!   `routes_dispatch_post` already carries non-POST routes (DELETE
 //!   for elevated-view, PATCH for retros).
@@ -29,9 +32,10 @@ use uuid::Uuid;
 mod helpers;
 
 use helpers::{
-    emit_audit, fact_json, fetch_active_facts, fetch_owned_active_fact, format_namespace_id,
-    not_found, parse_fact_id, parse_role_header, parse_text_body, parse_worker_id,
-    resolve_worker_ctx, role_shows_ns, server_error, voice_profile_json, WorkerCtx,
+    emit_audit, fact_json, fetch_active_conversations, fetch_active_facts, fetch_owned_active_fact,
+    fetch_recent_decisions, format_namespace_id, not_found, parse_fact_id, parse_role_header,
+    parse_text_body, parse_worker_id, resolve_worker_ctx, role_shows_ns, server_error,
+    voice_profile_json, WorkerCtx,
 };
 
 const FACT_MAX_BYTES: usize = 1000;
@@ -63,13 +67,25 @@ pub(super) async fn list_response(
             .collect::<Vec<_>>(),
         Err(e) => return server_error(&format!("fact list: {e}")),
     };
+    let facts_returned = facts.len();
+    // Active conversations + recent decisions are now backed by real
+    // signals: open threads come from the `worker_conversation_thread`
+    // store (migration v87); decisions are derived from the worker's
+    // approval audit rows + the canonical `approval_request` outcome.
+    // Both honestly render empty when the worker has none.
+    let active_conversations = match fetch_active_conversations(store, &ctx, &policy).await {
+        Ok(c) => c,
+        Err(e) => return server_error(&format!("active conversations: {e}")),
+    };
+    let recent_decisions = match fetch_recent_decisions(store, &ctx, &policy).await {
+        Ok(d) => d,
+        Err(e) => return server_error(&format!("recent decisions: {e}")),
+    };
     let visible = parse_role_header(req).as_deref().is_some_and(role_shows_ns);
     let body = json!({
         "facts": facts,
-        // See module docstring — both arrays are intentionally empty
-        // in v1 (underlying signals don't exist yet).
-        "active_conversations": Vec::<Value>::new(),
-        "recent_decisions": Vec::<Value>::new(),
+        "active_conversations": active_conversations,
+        "recent_decisions": recent_decisions,
         "voice_profile": voice_profile_json(&ctx.worker),
         "namespace_id": if visible {
             Value::String(format_namespace_id(&ctx.worker))
@@ -82,7 +98,7 @@ pub(super) async fn list_response(
         req,
         &ctx,
         "worker.memory.viewed",
-        json!({ "facts_returned": facts.len() }),
+        json!({ "facts_returned": facts_returned }),
     )
     .await;
     ("200 OK", body.to_string())
@@ -269,3 +285,7 @@ async fn prepare_with_existing_fact<'s>(
 #[cfg(test)]
 #[path = "routes_worker_memory_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "routes_worker_memory_tests2.rs"]
+mod tests2;

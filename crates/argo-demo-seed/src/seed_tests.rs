@@ -79,6 +79,20 @@ async fn skip_pass_a_seeds_dressing_only() {
     assert_eq!(report.knowledge_docs_seeded, 4);
     // Honest trust grade on every one of the eight hero teammates.
     assert_eq!(report.trust_grades_set, 8);
+    // Real worker-memory facts on the live append path + open conversation
+    // threads (v87) so the Memory tab renders real persona-tied data.
+    assert!(
+        report.worker_memory_facts_seeded >= 8,
+        "expected >= 1 memory fact per hero; got {}",
+        report.worker_memory_facts_seeded
+    );
+    assert!(
+        report.worker_conversation_threads_seeded >= 4,
+        "expected several seeded conversation threads; got {}",
+        report.worker_conversation_threads_seeded
+    );
+    // A fresh seed has no stray workers — the prune archives 0.
+    assert_eq!(report.workers_pruned, 0);
 
     // Vacuous-pass guard (round-37 pattern): seeded tenant sees the
     // eight real hero teammates (incl. Marcus, DEC-028); a DIFFERENT
@@ -198,4 +212,41 @@ async fn unknown_profile_is_rejected() {
     opts.skip_pass_a_turns = true;
     let err = run_canonical_v1_seed(&store, &opts).await.unwrap_err();
     assert!(matches!(err, SeedError::UnknownProfile(p) if p == "bogus"));
+}
+
+#[tokio::test]
+async fn canonical_seed_prunes_a_stray_to_exactly_eight() {
+    let store = open_store().await;
+    let tenant = TenantId::new();
+
+    // A stray Genesis-hired worker like "Maya" lands in the demo tenant
+    // (an interactive-session / verify-test artifact).
+    let stray = Worker::draft(
+        tenant,
+        "support",
+        Persona::named("Maya", "genesis"),
+        Role::new("Stray hired worker."),
+    );
+    IdentityStore::new(&store)
+        .create_worker(&stray)
+        .await
+        .unwrap();
+
+    let mut opts = SeedOptions::canonical_v1(tenant);
+    opts.skip_pass_a_turns = true;
+    opts.dressing_audit_rows = 0;
+    let report = run_canonical_v1_seed(&store, &opts).await.unwrap();
+
+    // The seed pruned exactly the one stray; the tenant is now exactly the
+    // canonical eight live (Maya is archived, not visible).
+    assert_eq!(report.workers_pruned, 1, "the stray Maya should be pruned");
+    let live = IdentityStore::new(&store)
+        .list_workers(tenant, false)
+        .await
+        .unwrap();
+    assert_eq!(live.len(), 8, "demo tenant is exactly the canonical eight after seed");
+    assert!(
+        !live.iter().any(|w| w.persona.name == "Maya"),
+        "Maya must be gone from the live roster"
+    );
 }

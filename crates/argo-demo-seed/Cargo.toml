@@ -11,6 +11,7 @@ description = "Argo — canonical v1.0 demo workspace seeder (real backend rows 
 argo-types = { path = "../argo-types" }
 argo-store = { path = "../argo-store" }
 argo-identity = { path = "../argo-identity" }
+argo-memory = { path = "../argo-memory" }
 argo-audit = { path = "../argo-audit" }
 argo-skill = { path = "../argo-skill" }
 argo-vertical = { path = "../argo-vertical" }

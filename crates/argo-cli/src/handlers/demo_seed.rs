@@ -140,6 +140,17 @@ fn print_text_report(args: &DemoSeedArgs, report: &SeedReport, elapsed: std::tim
     println!("  knowledge_docs_seeded:      {}", report.knowledge_docs_seeded);
     println!("  trust_grades_set:           {}", report.trust_grades_set);
     println!("  api_keys_seeded:            {}", report.api_keys_seeded);
+    println!(
+        "  worker_memory_facts_seeded: {}",
+        report.worker_memory_facts_seeded
+    );
+    println!(
+        "  worker_conversation_threads:{}",
+        report.worker_conversation_threads_seeded
+    );
+    println!();
+    println!("Record-readiness:");
+    println!("  workers_pruned (strays):    {}", report.workers_pruned);
     println!();
     println!("Cross-tenant invisibility (Scene 6 negative check):");
     println!("  foreign_workers_created:    {}", report.foreign_workers_created);

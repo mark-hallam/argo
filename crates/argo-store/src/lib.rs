@@ -54,6 +54,12 @@ pub mod classification;
 /// `(vertical, trust_grade_band)` and surfaces member + skill
 /// coverage rolls-up over the `worker`/`worker_skill` tables.
 pub mod cohort;
+/// Per-worker open-conversation threads — the Rust home for the
+/// "Active conversations" panel on the worker Memory tab (Frontier-B
+/// depth, worker-memory surfaces). Tenant + worker-scoped read/write
+/// over the `worker_conversation_thread` table. Schema owned by
+/// migration `v87`.
+pub mod conversation_thread;
 /// Elevated-view grant store (Stream J16) — per-principal,
 /// per-category, time-bounded "show me the raw value" override
 /// consulted by the J2 redact-policy resolver. Rows are inserted by
@@ -375,7 +381,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 86;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 87;
 
 #[cfg(test)]
 #[path = "handoff_stats_query_tests.rs"]
