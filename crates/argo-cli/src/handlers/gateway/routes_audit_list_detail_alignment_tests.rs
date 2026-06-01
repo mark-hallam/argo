@@ -2,7 +2,9 @@
 
 use super::super::routes_audit_detail::detail_response;
 use super::list_response;
-use super::test_helpers::{get, get_with_tenant, mem_store, parse_body, seed_row_for_tenant};
+use super::test_helpers::{
+    get, get_with_tenant, get_with_tenant_and_cap, mem_store, parse_body, seed_row_for_tenant,
+};
 use argo_store::SessionStore;
 use serde_json::json;
 use std::sync::Arc;
@@ -34,19 +36,41 @@ async fn seed_legacy_row(store: &Arc<SessionStore>, worker_id: &str) -> String {
     hex::encode(id)
 }
 
+/// List→detail id-alignment for legacy (tenant-less) rows.
+///
+/// Under the post-`mission-enterprise-cross-tenant-audit` design a
+/// tenant-scoped feed EXCLUDES legacy rows whose payload predates
+/// tenant stamping (proven by the sibling
+/// `explicit_tenant_feed_does_not_inherit_legacy_rows`). Legacy rows
+/// surface ONLY in the legacy-admin lane: `?as_tenant=__legacy__` with
+/// the `Action::AuditCrossTenant` capability (owner role), which
+/// `resolve_tenant_scope` maps to `include_all_tenants = true`. This
+/// test pins that the id the legacy-admin LIST returns fetches the
+/// matching DETAIL — the list→detail alignment intent — via that lane
+/// rather than the (now-correctly-empty) default feed.
 #[tokio::test]
-async fn default_feed_legacy_id_fetches_detail() {
+async fn legacy_admin_feed_id_fetches_detail() {
     let store = mem_store().await;
     let id = seed_legacy_row(&store, "legacy-worker").await;
-    let (status, body) =
-        parse_body(list_response(&get("/api/v1/audit?range=7d"), Some(&store)).await).await;
+    // Legacy-admin lane: owner cap + `as_tenant=__legacy__`.
+    let (status, body) = parse_body(
+        list_response(
+            &get_with_tenant_and_cap("/api/v1/audit?range=7d&as_tenant=__legacy__", "ws-default"),
+            Some(&store),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(status, "200 OK");
     let items = body["items"].as_array().expect("items array");
     assert!(
         items.iter().any(|item| item["id"] == id),
-        "legacy row missing from default feed: {body}"
+        "legacy row missing from legacy-admin feed: {body}"
     );
 
+    // The detail endpoint surfaces a legacy (`__legacy__`) row to the
+    // default-workspace tenant via its own legacy fallback in
+    // `fetch_row`, so a plain default-tenant detail request resolves it.
     let detail = detail_response(&get(&format!("/api/v1/audit/{id}")), &id, Some(&store)).await;
     assert_eq!(detail.0, "200 OK", "detail response: {}", detail.1);
 }

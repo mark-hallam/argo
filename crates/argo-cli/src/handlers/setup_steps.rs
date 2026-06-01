@@ -245,6 +245,38 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    /// Pin `ARGO_VERTICALS_DIR` to a known value for a test's lifetime
+    /// and restore the prior value on drop.
+    ///
+    /// `ARGO_VERTICALS_DIR` is process-global, and several sibling
+    /// gateway tests (e.g. `routes_cohorts_tests`,
+    /// `routes_worker_settings_tests`) `set_var` it to the real
+    /// `verticals/` dir without restoring it. In a single-process
+    /// serial run that leaked value would make `vertical_step` load the
+    /// real (non-empty) registry instead of the test's empty tempdir,
+    /// flipping the expected `Skip` to `Ok`. This guard makes the
+    /// empty-registry test hermetic regardless of sibling ordering.
+    struct VerticalsDirGuard {
+        prev: Option<String>,
+    }
+
+    impl VerticalsDirGuard {
+        fn set(value: &std::path::Path) -> Self {
+            let prev = std::env::var("ARGO_VERTICALS_DIR").ok();
+            std::env::set_var("ARGO_VERTICALS_DIR", value);
+            Self { prev }
+        }
+    }
+
+    impl Drop for VerticalsDirGuard {
+        fn drop(&mut self) {
+            match &self.prev {
+                Some(v) => std::env::set_var("ARGO_VERTICALS_DIR", v),
+                None => std::env::remove_var("ARGO_VERTICALS_DIR"),
+            }
+        }
+    }
+
     #[test]
     fn workspace_step_creates_writeable_manifest_dir() {
         let cwd = tempfile::tempdir().unwrap();
@@ -257,6 +289,11 @@ mod tests {
     #[test]
     fn vertical_step_skips_empty_registry() {
         let cwd = tempfile::tempdir().unwrap();
+        // Pin the verticals dir to this empty tempdir so a leaked
+        // `ARGO_VERTICALS_DIR` from a sibling test cannot point us at
+        // the real (non-empty) registry. The dir exists but is empty,
+        // so `load_dir` returns an empty registry → Skip.
+        let _guard = VerticalsDirGuard::set(cwd.path());
         let step = vertical_step(cwd.path());
         assert_eq!(step.status, StepStatus::Skip);
         assert!(step.detail.contains("no vertical.toml"));

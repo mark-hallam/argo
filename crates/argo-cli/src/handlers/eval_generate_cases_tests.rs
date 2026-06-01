@@ -1,5 +1,5 @@
 //! Tests for `eval_generate_cases`. Seeds an in-memory store via the
-//! canonical demo seed (3 decided approvals — 1 rejected — + 5
+//! canonical demo seed (9 decided approvals — 2 rejected — + 5
 //! committed retrains), reads the judged history through the shared
 //! reader, generates cases, and asserts the JSONL is non-empty,
 //! well-formed, tenant-scoped, PII-safe, and loads via the real
@@ -37,16 +37,18 @@ async fn generates_cases_from_rejected_approvals_and_retrains() {
     let (store, tenant) = seeded().await;
     let (inputs, _redacted) = inputs_for(&store, tenant).await;
 
-    // Of the 3 decided approvals, exactly 1 is a rejection (the warm
-    // rejection email held to revise wording).
-    assert_eq!(inputs.rejected.len(), 1, "one rejected approval");
+    // Of the 9 decided approvals, exactly 2 are rejections (the
+    // above-ceiling discount + the warm rejection email held to revise
+    // wording). The canonical seed's own tests assert the 7-granted /
+    // 2-denied split among the 9 decided.
+    assert_eq!(inputs.rejected.len(), 2, "two rejected approvals");
     // All 5 committed retrains become correction inputs.
     assert_eq!(inputs.corrections.len(), 5, "five committed retrains");
 
     let cases = generate_cases(&inputs);
-    // 1 rejected + 5 retrains (every seeded classification carries
-    // recoverable text) = 6 cases.
-    assert_eq!(cases.len(), 6, "one case per usable judged event");
+    // 2 rejected + 5 retrains (every seeded classification carries
+    // recoverable text) = 7 cases.
+    assert_eq!(cases.len(), 7, "one case per usable judged event");
     assert!(cases.iter().any(|c| c.name.starts_with("judged/rejected-action-")));
     assert!(cases
         .iter()

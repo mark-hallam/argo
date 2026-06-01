@@ -158,12 +158,41 @@ async fn default_hides_system_meta_include_meta_restores_them() {
     let verbs: Vec<&str> = items.iter().filter_map(|i| i["verb"].as_str()).collect();
     assert_eq!(verbs, vec!["wrote reply"]);
 
+    // `include_meta=1` must restore every system-meta row the default
+    // view hid. We assert PRESENCE of each seeded row rather than an
+    // exact count: the activity endpoint self-audits a
+    // `worker.activity.viewed` HttpRequest row on every call (see
+    // `emit_view_audit`), so the prior default call above injected one
+    // such row — a legitimate system-meta row that `include_meta=1`
+    // (the forensic view) correctly surfaces. An exact-count assertion
+    // would be coupled to that instrumentation; presence checks pin the
+    // real contract.
     let (_, body) = call(&worker.id, "include_meta=1", &store).await;
     let items = body["items"].as_array().expect("items");
-    assert_eq!(
-        items.len(),
-        4,
-        "include_meta=1 must restore every system-meta row"
+    // `action_type` falls back to `endpoint` then `kind`, so each
+    // seeded row is identifiable by these stable values.
+    let action_types: Vec<&str> = items
+        .iter()
+        .filter_map(|i| i["action_type"].as_str())
+        .collect();
+    let verbs: Vec<&str> = items.iter().filter_map(|i| i["verb"].as_str()).collect();
+    assert!(verbs.contains(&"wrote reply"), "agent turn restored: {items:?}");
+    assert!(
+        action_types.contains(&"audit.detail.viewed"),
+        "audit-page self-ping restored: {items:?}"
+    );
+    assert!(
+        action_types.contains(&"worker.activity.viewed"),
+        "activity self-view restored: {items:?}"
+    );
+    assert!(
+        action_types.contains(&"worker.kpi_rolled"),
+        "kpi-roll cron restored: {items:?}"
+    );
+    assert!(
+        items.len() >= 4,
+        "include_meta=1 must restore every system-meta row (>=4 seeded), got {}",
+        items.len()
     );
 }
 
@@ -194,6 +223,19 @@ async fn action_type_metadata_value_is_also_hidden_by_default() {
         body["items"].as_array().unwrap().is_empty(),
         "row with action_type=audit.list.viewed should be filtered"
     );
+    // `include_meta=1` restores the hidden row. Assert PRESENCE rather
+    // than an exact count: the prior default call self-audited a
+    // `worker.activity.viewed` HttpRequest row (see `emit_view_audit`),
+    // which the forensic view also surfaces. The contract under test is
+    // that the `audit.list.viewed` row is no longer filtered.
     let (_, body) = call(&worker.id, "include_meta=1", &store).await;
-    assert_eq!(body["items"].as_array().unwrap().len(), 1);
+    let items = body["items"].as_array().unwrap();
+    let action_types: Vec<&str> = items
+        .iter()
+        .filter_map(|i| i["action_type"].as_str())
+        .collect();
+    assert!(
+        action_types.contains(&"audit.list.viewed"),
+        "include_meta=1 must restore the action_type=audit.list.viewed row: {items:?}"
+    );
 }

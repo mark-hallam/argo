@@ -62,13 +62,23 @@ async fn seed_live_worker(pool: &SqlitePool, worker_id: &str, tenant_id: &str) {
     .await
     .expect("seed persona");
 
+    // `role.tenant_id` is a BLOB column holding the canonical 16-byte
+    // UUID (matches `IdentityStore::create_worker`, which binds
+    // `worker.tenant_id.0.as_bytes()`). Binding the UUID *string*'s
+    // bytes here drifted from production and from `archive_worker`'s
+    // (now-corrected) role DELETE, leaving an orphan role row that
+    // collided on the second seed. Bind the real 16-byte blob.
+    let tenant_blob = uuid::Uuid::parse_str(tenant_id)
+        .expect("valid tenant uuid")
+        .as_bytes()
+        .to_vec();
     sqlx::query(
         "INSERT INTO role
             (tenant_id, name, inherits_from, capabilities, worker_id,
              charter, kpis_json, escalation)
          VALUES (?, ?, NULL, '[]', ?, NULL, NULL, NULL)",
     )
-    .bind(tenant_id.as_bytes())
+    .bind(&tenant_blob)
     .bind(format!("worker:{worker_id}"))
     .bind(worker_id)
     .execute(pool)

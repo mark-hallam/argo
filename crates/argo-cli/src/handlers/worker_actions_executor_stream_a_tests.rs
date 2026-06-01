@@ -180,17 +180,29 @@ executor = { kind = "api", binding = "hubspot.contacts.search" }
 
 #[test]
 fn resolve_executor_dispatches_each_kind_through_tagged_form() {
-    // All four kinds should resolve to a `Box<dyn Executor>` via
-    // the tagged form. Three of them fail at dispatch() time but
+    // All seven kinds should resolve to a `Box<dyn Executor>` via
+    // the tagged form. Several of them fail at dispatch() time but
     // resolve() itself must succeed cleanly.
-    for (kind_str, want_kind) in [
-        ("human", ExecutorKind::Human),
-        ("mcp", ExecutorKind::Mcp),
-        ("computer_use", ExecutorKind::ComputerUse),
-        ("api", ExecutorKind::Api),
-        ("browser", ExecutorKind::Browser),
-        ("filesystem", ExecutorKind::Filesystem),
-        ("code_execution", ExecutorKind::CodeExecution),
+    //
+    // `extra` carries the kind's strict-validation-required binding
+    // fields (post `manifest_validate::check_executor_binding_shape`):
+    // mcp needs `server` + `tool`, api/browser need `binding`,
+    // computer_use needs `profile`. Omitting them now fails parse
+    // (the validation was tightened against fields that already
+    // shipped), so the fixture supplies a minimal valid binding while
+    // still exercising each kind through `resolve_executor`.
+    for (kind_str, want_kind, extra) in [
+        ("human", ExecutorKind::Human, ""),
+        ("mcp", ExecutorKind::Mcp, ", server = \"gmail\", tool = \"drafts.send\""),
+        (
+            "computer_use",
+            ExecutorKind::ComputerUse,
+            ", profile = \"marketplace_browser\"",
+        ),
+        ("api", ExecutorKind::Api, ", binding = \"hubspot.contacts.search\""),
+        ("browser", ExecutorKind::Browser, ", binding = \"marketplace.post\""),
+        ("filesystem", ExecutorKind::Filesystem, ""),
+        ("code_execution", ExecutorKind::CodeExecution, ""),
     ] {
         let toml = format!(
             r#"
@@ -205,7 +217,7 @@ version = "0.0.1"
 risk = "low"
 requires_approval = false
 description = "x"
-executor = {{ kind = "{kind_str}" }}
+executor = {{ kind = "{kind_str}"{extra} }}
 "#
         );
         let manifest = argo_vertical::parse(&toml).expect("manifest parses");

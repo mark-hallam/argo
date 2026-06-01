@@ -68,7 +68,13 @@ async fn free_tier_at_cap_returns_429_quota_exceeded() {
     let store = store().await;
     let tenant = TenantId::new();
     set_tier(&store, tenant, "free").await;
-    let now = Utc.with_ymd_and_hms(2026, 5, 15, 12, 0, 0).unwrap();
+    // Seed usage in the SAME calendar-month bucket the quota check
+    // reads. `check_tier_quota_or_reject` uses `Utc::now()` (the live
+    // wall clock), and `tenant_usage_for_period` only counts usage
+    // whose stored period matches the current month — a hardcoded past
+    // date (e.g. a fixed May timestamp) lands in a stale billing period
+    // and reads as 0 used, so the cap never trips. Use `Utc::now()`.
+    let now = Utc::now();
     tenant_query::increment_tenant_usage(&store, tenant, 100, now)
         .await
         .unwrap();
@@ -88,7 +94,10 @@ async fn tier_upgrade_lifts_limit_after_cache_clear() {
     let store = store().await;
     let tenant = TenantId::new();
     set_tier(&store, tenant, "free").await;
-    let now = Utc.with_ymd_and_hms(2026, 5, 15, 12, 0, 0).unwrap();
+    // Same-month bucket as the quota check (see note in
+    // `free_tier_at_cap_returns_429_quota_exceeded`): a hardcoded past
+    // timestamp would read as 0 used and never trip the free cap.
+    let now = Utc::now();
     tenant_query::increment_tenant_usage(&store, tenant, 100, now)
         .await
         .unwrap();

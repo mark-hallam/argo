@@ -142,24 +142,31 @@ async fn available_only_flag_drops_unrestricted_skills() {
     // With `--available-only=true`, `gather` must hide `open` and
     // keep `gated` — the operator-debug listing of "which gated
     // skills passed for this worker".
+    //
+    // Post migration 131 (`skill.tenant_id`), `available_for_worker`
+    // is tenant-scoped: legacy `install()` rows carry the
+    // `__migration_placeholder__` tenant and are filtered OUT of the
+    // lookup. Install under the SAME tenant the `gather` calls query
+    // so the rows surface; reuse one tenant id across both calls.
     let skills = fresh_skill_store().await;
-    skills.install(&skill_md("open"), None).await.unwrap();
-    skills.install(&skill_md("gated"), None).await.unwrap();
+    let tenant = TenantId::new();
+    skills
+        .install_for_tenant(&skill_md("open"), &tenant.to_string(), None)
+        .await
+        .unwrap();
+    skills
+        .install_for_tenant(&skill_md("gated"), &tenant.to_string(), None)
+        .await
+        .unwrap();
     skills
         .set_min_trust_grade("gated", Some(TrustGrade::Tenant))
         .await
         .unwrap();
     let reader = FakeTrustReader(Some(2));
 
-    let all = gather(
-        &skills,
-        &reader,
-        TenantId::new(),
-        uuid::Uuid::now_v7(),
-        false,
-    )
-    .await
-    .unwrap();
+    let all = gather(&skills, &reader, tenant, uuid::Uuid::now_v7(), false)
+        .await
+        .unwrap();
     let names: Vec<&str> = all
         .iter()
         .map(|(s, _)| s.frontmatter.name.as_str())
@@ -167,15 +174,9 @@ async fn available_only_flag_drops_unrestricted_skills() {
     assert!(names.contains(&"open"));
     assert!(names.contains(&"gated"));
 
-    let gated_only = gather(
-        &skills,
-        &reader,
-        TenantId::new(),
-        uuid::Uuid::now_v7(),
-        true,
-    )
-    .await
-    .unwrap();
+    let gated_only = gather(&skills, &reader, tenant, uuid::Uuid::now_v7(), true)
+        .await
+        .unwrap();
     let names: Vec<&str> = gated_only
         .iter()
         .map(|(s, _)| s.frontmatter.name.as_str())

@@ -90,6 +90,25 @@ async fn install_skill(store: &Arc<SessionStore>, name: &str) -> SkillId {
     skill.id
 }
 
+/// Tenant-scoped install. The library list uses the tenant-bound
+/// `SkillStore::available_for_worker` query (post migration 131,
+/// `skill.tenant_id`), which filters out legacy `install()` rows that
+/// carry the `__migration_placeholder__` tenant. Tests that assert a
+/// skill SHOWS UP in the library must install it under the same tenant
+/// the worker (and thus the query) resolves to.
+async fn install_skill_for_tenant(
+    store: &Arc<SessionStore>,
+    name: &str,
+    tenant: TenantId,
+) -> SkillId {
+    let skills = SkillStore::new(Arc::clone(store));
+    let skill = skills
+        .install_for_tenant(&skill_doc(name, "0.1.0"), &tenant.to_string(), None)
+        .await
+        .expect("install skill for tenant");
+    skill.id
+}
+
 fn get_req(path: &str) -> String {
     format!("GET {path} HTTP/1.1\r\nHost: x\r\n\r\n")
 }
@@ -139,7 +158,9 @@ async fn get_skills_library_includes_available_skills_not_active() {
     let store = mem_store().await;
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, "Maya").await;
-    let _sid = install_skill(&store, "answer-customer").await;
+    // Install under the workspace tenant so the tenant-scoped library
+    // query (`available_for_worker(ctx.tenant, ...)`) surfaces it.
+    let _sid = install_skill_for_tenant(&store, "answer-customer", tenant).await;
 
     let req = get_req(&format!("/api/v1/workers/{}/skills", worker.id));
     let (status, body) = list_response(&worker.id.to_string(), &req, Some(&store)).await;

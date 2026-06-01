@@ -1,5 +1,5 @@
 //! Tests for `eval_export_training_data`. Seeds an in-memory store via
-//! the canonical demo seed (8 approvals — 3 decided — + 5 committed
+//! the canonical demo seed (14 approvals — 9 decided — + 5 committed
 //! retrains), then exercises the collectors + JSONL writer directly.
 
 use super::*;
@@ -24,10 +24,12 @@ async fn seeded() -> (Arc<SessionStore>, TenantId) {
 async fn exports_approval_and_retrain_examples_as_jsonl() {
     let (store, tenant) = seeded().await;
 
-    // 3 of the 8 seeded approvals are decided (2 granted + 1 denied).
+    // 9 of the 14 seeded approvals are decided (7 granted + 2 denied);
+    // the canonical seed's own tests assert this split (5 pending + 9
+    // decided in `argo_demo_seed::seed_tests`).
     let mut examples = collect_approval_examples(&store, tenant).await.unwrap();
     let from_approvals = examples.len();
-    assert_eq!(from_approvals, 3, "decided approvals");
+    assert_eq!(from_approvals, 9, "decided approvals");
     assert!(examples
         .iter()
         .all(|e| e.source == "human_approval" && !e.completion.is_empty()));
@@ -39,7 +41,7 @@ async fn exports_approval_and_retrain_examples_as_jsonl() {
         .await
         .unwrap();
     assert_eq!(from_retrains, 5, "committed retrains");
-    assert_eq!(examples.len(), 8);
+    assert_eq!(examples.len(), 14);
     assert!(examples
         .iter()
         .any(|e| e.source == "human_correction" && e.worker_id.is_some()));
@@ -47,10 +49,10 @@ async fn exports_approval_and_retrain_examples_as_jsonl() {
     // Writes well-formed JSONL with the SFT-ish shape.
     let tmp = tempfile::NamedTempFile::new().unwrap();
     let (written, _redacted) = write_jsonl(tmp.path(), examples).unwrap();
-    assert_eq!(written, 8);
+    assert_eq!(written, 14);
     let body = std::fs::read_to_string(tmp.path()).unwrap();
     let lines: Vec<&str> = body.lines().collect();
-    assert_eq!(lines.len(), 8, "one JSON object per line");
+    assert_eq!(lines.len(), 14, "one JSON object per line");
     for line in lines {
         let v: serde_json::Value = serde_json::from_str(line).expect("valid json line");
         for key in ["source", "prompt", "completion", "label"] {

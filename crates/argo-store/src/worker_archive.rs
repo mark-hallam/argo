@@ -136,9 +136,25 @@ pub async fn archive_worker(
         .execute(&mut *tx)
         .await
         .map_err(|e| ArgoError::Provider(format!("worker_archive delete duty: {e}")))?;
+    // `role.tenant_id` is a BLOB column (see migration
+    // `12__worker_identity.sql`): `create_worker` binds the 16-byte
+    // UUID via `worker.tenant_id.0.as_bytes()`. Binding the UUID
+    // *string*'s bytes here (the prior `tenant_id.as_bytes()`) matched
+    // zero rows, so the worker-scoped role row leaked past archive and
+    // collided on the `PRIMARY KEY (tenant_id, name)` when the worker
+    // was re-inserted (rehydrate) or recreated. Parse the string to the
+    // canonical 16-byte blob so the DELETE actually fires.
+    let tenant_blob = Uuid::parse_str(tenant_id)
+        .map_err(|e| {
+            ArgoError::Schema(format!(
+                "archive_worker: invalid tenant_id '{tenant_id}': {e}"
+            ))
+        })?
+        .as_bytes()
+        .to_vec();
     sqlx::query("DELETE FROM role WHERE worker_id = ? AND tenant_id = ?")
         .bind(worker_id)
-        .bind(tenant_id.as_bytes())
+        .bind(&tenant_blob)
         .execute(&mut *tx)
         .await
         .map_err(|e| ArgoError::Provider(format!("worker_archive delete role: {e}")))?;
