@@ -272,6 +272,105 @@ fn round_trips_through_serde_json() {
 }
 
 #[test]
+fn dangerous_autonomous_scan_flags_an_under_gated_money_action() {
+    // The synonym-blindness fix, layer 3. A manifest that presents a
+    // dangerous action as autonomous (requires_approval=false) — the exact
+    // false-negative the deterministic floor exists to prevent — must be
+    // detected by the contract scan and produce a hard-block reason.
+    let m = manifest_with(
+        &[
+            ("draft_summary", ActionRiskLevel::Low, false, ExecutorDeclaration::default()),
+            // requires_approval=false despite carrying a money family.
+            ("process_payment", ActionRiskLevel::Low, false, ExecutorDeclaration::default()),
+        ],
+        &[],
+        None,
+    );
+    let c = RoleContract::derive_from_manifest(&m);
+    // It IS in the autonomous set (the manifest under-gated it)...
+    assert!(c.autonomous.iter().any(|a| a == "process_payment"));
+    // ...and the dangerous-autonomous scan flags exactly it.
+    assert_eq!(c.dangerous_autonomous_actions(), vec!["process_payment".to_string()]);
+    let reason = dangerous_autonomous_fence_reason(&c).expect("fence must report a reason");
+    assert!(reason.contains("process_payment"), "reason: {reason}");
+    assert!(reason.contains("capability fence violated"), "reason: {reason}");
+}
+
+#[test]
+fn dangerous_autonomous_scan_covers_every_family() {
+    // One under-gated action per family (money / destructive / egress /
+    // credential), all flagged — the brief's full-family coverage at the gate.
+    let m = manifest_with(
+        &[
+            ("transfer_funds", ActionRiskLevel::Low, false, ExecutorDeclaration::default()),
+            ("empty_storage", ActionRiskLevel::Low, false, ExecutorDeclaration::default()),
+            ("export_customer_list", ActionRiskLevel::Low, false, ExecutorDeclaration::default()),
+            ("authenticate_portal", ActionRiskLevel::Low, false, ExecutorDeclaration::default()),
+            ("draft_reply", ActionRiskLevel::Low, false, ExecutorDeclaration::default()),
+        ],
+        &[],
+        None,
+    );
+    let c = RoleContract::derive_from_manifest(&m);
+    let flagged = c.dangerous_autonomous_actions();
+    for name in [
+        "transfer_funds",
+        "empty_storage",
+        "export_customer_list",
+        "authenticate_portal",
+    ] {
+        assert!(flagged.iter().any(|f| f == name), "{name} must be flagged: {flagged:?}");
+    }
+    // The benign action is NOT flagged (no over-flagging).
+    assert!(!flagged.iter().any(|f| f == "draft_reply"));
+}
+
+#[test]
+fn dangerous_autonomous_scan_passes_a_correctly_gated_contract() {
+    // When the dangerous actions are correctly approval-gated, the scan is
+    // empty and the gate has no reason to block — the control case.
+    let m = manifest_with(
+        &[
+            ("draft_reply", ActionRiskLevel::Low, false, ExecutorDeclaration::default()),
+            ("process_payment", ActionRiskLevel::High, true, ExecutorDeclaration::default()),
+            ("wire_funds", ActionRiskLevel::High, true, ExecutorDeclaration::default()),
+        ],
+        &[],
+        None,
+    );
+    let c = RoleContract::derive_from_manifest(&m);
+    assert!(
+        c.dangerous_autonomous_actions().is_empty(),
+        "correctly-gated dangerous actions must not trip the fence"
+    );
+    assert!(dangerous_autonomous_fence_reason(&c).is_none());
+}
+
+#[test]
+fn dangerous_autonomous_scan_does_not_over_flag_benign_support_role() {
+    // A legit support / customer-success vocabulary (all autonomous) must
+    // produce ZERO dangerous flags — the false-positive guard the brief
+    // requires for the control role.
+    let m = manifest_with(
+        &[
+            ("triage_ticket", ActionRiskLevel::Low, false, ExecutorDeclaration::default()),
+            ("draft_response", ActionRiskLevel::Low, false, ExecutorDeclaration::default()),
+            ("summarize_thread", ActionRiskLevel::Low, false, ExecutorDeclaration::default()),
+            ("tag_inventory", ActionRiskLevel::Low, false, ExecutorDeclaration::default()),
+            ("attach_screenshot", ActionRiskLevel::Low, false, ExecutorDeclaration::default()),
+        ],
+        &[],
+        None,
+    );
+    let c = RoleContract::derive_from_manifest(&m);
+    assert!(
+        c.dangerous_autonomous_actions().is_empty(),
+        "benign support actions must not be flagged: {:?}",
+        c.dangerous_autonomous_actions()
+    );
+}
+
+#[test]
 fn empty_manifest_yields_an_empty_but_honest_contract() {
     let m = VerticalManifest::default();
     let c = RoleContract::derive_from_manifest(&m);

@@ -133,11 +133,58 @@ fn irreversible_action_is_case_insensitive() {
 
 #[test]
 fn irreversible_action_does_not_false_positive_on_substrings() {
-    // "rewire_config" contains "wire" as a substring but not as a token.
+    // "rewire_config" contains "wire" as a substring but not as a token,
+    // and carries no danger stem.
     assert!(!is_irreversible_action("rewire_config"));
     // Benign draft / read / summarize actions are reversible.
     assert!(!is_irreversible_action("draft_summary"));
     assert!(!is_irreversible_action("summarize_ticket"));
     assert!(!is_irreversible_action("read_inbox"));
     assert!(!is_irreversible_action("tag_inventory"));
+    // Control: a legit support / customer-success vocabulary stays
+    // reversible (no over-flagging of benign work) — the false-positive
+    // guard the brief requires for the control role.
+    assert!(!is_irreversible_action("triage_ticket"));
+    assert!(!is_irreversible_action("draft_response"));
+    assert!(!is_irreversible_action("escalate_ticket"));
+    assert!(!is_irreversible_action("attach_screenshot"));
+    assert!(!is_irreversible_action("display_dashboard"));
+    assert!(!is_irreversible_action("reach_out_internally"));
+}
+
+#[test]
+fn irreversible_action_catches_synonym_families_the_old_token_list_missed() {
+    // The live stress-test false-negatives. Each carries a money / destroy /
+    // egress / credential family that the original token-exact list let
+    // through as AUTONOMOUS + low-risk.
+    for name in [
+        // money movement
+        "process_payment",
+        "transfer_funds",
+        "remit_to_vendor",
+        "disburse_payroll",
+        "initiate_payout",
+        "withdraw_balance",
+        // destructive
+        "remove_account_data",
+        "erase_records",
+        "empty_archived_storage",
+        "truncate_audit_log",
+        // egress / exfiltration
+        "extract_customer_records",
+        "export_customer_list",
+        "upload_to_partner_system",
+        "exfiltrate_pii",
+        "download_full_database",
+        "forward_to_external",
+        // credential entry
+        "authenticate_portal",
+        "store_credential",
+        "submit_password",
+    ] {
+        assert!(
+            is_irreversible_action(name),
+            "{name} carries a dangerous family and must be always-human"
+        );
+    }
 }

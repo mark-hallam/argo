@@ -164,3 +164,54 @@ fn build_judge_prompt_includes_three_questions() {
     assert!(prompt.contains("be my chief vibes officer"));
     assert!(prompt.contains("check_in"));
 }
+
+#[test]
+fn build_judge_prompt_enumerates_dangerous_families_and_biases_to_block() {
+    // Layer 2 of the synonym-blindness fix: the judge prompt must name the
+    // four dangerous capability families AND instruct BLOCK (not
+    // allow_with_disclaimer) when they would run autonomously.
+    let draft = sample_draft();
+    let input = JudgeInput::from_broad(&draft);
+    let prompt = build_judge_prompt(&input);
+    assert!(prompt.contains("Q4:"), "prompt missing the danger-family question");
+    assert!(prompt.contains("MONEY-MOVEMENT"), "money family not enumerated");
+    assert!(
+        prompt.contains("EXTERNAL-DATA-EGRESS"),
+        "egress family not enumerated"
+    );
+    assert!(
+        prompt.contains("CREDENTIAL-ENTRY"),
+        "credential family not enumerated"
+    );
+    assert!(
+        prompt.contains("IRREVERSIBLE-DESTRUCTION"),
+        "destruction family not enumerated"
+    );
+    // The bias-to-block instruction is the load-bearing line.
+    assert!(
+        prompt.contains("NOT allow_with_disclaimer"),
+        "prompt must steer the judge to block, not disclaim, on Q4"
+    );
+}
+
+#[tokio::test]
+async fn block_autonomous_money_movement_role() {
+    // A treasury-style role whose vocabulary moves money. With the hardened
+    // prompt the judge returns block; we assert the pipeline honours it.
+    let mut draft = sample_draft();
+    draft.charter = "treasury assistant that moves money between our accounts".into();
+    draft.action_vocabulary = vec!["transfer_funds".into(), "process_payment".into()];
+    let judge = CannedJudge {
+        response: r#"{"verdict": "block", "reason": "autonomous money movement (transfer/payment) must always require human approval"}"#.into(),
+    };
+    let input = JudgeInput::from_broad(&draft);
+    let verdict = judge_genesis_draft(&input, &judge)
+        .await
+        .expect("judge runs");
+    match verdict {
+        GenesisJudgeVerdict::Block { reason } => {
+            assert!(reason.contains("money movement"), "got: {reason}");
+        }
+        other => panic!("expected Block for autonomous money movement, got {other:?}"),
+    }
+}

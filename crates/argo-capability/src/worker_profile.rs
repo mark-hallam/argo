@@ -49,39 +49,114 @@ use argo_types::{Capability, CapabilitySet};
 use std::collections::BTreeSet;
 
 /// Irreversible / business-ruining action verbs that ALWAYS require a
-/// human in the loop, no matter what a generated profile grants.
+/// human in the loop, no matter what a generated profile grants — matched
+/// as a **whole `_`-delimited token** (case-insensitive), or as a
+/// contiguous phrase for the multi-token entries (`wire_funds`).
 ///
 /// Deterministic by construction: this is a fixed list, NOT an
-/// LLM-judged classification and NOT the looser sensitive-verb lexical
-/// scan (`send|post|pay|publish|delete|share|message`) the structural
-/// safety judge already applies. It is the hard floor under that judge —
-/// the actions where an autonomous mistake cannot be undone.
+/// LLM-judged classification. It is the hard floor under the semantic
+/// judge — the actions where an autonomous mistake cannot be undone.
 ///
-/// Matched as a sub-token split on `_` (case-insensitive); multi-token
-/// phrases (e.g. `wire_funds`) match as a contiguous substring so
-/// `wire_funds`, `funds_wire_now`, and `WIRE_FUNDS` all match, while an
-/// unrelated substring (e.g. `rewire_config`) does not.
+/// Token-matching (not substring) is used for the short / ambiguous verbs
+/// here so an unrelated word that merely *contains* one of them does not
+/// false-positive (e.g. `rewire_config` ≠ `wire`, `display_board` ≠ `pay`,
+/// `attach_file` ≠ `ach`). The high-signal stems that ARE safe to match
+/// anywhere in a compound name live in [`IRREVERSIBLE_DANGER_STEMS`].
+///
+/// ## Synonym coverage (closes the token-exact / synonym-blind hole)
+///
+/// The original list was token-exact + synonym-blind: `payment` ≠ `pay`,
+/// and `transfer` / `empty` / `erase` / `export` / `authenticate` went
+/// uncaught — so money/destroy/exfil/credential actions surfaced
+/// autonomous + low-risk. The families below are now covered (money,
+/// destructive, egress, credential). A false-positive approval gate is
+/// SAFE; a false-negative is the hole, so coverage biases toward flagging.
 pub const IRREVERSIBLE_ACTION_VERBS: &[&str] = &[
+    // money movement (whole-token; short/ambiguous, so not substring-matched)
     "wire",
     "wire_funds",
-    "refund",
-    "chargeback",
+    "pay",
+    "remit",
+    "ach",
+    "trade",
+    "withdraw",
+    "deposit",
+    // destructive (whole-token)
     "drop",
     "drop_table",
-    "truncate",
     "wipe",
     "purge",
     "destroy",
+    "erase",
+    "empty",
+    "clear",
+    "flush",
+    "remove",
     "terminate",
     "deprovision",
     "revoke",
+    // account / subscription lifecycle (whole-token + contiguous phrase)
     "cancel_subscription",
     "delete_account",
     "close_account",
+    // egress / credential (whole-token; the stems below cover compounds)
+    "export",
+    "exfiltrate",
+    "upload",
+    "forward",
+    "leak",
+    "extract",
+    "download",
+    "authenticate",
+    "credential",
+    "password",
+    "login",
+    "signin",
+];
+
+/// High-signal dangerous **stems** matched anywhere inside a compound
+/// action name (substring, case-insensitive) — so `process_payment`,
+/// `TRANSFER_funds`, `EXTRACT_customer_records`, `authenticate_portal`,
+/// and `empty_archived_storage` all promote to always-human even though
+/// the dangerous family appears as part of a larger token. Every stem
+/// here was chosen because a substring hit is almost always genuinely
+/// dangerous (low benign-collision risk); short / ambiguous verbs that
+/// would false-positive as substrings (e.g. `pay` → `display`, `ach` →
+/// `attach`) stay token-only in [`IRREVERSIBLE_ACTION_VERBS`].
+pub const IRREVERSIBLE_DANGER_STEMS: &[&str] = &[
+    // money movement
+    "payment",
+    "transfer",
+    "disburse",
+    "payout",
+    "remit",
+    "chargeback",
+    "refund",
+    "withdraw",
+    // destructive
+    "truncate",
+    "destroy",
+    "deprovision",
+    "purge",
+    "exfiltrat",
+    // egress
+    "exfiltrate",
+    "extract",
+    "download",
+    // credential
+    "authenticate",
+    "credential",
+    "password",
 ];
 
 /// `true` when `action_name` denotes an irreversible / business-ruining
 /// action that must ALWAYS go through human approval.
+///
+/// Two-tier match (deny-by-default biases toward flagging):
+/// - a [`IRREVERSIBLE_ACTION_VERBS`] entry appearing as a whole token
+///   (or as a contiguous phrase for the multi-token entries), OR
+/// - a [`IRREVERSIBLE_DANGER_STEMS`] entry appearing **anywhere** in the
+///   name (so dangerous families inside a compound name are still caught).
 ///
 /// ```
 /// use argo_capability::is_irreversible_action;
@@ -89,6 +164,12 @@ pub const IRREVERSIBLE_ACTION_VERBS: &[&str] = &[
 /// assert!(is_irreversible_action("issue_refund"));
 /// assert!(is_irreversible_action("drop_table"));
 /// assert!(is_irreversible_action("terminate_employee"));
+/// // Synonyms / compounds the old token-exact list missed:
+/// assert!(is_irreversible_action("process_payment"));
+/// assert!(is_irreversible_action("transfer_funds"));
+/// assert!(is_irreversible_action("extract_customer_records"));
+/// assert!(is_irreversible_action("authenticate_portal"));
+/// assert!(is_irreversible_action("empty_archived_storage"));
 /// // Not irreversible — a draft / read action:
 /// assert!(!is_irreversible_action("draft_summary"));
 /// assert!(!is_irreversible_action("rewire_config"));
@@ -97,7 +178,7 @@ pub const IRREVERSIBLE_ACTION_VERBS: &[&str] = &[
 pub fn is_irreversible_action(action_name: &str) -> bool {
     let lowered = action_name.to_lowercase();
     let tokens: Vec<&str> = lowered.split('_').collect();
-    IRREVERSIBLE_ACTION_VERBS.iter().any(|verb| {
+    let token_or_phrase = IRREVERSIBLE_ACTION_VERBS.iter().any(|verb| {
         if verb.contains('_') {
             // Multi-token verb (e.g. "wire_funds"): require the whole
             // phrase to appear as a contiguous run in the name.
@@ -105,7 +186,11 @@ pub fn is_irreversible_action(action_name: &str) -> bool {
         } else {
             tokens.iter().any(|tok| tok == verb)
         }
-    })
+    });
+    token_or_phrase
+        || IRREVERSIBLE_DANGER_STEMS
+            .iter()
+            .any(|stem| lowered.contains(stem))
 }
 
 /// Always-on, non-side-effecting tools every generated teammate needs

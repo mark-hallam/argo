@@ -230,6 +230,36 @@ impl RoleContract {
         hasher.update(self.escalation.as_bytes());
         format!("{:x}", hasher.finalize())
     }
+
+    /// Any action the contract marks **autonomous** (NOT approval-gated)
+    /// whose name carries a money / destructive / external-egress /
+    /// credential family — the dangerous-stem scan from the deterministic
+    /// fence ([`crate::safety_judge::matches_sensitive_verb`] +
+    /// [`argo_capability::is_irreversible_action`]).
+    ///
+    /// In a correctly-materialized teammate this is ALWAYS empty: the
+    /// deterministic floor in [`crate::spec::CapabilityDecl::from_action_name`]
+    /// forces every such action to `requires_approval`, so it lands in
+    /// `approval_required`, never `autonomous`. A non-empty result therefore
+    /// means a manifest presented a dangerous capability as un-gated — a
+    /// false-negative the contract must never ship — so the hire gate treats
+    /// it as a hard block (see [`crate::GateVerdict::compose`]). The list is
+    /// sorted + de-duplicated for a stable reason string.
+    #[must_use]
+    pub fn dangerous_autonomous_actions(&self) -> Vec<String> {
+        let mut out: Vec<String> = self
+            .autonomous
+            .iter()
+            .filter(|name| {
+                crate::safety_judge::matches_sensitive_verb(name)
+                    || argo_capability::is_irreversible_action(name)
+            })
+            .cloned()
+            .collect();
+        out.sort();
+        out.dedup();
+        out
+    }
 }
 
 /// Verify a presented [`RoleContract`] truthfully reflects a teammate's bound
@@ -258,6 +288,27 @@ impl RoleContract {
 #[must_use]
 pub fn verify_contract_matches(contract: &RoleContract, manifest: &VerticalManifest) -> bool {
     &RoleContract::derive_from_manifest(manifest) == contract
+}
+
+/// The hard-block reason when a contract under-gates a dangerous action —
+/// `Some(reason)` iff [`RoleContract::dangerous_autonomous_actions`] is
+/// non-empty, else `None`. Lifts the reason text out of
+/// [`crate::GateVerdict::compose`] (keeps `hire_gate.rs` under its LOC
+/// budget) while keeping the fence assertion's wording beside the scan it
+/// reports on.
+#[must_use]
+pub fn dangerous_autonomous_fence_reason(contract: &RoleContract) -> Option<String> {
+    let dangerous = contract.dangerous_autonomous_actions();
+    if dangerous.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "deny-by-default capability fence violated: {} dangerous action(s) are \
+         AUTONOMOUS but money/destructive/egress/credential actions MUST require \
+         approval — refusing to activate a contract that under-gates [{}]",
+        dangerous.len(),
+        dangerous.join(", ")
+    ))
 }
 
 /// Map the manifest risk enum to its lowercase wire token.

@@ -36,7 +36,7 @@ pub use genesis_truth_boundary::{
 pub use refusal_registry::RefusalTemplateRegistry;
 pub use worker_profile::{
     is_irreversible_action, WorkerCapabilityProfile, IRREVERSIBLE_ACTION_VERBS,
-    MINIMAL_TEAMMATE_TOOLS,
+    IRREVERSIBLE_DANGER_STEMS, MINIMAL_TEAMMATE_TOOLS,
 };
 pub use truth_boundary::{
     evaluate_claim, ChannelKind, ChannelScope, ClaimCandidate, ClaimClass, ClaimDisposition,

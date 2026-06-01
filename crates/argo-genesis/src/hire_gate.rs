@@ -312,6 +312,16 @@ impl GateVerdict {
                     .to_string(),
             );
         }
+        // Dangerous-capability fence assertion (synonym-blindness fix, layer 3):
+        // a money/destructive/egress/credential action that is AUTONOMOUS = block.
+        if let Some(reason) = contract
+            .role_contract
+            .as_ref()
+            .and_then(crate::role_contract::dangerous_autonomous_fence_reason)
+        {
+            blocked = true;
+            reasons.push(reason);
+        }
 
         let state = if blocked {
             GateState::Blocked
@@ -484,3 +494,7 @@ pub fn behaviour_contract_text(plan: &GenesisPlan) -> String {
 #[cfg(test)]
 #[path = "hire_gate_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "hire_gate_fence_tests.rs"]
+mod fence_tests;
