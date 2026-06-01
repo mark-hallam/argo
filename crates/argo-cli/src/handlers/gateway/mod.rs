@@ -227,6 +227,8 @@ mod routes_voice_auth;
 // Conversational STT/TTS + voice-loop routes (`/api/v1/voice/*`) over
 // argo-voice-io. Distinct from `routes_voice` (Twilio DTMF approval shim).
 mod routes_voice_io;
+// Live-voice (WebRTC) realtime session minting (`/api/v1/voice/realtime-session`).
+mod routes_voice_realtime;
 mod routes_wizard;
 mod routes_worker_activity;
 mod routes_worker_detail;

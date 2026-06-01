@@ -264,6 +264,13 @@ async fn api_v1_dispatch(
     {
         return Some(super::routes_voice_io::pitch_turn_response(req, store).await);
     }
+    // Live-voice (WebRTC) streaming: mint an ephemeral OpenAI Realtime client
+    // secret with Portia's truth-boundary baked into the session instructions.
+    if req.starts_with("POST /api/v1/voice/realtime-session ")
+        || req.starts_with("POST /api/v1/voice/realtime-session?")
+    {
+        return Some(super::routes_voice_realtime::realtime_session_response(req, store).await);
+    }
     if req.starts_with("POST /api/v1/genesis/draft-worker ") {
         return Some(super::routes_genesis::draft_worker_response(req, store).await);
     }

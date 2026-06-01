@@ -399,6 +399,21 @@ fn resolve_bundle() -> Result<Arc<PitchBundle>, String> {
     cached.as_ref().map(Arc::clone).map_err(String::clone)
 }
 
+/// Build the spoken-realtime system instructions for `channel`: the same
+/// truth-boundary policy + company facts the typed/loop pitch renders, reused
+/// verbatim so the live-voice (WebRTC) session is bounded identically — no
+/// parallel policy copy. Consumed by `super::routes_voice_realtime`.
+///
+/// # Errors
+/// Surfaces corpus/policy load or facts-parse failures (as a `String`) so the
+/// caller can map them to a 503.
+pub(super) fn realtime_instructions(channel: PitchChannel) -> Result<String, String> {
+    let bundle = resolve_bundle()?;
+    let policy = bundle.policy_for(channel);
+    let facts = CompanyFacts::load_cached().map_err(|e| e.to_string())?;
+    Ok(super::routes_pitch_ask_llm::render_system_prompt(channel, policy, &facts))
+}
+
 fn load_bundle() -> Result<Arc<PitchBundle>, String> {
     let corpus_dir = corpus_dir();
     let public_path = policy_dir().join("skycot-public-pitch.toml");
