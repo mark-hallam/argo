@@ -37,6 +37,26 @@ program is structurally thin — `v1.4` in V11 was declared SHIPPED
 against minimal TUI/HTML slices, not against a real product
 surface.
 
+## ▶ Current phase — Deployment Readiness (entered 2026-06-01, DEC-032)
+
+> **The active launch track.** Beyond the MVP demo recording: turn the local
+> demo into a **gated, pointable, AWS-deployable product** — a private URL to
+> send investors / a waitlist to (on the AWS credits). Runs *alongside*
+> the A→B→C→D feature frontiers below; this is ship/launch, not a new feature
+> frontier. Rationale: [DEC-032](../skycot/decisions/DEC-032-deployment-readiness-phase.md).
+>
+> **Topology:** single instance — gateway on loopback behind nginx (TLS +
+> basic-auth gate) so the seeded demo stays viewable but private; container
+> bundles the gateway's runtime deps. Plan + runbook:
+> [`docs/skycot/operator/DEPLOYMENT.md`](../skycot/operator/DEPLOYMENT.md);
+> kit in [`deploy/`](../../deploy/).
+>
+> **Status (2026-06-01):**
+> - ✅ SPA production-build blocker fixed (`next build` green, standalone output).
+> - ✅ Deploy kit authored (`DEPLOYMENT.md` + `deploy/` Dockerfiles + nginx gate + runbook).
+> - 🗓️ Operator does the AWS account / DNS; deploy-verification pending the instance.
+> - 🗓️ Scale-later: App Runner/ECS/Amplify/RDS + real magic-link auth.
+
 ## Post-demo build order — A → B → C → D (operator-locked 2026-05-31, DEC-030)
 
 > **This is the operative forward order now.** It supersedes the pre-demo

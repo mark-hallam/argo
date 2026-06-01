@@ -6,6 +6,16 @@ register; read alongside `README.md`.
 
 ## TL;DR
 
+**As of 2026-06-01 the operator directed entry into the Deployment Readiness
+phase** ([[DEC-032]]): the *launch* track — turn the laptop demo into a gated,
+pointable, AWS-deployable product (the bridge from "demo on Mark's Mac" to "a
+URL an investor can open"), running alongside the feature frontiers. First
+blocker cleared: the SPA now production-builds (`next build` green, standalone
+output). The deploy kit (Dockerfiles + nginx gate + runbook,
+[`DEPLOYMENT.md`](../operator/DEPLOYMENT.md) + [`deploy/`](../../../deploy/)) is
+authored; the operator does the AWS account/DNS, and the deploy itself is
+prepped-but-unverified until the instance exists.
+
 **As of 2026-05-30 we are in the Sprint-2 platform build-out** ([[DEC-019]] +
 [[DEC-022]]): the program has moved **beyond demo-prep** to building out the
 whole platform for real, removing ALL theatre, and driving to the mission —
