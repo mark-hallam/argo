@@ -115,3 +115,46 @@ export function blobToBase64(blob: Blob): Promise<string> {
     reader.readAsDataURL(blob);
   });
 }
+
+/** Decoded response of the live-voice (WebRTC) session mint. */
+export interface RealtimeSession {
+  /** Short-lived OpenAI Realtime ephemeral secret for the WebRTC handshake. */
+  clientSecret: string;
+  /** Realtime model the session is bound to (e.g. `gpt-realtime-2`). */
+  model: string;
+  /** Voice the session speaks in. */
+  voice: string;
+}
+
+/**
+ * Mint a live-voice (WebRTC) session. POSTs to the gateway, which creates a
+ * short-lived OpenAI Realtime ephemeral secret server-side — the real
+ * `OPENAI_API_KEY` never reaches the browser — carrying Portia's
+ * truth-bounded `instructions`. The browser then opens a WebRTC peer
+ * connection straight to OpenAI with the returned secret.
+ *
+ * Throws `ApiError` on a non-2xx (e.g. a 503 when `OPENAI_API_KEY` is absent —
+ * never a faked token) or a malformed payload.
+ */
+export async function createRealtimeSession(
+  context: PitchChannel = "Rehearsal",
+): Promise<RealtimeSession> {
+  const raw = await apiPost<unknown>("/api/v1/voice/realtime-session", { context });
+  if (!raw || typeof raw !== "object") {
+    throw new ApiError(
+      502,
+      "Live-voice session returned an unexpected payload",
+      "INVALID_REALTIME_SESSION",
+    );
+  }
+  const v = raw as Record<string, unknown>;
+  const clientSecret = typeof v.client_secret === "string" ? v.client_secret : "";
+  if (!clientSecret) {
+    throw new ApiError(502, "Live-voice session missing client_secret", "INVALID_REALTIME_SESSION");
+  }
+  return {
+    clientSecret,
+    model: typeof v.model === "string" ? v.model : "gpt-realtime-2",
+    voice: typeof v.voice === "string" ? v.voice : "marin",
+  };
+}

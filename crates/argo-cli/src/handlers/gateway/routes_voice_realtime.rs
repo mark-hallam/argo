@@ -48,6 +48,10 @@ struct RealtimeSessionRequest {
     /// `Chat`). Defaults to `Rehearsal`, matching the discrete pitch turn.
     #[serde(default)]
     context: Option<String>,
+    /// Session persona: `pitch` (default) = Portia, truth-bounded; `interview`
+    /// = a founder-story interviewer that asks Mark about his story.
+    #[serde(default)]
+    mode: Option<String>,
 }
 
 /// Handle `POST /api/v1/voice/realtime-session`: mint an ephemeral OpenAI
@@ -67,11 +71,21 @@ pub(super) async fn realtime_session_response(
     };
     let channel = parse_channel(parsed.context.as_deref());
 
-    // Same truth-boundary policy + facts the typed/loop pitch renders, reused
-    // verbatim so the live session is bounded identically — no parallel copy.
-    let instructions = match realtime_instructions(channel) {
-        Ok(s) => format!("{REALTIME_PREAMBLE}\n\n{s}"),
-        Err(e) => return service_unavailable(&format!("pitch corpus/policies: {e}")),
+    // Two personas. "interview" = a founder-story interviewer that draws Mark's
+    // story out (NOT truth-bounded — it interviews the founder, it doesn't
+    // represent the company). "pitch" (default) = Portia, reusing the exact
+    // truth-boundary policy + facts the typed/loop pitch renders — no parallel copy.
+    // v1 personas are selected by `mode`. v2 (teammate-aware voice) will source
+    // the persona from a hired teammate's Genesis charter via `worker_id` so
+    // these collapse into one path — "talk to <any teammate> live, in their own
+    // persona + memory". For now: pitch (Portia), interview, coach (Cora).
+    let instructions = match parsed.mode.as_deref() {
+        Some("interview") => INTERVIEW_INSTRUCTIONS.to_string(),
+        Some("coach") => COACH_INSTRUCTIONS.to_string(),
+        _ => match realtime_instructions(channel) {
+            Ok(s) => format!("{REALTIME_PREAMBLE}\n\n{s}"),
+            Err(e) => return service_unavailable(&format!("pitch corpus/policies: {e}")),
+        },
     };
 
     let key = match read_openai_key() {
@@ -156,6 +170,40 @@ YOU are the only guardrail. If a question targets a forbidden or escalate-only c
 facts), do NOT improvise a number, range, or hedge — say plainly that you are not authorized to \
 share it and that Mark handles that one directly. When in doubt, defer. Never invent a fact to \
 fill a silence.";
+
+/// Founder-story interviewer persona for `mode=interview`. NOT truth-bounded:
+/// it interviews Mark (the founder), it does not represent the company. The
+/// captured transcripts become the raw material for his founder narrative +
+/// building-in-public content.
+const INTERVIEW_INSTRUCTIONS: &str = "You are a warm, sharp founder-story interviewer — think a \
+great podcast host or an early-stage investor having a first real conversation. You are \
+interviewing Mark Hallam, the founder of SKYCOT, an AI-teammates platform he built himself — as a \
+non-developer — by directing a swarm of AI agents to build it. Your job is to draw out his \
+founder story for use in fundraising and building in public. Cover, in a natural order: the \
+moment he decided this had to exist; his background and why he is the right person to build it; \
+what it was actually like building a deep technical product as a non-developer with AI; why this \
+matters to him personally; and his vision and what he wants next. Rules: ask ONE question at a \
+time, then listen. Follow up on whatever is most interesting in his answer before moving on. Keep \
+YOUR turns short — he is the star; you are drawing him out, not lecturing or pitching. Be warm and \
+genuinely curious. Open by introducing yourself in one sentence and asking him to start with the \
+moment he knew SKYCOT had to exist. When his story feels complete, thank him warmly and stop.";
+
+/// Cora — Mark's founder coach — as a LIVE voice persona (`mode=coach`). v1
+/// sources her persona from the role brief she's hired against in Genesis;
+/// v2 will load her actual charter + memory by `worker_id` so the voice IS
+/// the roster teammate (and remembers prior sessions).
+const COACH_INSTRUCTIONS: &str = "You are Cora, Mark Hallam's AI founder coach at SKYCOT, \
+speaking LIVE, out loud, in a real-time voice conversation. You are his accountability partner \
+and strategic advisor: you hold him to his goals, prepare and rehearse his investor pitches \
+(starting with his investor meeting), advise on go-to-market for a pre-seed, pre-traction founder \
+including a building-in-public cadence, act as his sounding board through the 'if you were me, \
+what would you do' lens, and surface his blind spots. Your defining trait: you are truth-bounded \
+and direct — you always give Mark the honest read, never flattery or false comfort. You are a \
+coach, not a cheerleader: when he is wrong, avoiding something, or fooling himself, you say so \
+kindly but clearly. Speak warmly, conversationally, and briefly — one to three spoken sentences \
+per turn; ask one question at a time, listen, and follow up on what matters. You coach, draft, \
+and advise; you never take public or external actions on your own. Open by greeting Mark by name \
+and asking what he wants to work on today.";
 
 /// Map the optional `context` string to a [`PitchChannel`], defaulting to
 /// `Rehearsal` for an absent/blank/unrecognised value (matching the discrete
