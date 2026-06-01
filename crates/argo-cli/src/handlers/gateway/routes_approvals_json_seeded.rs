@@ -20,6 +20,20 @@
 //! property held by `claim_6_cross_tenant_approval_select_no_existence_leak`
 //! stays closed: the SELECT below binds the resolved tenant_id as a
 //! BLOB to match how the seed writes it.
+//!
+//! ## Shared store, not a per-request second open (race fix)
+//!
+//! This bridge reads through the gateway's already-open, already-
+//! migrated [`Arc<SessionStore>`] (threaded from the GET dispatcher,
+//! the same handle the audit feed and workers list use) — it does NOT
+//! open its own [`SessionStore`] or call `migrate()` per request. The
+//! previous version opened a second store and re-ran `migrate()` on
+//! every `GET /api/v1/approvals` call; under the gateway's concurrent
+//! DB lock that migration intermittently lost the lock and the SELECT
+//! returned 0 rows (an empty `/approvals` on a cold load — a camera
+//! risk for the demo). The gateway migrates once at boot, so the
+//! re-migrate was both the race and pointless work. The response shape
+//! is unchanged — the SPA `ApprovalRow` contract is preserved.
 use argo_identity::{IdentityStore, WorkerId};
 use argo_store::SessionStore;
 use argo_types::TenantId;
@@ -28,8 +42,6 @@ use sqlx::Row;
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
-
-use crate::home::{db_path, ensure_dir, resolve_home};
 
 /// One seeded approval, already shaped as the SPA `ApprovalRow`
 /// envelope. Carries `received_at` + `id` alongside the JSON body so
@@ -47,8 +59,11 @@ pub(super) struct SeededRow {
 /// list on any resolver miss — never an error from the caller's view —
 /// because the legacy memory-row path is the primary list source and
 /// this bridge is purely additive.
-pub(super) async fn fetch_seeded_approval_rows(req: &str) -> Vec<SeededRow> {
-    let Some((store, tenant_id, tenant_uuid)) = open_store_and_tenant(req).await else {
+pub(super) async fn fetch_seeded_approval_rows(
+    req: &str,
+    store: &Arc<SessionStore>,
+) -> Vec<SeededRow> {
+    let Some((tenant_id, tenant_uuid)) = resolve_tenant(req, store).await else {
         return Vec::new();
     };
     let approval_rows = match approval_request_rows(store.pool(), &tenant_uuid).await {
@@ -272,18 +287,23 @@ fn verb_from_action(action: &str) -> String {
     }
 }
 
-async fn open_store_and_tenant(req: &str) -> Option<(Arc<SessionStore>, String, Uuid)> {
+/// Resolve the tenant whose `approval_request` rows to surface, using
+/// the gateway's **already-open, already-migrated** store — never a
+/// second `SessionStore::open` + `migrate()` (that was the empty-list
+/// race; see the module header). Returns the `(text, uuid)` tenant
+/// pair, or `None` on any resolver miss so the caller falls back to an
+/// empty seeded list rather than erroring.
+async fn resolve_tenant(req: &str, store: &Arc<SessionStore>) -> Option<(String, Uuid)> {
     let cwd = std::env::current_dir().ok()?;
-    let home = resolve_home(&cwd).ok()?;
-    ensure_dir(&home).ok()?;
-    let store = SessionStore::open(&db_path(&home)).await.ok()?;
-    store.migrate().await.ok()?;
-    let store = Arc::new(store);
     let name = cwd
         .file_name()
         .and_then(|s| s.to_str())
         .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
+    // `ensure_workspace` is idempotent (INSERT-or-fetch) and runs
+    // against the shared pool — it does not re-create schema. It mirrors
+    // how `routes_audit_feed::resolve_workspace_default` derives the
+    // cwd-bound tenant from the same shared handle.
     let (workspace_tenant, _ws) = store.ensure_workspace(name, &root).await.ok()?;
     // Tenant resolution mirrors the audit feed contract: explicit
     // `X-Tenant-Id` / `X-Argo-Tenant-Id` header overrides the
@@ -292,7 +312,7 @@ async fn open_store_and_tenant(req: &str) -> Option<(Arc<SessionStore>, String, 
     // (most common) or an explicit `--tenant <T>` (header-overridden).
     let tenant_text = header_tenant_override(req).unwrap_or_else(|| workspace_tenant.to_string());
     let tenant_uuid = Uuid::parse_str(&tenant_text).ok()?;
-    Some((store, tenant_text, tenant_uuid))
+    Some((tenant_text, tenant_uuid))
 }
 
 /// Read the canonical tenant override headers off a raw request. Falls

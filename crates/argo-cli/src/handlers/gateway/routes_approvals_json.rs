@@ -72,7 +72,10 @@ const UNDO_WINDOW_SECS: i64 = 30;
 /// worker-action transitions only — out of scope for the fix-brief
 /// `fix-approvals-list-tenant-scope-empty-despite-seeded-rows` that
 /// surfaced this gap.
-pub(super) async fn list_response(req: &str) -> (&'static str, String) {
+pub(super) async fn list_response(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
     let tail = req.strip_prefix("GET ").unwrap_or(req);
     let limit = match parse_limit(tail) {
         Ok(n) => n,
@@ -119,9 +122,18 @@ pub(super) async fn list_response(req: &str) -> (&'static str, String) {
         })
         .collect();
 
-    // First-class `approval_request` arm — surface seeded rows. Empty
-    // on tenant-resolver miss; never errors back to the caller.
-    let seeded = super::routes_approvals_json_seeded::fetch_seeded_approval_rows(req).await;
+    // First-class `approval_request` arm — surface seeded rows. Reads
+    // through the gateway's already-open shared store (no second open /
+    // re-migrate per request — that was the empty-list race). Empty when
+    // no store is threaded or on a tenant-resolver miss; never errors
+    // back to the caller, because the memory-row arm above is the
+    // primary list source and this bridge is purely additive.
+    let seeded = match store {
+        Some(store) => {
+            super::routes_approvals_json_seeded::fetch_seeded_approval_rows(req, store).await
+        }
+        None => Vec::new(),
+    };
     for row in seeded {
         let redaction = redact_approval_row(
             row.json,

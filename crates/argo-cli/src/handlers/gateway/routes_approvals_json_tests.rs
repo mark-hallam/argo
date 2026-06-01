@@ -102,7 +102,7 @@ async fn list_returns_pending_items_and_envelope() {
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_action("act-1").await;
-    let (status, body) = list_response(&auth_get("/api/v1/approvals")).await;
+    let (status, body) = list_response(&auth_get("/api/v1/approvals"), None).await;
     assert_eq!(status, "200 OK");
     let v = parse(&body);
     let items = v["items"].as_array().expect("items array");
@@ -129,7 +129,7 @@ async fn list_surfaces_draft_content_from_payload_body() {
         }),
     );
     seed_action_record(rec).await;
-    let (status, body) = list_response(&auth_get("/api/v1/approvals")).await;
+    let (status, body) = list_response(&auth_get("/api/v1/approvals"), None).await;
     assert_eq!(status, "200 OK");
     let v = parse(&body);
     let items = v["items"].as_array().expect("items array");
@@ -156,12 +156,13 @@ async fn list_cursor_paginates() {
         // 1-ms gap so created_at strings sort deterministically.
         tokio::time::sleep(std::time::Duration::from_millis(2)).await;
     }
-    let (_, body) = list_response(&auth_get("/api/v1/approvals?limit=2")).await;
+    let (_, body) = list_response(&auth_get("/api/v1/approvals?limit=2"), None).await;
     let v = parse(&body);
     let cursor = v["next_cursor"].as_str().expect("cursor present");
-    let (_, body2) = list_response(&auth_get(&format!(
-        "/api/v1/approvals?limit=2&cursor={cursor}"
-    )))
+    let (_, body2) = list_response(
+        &auth_get(&format!("/api/v1/approvals?limit=2&cursor={cursor}")),
+        None,
+    )
     .await;
     let v2 = parse(&body2);
     let items2 = v2["items"].as_array().expect("items");
@@ -182,7 +183,7 @@ async fn list_limit_max_100_is_accepted() {
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_action("act-1").await;
-    let (status, _) = list_response(&auth_get("/api/v1/approvals?limit=100")).await;
+    let (status, _) = list_response(&auth_get("/api/v1/approvals?limit=100"), None).await;
     assert_eq!(status, "200 OK");
 }
 
@@ -191,7 +192,7 @@ async fn list_limit_above_max_is_400() {
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
-    let (status, body) = list_response(&auth_get("/api/v1/approvals?limit=200")).await;
+    let (status, body) = list_response(&auth_get("/api/v1/approvals?limit=200"), None).await;
     assert_eq!(status, "400 Bad Request");
     let v = parse(&body);
     assert_eq!(v["error"]["code"], "bad_request");
@@ -209,7 +210,7 @@ async fn list_only_workspaces_own_rows_returned() {
     let other = tempfile::tempdir().expect("other tempdir");
     set_test_env(other.path());
     seed_action("act-theirs").await;
-    let (_, body) = list_response(&auth_get("/api/v1/approvals")).await;
+    let (_, body) = list_response(&auth_get("/api/v1/approvals"), None).await;
     let ids: Vec<String> = parse(&body)["items"]
         .as_array()
         .unwrap()
@@ -239,7 +240,7 @@ async fn decide_approve_transitions_state() {
     assert_eq!(v["ok"], true);
     assert_eq!(v["decision"], "approve");
     // After approve, the action is no longer pending → list is empty.
-    let (_, body) = list_response(&auth_get("/api/v1/approvals")).await;
+    let (_, body) = list_response(&auth_get("/api/v1/approvals"), None).await;
     assert_eq!(parse(&body)["items"].as_array().unwrap().len(), 0);
 }
 
@@ -259,7 +260,7 @@ async fn decide_refuse_transitions_state() {
     .await;
     assert_eq!(status, "200 OK");
     assert_eq!(parse(&body)["decision"], "refuse");
-    let (_, body) = list_response(&auth_get("/api/v1/approvals")).await;
+    let (_, body) = list_response(&auth_get("/api/v1/approvals"), None).await;
     assert_eq!(parse(&body)["items"].as_array().unwrap().len(), 0);
 }
 
@@ -328,7 +329,7 @@ async fn undo_within_window_restores_to_pending() {
     assert_eq!(status, "200 OK");
     assert_eq!(parse(&body)["ok"], true);
     // After undo the action is pending again.
-    let (_, body) = list_response(&auth_get("/api/v1/approvals")).await;
+    let (_, body) = list_response(&auth_get("/api/v1/approvals"), None).await;
     assert_eq!(parse(&body)["items"].as_array().unwrap().len(), 1);
 }
 

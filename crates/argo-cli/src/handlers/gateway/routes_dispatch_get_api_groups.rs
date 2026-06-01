@@ -78,7 +78,7 @@ pub(super) async fn dispatch_scim_and_team(
         return Some(resp);
     }
     if req.starts_with("GET /api/v1/approvals ") || req.starts_with("GET /api/v1/approvals?") {
-        return Some(super::routes_approvals_json::list_response(req).await);
+        return Some(super::routes_approvals_json::list_response(req, store).await);
     }
     if let Some(resp) = super::routes_skill_ir::dispatch(req, store).await {
         return Some(resp);
