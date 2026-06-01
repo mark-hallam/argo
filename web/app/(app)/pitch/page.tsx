@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Loader2, Mic, MicOff, Volume2 } from "lucide-react";
+import { AlertTriangle, Loader2, Mic, MicOff, Radio, Volume2 } from "lucide-react";
 import { BrandLoudHero } from "@/components/skycot/BrandLoudHero";
 import { askPitch } from "@/lib/api/pitch";
 import { ApiError } from "@/lib/api/types";
 import { useVoiceTurn, voiceCaptureSupported } from "@/lib/api/use-voice-turn";
+import { useRealtimeVoice, realtimeVoiceSupported } from "@/lib/api/use-realtime-voice";
 import type { PitchTurnResponse } from "@/lib/api/voice";
 import {
   MessageBubble,
@@ -44,15 +45,40 @@ function newId(role: Role): string {
   return `${role}-${rand}`;
 }
 
+// Group the flat chronological history into turns (an operator question and
+// the agent reply that follows it), newest turn first, so the latest exchange
+// renders directly under the input box instead of scrolling away to the bottom
+// of the page. Messages within a turn keep their natural order (question above
+// answer).
+function groupIntoTurns(history: Message[]): Message[][] {
+  const turns: Message[][] = [];
+  for (const m of history) {
+    if (m.role === "operator" || turns.length === 0) {
+      turns.push([m]);
+    } else {
+      turns[turns.length - 1].push(m);
+    }
+  }
+  turns.reverse();
+  return turns;
+}
+
 export default function PitchPage() {
   const [question, setQuestion] = useState("");
   const [history, setHistory] = useState<Message[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const historyEndRef = useRef<HTMLDivElement | null>(null);
+  const inputCardRef = useRef<HTMLDivElement | null>(null);
 
+  // Newest exchange renders directly under the input (see `groupIntoTurns`).
+  // On each new turn, bring the input + newest answer to the top of the
+  // viewport so the latest exchange is where the eye already is — not scrolled
+  // away to the bottom. Skipped on first load so the hero stays visible until
+  // the first question.
   useEffect(() => {
-    historyEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (history.length > 0) {
+      inputCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }, [history.length, pending]);
 
   const handleSubmit = useCallback(async () => {
@@ -119,6 +145,9 @@ export default function PitchPage() {
   }, []);
 
   const voice = useVoiceTurn({ context: "WebEmbed", onTurn: handleVoiceTurn });
+  // Live, two-way streaming voice (WebRTC). Rehearsal channel so the operator
+  // hears the full truth-bounded answer set, same as the typed rehearsal.
+  const liveVoice = useRealtimeVoice({ context: "Rehearsal" });
 
   // `voiceCaptureSupported()` reads `window`/`MediaRecorder`, which only
   // exist on the client. Evaluating it during the first render pass would make
@@ -132,6 +161,7 @@ export default function PitchPage() {
     setMounted(true);
   }, []);
   const micSupported = mounted && voiceCaptureSupported();
+  const liveSupported = mounted && realtimeVoiceSupported();
 
   const voiceLabel =
     voice.phase === "recording"
@@ -149,6 +179,12 @@ export default function PitchPage() {
         : voice.phase === "speaking"
           ? Volume2
           : Mic;
+  const liveButtonLabel =
+    liveVoice.phase === "connecting"
+      ? "Connecting…"
+      : liveVoice.isLive
+        ? "End live call"
+        : "Go Live";
 
   return (
     <>
@@ -165,7 +201,7 @@ export default function PitchPage() {
             subMaxWidth={520}
           />
           <section className="pitch-shell" aria-label="Pitch Agent chat">
-            <div className="pitch-input-card">
+            <div className="pitch-input-card" ref={inputCardRef}>
               <textarea
                 className="pitch-input"
                 aria-label="Ask the Pitch Agent"
@@ -179,6 +215,33 @@ export default function PitchPage() {
               <div className="pitch-actions">
                 <span className="pitch-hint">Enter to send · Shift+Enter for newline</span>
                 <div className="pitch-action-buttons">
+                  {liveSupported ? (
+                    <button
+                      className="pitch-talk is-live"
+                      type="button"
+                      onClick={() =>
+                        liveVoice.isLive || liveVoice.phase === "connecting"
+                          ? liveVoice.stop()
+                          : void liveVoice.start()
+                      }
+                      disabled={pending}
+                      aria-pressed={liveVoice.isLive}
+                      aria-label={liveButtonLabel}
+                      title={liveButtonLabel}
+                      data-testid="pitch-go-live"
+                      style={
+                        liveVoice.isLive
+                          ? { background: "#dc2626", color: "#fff", borderColor: "#dc2626" }
+                          : undefined
+                      }
+                    >
+                      <Radio
+                        size={14}
+                        className={liveVoice.phase === "connecting" ? "pitch-spin" : undefined}
+                      />
+                      <span>{liveButtonLabel}</span>
+                    </button>
+                  ) : null}
                   {micSupported ? (
                     <button
                       className={`pitch-talk is-${voice.phase}`}
@@ -221,21 +284,108 @@ export default function PitchPage() {
                 <span>{error}</span>
               </div>
             ) : null}
+            {liveVoice.error ? (
+              <div className="pitch-error-panel" role="alert" data-testid="pitch-live-error">
+                <AlertTriangle size={16} />
+                <span>{liveVoice.error}</span>
+              </div>
+            ) : null}
+            {liveVoice.phase === "connecting" || liveVoice.isLive ? (
+              <section
+                className="pitch-live-panel"
+                data-testid="pitch-live-panel"
+                aria-live="polite"
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-md, 12px)",
+                  background: "var(--card)",
+                  padding: "14px 16px",
+                  marginBottom: 16,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <span
+                    aria-hidden
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      background: liveVoice.isLive ? "#dc2626" : "#f59e0b",
+                      boxShadow: liveVoice.isLive ? "0 0 0 4px rgba(220,38,38,.18)" : "none",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <strong style={{ fontSize: 13, letterSpacing: ".02em" }}>
+                    {liveVoice.isLive ? "LIVE · streaming voice" : "Connecting to Portia…"}
+                  </strong>
+                  <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                    model-bounded · no post-answer net
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => liveVoice.stop()}
+                    data-testid="pitch-live-end"
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 12,
+                      padding: "4px 12px",
+                      borderRadius: 8,
+                      border: "1px solid var(--border)",
+                      background: "transparent",
+                      cursor: "pointer",
+                    }}
+                  >
+                    End
+                  </button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {liveVoice.transcripts.map((t, i) => (
+                    <p key={i} style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          color: t.role === "user" ? "var(--foreground)" : "var(--primary)",
+                        }}
+                      >
+                        {t.role === "user" ? "You" : "Portia"}:
+                      </span>{" "}
+                      {t.text}
+                    </p>
+                  ))}
+                  {liveVoice.liveCaption ? (
+                    <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, opacity: 0.7 }}>
+                      <span style={{ fontWeight: 700, color: "var(--primary)" }}>Portia:</span>{" "}
+                      {liveVoice.liveCaption}…
+                    </p>
+                  ) : null}
+                  {liveVoice.isLive &&
+                  liveVoice.transcripts.length === 0 &&
+                  !liveVoice.liveCaption ? (
+                    <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)" }}>
+                      Speak now — ask her anything an investor would. Try the valuation question.
+                    </p>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
             <div className="pitch-history" data-testid="pitch-history">
               {history.length === 0 && !pending ? (
                 <div className="pitch-empty" data-testid="pitch-empty">
                   Ask a question to start the rehearsal.
                 </div>
               ) : null}
-              {history.map((m) => (
-                <MessageBubble key={m.id} message={m} />
-              ))}
-              {pending ? (
-                <div className="pitch-msg is-agent" data-testid="pitch-pending">
-                  <p className="pitch-msg-text">Thinking…</p>
+              {groupIntoTurns(history).map((turn, ti) => (
+                <div className="pitch-turn" key={turn[0]?.id ?? ti}>
+                  {turn.map((m) => (
+                    <MessageBubble key={m.id} message={m} />
+                  ))}
+                  {ti === 0 && pending ? (
+                    <div className="pitch-msg is-agent" data-testid="pitch-pending">
+                      <p className="pitch-msg-text">Thinking…</p>
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-              <div ref={historyEndRef} />
+              ))}
             </div>
           </section>
         </div>

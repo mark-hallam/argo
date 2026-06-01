@@ -308,4 +308,39 @@ describe("/pitch page", () => {
       "pitch-talk",
     );
   });
+
+  it("renders the newest exchange first, directly under the input (positioning)", async () => {
+    pitchApi.askPitch
+      .mockResolvedValueOnce({
+        matched: true,
+        answer: "First answer.",
+        declared_claim_classes: [],
+        disposition: "Allow",
+        block_reason: null,
+        channel: "Rehearsal",
+        latency_ms: 1,
+      })
+      .mockResolvedValueOnce({
+        matched: true,
+        answer: "Second answer.",
+        declared_claim_classes: [],
+        disposition: "Allow",
+        block_reason: null,
+        channel: "Rehearsal",
+        latency_ms: 1,
+      });
+    render(<PitchPage />);
+    const input = screen.getByTestId("pitch-input");
+    fireEvent.change(input, { target: { value: "First question?" } });
+    fireEvent.click(screen.getByTestId("pitch-submit"));
+    await waitFor(() => expect(screen.getByText("First answer.")).toBeInTheDocument());
+    fireEvent.change(input, { target: { value: "Second question?" } });
+    fireEvent.click(screen.getByTestId("pitch-submit"));
+    await waitFor(() => expect(screen.getByText("Second answer.")).toBeInTheDocument());
+    // Newest turn renders first: the operator bubbles in DOM order are
+    // [Second, First], so the latest exchange sits directly under the input.
+    const operators = screen.getAllByTestId("pitch-msg-operator");
+    expect(operators[0]).toHaveTextContent("Second question?");
+    expect(operators[1]).toHaveTextContent("First question?");
+  });
 });
