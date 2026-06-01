@@ -1,0 +1,3 @@
+# Never commit real deploy secrets or the gate file.
+.env.deploy
+.htpasswd

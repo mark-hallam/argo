@@ -1,0 +1,39 @@
+# syntax=docker/dockerfile:1
+# SKYCOT SPA (Next.js) — standalone-output runtime image.
+#
+# Demo-mode flags are baked at BUILD time (NEXT_PUBLIC_* are build-time in
+# Next). DEMO_MODE + DEMO_LIVE => the SPA fetches REAL seeded gateway data (no
+# mock, no dev-overlay). NEXT_PUBLIC_GATEWAY_URL intentionally stays the
+# canonical 127.0.0.1:7400 (the prebuild port-check enforces this) — the
+# browser uses SAME-ORIGIN relative paths that nginx routes to the gateway, so
+# this value is only the Next-proxy destination + the CSP entry, never a URL
+# the browser dials directly.
+
+# ---- builder ----
+FROM node:20-bookworm-slim AS builder
+WORKDIR /app
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ ./
+ARG NEXT_PUBLIC_SKYCOT_DEMO_MODE=1
+ARG NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1
+ENV NODE_ENV=production \
+    NEXT_PUBLIC_SKYCOT_DEMO_MODE=${NEXT_PUBLIC_SKYCOT_DEMO_MODE} \
+    NEXT_PUBLIC_SKYCOT_DEMO_LIVE=${NEXT_PUBLIC_SKYCOT_DEMO_LIVE}
+RUN npm run build
+# REFINE-ON-DEPLOY (DEPLOYMENT.md #6): confirm the prod SPA renders the seeded
+# demo without a login wall. isAuthBypassed() is FALSE in a production build
+# (it's NODE_ENV!=="production"-gated), so the app relies on demo-mode (not
+# auth-bypass) to show pages + fetch real data. Verify in the browser behind
+# the nginx gate; the gate is the privacy boundary, demo-mode is the data path.
+
+# ---- runtime ----
+FROM node:20-bookworm-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production PORT=3000 HOSTNAME=127.0.0.1
+# Next standalone output: a self-contained server + the static assets.
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+EXPOSE 3000
+CMD ["node", "server.js"]

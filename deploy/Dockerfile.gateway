@@ -1,0 +1,43 @@
+# syntax=docker/dockerfile:1
+# SKYCOT gateway (the `argo` Rust binary) — multi-stage build.
+#
+# Stage 1 builds the release binary. Stage 2 is a slim runtime that ALSO
+# bundles the gateway's on-disk runtime deps — the binary alone is NOT enough:
+# the gateway reads the pitch corpus, truth-boundary policies, and provider
+# manifests from disk at runtime (see docs/skycot/operator/DEPLOYMENT.md).
+#
+# Binds 127.0.0.1 on purpose: a non-loopback bind flips the gateway into
+# production-auth mode (bearer-token required) — we keep it loopback so the
+# seeded demo stays viewable, and nginx (same host network) is the public gate.
+
+# ---- builder ----
+FROM rust:1.83-slim-bookworm AS builder
+WORKDIR /src
+# reqwest TLS needs pkg-config + libssl. (Refine-item #4 in DEPLOYMENT.md: if
+# the release build links sqlcipher, add libsqlcipher-dev here + libsqlcipher
+# in the runtime stage.)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+COPY . .
+ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
+RUN cargo build --release --bin argo
+
+# ---- runtime ----
+FROM debian:bookworm-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=builder /src/target/release/argo /usr/local/bin/argo
+# On-disk runtime deps + env overrides so the gateway never falls back to a
+# missing workspace_root() path.
+COPY --from=builder /src/manifests     /app/manifests
+COPY --from=builder /src/policies      /app/policies
+COPY --from=builder /src/skill-library /app/skill-library
+ENV ARGO_MANIFEST_DIR=/app/manifests \
+    ARGO_PITCH_CORPUS_DIR=/app/skill-library/canonical-qa/corpora/skycot \
+    ARGO_PITCH_POLICY_DIR=/app/policies/truth-boundary \
+    ARGO_HOME=/data
+VOLUME ["/data"]
+EXPOSE 7400
+# Loopback bind (NOT production-auth mode); nginx provides public exposure.
+CMD ["argo", "gateway", "start", "--bind", "127.0.0.1", "--port", "7400"]
