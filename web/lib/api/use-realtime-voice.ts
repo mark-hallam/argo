@@ -23,7 +23,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/types";
 import type { PitchChannel } from "@/lib/api/pitch";
-import { createRealtimeSession } from "@/lib/api/voice";
+import { createRealtimeSession, type RealtimeMode } from "@/lib/api/voice";
 
 /** Lifecycle phase of a live-voice session. */
 export type RealtimePhase = "idle" | "connecting" | "live" | "error";
@@ -37,6 +37,8 @@ export interface RealtimeTranscript {
 export interface UseRealtimeVoiceOptions {
   /** Pitch channel context forwarded to the mint endpoint. Default `Rehearsal`. */
   context?: PitchChannel;
+  /** Which persona the live session adopts (Portia pitch, or Cora coach/interview). Default `pitch`. */
+  mode?: RealtimeMode;
 }
 
 export interface UseRealtimeVoiceResult {
@@ -71,7 +73,7 @@ export function realtimeVoiceSupported(): boolean {
 export function useRealtimeVoice(
   options: UseRealtimeVoiceOptions = {},
 ): UseRealtimeVoiceResult {
-  const { context = "Rehearsal" } = options;
+  const { context = "Rehearsal", mode = "pitch" } = options;
   const [phase, setPhase] = useState<RealtimePhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [transcripts, setTranscripts] = useState<RealtimeTranscript[]>([]);
@@ -164,7 +166,7 @@ export function useRealtimeVoice(
     }
     setPhase("connecting");
     try {
-      const session = await createRealtimeSession(context);
+      const session = await createRealtimeSession(context, mode);
 
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
@@ -239,7 +241,7 @@ export function useRealtimeVoice(
       setError(errMsg(err));
       setPhase("error");
     }
-  }, [context, handleEvent, phase, teardown]);
+  }, [context, mode, handleEvent, phase, teardown]);
 
   const stop = useCallback(() => {
     teardown();

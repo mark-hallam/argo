@@ -126,6 +126,9 @@ export interface RealtimeSession {
   voice: string;
 }
 
+/** Persona the live session adopts — Portia's pitch, or Cora's coach / founder-story interview voice. */
+export type RealtimeMode = "pitch" | "coach" | "interview";
+
 /**
  * Mint a live-voice (WebRTC) session. POSTs to the gateway, which creates a
  * short-lived OpenAI Realtime ephemeral secret server-side — the real
@@ -138,8 +141,13 @@ export interface RealtimeSession {
  */
 export async function createRealtimeSession(
   context: PitchChannel = "Rehearsal",
+  mode: RealtimeMode = "pitch",
 ): Promise<RealtimeSession> {
-  const raw = await apiPost<unknown>("/api/v1/voice/realtime-session", { context });
+  const body: Record<string, unknown> = { context };
+  // The gateway defaults to Portia's pitch persona when `mode` is absent; only
+  // send it for Cora's coach / interview voices so the default path is unchanged.
+  if (mode !== "pitch") body.mode = mode;
+  const raw = await apiPost<unknown>("/api/v1/voice/realtime-session", body);
   if (!raw || typeof raw !== "object") {
     throw new ApiError(
       502,
