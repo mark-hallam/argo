@@ -92,7 +92,7 @@ conductor walks each line with you so you know what every container does.
 - [ ] `docker compose … config` renders cleanly (no env/syntax errors).
 - [ ] `docker compose … build` succeeds for **both** images.
 - [ ] `nginx -t` reports the config is OK.
-- [ ] `argo gateway --help` confirms the `--bind`/`--port` flags + the seed subcommand (resolves refine-item #2).
+- [x] CONFIRMED against the binary (2026-06-01): `argo gateway start --bind 127.0.0.1 --port 7400`; provision via `argo tenant create <NAME> --json` then `argo demo seed --tenant <ID> [--skip-pass-a-turns]` (resolves refine-item #2).
 - [ ] Security group exposes **only** 443 + 22 (your IP); `3000`/`7400` are NOT public.
 - [ ] `deploy/.env.deploy` is filled + `chmod 600`; `deploy/.htpasswd` exists.
 - [ ] DNS `A` record + TLS cert are in place (step 2).
@@ -170,8 +170,16 @@ docker compose -f deploy/docker-compose.yml logs -f gateway   # watch for the "l
 
 **6. Seed the demo data** (so the URL shows the polished demo, not an empty workspace)
 ```bash
-# one-off, idempotent — seeds the demo tenant's workers/approvals/notifications/Portia
-docker compose -f deploy/docker-compose.yml exec gateway argo demo seed   # exact subcommand: see "Known refine items"
+# 6a. Provision the demo tenant, capturing its id from the JSON:
+docker compose -f deploy/docker-compose.yml exec gateway \
+  argo tenant create "SKYCOT Demo" --json        # → note the "id" field
+# 6b. Seed that tenant with the canonical v1.0 demo data (workers / approvals /
+#     skills / the Scene-5 workflow / audit rows). --skip-pass-a-turns needs NO
+#     provider key (Pass B dressing + scaffolding still seed); for full real-LLM
+#     Pass A turns instead, set ARGO_DEMO_SEED_PROVIDER_KEY and drop the flag.
+docker compose -f deploy/docker-compose.yml exec gateway \
+  argo demo seed --tenant <ID-FROM-6a> --skip-pass-a-turns
+# ⚠️ The SPA's demo-mode must resolve to THIS tenant id (see refine-item #1).
 ```
 
 **7. Verify (truth-bounded — actually check)**
@@ -233,8 +241,12 @@ they're solved):
    the SPA's demo-mode must agree on the tenant. Verify the seed targets the
    tenant the SPA resolves (a one-row workspace re-pin may be needed — same
    fix used locally).
-2. **Exact seed subcommand.** Confirm the `argo` seed CLI invocation (`argo
-   demo seed` / the `argo-demo-seed` entry) against the built binary's `--help`.
+2. **Exact seed subcommand — ✅ RESOLVED 2026-06-01.** Confirmed against the
+   built binary (`argo demo seed --help`): provision with `argo tenant create
+   <NAME> --json` (capture the `id`), then `argo demo seed --tenant <ID>
+   [--skip-pass-a-turns]`. Profile defaults to `v1-demo-canonical`;
+   `--skip-pass-a-turns` seeds Pass B + scaffolding with **no** provider key.
+   Gateway start confirmed: `argo gateway start --bind 127.0.0.1 --port 7400`.
 3. **Gateway runtime deps completeness.** The Dockerfile bundles corpus +
    policies + manifests; if any other `workspace_root()` read is missing at
    boot, the gateway log will name the path — add it to the COPY + an
