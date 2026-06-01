@@ -37,16 +37,14 @@ export function formatLearnedAgo(
     const days = Math.floor(diffMs / day);
     return days === 1 ? "Learned yesterday" : `Learned ${days} days ago`;
   }
-  // Same calendar month → "Learned N weeks ago"; older → "Learned in <Mon YYYY>"
-  if (
-    now.getUTCFullYear() === learnedAt.getUTCFullYear() &&
-    now.getUTCMonth() === learnedAt.getUTCMonth()
-  ) {
+  // Within ~a month → "Learned N weeks ago" (N derived straight from the
+  // elapsed time, so it never depends on which calendar month the two
+  // dates fall in); older → the absolute "Learned in <Mon YYYY>" form.
+  // A calendar month is ~4.345 weeks, so we roll over to the month form
+  // once five whole weeks have elapsed.
+  if (diffMs < 5 * week) {
     const weeks = Math.floor(diffMs / week);
     return weeks <= 1 ? "Learned 1 week ago" : `Learned ${weeks} weeks ago`;
-  }
-  if (diffMs < 4 * week + day) {
-    return "Learned 4 weeks ago";
   }
   const month = learnedAt.toLocaleString("en-AU", { month: "short", year: "numeric", timeZone: "UTC" });
   return `Learned in ${month}`;
