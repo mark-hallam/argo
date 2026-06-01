@@ -8,7 +8,7 @@
 #![allow(dead_code)]
 #![allow(deprecated)]
 
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::{AuditKind, AuditSink, DEFAULT_AUDIT_TENANT_ID};
 use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -20,7 +20,11 @@ pub(super) async fn mem_store() -> Arc<SessionStore> {
 }
 
 pub(super) async fn seed_row(store: &Arc<SessionStore>, payload: Value) {
-    AuditSink::new(Arc::clone(store))
+    // Stamp the workspace-default tenant explicitly (off the deprecated
+    // `AuditSink::new`, which already defaulted to this id) so seeded rows
+    // carry `payload.tenant_id == DEFAULT_AUDIT_TENANT_ID` and the default
+    // `get()` request (which now sends the matching header) surfaces them.
+    AuditSink::new_with_tenant(Arc::clone(store), DEFAULT_AUDIT_TENANT_ID.to_string())
         .write(None, AuditKind::HttpRequest, payload, None)
         .await
         .expect("write audit row");
@@ -59,7 +63,14 @@ pub(super) fn row(
 }
 
 pub(super) fn get(path: &str) -> String {
-    format!("GET {path} HTTP/1.1\r\nHost: x\r\n\r\n")
+    // Stamp the workspace-default tenant header so the audit feed's tenant
+    // scope resolves to the same tenant `seed_row` writes under
+    // (`DEFAULT_AUDIT_TENANT_ID`). Without it, `extract_tenant` falls through
+    // to `"anonymous"` and every seeded row is scoped out (the cross-tenant
+    // audit migration regressed these tests). Mirrors `routes_audit_detail_tests::get`.
+    format!(
+        "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {DEFAULT_AUDIT_TENANT_ID}\r\n\r\n"
+    )
 }
 
 pub(super) async fn parse_body(resp: (&str, String)) -> (&str, Value) {
