@@ -49,6 +49,59 @@ is documented at the bottom for when you onboard real users.
 
 ---
 
+## ⚠️ Validate every line before you run it (the deploy discipline)
+
+**This deploy is run line-by-line, validated first — nothing is blind-pasted.**
+These commands touch real infrastructure + real secrets, so the rule is:
+**read → understand → validate → only then run**, one step at a time, together.
+The conductor explains each command, confirms it against the actual state, we
+run it, we check the output matches what we predicted, and only then move to the
+next line. **If any output is not what we predicted — stop, don't continue.**
+
+**Dry-run / preview first (validate without side effects).** Before the
+side-effectful steps, use the no-op validators that exist:
+
+```bash
+# 1. Render + validate the FULL compose (env substitution, syntax, image refs)
+#    WITHOUT starting anything. Catches a bad .env.deploy or a typo'd service.
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env.deploy config
+
+# 2. Build the images FIRST (validates BOTH Dockerfiles + every COPY) —
+#    separate from starting them, so a build error never half-starts the stack.
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env.deploy build
+
+# 3. Test the nginx config syntax before it ever serves traffic.
+docker run --rm -v "$PWD/deploy/nginx.conf:/etc/nginx/nginx.conf:ro" \
+  nginx:1.27-alpine nginx -t
+
+# 4. Confirm the gateway's REAL flags + the exact seed subcommand (step 6 is a
+#    documented unknown, refine-item #2) BEFORE relying on them — read the help.
+docker compose -f deploy/docker-compose.yml run --rm gateway argo --help
+docker compose -f deploy/docker-compose.yml run --rm gateway argo gateway --help
+
+# 5. Eyeball the secrets file is filled + locked (this does NOT print values):
+ls -l deploy/.env.deploy            # expect -rw------- (chmod 600)
+grep -c '=' deploy/.env.deploy      # sanity: the expected count of set vars
+```
+
+**Read each artifact before building from it.** `cat deploy/Dockerfile.gateway`,
+`deploy/Dockerfile.web`, `deploy/docker-compose.yml`, `deploy/nginx.conf` — the
+conductor walks each line with you so you know what every container does.
+
+**Pre-flight checklist — tick every box before the `up` in step 5:**
+- [ ] `docker compose … config` renders cleanly (no env/syntax errors).
+- [ ] `docker compose … build` succeeds for **both** images.
+- [ ] `nginx -t` reports the config is OK.
+- [ ] `argo gateway --help` confirms the `--bind`/`--port` flags + the seed subcommand (resolves refine-item #2).
+- [ ] Security group exposes **only** 443 + 22 (your IP); `3000`/`7400` are NOT public.
+- [ ] `deploy/.env.deploy` is filled + `chmod 600`; `deploy/.htpasswd` exists.
+- [ ] DNS `A` record + TLS cert are in place (step 2).
+- [ ] You understand what each runbook line does (the conductor has walked it with you).
+
+Only when every box is ticked do we run the `up`.
+
+---
+
 ## Prerequisites (what Mark provides)
 
 1. An **AWS account** with the AWS credits applied.
@@ -104,10 +157,15 @@ sudo dnf install -y httpd-tools
 htpasswd -c deploy/.htpasswd <gate-username>   # prompts for the gate password
 ```
 
-**5. Build + start**
+**5. Build + start** — *only after every box in the pre-flight checklist above is ticked.*
 ```bash
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env.deploy up -d --build
-# the gateway build is heavy (~10-15 min first time). Watch: docker compose logs -f gateway
+# Build is already validated if you ran the dry-run `build` (step 2 of the
+# checklist). `up` then just STARTS the validated images — no `--build` here,
+# so a surprise rebuild can't run unreviewed:
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env.deploy up -d
+# Confirm all three came up before going further:
+docker compose -f deploy/docker-compose.yml ps           # expect gateway + web + nginx "Up"
+docker compose -f deploy/docker-compose.yml logs -f gateway   # watch for the "listening" line, Ctrl-C when healthy
 ```
 
 **6. Seed the demo data** (so the URL shows the polished demo, not an empty workspace)
