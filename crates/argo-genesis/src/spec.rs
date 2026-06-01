@@ -293,17 +293,78 @@ fn humanize_action_name(action_name: &str) -> String {
 /// the noun phrase every capability description hangs off, so the eval floor
 /// validates the teammate's real domain vocabulary. Empty when the charter has
 /// no usable content (the description then degrades to the bare verb phrase).
+///
+/// A proper name introduced by a naming phrase ("named Maya", "goes by Sam")
+/// is rendered Title-cased regardless of how the operator typed it — generic
+/// charter words are lowercased for tokenization stability, but a lowercased
+/// person's name surfaces "as the success lead named maya" on the generated
+/// capability descriptions, which reads wrong.
 fn role_descriptor(draft: &BroadRoleDraft) -> String {
     let persona = draft.persona.to_lowercase();
+    let names = charter_name_tokens(&draft.charter);
     let words: Vec<String> = draft
         .charter
         .split(|c: char| !c.is_ascii_alphanumeric())
         .filter(|s| !s.is_empty())
-        .map(str::to_lowercase)
-        .filter(|w| w.len() >= 3 && !is_descriptor_stopword(w) && *w != persona)
+        .map(|tok| {
+            let lower = tok.to_lowercase();
+            // A token that is the teammate's proper name keeps Title case.
+            if names.contains(&lower) {
+                title_case_word(&lower)
+            } else {
+                lower
+            }
+        })
+        .filter(|w| w.len() >= 3 && !is_descriptor_stopword(&w.to_lowercase()) && w.to_lowercase() != persona)
         .take(4)
         .collect();
     words.join(" ")
+}
+
+/// The set of lowercased proper-name tokens the charter introduces via a
+/// naming phrase (e.g. `{"maya"}` for "...named Maya..."). Used to keep names
+/// Title-cased in the role descriptor. Matches the trigger PHRASES
+/// `materialize::name_from_charter` keys on — "named X", "called X",
+/// "name is X", "goes by X", "call her/him/them X" — so a bare "is"/"by"
+/// (e.g. "who is responsible") never captures a non-name word. Only the single
+/// alphabetic token after the phrase is taken (a name, not a clause).
+fn charter_name_tokens(charter: &str) -> std::collections::HashSet<String> {
+    let tokens: Vec<String> = charter
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    let mut names = std::collections::HashSet::new();
+    for (i, tok) in tokens.iter().enumerate() {
+        let prev = i.checked_sub(1).and_then(|p| tokens.get(p)).map(String::as_str);
+        let is_trigger = match tok.as_str() {
+            "named" | "called" => true,
+            "is" => prev == Some("name"),
+            "by" => prev == Some("goes"),
+            "her" | "him" | "them" => prev == Some("call"),
+            _ => false,
+        };
+        if !is_trigger {
+            continue;
+        }
+        if let Some(candidate) = tokens.get(i + 1) {
+            // A name is alphabetic and short; reject numbers / long clauses.
+            if candidate.chars().all(|c| c.is_ascii_alphabetic()) && candidate.len() <= 20 {
+                names.insert(candidate.clone());
+            }
+        }
+    }
+    names
+}
+
+/// Title-case a single token: upper-case the first ASCII letter, lower-case
+/// the rest (so an operator's "MAYA" or "maya" both render "Maya").
+fn title_case_word(token: &str) -> String {
+    let mut chars = token.chars();
+    match chars.next() {
+        Some(first) => first.to_ascii_uppercase().to_string() + &chars.as_str().to_lowercase(),
+        None => String::new(),
+    }
 }
 
 /// Stopwords dropped from the role descriptor so it carries domain content,

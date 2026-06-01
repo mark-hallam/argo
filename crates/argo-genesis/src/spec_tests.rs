@@ -104,3 +104,51 @@ fn executor_intent_round_trips_through_serde() {
     let back: ExecutorIntent = serde_json::from_str(&json).expect("deserialize");
     assert_eq!(mcp, back);
 }
+
+#[test]
+fn capability_description_titlecases_the_worker_name() {
+    // Regression for the LIVE walkthrough: a charter "...success lead
+    // named Maya..." produced "as the success lead named maya" (the name
+    // lowercased) on every generated capability description. The proper
+    // name following a naming trigger must keep its Title case.
+    // Persona handle differs from the in-charter name (the real Genesis
+    // case the walkthrough hit — the descriptor drops the persona handle,
+    // so a name equal to the persona would be deduped out entirely).
+    let draft = BroadRoleDraft {
+        charter: "the success lead named Maya who keeps customers live".into(),
+        persona: "success-lead".into(),
+        persona_description: "Customer success lead.".into(),
+        action_vocabulary: vec!["draft_welcome".into()],
+        success_metrics: vec![],
+        onboarding_script: String::new(),
+    };
+    let spec = CapabilitySpec::from_broad_draft(draft, Archetype::CalendarCoordinator);
+    let desc = &spec.capabilities[0].intent;
+    assert!(
+        desc.contains("named Maya"),
+        "expected Title-cased name in description, got {desc:?}"
+    );
+    assert!(
+        !desc.contains("named maya"),
+        "the name must NOT be lowercased, got {desc:?}"
+    );
+}
+
+#[test]
+fn role_descriptor_titlecases_lowercased_operator_name() {
+    // Even when the operator typed the name in lower case ("named maya"),
+    // the descriptor renders it Title-cased.
+    let draft = BroadRoleDraft {
+        charter: "the success lead named maya for customer onboarding".into(),
+        persona: "operator".into(),
+        persona_description: "x".into(),
+        action_vocabulary: vec![],
+        success_metrics: vec![],
+        onboarding_script: String::new(),
+    };
+    let descriptor = role_descriptor(&draft);
+    assert!(
+        descriptor.contains("Maya"),
+        "lowercase operator name must be Title-cased, got {descriptor:?}"
+    );
+}

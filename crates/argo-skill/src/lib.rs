@@ -176,7 +176,7 @@ pub use store::{SkillStore, PLACEHOLDER_TENANT_ID};
 pub use success_metric::{should_propose_metric, ProposalThreshold, SuccessMetric};
 pub use trust::{is_skill_eligible, min_trust_for_risk, TrustGrade};
 pub use trust_reader::WorkerTrustReader;
-pub use version::{find_version, list_versions, SkillVersion};
+pub use version::{find_version, list_versions, list_versions_for_tenant, SkillVersion};
 pub use version_migration::{
     list_for_skill, lookup_migration, parse_skill_id_hex, record_migration, MigrationRow,
     MIGRATION_REASON_MAX_LEN,

@@ -8,8 +8,7 @@ use std::sync::Arc;
 use argo_audit::{AuditKind, AuditSink};
 use argo_identity::{IdentityStore, Persona, Role, Worker};
 use argo_store::approvals::{
-    create_request, decide_request, list_pending, ApprovalDecision, DefaultDecision,
-    NewApprovalRequest,
+    create_request, decide_request, list_pending, DefaultDecision, NewApprovalRequest,
 };
 use argo_store::SessionStore;
 use argo_types::{ArgoResult, TenantId};
@@ -20,6 +19,7 @@ use crate::audit_backstory::seed_audit_backstory;
 use crate::marketplace::seed_demo_marketplace_skills;
 use crate::orchestration::seed_demo_orchestration;
 use crate::personas::DEMO_SEED_PERSONAS;
+use crate::seed_approvals::{demo_approval_rows, worker_id_for_persona};
 use crate::plan::{SeedOptions, SeedReport};
 use crate::retros::seed_demo_retros;
 use crate::skills::{seed_demo_skills, seed_foreign_skill};
@@ -178,6 +178,15 @@ pub async fn run_canonical_v1_seed(
     report.skill_ir_seeded = crate::seed_skill_ir(store, opts.tenant_id).await?;
     report.skill_reeval_rows_seeded =
         crate::seed_skill_reeval_history(store, opts.tenant_id).await?;
+    // Clean v1→v2→v3 version chain per catalog skill (active head
+    // relabelled IN PLACE to v3 + two superseded history rows behind it)
+    // so the /skills "Version History" panel reads a coherent progression
+    // aligned with the v1/v2/v3 Eval Re-run History above it — not a lone
+    // 0.1.0 row that joins no eval runs. Runs AFTER reeval so the version
+    // labels match the seeded `skill_reeval_history.skill_version` values;
+    // the head id is preserved so worker_skill / skill_ir stay valid.
+    report.skill_version_chains_built =
+        crate::seed_skill_version_chain(store, opts.tenant_id).await?;
 
     // ── Seed-enrichment: REAL-but-empty surfaces ──────────────────
     // Closes NO-THEATER gaps where a real, correctly-gated endpoint
@@ -380,15 +389,27 @@ async fn seed_foreign_audit_row(
     Ok(1)
 }
 
-/// Insert 8 `approval_request` rows — 5 pending + 3 resolved — so the
+/// Insert 14 `approval_request` rows — 5 pending + 9 resolved — so the
 /// /approvals dashboard's 7-day approval-rate ring has real history to
 /// render on first paint instead of an empty "—". The 5 pending rows
 /// also feed Scene 2's Slack-approval drill-in beat with deadline +24h
 /// so the timeout sweeper does not auto-expire them mid-recording.
 ///
-/// The 3:5 decided:pending ratio mirrors `web/lib/sample-approvals.ts`,
-/// so live-mode and mock-mode demos see the same shape (~67% approval
-/// rate). Two of the three decided rows are approved, one is refused.
+/// Each row names its **owner persona** so the `approval.asked` audit
+/// row carries that worker's id — and the Memory tab's "Recent
+/// decisions" (which filters by `worker_id`) shows only role-appropriate
+/// decisions. The prior blind `worker_ids[i % len]` round-robin
+/// mis-attributed rows (e.g. a *recruiting* "candidate rejection email"
+/// landed on Marcus in Marketing); owner-by-name fixes that.
+///
+/// Variety + a trusted-AI ratio: the banner promises "refunds, hires,
+/// contracts," so the set spans a refund (Jamal/Support), a hire
+/// (Priya/Recruiting), a contract (Grant/GTM), marketing drafts
+/// (Marcus), and marketplace/comms actions — not an all-marketing queue.
+/// Of the decided rows, the approve/refuse split targets a healthy
+/// ~70-85% approval rate (the refusals are the exceptions that prove the
+/// human-oversight loop works), so the /approvals rate ring reads as a
+/// trusted workforce rather than a 24%-distrust signal.
 async fn seed_approval_requests(
     store: &Arc<SessionStore>,
     tenant_id: TenantId,
@@ -401,58 +422,14 @@ async fn seed_approval_requests(
     let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
     let pool = store.pool();
     let deadline_at = (Utc::now() + chrono::Duration::hours(24)).timestamp_micros();
-    // (label, summary, optional pre-decided decision)
-    let labels: [(&str, &str, Option<ApprovalDecision>); 8] = [
-        // 5 pending — actionable in the demo inbox.
-        (
-            "listing repost > $200",
-            "Repost listing #4912 at $215 (was $189).",
-            None,
-        ),
-        (
-            "buyer-discount approval",
-            "Apply 10% buyer discount on listing #3120.",
-            None,
-        ),
-        (
-            "photo-touchup spend cap",
-            "Run touch-up batch (12 photos, $4.80).",
-            None,
-        ),
-        (
-            "candidate interview slot",
-            "Book Diego Alvarez interview Thursday 10:30 AM NZST (45 min).",
-            None,
-        ),
-        (
-            "discount above policy ceiling",
-            "Apply 32% discount on Tomás Industries renewal QT-2024-7283.",
-            None,
-        ),
-        // 3 resolved — feed the 7-day approval-rate ring on /approvals.
-        (
-            "buyer counter-offer at $85",
-            "Counter CCM helmet offer from $75 to $85 with free local pickup.",
-            Some(ApprovalDecision::Approve),
-        ),
-        (
-            "Q2 product update broadcast",
-            "Announce audit-log export to 12,400 customers Tuesday 09:00 PST.",
-            Some(ApprovalDecision::Approve),
-        ),
-        (
-            "candidate rejection email",
-            "Send warm rejection to Sara Lin with feedback (held to revise wording).",
-            Some(ApprovalDecision::Reject),
-        ),
-    ];
+    let rows = demo_approval_rows();
     // Idempotency guard (mirrors the worker skip-if-exists at
-    // `seed_worker_spine`): the 8 demo approvals are seeded as a set.
-    // If the sentinel (the first row's summary) is already present as a
-    // pending request for this tenant, the set was seeded by a prior
-    // run — skip the whole block so re-seeding (e.g. to add a new
-    // teammate) does not duplicate the approval inbox.
-    let sentinel = labels[0].1;
+    // `seed_worker_spine`): the demo approvals are seeded as a set. If the
+    // sentinel (the first row's summary) is already present as a pending
+    // request for this tenant, the set was seeded by a prior run — skip
+    // the whole block so re-seeding (e.g. to add a new teammate) does not
+    // duplicate the approval inbox.
+    let sentinel = rows[0].summary;
     let existing = list_pending(pool, tenant_id, 100).await?;
     if existing
         .iter()
@@ -461,16 +438,19 @@ async fn seed_approval_requests(
         return Ok(0);
     }
     let mut inserted = 0;
-    for (i, (label, summary, prior_decision)) in labels.iter().enumerate() {
-        let worker_id = worker_ids[i % worker_ids.len()];
+    for row in &rows {
+        // Resolve the owning worker by persona name; fall back to the
+        // positional id only if the name is somehow absent from the spine
+        // (it never is for the canonical roster).
+        let worker_id = worker_id_for_persona(row.owner, worker_ids).unwrap_or(worker_ids[0]);
         let action_id = Uuid::now_v7().as_bytes().to_vec();
         let new_req = NewApprovalRequest {
             action_id: action_id.clone(),
             tenant_id,
-            requested_by: actor,
+            requested_by: row.owner,
             deadline_at,
             default_decision: DefaultDecision::Deny,
-            draft_content: Some(summary),
+            draft_content: Some(row.summary),
         };
         let approval_id = create_request(pool, &new_req).await?;
         sink.write(
@@ -479,15 +459,15 @@ async fn seed_approval_requests(
             serde_json::json!({
                 "approval_id": approval_id,
                 "worker_id": worker_id.to_string(),
-                "label": label,
-                "summary": summary,
+                "label": row.label,
+                "summary": row.summary,
                 "channel": "slack",
             }),
             None,
         )
         .await?;
-        if let Some(decision) = prior_decision {
-            decide_request(pool, &approval_id, tenant_id, actor, *decision).await?;
+        if let Some(decision) = row.decision {
+            decide_request(pool, &approval_id, tenant_id, actor, decision).await?;
         }
         inserted += 1;
     }

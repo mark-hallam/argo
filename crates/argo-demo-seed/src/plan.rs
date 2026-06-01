@@ -136,6 +136,15 @@ pub struct SeedReport {
     /// rows per catalog skill with varied pass rates + one regression.
     /// See [`crate::seed_skill_reeval_history`].
     pub skill_reeval_rows_seeded: usize,
+    /// Number of demo catalog skills turned into a clean `v1`→`v2`→`v3`
+    /// version chain (active head + two superseded history rows) so the
+    /// /skills detail "Version History" panel
+    /// (`GET /api/v1/skills/<id>/versions`) shows a coherent progression
+    /// aligned with the Eval Re-run History versions — instead of a lone
+    /// `0.1.0` row that joins no eval runs. Idempotent (`0` on a re-seed
+    /// where the chain already exists). See
+    /// [`crate::seed_skill_version_chain`].
+    pub skill_version_chains_built: usize,
     /// `true` when the run drove real LLM turns; `false` when Pass A
     /// was skipped via [`SeedOptions::skip_pass_a_turns`].
     pub pass_a_real_llm: bool,

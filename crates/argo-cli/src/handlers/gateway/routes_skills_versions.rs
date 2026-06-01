@@ -6,11 +6,13 @@
 //!
 //! Two existing sources, joined — no fabricated history:
 //!
-//! * **Version timeline** — [`argo_skill::list_versions`] reads the
-//!   `skill` table rows for the name, newest-first, surfacing the real
-//!   `version`, `trust_grade` (from `provenance.source`), `superseded`
-//!   flag (`superseded_by IS NOT NULL`), and `lifecycle_state`. This is
-//!   the same data `argo skill versions <name>` prints.
+//! * **Version timeline** — [`argo_skill::list_versions_for_tenant`]
+//!   reads the caller-tenant's `skill` table rows for the name,
+//!   newest-first, surfacing the real `version`, `trust_grade` (from
+//!   `provenance.source`), `superseded` flag (`superseded_by IS NOT
+//!   NULL`), and `lifecycle_state`. Tenant-scoped on purpose: the
+//!   non-scoped `list_versions` pooled every tenant that ever seeded the
+//!   same skill name into one timeline (the demo "6× v0.1.0" symptom).
 //! * **Eval-delta changelog** — each version is matched against its
 //!   `skill_reeval_history` rows (the scheduled re-eval runs that also
 //!   drive `/evals` and the telemetry card). For a version we surface
@@ -36,7 +38,7 @@
 //! [`DEC-007`]: ../../../../../docs/skycot/decisions/DEC-007-no-theater-in-demo.md
 
 use super::routes_skills_list_get::request_tenant_id;
-use argo_skill::{list_versions, SkillVersion};
+use argo_skill::{list_versions_for_tenant, SkillVersion};
 use argo_store::SessionStore;
 use chrono::{TimeZone, Utc};
 use serde_json::{json, Value};
@@ -71,7 +73,12 @@ pub(super) async fn skill_versions_response(
         Err(resp) => return resp,
     };
 
-    let versions = match list_versions(store, &skill_name).await {
+    // Tenant-scoped: the version timeline shows ONLY this tenant's rows.
+    // The non-scoped `list_versions` surfaced every tenant that ever
+    // seeded the same skill name (the demo "6× v0.1.0, all ACTIVE"
+    // symptom — boot-seeds under shifting workspace tenant_ids each
+    // added a row, all leaking into one timeline).
+    let versions = match list_versions_for_tenant(store, &skill_name, &tenant_str).await {
         Ok(v) => v,
         Err(e) => return server_error(&format!("list versions: {e}")),
     };

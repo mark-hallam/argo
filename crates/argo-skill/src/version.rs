@@ -50,6 +50,14 @@ pub struct SkillVersion {
 /// List every version of `name` in this workspace, newest-first.
 /// Returns an empty vec if the skill name has never been
 /// installed.
+///
+/// NOT tenant-scoped — this is the local-operator `argo skill versions`
+/// / `argo skill ab-test` view, where the CLI already operates in one
+/// workspace's tenant context. Multi-tenant callers (the gateway
+/// version-history route) MUST use [`list_versions_for_tenant`] so a
+/// tenant only sees its own version chain — otherwise the same skill
+/// name seeded under several tenants surfaces every tenant's rows in
+/// one timeline (the demo-tenant "6× v0.1.0" symptom).
 pub async fn list_versions(store: &SessionStore, name: &str) -> ArgoResult<Vec<SkillVersion>> {
     let rows = sqlx::query(
         "SELECT id, name, version, source, superseded_by, \
@@ -60,26 +68,51 @@ pub async fn list_versions(store: &SessionStore, name: &str) -> ArgoResult<Vec<S
     .fetch_all(store.pool())
     .await
     .map_err(|e| ArgoError::Provider(format!("list skill versions: {e}")))?;
-    let mut out = Vec::with_capacity(rows.len());
-    for row in rows {
-        let id_blob: Vec<u8> = row.get("id");
-        let id_hex = hex_from_blob(&id_blob);
-        let source: String = row.get("source");
-        let superseded_by: Option<Vec<u8>> = row.get("superseded_by");
-        let created_at: i64 = row.get("created_at");
-        out.push(SkillVersion {
-            id: id_hex,
-            name: row.get("name"),
-            version: row.get("version"),
-            trust_grade: trust_from_source(&source),
-            superseded: superseded_by.is_some(),
-            lifecycle_state: row.get("lifecycle_state"),
-            created_at_rfc3339: micros_to_rfc3339(created_at),
-            created_at_micros: created_at,
-            ir_hash: None,
-        });
-    }
-    Ok(out)
+    rows.iter().map(skill_version_from_row).collect()
+}
+
+/// Tenant-scoped sibling of [`list_versions`]: every version row for
+/// `name` that belongs to `tenant_id`, newest-first. This is the correct
+/// read for any multi-tenant surface — the version timeline a tenant sees
+/// must contain only its own rows. The `skill.tenant_id` column is TEXT
+/// (see migration v80 / v84); pass `&tenant.to_string()`.
+pub async fn list_versions_for_tenant(
+    store: &SessionStore,
+    name: &str,
+    tenant_id: &str,
+) -> ArgoResult<Vec<SkillVersion>> {
+    let rows = sqlx::query(
+        "SELECT id, name, version, source, superseded_by, \
+         COALESCE(lifecycle_state, 'active') AS lifecycle_state, created_at \
+         FROM skill WHERE name = ? AND tenant_id = ? \
+         ORDER BY created_at DESC, version DESC",
+    )
+    .bind(name)
+    .bind(tenant_id)
+    .fetch_all(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("list skill versions (tenant): {e}")))?;
+    rows.iter().map(skill_version_from_row).collect()
+}
+
+/// Decode one `skill`-table row into a [`SkillVersion`]. Shared by the
+/// global + tenant-scoped listings so both stay byte-identical in shape.
+fn skill_version_from_row(row: &sqlx::sqlite::SqliteRow) -> ArgoResult<SkillVersion> {
+    let id_blob: Vec<u8> = row.get("id");
+    let source: String = row.get("source");
+    let superseded_by: Option<Vec<u8>> = row.get("superseded_by");
+    let created_at: i64 = row.get("created_at");
+    Ok(SkillVersion {
+        id: hex_from_blob(&id_blob),
+        name: row.get("name"),
+        version: row.get("version"),
+        trust_grade: trust_from_source(&source),
+        superseded: superseded_by.is_some(),
+        lifecycle_state: row.get("lifecycle_state"),
+        created_at_rfc3339: micros_to_rfc3339(created_at),
+        created_at_micros: created_at,
+        ir_hash: None,
+    })
 }
 
 /// Resolve a `(name, version)` pair to the row's hex id. Returns

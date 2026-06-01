@@ -42,9 +42,11 @@ mod plan;
 mod retros;
 mod seed;
 mod seed_api_keys;
+mod seed_approvals;
 mod seed_knowledge;
 mod seed_notifications;
 mod seed_prune;
+mod seed_skill_versions;
 mod seed_trust_grades;
 mod seed_worker_duties;
 mod seed_worker_memory;
@@ -59,6 +61,7 @@ pub use marketplace::{demo_marketplace_catalog_size, seed_demo_marketplace_skill
 pub use personas::{DemoPersona, DEMO_SEED_PERSONAS};
 pub use plan::{SeedOptions, SeedReport};
 pub use seed::{run_canonical_v1_seed, seed_workers};
+pub use seed_skill_versions::seed_skill_version_chain;
 pub use skill_ir_eval::{seed_skill_ir, seed_skill_reeval_history};
 
 /// Environment variable the CLI handler checks for a sandbox provider

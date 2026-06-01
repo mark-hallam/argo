@@ -137,6 +137,18 @@ interface RawGatewayVoiceProfile {
   signaturePhrases?: string[];
 }
 
+/** A fact as the gateway may emit it — camelCase OR the legacy
+ *  snake_case (`fact_id` / `created_at`). Tolerating both keeps the Memory
+ *  tab's date column working regardless of which casing the gateway sends
+ *  (the snake-only form is what produced the "Invalid Date" render). */
+interface RawGatewayFact {
+  factId?: string;
+  fact_id?: string;
+  text?: string;
+  createdAt?: string;
+  created_at?: string;
+}
+
 /** Raw memory payload — gateway snake_case, with camelCase tolerated so
  *  this normalizer is a no-op if the gateway ever switches conventions. */
 interface RawGatewayMemory {
@@ -144,13 +156,25 @@ interface RawGatewayMemory {
   namespaceId?: string | null;
   tenant_scope?: string | null;
   tenantScope?: string | null;
-  facts?: WorkerFact[];
+  facts?: RawGatewayFact[];
   active_conversations?: ActiveConversation[];
   activeConversations?: ActiveConversation[];
   recent_decisions?: RecentDecision[];
   recentDecisions?: RecentDecision[];
   voice_profile?: RawGatewayVoiceProfile;
   voiceProfile?: RawGatewayVoiceProfile;
+}
+
+/** Normalize one raw fact to the SPA's camelCase `WorkerFact`, accepting
+ *  either casing for the id + timestamp. `createdAt` defaults to "" (not
+ *  `undefined`) so a missing timestamp renders blank rather than the
+ *  `new Date(undefined)` → "Invalid Date" the snake-only payload caused. */
+function normalizeFact(f: RawGatewayFact): WorkerFact {
+  return {
+    factId: f.factId ?? f.fact_id ?? "",
+    text: f.text ?? "",
+    createdAt: f.createdAt ?? f.created_at ?? "",
+  };
 }
 
 const VOICE_TONES = new Set<string>(["warm", "neutral", "formal"]);
@@ -185,7 +209,7 @@ function normalizeGatewayMemory(raw: RawGatewayMemory): WorkerMemory {
   return {
     namespaceId: raw.namespaceId ?? raw.namespace_id ?? "",
     tenantScope: raw.tenantScope ?? raw.tenant_scope ?? "Current workspace",
-    facts: Array.isArray(raw.facts) ? raw.facts : [],
+    facts: Array.isArray(raw.facts) ? raw.facts.map(normalizeFact) : [],
     activeConversations: raw.activeConversations ?? raw.active_conversations ?? [],
     recentDecisions: raw.recentDecisions ?? raw.recent_decisions ?? [],
     voiceProfile: {

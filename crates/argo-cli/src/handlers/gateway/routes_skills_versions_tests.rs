@@ -196,3 +196,28 @@ async fn other_tenants_skill_404s() {
     let (status, body) = dispatch_get(&req, Some(&store)).await.expect("dispatch");
     assert_eq!(status, "404 Not Found", "cross-tenant name must 404: {body}");
 }
+
+#[tokio::test]
+async fn timeline_excludes_other_tenants_rows_for_the_same_name() {
+    // Regression for the demo "6× v0.1.0" symptom: the same skill name
+    // seeded under several tenants must NOT pool into one timeline. My
+    // tenant's version history shows ONLY my row, even though three other
+    // tenants carry the identical name+version.
+    let store = session_store().await;
+    let mine = Uuid::now_v7().to_string();
+    insert_skill(&store, &mine, "pricing.competitor_scrape", "v3", "published:verified:argo-seed", 9_000, None).await;
+    for _ in 0..5 {
+        let other = Uuid::now_v7().to_string();
+        insert_skill(&store, &other, "pricing.competitor_scrape", "0.1.0", "published:verified:argo-seed", 1_000, None).await;
+    }
+
+    let req = versions_req("pricing.competitor_scrape", &mine);
+    let (status, body) = dispatch_get(&req, Some(&store)).await.expect("dispatch");
+    assert_eq!(status, "200 OK", "{body}");
+    let parsed: Value = serde_json::from_str(&body).expect("json");
+    assert_eq!(
+        parsed["version_count"], 1,
+        "only my tenant's single row shows, not the 5 other tenants' rows: {body}"
+    );
+    assert_eq!(parsed["versions"][0]["version"], "v3");
+}

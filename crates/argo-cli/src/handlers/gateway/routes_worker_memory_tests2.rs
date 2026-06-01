@@ -10,7 +10,7 @@
 
 #![allow(clippy::too_many_lines)]
 
-use super::list_response;
+use super::{fact_create_response, list_response};
 use argo_audit::{AuditKind, AuditSink};
 use argo_identity::{IdentityStore, Persona, Role, Worker};
 use argo_store::approvals::{create_request, decide_request, ApprovalDecision, NewApprovalRequest};
@@ -294,4 +294,53 @@ async fn recent_decisions_maps_reject_to_refused() {
     let decisions = v["recent_decisions"].as_array().expect("array");
     assert_eq!(decisions.len(), 1);
     assert_eq!(decisions[0]["outcome"], "refused");
+}
+
+fn post_req(id: &str, body: &str) -> String {
+    format!(
+        "POST /api/v1/workers/{id}/memory/facts HTTP/1.1\r\nHost: x\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    )
+}
+
+#[tokio::test]
+async fn facts_carry_camelcase_factid_and_parseable_createdat() {
+    // Regression for the LIVE walkthrough "Invalid Date": the Memory tab
+    // reads `fact.createdAt` (camelCase) + renders `new Date(...)`. The
+    // route formerly emitted only snake_case `created_at`, so `createdAt`
+    // was `undefined` → "Invalid Date". Each fact must now carry a
+    // camelCase `factId` + a parseable RFC-3339 `createdAt`.
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let tenant = workspace_tenant(&store).await;
+    let worker = add_worker(&store, tenant, "Maya").await;
+
+    // POST response carries camelCase + a parseable date.
+    let post = post_req(&worker.id.to_string(), r#"{"text":"Bill Northwind NET-30"}"#);
+    let (status, pbody) = fact_create_response(&worker.id.to_string(), &post, Some(&store)).await;
+    assert_eq!(status, "201 Created", "{pbody}");
+    let pv: Value = serde_json::from_str(&pbody).unwrap();
+    assert!(pv["factId"].is_string(), "POST must return camelCase factId: {pbody}");
+    let created = pv["createdAt"].as_str().expect("POST createdAt");
+    assert!(
+        chrono::DateTime::parse_from_rfc3339(created).is_ok(),
+        "POST createdAt must be parseable, got {created:?}"
+    );
+
+    // GET list carries camelCase + a parseable date on every fact.
+    let (_s, body) =
+        list_response(&worker.id.to_string(), &get_req(&worker.id.to_string()), Some(&store)).await;
+    let v: Value = serde_json::from_str(&body).unwrap();
+    let facts = v["facts"].as_array().expect("facts array");
+    assert!(!facts.is_empty(), "expected the seeded fact");
+    for f in facts {
+        assert!(f["factId"].is_string(), "fact missing camelCase factId: {f}");
+        let c = f["createdAt"].as_str().expect("fact createdAt");
+        assert!(
+            chrono::DateTime::parse_from_rfc3339(c).is_ok(),
+            "fact createdAt must parse (not 'Invalid Date'), got {c:?}"
+        );
+    }
 }

@@ -141,11 +141,15 @@ pub(super) async fn fact_create_response(
     )
     .await;
     let (redacted, _) = redact_text(&text, &RedactionPolicy::default());
+    // camelCase first (the SPA `addFact` reconciles the optimistic row by
+    // `factId` + renders `createdAt`); snake_case kept as aliases.
     (
         "201 Created",
         json!({
+            "factId": entry.id.to_string(),
             "fact_id": entry.id.to_string(),
             "text": redacted,
+            "createdAt": entry.learned_at.to_rfc3339(),
             "created_at": entry.learned_at.to_rfc3339(),
         })
         .to_string(),
@@ -187,11 +191,17 @@ pub(super) async fn fact_update_response(
     )
     .await;
     let (redacted, _) = redact_text(&new_text, &RedactionPolicy::default());
+    // The SPA `editFact` consumes a `WorkerFact` (`factId` / `createdAt`);
+    // surface camelCase (`createdAt` = the edit's timestamp) so the row
+    // re-renders a real date, with the snake_case `fact_id` / `edited_at`
+    // kept as aliases for any pinned reader.
     (
         "200 OK",
         json!({
+            "factId": fact_id.to_string(),
             "fact_id": fact_id.to_string(),
             "text": redacted,
+            "createdAt": new_entry.learned_at.to_rfc3339(),
             "edited_at": new_entry.learned_at.to_rfc3339(),
         })
         .to_string(),

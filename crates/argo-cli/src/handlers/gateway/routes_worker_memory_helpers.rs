@@ -196,9 +196,18 @@ pub(super) async fn fetch_owned_active_fact(
 
 pub(super) fn fact_json(row: &FactRow, policy: &RedactionPolicy) -> Value {
     let (text, _) = redact_text(&row.body, policy);
+    // camelCase, matching the sibling `active_conversations` /
+    // `recent_decisions` arrays in the SAME payload and the SPA's
+    // `WorkerFact` contract (`factId` / `createdAt`). The prior
+    // snake_case `created_at` left the SPA's `new Date(fact.createdAt)`
+    // reading `undefined` → "Invalid Date" on the Memory tab. The
+    // snake_case keys are kept as aliases so any other reader that pinned
+    // them keeps working.
     json!({
+        "factId": row.id.to_string(),
         "fact_id": row.id.to_string(),
         "text": text,
+        "createdAt": row.learned_at.to_rfc3339(),
         "created_at": row.learned_at.to_rfc3339(),
     })
 }
