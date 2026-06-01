@@ -15,6 +15,22 @@ honest DONE / PARTIAL / BLOCKED-on-browser per item.
 
 ---
 
+## ✅ OVERNIGHT OUTCOME — 2026-06-01 night (Part A COMPLETE + pushed)
+
+All 8 Part-A items done + **pushed to `origin/main` (18 commits, head `0f369a24b`)**. Truth-bounded:
+1. ✅ **Cora's voice backend LIVE** — `coach` + `interview` modes curl-verified minting `gpt-realtime-2` (`has_secret:true`, `voice:marin`); gateway on `79b9ace` / schema 87.
+2. ✅ **Voice stack consolidated** + pushed (client + hook committed).
+3. ✅ **Cora's `/coach` frontend** — persona-aware hook + Coaching/Founder-interview surface; tsc clean, coach vitest 3/3. (Live mic = Part B.)
+4. ✅ **Cora's Genesis hire brief** — ready-to-paste (`docs/skycot/operator/cora-founder-coach-hire-brief.md`).
+5. ✅ **investor pitch materials** — 1-page leave-behind + ~11-slide deck scaffold (`[MARK]` blanks need Mark's facts).
+6. ⚠️ **Quality** — MY changes all green (voice/pitch cargo tests, tsc, coach vitest). **Found ~50 PRE-EXISTING red `argo-cli` tests** — tenant-harness drift from the cross-tenant audit migration (test helpers seed via the deprecated tenant-less `AuditSink::new`; the query now tenant-scopes → seeded rows filtered out). **NOT mine; the live code works** (`curl /api/v1/audit` returns real hash-chained rows). **Spawned a daytime fix task.** Suite NOT fully green, but failures are pre-existing + non-blocking.
+7. ✅ **Deploy-kit** — seed step validated line-by-line (`argo tenant create <NAME> --json` → `argo demo seed --tenant <ID> --skip-pass-a-turns`); refine-item #2 resolved.
+8. ✅ **Pushed** — 18 commits + `FEATURE_MATRIX` rows in-band (HTML regenerated).
+
+**NOT done overnight (deliberately — reliability #1, operator asleep):** no backend migration / gateway redeploy while unattended. Next frontier-B items need Mark's call: (a) **waitlist backend** (storage + public-safety = design decisions; the `/landing` form already exists, backend is the TODO); (b) **workflows live-list** (gateway CORS-mount `/api/v1/verticals` — a documented separate brief); (c) **public-safe Portia path** for the landing embed. **Verify-before-fix note:** skills / cohorts / workflow-detail mock-gating is ALREADY done — the "SPA mock-gating gap" memory overstates what's left.
+
+---
+
 ## PART A — build tonight (autonomous, non-browser) — ranked
 
 1. **Cora's voice backend live** — deploy the `coach` + `interview` realtime modes
