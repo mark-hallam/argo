@@ -277,6 +277,16 @@ fn render_system_prompt_includes_persona_channel_policy_facts() {
     // Facts.
     assert!(prompt.contains("Skycot"), "facts must contain company name");
     assert!(prompt.contains("Mark Hallam"), "facts must contain founder");
+    // Spoken-delivery discipline: answers may be read aloud by TTS, so the
+    // prompt must instruct natural spoken identifiers, not code tokens.
+    assert!(
+        prompt.contains("read aloud") && prompt.contains("tenant ID"),
+        "output discipline must instruct spoken-friendly identifiers (no snake_case)"
+    );
+    assert!(
+        prompt.contains("never hear the word \"underscore\""),
+        "output discipline must forbid spoken underscores"
+    );
 }
 
 #[test]

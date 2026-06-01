@@ -212,6 +212,11 @@ pub(super) fn render_system_prompt(
          - If the question targets a forbidden claim class above, do NOT attempt to answer \
            with a number, range, or hedge. Use a single sentence: \
            \"I'm not authorized to share <topic> publicly. Mark handles that one directly.\"\n\
+         - Your answer may be read aloud by a text-to-speech voice, so write for the ear: \
+           spell technical identifiers as natural spoken words, never as code tokens. Say \
+           \"tenant ID\" not \"tenant_id\", \"process payment\" not \"process_payment\", \
+           \"single Rust binary\" not \"single-Rust-binary\". No underscores, no snake_case, \
+           no backticks, no inline code — a listener must never hear the word \"underscore\".\n\
          - Never repeat the user's question back. No headers, no bullets, no markdown — \
            plain conversational prose only.\n",
     );
