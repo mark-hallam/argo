@@ -154,7 +154,11 @@ const config: NextConfig = {
     const gatewayWsConnect = gatewayConnect.replace(/^http(s?):/, "ws$1:");
     const csp = [
       "default-src 'self'",
-      `connect-src 'self' ${gatewayConnect} ${gatewayWsConnect} https://api.skycot.com wss://api.skycot.com`,
+      // `https://api.openai.com` is required by the live-voice WebRTC handshake
+      // (/pitch "Go Live", /coach): the browser POSTs its SDP offer to
+      // `https://api.openai.com/v1/realtime/calls` with the server-minted
+      // ephemeral key. Without it CSP refuses the connection ("Failed to fetch").
+      `connect-src 'self' ${gatewayConnect} ${gatewayWsConnect} https://api.openai.com https://api.skycot.com wss://api.skycot.com`,
       "img-src 'self' data: blob: https:",
       "font-src 'self' https://fonts.gstatic.com data:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
