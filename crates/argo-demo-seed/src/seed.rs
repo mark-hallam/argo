@@ -225,6 +225,19 @@ async fn seed_enrichment_surfaces(
         crate::seed_trust_grades::seed_trust_grades(store, tenant_id, DEMO_SEED_PERSONAS, worker_ids)
             .await?;
 
+    // Session-linked recent activity per hero so the /team headline rollup
+    // counts real per-worker activity instead of rendering "No activity yet."
+    // The other seeded audit rows pass session_id=None and miss the rollup's
+    // `audit_record.session_id -> session.worker_id` JOIN — see
+    // seed_team_headline_activity for the full rationale.
+    crate::seed_team_headline_activity::seed_team_headline_activity(
+        store,
+        tenant_id,
+        DEMO_SEED_PERSONAS,
+        worker_ids,
+    )
+    .await?;
+
     // Metadata-only API-key roster (throwaway hashes, no plaintext
     // secret) so /settings/api-keys shows real cards (Frontier-B SPEC 2).
     report.api_keys_seeded = crate::seed_api_keys::seed_api_keys(store, tenant_id).await?;

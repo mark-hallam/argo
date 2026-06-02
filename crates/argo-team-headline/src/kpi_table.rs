@@ -348,9 +348,9 @@ const FALLBACK: &[BulletKind] = &[
 #[must_use]
 pub fn bullets_for_vertical(vertical_id: &str) -> &'static [BulletKind] {
     match vertical_id {
-        "gtm-engineer" | "marketplace-seller" => GTM_ENGINEER,
-        "recruiter" => RECRUITER,
-        "customer-support" => CUSTOMER_SUPPORT,
+        "gtm-engineer" | "marketplace-seller" | "gtm" => GTM_ENGINEER,
+        "recruiter" | "recruiting" => RECRUITER,
+        "customer-support" | "support" => CUSTOMER_SUPPORT,
         "sales-sdr" => SALES_SDR,
         "sales-follow-up" => SALES_FOLLOW_UP,
         "product-manager" => PRODUCT_MANAGER,
@@ -359,7 +359,7 @@ pub fn bullets_for_vertical(vertical_id: &str) -> &'static [BulletKind] {
         "healthcare-intake" => HEALTHCARE_INTAKE,
         "legal-paralegal" => LEGAL_PARALEGAL,
         "event-coordinator" => EVENT_COORDINATOR,
-        "real-estate-agent" => REAL_ESTATE_AGENT,
+        "real-estate-agent" | "marketplace" => REAL_ESTATE_AGENT,
         "pr-checker" => PR_CHECKER,
         "receptionist" => RECEPTIONIST,
         _ => FALLBACK,

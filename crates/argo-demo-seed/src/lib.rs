@@ -47,6 +47,7 @@ mod seed_knowledge;
 mod seed_notifications;
 mod seed_prune;
 mod seed_skill_versions;
+mod seed_team_headline_activity;
 mod seed_trust_grades;
 mod seed_worker_duties;
 mod seed_worker_memory;
