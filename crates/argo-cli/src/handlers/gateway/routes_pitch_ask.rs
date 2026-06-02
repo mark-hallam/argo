@@ -414,6 +414,15 @@ pub(super) fn realtime_instructions(channel: PitchChannel) -> Result<String, Str
     Ok(super::routes_pitch_ask_llm::render_system_prompt(channel, policy, &facts))
 }
 
+/// The canonical SKYCOT company facts as Markdown — for grounding a live-voice
+/// persona that is NOT the pitch agent (e.g. Cora the coach) in the same
+/// approved facts Portia uses, without Portia's pitch framing.
+pub(super) fn company_facts_markdown() -> Result<String, String> {
+    Ok(CompanyFacts::load_cached()
+        .map_err(|e| e.to_string())?
+        .as_markdown())
+}
+
 fn load_bundle() -> Result<Arc<PitchBundle>, String> {
     let corpus_dir = corpus_dir();
     let public_path = policy_dir().join("skycot-public-pitch.toml");

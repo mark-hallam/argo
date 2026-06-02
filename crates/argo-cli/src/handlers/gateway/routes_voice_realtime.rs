@@ -21,7 +21,7 @@
 //!
 //! NO THEATER: with no `OPENAI_API_KEY` this is a 503, never a faked token.
 
-use super::routes_pitch_ask::{realtime_instructions, PitchChannel};
+use super::routes_pitch_ask::{company_facts_markdown, realtime_instructions, PitchChannel};
 use super::store_helpers::body_from_request;
 use argo_store::SessionStore;
 use argo_types::Redacted;
@@ -80,8 +80,8 @@ pub(super) async fn realtime_session_response(
     // these collapse into one path — "talk to <any teammate> live, in their own
     // persona + memory". For now: pitch (Portia), interview, coach (Cora).
     let instructions = match parsed.mode.as_deref() {
-        Some("interview") => INTERVIEW_INSTRUCTIONS.to_string(),
-        Some("coach") => COACH_INSTRUCTIONS.to_string(),
+        Some("interview") => ground_in_skycot(INTERVIEW_INSTRUCTIONS),
+        Some("coach") => ground_in_skycot(COACH_INSTRUCTIONS),
         _ => match realtime_instructions(channel) {
             Ok(s) => format!("{REALTIME_PREAMBLE}\n\n{s}"),
             Err(e) => return service_unavailable(&format!("pitch corpus/policies: {e}")),
@@ -205,6 +205,22 @@ per turn; ask one question at a time, listen, and follow up on what matters. You
 and advise; you never take public or external actions on your own. Open by greeting Mark by name \
 and asking what he wants to work on today.";
 
+/// Ground a live-voice persona (Cora's coach, the founder interviewer) in the
+/// canonical SKYCOT facts + a spoken-delivery rule, so she works from the *real*
+/// product (not generically) and never voices a raw identifier aloud. Degrades
+/// to persona + delivery rule if the facts can't load (never fails the session).
+fn ground_in_skycot(persona: &str) -> String {
+    let spoken = "When you reference anything technical, say it the way a person says it out \
+loud — \"tenant ID\", not \"tenant_id\"; a listener must never hear the word \"underscore\".";
+    match company_facts_markdown() {
+        Ok(facts) => format!(
+            "{persona}\n\n{spoken}\n\n## What you know about SKYCOT (ground everything you say in \
+these facts; never invent beyond them)\n{facts}"
+        ),
+        Err(_) => format!("{persona}\n\n{spoken}"),
+    }
+}
+
 /// Map the optional `context` string to a [`PitchChannel`], defaulting to
 /// `Rehearsal` for an absent/blank/unrecognised value (matching the discrete
 /// pitch endpoint's default).
@@ -269,5 +285,26 @@ mod tests {
         let req = "POST /api/v1/voice/realtime-session HTTP/1.1\r\nContent-Type: application/json\r\n\r\nnot json";
         let (status, _body) = realtime_session_response(req, None).await;
         assert!(status.starts_with("400"), "expected 400, got {status}");
+    }
+
+    #[test]
+    fn coach_and_interview_are_grounded_in_company_facts() {
+        // Cora's coach/interview voices must carry the SAME canonical SKYCOT
+        // facts Portia's pitch uses — else she coaches generically and can't
+        // catch an over-claim. (`load_cached` reads repo facts in tests, like
+        // the pitch-facts tests.)
+        let coach = ground_in_skycot(COACH_INSTRUCTIONS);
+        assert!(coach.contains("Cora"), "persona preserved");
+        assert!(
+            coach.contains("What you know about SKYCOT"),
+            "company facts section must be appended (len {})",
+            coach.len()
+        );
+        assert!(
+            coach.len() > COACH_INSTRUCTIONS.len() + 200,
+            "facts must materially expand the prompt"
+        );
+        assert!(coach.contains("underscore"), "spoken-delivery rule present");
+        assert!(ground_in_skycot(INTERVIEW_INSTRUCTIONS).contains("What you know about SKYCOT"));
     }
 }
