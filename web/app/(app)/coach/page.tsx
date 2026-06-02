@@ -18,9 +18,10 @@
  * never the green deterministic "Allowed" pill (NO THEATER — DEC-007/029).
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRealtimeVoice, realtimeVoiceSupported } from "@/lib/api/use-realtime-voice";
 import type { RealtimeMode } from "@/lib/api/voice";
+import { PastVoiceSessionsPanel } from "@/components/skycot/voice";
 
 const MODES: ReadonlyArray<{ id: RealtimeMode; label: string; blurb: string }> = [
   {
@@ -47,6 +48,18 @@ export default function CoachPage() {
 
   const busy = live.phase === "connecting" || live.phase === "live";
   const active = MODES.find((m) => m.id === mode) ?? MODES[0];
+
+  // Reload the Past-conversations panel once a live call ends (live → idle).
+  const [voiceRefresh, setVoiceRefresh] = useState(0);
+  const liveWasActiveRef = useRef(false);
+  useEffect(() => {
+    if (live.phase === "live" || live.phase === "connecting") {
+      liveWasActiveRef.current = true;
+    } else if (live.phase === "idle" && liveWasActiveRef.current) {
+      liveWasActiveRef.current = false;
+      setVoiceRefresh((k) => k + 1);
+    }
+  }, [live.phase]);
 
   return (
     <main className="coach">
@@ -125,6 +138,8 @@ export default function CoachPage() {
           </>
         )}
       </section>
+
+      <PastVoiceSessionsPanel mode={mode} agentName="Cora" refreshSignal={voiceRefresh} />
 
       <style jsx>{`
         .coach {

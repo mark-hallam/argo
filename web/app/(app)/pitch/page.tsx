@@ -16,6 +16,7 @@ import {
   type OperatorMessage,
 } from "./pitch-message-bubble";
 import { PitchStyles } from "./pitch-styles";
+import { PastVoiceSessionsPanel } from "@/components/skycot/voice";
 
 /**
  * `/pitch` — operator-facing rehearsal surface for the Pitch Agent.
@@ -162,6 +163,19 @@ export default function PitchPage() {
   }, []);
   const micSupported = mounted && voiceCaptureSupported();
   const liveSupported = mounted && realtimeVoiceSupported();
+
+  // Reload the Past-conversations panel once a live call ends (live → idle),
+  // so the just-finished session appears without a manual refresh.
+  const [voiceRefresh, setVoiceRefresh] = useState(0);
+  const liveWasActiveRef = useRef(false);
+  useEffect(() => {
+    if (liveVoice.phase === "live" || liveVoice.phase === "connecting") {
+      liveWasActiveRef.current = true;
+    } else if (liveVoice.phase === "idle" && liveWasActiveRef.current) {
+      liveWasActiveRef.current = false;
+      setVoiceRefresh((k) => k + 1);
+    }
+  }, [liveVoice.phase]);
 
   const voiceLabel =
     voice.phase === "recording"
@@ -387,6 +401,7 @@ export default function PitchPage() {
                 </div>
               ))}
             </div>
+            <PastVoiceSessionsPanel mode="pitch" agentName="Portia" refreshSignal={voiceRefresh} />
           </section>
         </div>
       </div>

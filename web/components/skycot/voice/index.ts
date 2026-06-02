@@ -7,3 +7,9 @@ export {
   type VoiceChatProps,
   type VoiceChatState,
 } from "./VoiceChat";
+
+export {
+  PastVoiceSessionsPanel,
+  relativeTime,
+  type PastVoiceSessionsPanelProps,
+} from "./PastVoiceSessionsPanel";

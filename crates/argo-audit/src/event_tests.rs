@@ -19,8 +19,19 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    // Includes ProbationHold (DEC-025 #2 Genesis P3 dispatch-seam gate).
-    assert_eq!(AuditKind::all().len(), 84);
+    // Includes ProbationHold (DEC-025 #2 Genesis P3 dispatch-seam gate)
+    // and VoiceTranscriptTurn (live-voice transcript persistence).
+    assert_eq!(AuditKind::all().len(), 85);
+}
+
+#[test]
+fn voice_transcript_turn_round_trips_and_listed() {
+    assert_eq!(
+        AuditKind::from_label("voice.transcript_turn"),
+        Some(AuditKind::VoiceTranscriptTurn)
+    );
+    assert_eq!(AuditKind::VoiceTranscriptTurn.label(), "voice.transcript_turn");
+    assert!(AuditKind::all().contains(&AuditKind::VoiceTranscriptTurn));
 }
 
 #[test]

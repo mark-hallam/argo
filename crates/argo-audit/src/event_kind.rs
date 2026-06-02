@@ -277,4 +277,9 @@ pub enum AuditKind {
     /// `swapped_response` (true when canonical refusal was
     /// substituted for the LLM draft).
     PitchTruthBoundaryEvaluated,
+    /// One turn in a live-voice (WebRTC realtime) conversation transcript.
+    /// Payload: `{ session_id, role ("user"|"agent"), text, ts_millis, mode,
+    /// worker_id? }`. Persisting each spoken turn into the hash-chained audit
+    /// chain makes the conversation tamper-evident and queryable for history.
+    VoiceTranscriptTurn,
 }

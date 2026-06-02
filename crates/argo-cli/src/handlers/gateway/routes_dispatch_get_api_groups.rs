@@ -301,6 +301,10 @@ pub(super) async fn dispatch_audit_support_knowledge(
     if req.starts_with("GET /api/v1/audit ") || req.starts_with("GET /api/v1/audit?") {
         return Some(super::routes_audit_feed::list_response(req, store).await);
     }
+    // Past live-voice sessions (transcripts grouped by session), for the history view.
+    if req.starts_with("GET /api/v1/voice/sessions ") || req.starts_with("GET /api/v1/voice/sessions?") {
+        return Some(super::routes_voice_realtime::voice_sessions_response(req, store).await);
+    }
     if let Some(rest) = req.strip_prefix("GET /api/v1/support/tickets/") {
         if let Some((head, _)) = rest.split_once(' ') {
             let id = head.split('?').next().unwrap_or(head);

@@ -23,7 +23,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/types";
 import type { PitchChannel } from "@/lib/api/pitch";
-import { createRealtimeSession, type RealtimeMode } from "@/lib/api/voice";
+import { createRealtimeSession, postVoiceTranscriptTurn, type RealtimeMode } from "@/lib/api/voice";
 
 /** Lifecycle phase of a live-voice session. */
 export type RealtimePhase = "idle" | "connecting" | "live" | "error";
@@ -85,6 +85,8 @@ export function useRealtimeVoice(
   const dcRef = useRef<RTCDataChannel | null>(null);
   const mountedRef = useRef(true);
   const agentBufRef = useRef("");
+  // A fresh id per call, tying this session's persisted turns together in history.
+  const sessionIdRef = useRef("");
 
   const teardown = useCallback(() => {
     if (dcRef.current) {
@@ -128,6 +130,7 @@ export function useRealtimeVoice(
       const text = transcript.trim();
       if (text && mountedRef.current) {
         setTranscripts((prev) => [...prev, { role: "user", text }]);
+        void postVoiceTranscriptTurn({ sessionId: sessionIdRef.current, role: "user", text, mode });
       }
       return;
     }
@@ -149,16 +152,29 @@ export function useRealtimeVoice(
       agentBufRef.current = "";
       if (mountedRef.current) {
         setLiveCaption("");
-        if (text) setTranscripts((prev) => [...prev, { role: "agent", text }]);
+        if (text) {
+          setTranscripts((prev) => [...prev, { role: "agent", text }]);
+          void postVoiceTranscriptTurn({
+            sessionId: sessionIdRef.current,
+            role: "agent",
+            text,
+            mode,
+          });
+        }
       }
     }
-  }, []);
+  }, [mode]);
 
   const start = useCallback(async () => {
     if (phase === "connecting" || phase === "live") return;
     setError(null);
     setTranscripts([]);
     setLiveCaption("");
+    // Fresh id per call so this session's persisted turns group together.
+    sessionIdRef.current =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `vs-${Date.now()}-${Math.round(Math.random() * 1e9)}`;
     if (!realtimeVoiceSupported()) {
       setError("This browser can't do live voice (needs microphone + WebRTC).");
       setPhase("error");
@@ -202,20 +218,9 @@ export function useRealtimeVoice(
           /* ignore non-JSON frames */
         }
       });
-      dc.addEventListener("open", () => {
-        // Ask the session to transcribe the user's speech so we can show what
-        // was asked. Best-effort — the audio path works regardless.
-        try {
-          dc.send(
-            JSON.stringify({
-              type: "session.update",
-              session: { audio: { input: { transcription: { model: "whisper-1" } } } },
-            }),
-          );
-        } catch {
-          /* best-effort */
-        }
-      });
+      // User-speech transcription is enabled server-side in the session mint
+      // (audio.input.transcription in routes_voice_realtime.rs), so there's no
+      // client-side session.update — the user's words transcribe from turn one.
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);

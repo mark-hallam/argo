@@ -271,6 +271,12 @@ async fn api_v1_dispatch(
     {
         return Some(super::routes_voice_realtime::realtime_session_response(req, store).await);
     }
+    // Live-voice transcript: persist one spoken turn as a hash-chained audit row.
+    if req.starts_with("POST /api/v1/voice/transcript ")
+        || req.starts_with("POST /api/v1/voice/transcript?")
+    {
+        return Some(super::routes_voice_realtime::transcript_turn_response(req, store).await);
+    }
     if req.starts_with("POST /api/v1/genesis/draft-worker ") {
         return Some(super::routes_genesis::draft_worker_response(req, store).await);
     }

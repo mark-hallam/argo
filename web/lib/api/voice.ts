@@ -14,7 +14,7 @@
  * that JSON envelope must land here in the same PR.
  */
 
-import { apiPost } from "@/lib/api/client";
+import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import type { PitchChannel, PitchDisposition } from "@/lib/api/pitch";
 
@@ -165,4 +165,85 @@ export async function createRealtimeSession(
     model: typeof v.model === "string" ? v.model : "gpt-realtime-2",
     voice: typeof v.voice === "string" ? v.voice : "marin",
   };
+}
+
+/** One spoken turn within a past live-voice session. */
+export interface VoiceSessionTurn {
+  /** `"user"` (you) or `"agent"` (the teammate). */
+  role: "user" | "agent";
+  /** The transcribed words. */
+  text: string;
+  /** Epoch milliseconds when the turn completed. */
+  ts: number;
+}
+
+/**
+ * A past live-voice session: every spoken turn (both sides) grouped under one
+ * `session_id`, read back from the hash-chained audit log, newest first.
+ * Wire-shape mirror of `group_sessions` in `routes_voice_realtime.rs` — any
+ * change to that JSON envelope must land here in the same change.
+ */
+export interface VoiceSession {
+  /** Client-generated id that ties one call's turns together. */
+  session_id: string;
+  /** `"pitch"` | `"coach"` | `"interview"` (or `""` when unset). */
+  mode: string;
+  /** Epoch ms of the first turn. */
+  started_at: number;
+  /** Epoch ms of the last turn. */
+  ended_at: number;
+  /** How many turns the session holds. */
+  turn_count: number;
+  /** First ~120 chars of the opening turn, for the collapsed row. */
+  preview: string;
+  /** Every turn, oldest first. */
+  turns: VoiceSessionTurn[];
+}
+
+/**
+ * Persist one spoken turn as a hash-chained, tamper-evident audit row
+ * (`POST /api/v1/voice/transcript`). **Best-effort by design** — a failed
+ * write (network, CSRF, 503) is swallowed so it can never interrupt a live
+ * call. The audit moat applied to conversation: every word, logged + provable.
+ *
+ * Empty/whitespace text is dropped client-side (the gateway also rejects it).
+ */
+export async function postVoiceTranscriptTurn(turn: {
+  sessionId: string;
+  role: "user" | "agent";
+  text: string;
+  mode?: RealtimeMode;
+  tsMillis?: number;
+}): Promise<void> {
+  const text = turn.text.trim();
+  if (!text) return;
+  const payload: Record<string, unknown> = {
+    session_id: turn.sessionId,
+    role: turn.role,
+    text,
+    ts_millis: turn.tsMillis ?? Date.now(),
+  };
+  if (turn.mode !== undefined) payload.mode = turn.mode;
+  try {
+    await apiPost("/api/v1/voice/transcript", payload);
+  } catch (err) {
+    // Best-effort: log for debugging but never propagate — the live call wins.
+    console.warn("voice transcript turn not persisted (best-effort)", err);
+  }
+}
+
+/**
+ * List past live-voice sessions (newest first), optionally filtered to one
+ * `mode`. Reads `GET /api/v1/voice/sessions`, which groups the tenant's
+ * `voice.transcript_turn` audit rows by `session_id`. Returns `[]` on any
+ * malformed payload so the history panel degrades to empty rather than throws.
+ */
+export async function listVoiceSessions(mode?: RealtimeMode): Promise<VoiceSession[]> {
+  const path = mode
+    ? `/api/v1/voice/sessions?mode=${encodeURIComponent(mode)}`
+    : "/api/v1/voice/sessions";
+  const raw = await apiGet<unknown>(path);
+  if (!raw || typeof raw !== "object") return [];
+  const sessions = (raw as Record<string, unknown>).sessions;
+  return Array.isArray(sessions) ? (sessions as VoiceSession[]) : [];
 }
