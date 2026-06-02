@@ -166,6 +166,19 @@ export function useRealtimeVoice(
     }
     setPhase("connecting");
     try {
+      // Capture the mic FIRST — synchronously after the click — so the user
+      // activation is still live when Chrome shows the permission prompt.
+      // Awaiting the session mint first consumes the click gesture, after
+      // which Chrome suppresses the getUserMedia prompt and rejects with
+      // NotAllowedError (no popup). That was why /pitch "Go Live" silently
+      // "denied" while a direct mic request (e.g. mictests) prompts fine.
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!mountedRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      streamRef.current = stream;
+
       const session = await createRealtimeSession(context, mode);
 
       const pc = new RTCPeerConnection();
@@ -178,12 +191,6 @@ export function useRealtimeVoice(
         if (audioRef.current && e.streams[0]) audioRef.current.srcObject = e.streams[0];
       };
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!mountedRef.current) {
-        stream.getTracks().forEach((t) => t.stop());
-        return;
-      }
-      streamRef.current = stream;
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
 
       const dc = pc.createDataChannel("oai-events");

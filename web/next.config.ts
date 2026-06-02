@@ -131,8 +131,11 @@ const config: NextConfig = {
   // X-Content-Type-Options nosniff — stops MIME-sniffing attacks.
   // Referrer-Policy strict-origin-when-cross-origin — leaks origin
   //   only to cross-site requests, never path/query.
-  // Permissions-Policy — denies camera/microphone/geolocation by
-  //   default. Computer-use is gateway-side, not browser-side.
+  // Permissions-Policy — denies camera/geolocation; allows microphone for
+  //   same-origin (self) ONLY, required by the in-browser live-voice feature
+  //   (/pitch "Go Live", /coach). Without microphone=(self) the browser blocks
+  //   getUserMedia with a Permissions-Policy violation before any user prompt.
+  //   Computer-use is gateway-side, not browser-side.
   // CSP — kept minimal-but-real: 'self' default, gateway URL allowed
   //   for fetch (connect-src), Google Fonts allowed for the Audiowide
   //   wordmark + JetBrains Mono. 'unsafe-inline' on style-src is
@@ -168,7 +171,7 @@ const config: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" },
           { key: "Content-Security-Policy", value: csp },
         ],
       },
