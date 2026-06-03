@@ -132,6 +132,7 @@ mod routes_forge_rollups;
 mod routes_forge_runs_list;
 mod genesis_tenant;
 mod routes_genesis;
+mod routes_genesis_author;
 mod routes_genesis_gate;
 mod routes_genesis_rubric;
 mod routes_genesis_sop;

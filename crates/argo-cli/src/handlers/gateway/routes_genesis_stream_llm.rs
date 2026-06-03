@@ -146,7 +146,15 @@ pub(super) async fn resolve_plan(
     )
     .await?;
     let mode = outcome_mode(&outcome, &adapter);
-    let built = outcome.materialize()?;
+    let mut built = outcome.materialize()?;
+    // DEC-025 #8: LLM-authoring pass — flag-gated (default OFF -> no-op) +
+    // degrade-fail-safe. Only the from-scratch (`Broad`) path carries a spec;
+    // the archetype path leaves `spec` None and is unaffected. The authored
+    // persona/responsibilities/onboarding flow into prompts/system.md +
+    // persona.md via the unchanged write path.
+    if let Some(spec) = built.spec.take() {
+        built.spec = Some(super::routes_genesis_author::run_author_pass(spec).await);
+    }
     Ok((built, mode))
 }
 
