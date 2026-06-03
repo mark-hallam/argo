@@ -38,6 +38,7 @@
 pub mod action_suggest;
 pub mod archetype;
 pub mod archetype_meta;
+pub mod author;
 pub mod broad_role;
 pub mod charter;
 pub mod charter_dialogue;
@@ -103,6 +104,7 @@ pub use hire_gate_contract::{ContractConfirmation, ContractGateInput};
 pub use hire_gate_rubric::judge_input_for_plan;
 pub use hire_gate_disk::{gate_inputs_from_dir, DiskGateInputs};
 pub use role_contract::{verify_contract_matches, ContractAction, RoleContract};
+pub use author::{apply_authored, author_teammate, build_author_prompt, AuthorClient, AuthoredTeammate};
 pub use rubric::{
     build_rubric_prompt, grade_rubric, RubricClient, RubricDimension, RubricOutcome, RubricVerdict,
     DIMENSION_FLOOR, RUBRIC_PASS_FLOOR,
