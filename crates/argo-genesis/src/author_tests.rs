@@ -6,11 +6,16 @@ use super::parse_authored;
 fn parse_authored_extracts_embedded_json() {
     let raw = "here you go: {\"persona_description\":\"a sharp executive assistant who guards your calendar\",\
         \"responsibilities\":[\"triage inbound requests\",\"hold the calendar\"],\
-        \"onboarding_script\":\"Hello — I'll keep your day clear.\"} (done)";
+        \"onboarding_script\":\"Hello — I'll keep your day clear.\",\
+        \"action_intents\":{\"triage_inbox\":\"Triage inbound by urgency and sender\"}} (done)";
     let a = parse_authored(raw).expect("should parse the embedded JSON object");
     assert_eq!(a.persona_description, "a sharp executive assistant who guards your calendar");
     assert_eq!(a.responsibilities.len(), 2);
     assert!(!a.onboarding_script.is_empty());
+    assert_eq!(
+        a.action_intents.get("triage_inbox").map(String::as_str),
+        Some("Triage inbound by urgency and sender")
+    );
 }
 
 #[test]

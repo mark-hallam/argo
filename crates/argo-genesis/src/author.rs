@@ -3,21 +3,23 @@
 //! Genesis classifies a role into an archetype then TEMPLATE-FILLS the
 //! teammate's persona + responsibilities (`materialize_writer::*`), which reads
 //! thin/generic. This module adds a pass that asks a frontier model to richly
-//! AUTHOR the persona description, the concrete responsibilities, and the
-//! onboarding script from the operator's role text — so a generated teammate's
-//! system prompt + persona read like a hand-authored hire. These three fields
-//! already exist on [`CapabilitySpec`] and already flow into
-//! `prompts/system.md` + `prompts/persona.md` via the unchanged
+//! AUTHOR the persona description, the concrete responsibilities, the
+//! onboarding script, AND a specific one-line intent per declared action — so a
+//! generated teammate's system prompt + persona read like a hand-authored hire.
+//! These map onto EXISTING [`CapabilitySpec`] fields (persona_description,
+//! responsibilities, onboarding_script, and each `CapabilityDecl.intent`) and
+//! flow into `prompts/system.md` + `prompts/persona.md` via the unchanged
 //! `materialize_spec` → `write_spec_artefacts` path, so no schema change is
-//! needed for the quality win. (Structured great-at / escalate-when /
-//! signature-behaviors for the worker-detail card are a separate Phase-2 slice.)
+//! needed for the quality win.
 //!
 //! Pure half — NO transport edge (mirrors `rubric.rs` / `genesis_judge.rs`).
 //! The gateway supplies the provider via [`AuthorClient`]. Degrade-fail-safe:
 //! [`author_teammate`] returns `None` on ANY transport or parse failure, and
 //! the caller keeps the templated spec untouched — never a regression. The
-//! deterministic safety floor (capability risk/approval) is NEVER read or
-//! relaxed here.
+//! deterministic safety floor (capability risk/approval/executor) is NEVER read
+//! or relaxed here — only the human-readable `intent` prose is authored.
+
+use std::collections::HashMap;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -46,6 +48,10 @@ pub struct AuthoredTeammate {
     pub responsibilities: Vec<String>,
     /// A warm, specific single-paragraph onboarding script.
     pub onboarding_script: String,
+    /// Specific one-line intent per declared action name (PROSE ONLY — the
+    /// risk/approval/executor floor is never authored). Keyed by `action_name`.
+    #[serde(default)]
+    pub action_intents: HashMap<String, String>,
 }
 
 /// Build the authoring prompt. Reads ONLY safe spec fields (charter, persona,
@@ -72,8 +78,9 @@ pub fn build_author_prompt(spec: &CapabilitySpec) -> String {
          - Be SPECIFIC to THIS role. No filler like 'reliable', 'helpful', 'efficient'.\n\
          - Truth-bounded: the teammate is clear about what it can and cannot do.\n\
          - Approval-aware: sensitive or irreversible actions are escalated to a human, never done autonomously.\n\
-         - Third person, warm, concrete.\n\n\
-         GOLD EXAMPLE (role: 'a marketplace lister who lists and re-prices items for sale'):\n\
+         - Third person, warm, concrete.\n\
+         - action_intents: write a SPECIFIC one-line description for EACH declared action, in THIS teammate's context. Never a generic restatement of the verb (e.g. NOT 'draft email as the assistant').\n\n\
+         GOLD EXAMPLE (role: 'a marketplace lister who lists and re-prices items'; actions: draft_listing, reprice_item, answer_buyer):\n\
          {{\"persona_description\": \"A meticulous marketplace lister who writes tight, \
          buyer-ready listings and keeps prices sharp against the live market. Patient with \
          detail, fast on buyer questions, and never posts without a clean source photo.\", \
@@ -82,22 +89,26 @@ pub fn build_author_prompt(spec: &CapabilitySpec) -> String {
          on active listings within scope\", \"Flag any item dropping below the seller's floor price\"], \
          \"onboarding_script\": \"Welcome aboard. I'll list and re-price your inventory, keep buyers \
          answered, and surface anything that needs your call — like a price below your floor or an \
-         offer outside my scope. I draft; you approve anything irreversible.\"}}\n\n\
+         offer outside my scope. I draft; you approve anything irreversible.\", \
+         \"action_intents\": {{\"draft_listing\": \"Write a buyer-ready listing — specs, photos, and price\", \
+         \"reprice_item\": \"Re-price a stale listing against current competitor data\", \
+         \"answer_buyer\": \"Answer a buyer's question on an active listing, within scope\"}}}}\n\n\
          Now author the teammate for THIS role.\n\
          Role (operator's words): {charter}\n\
          Persona handle: {persona}\n\
          Declared actions: {actions}\n\n\
-         Reply with EXACTLY ONE JSON object and nothing else:\n\
+         Reply with EXACTLY ONE JSON object and nothing else (action_intents MUST have one key per declared action above):\n\
          {{\"persona_description\": \"<1-2 sentences>\", \"responsibilities\": [\"<3-5 items>\"], \
-         \"onboarding_script\": \"<one paragraph>\"}}",
+         \"onboarding_script\": \"<one paragraph>\", \
+         \"action_intents\": {{\"<action_name>\": \"<specific one-line>\"}}}}",
         charter = spec.charter,
         persona = spec.persona,
     )
 }
 
 /// Run the authoring pass. Degrade-fail-safe: returns `None` on transport error
-/// OR any response the parser cannot turn into the three fields, so the caller
-/// keeps the templated spec untouched (never a regression).
+/// OR any response the parser cannot turn into the fields, so the caller keeps
+/// the templated spec untouched (never a regression).
 pub async fn author_teammate(
     spec: &CapabilitySpec,
     client: &dyn AuthorClient,
@@ -119,7 +130,8 @@ fn parse_authored(raw: &str) -> Option<AuthoredTeammate> {
 }
 
 /// Fold authored fields into the spec, WITHOUT touching the charter, persona,
-/// or any capability's risk/approval (the deterministic safety floor). An empty
+/// or any capability's risk/approval/executor (the deterministic safety floor).
+/// Only the human-readable `intent` prose per action is updated. An empty
 /// authored field leaves the templated value in place.
 #[must_use]
 pub fn apply_authored(mut spec: CapabilitySpec, authored: AuthoredTeammate) -> CapabilitySpec {
@@ -131,6 +143,16 @@ pub fn apply_authored(mut spec: CapabilitySpec, authored: AuthoredTeammate) -> C
     }
     if !authored.onboarding_script.trim().is_empty() {
         spec.onboarding_script = authored.onboarding_script;
+    }
+    if !authored.action_intents.is_empty() {
+        for cap in &mut spec.capabilities {
+            if let Some(intent) = authored.action_intents.get(&cap.action_name) {
+                let intent = intent.trim();
+                if !intent.is_empty() {
+                    cap.intent = intent.to_string();
+                }
+            }
+        }
     }
     spec
 }
