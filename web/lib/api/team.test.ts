@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchTeam } from "./team";
+import { fetchTeam, InvalidTeamEnvelope } from "./team";
 import { ApiError } from "./types";
 import { SAMPLE_TEAM } from "@/lib/sample-team";
 import type { Worker } from "@/lib/types/worker";
@@ -56,12 +56,29 @@ describe("lib/api/team", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns gateway response on 2xx happy path", async () => {
+  it("returns gateway response on 2xx happy path (canonical envelope)", async () => {
     const payload = SAMPLE_TEAM.slice(0, 1);
-    installMock(() => makeResponse({ status: 200, body: payload }));
+    installMock(() =>
+      makeResponse({ status: 200, body: { workers: payload, total_count: payload.length } }),
+    );
     const result = await fetchTeam();
     expect(result.source).toBe("gateway");
     expect(result.workers).toEqual(payload);
+  });
+
+  it("rejects a bare-array response with InvalidTeamEnvelope (no back-compat tolerance)", async () => {
+    // A legacy gateway / a buggy redeploy shipping a bare `Worker[]`
+    // is a contract violation now, not a tolerated shape. Pinning the
+    // rejection stops the bare-array path from silently re-appearing.
+    installMock(() => makeResponse({ status: 200, body: SAMPLE_TEAM.slice(0, 1) }));
+    let caught: unknown;
+    try {
+      await fetchTeam();
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(InvalidTeamEnvelope);
+    expect((caught as ApiError).code).toBe("invalid_team_envelope");
   });
 
   it("returns empty roster + source='unreachable' on 404 outside demo mode", async () => {
@@ -163,7 +180,7 @@ describe("lib/api/team", () => {
     expect(result.workers).toEqual([]);
   });
 
-  it("flags a malformed envelope as an ApiError instead of silently returning []", async () => {
+  it("flags a malformed envelope as InvalidTeamEnvelope instead of silently returning []", async () => {
     // Older gateway builds (or a buggy redeploy) might return a
     // payload that's neither an array nor `{workers: []}`. Treating
     // it as empty was a contributing cause to the silent
@@ -175,8 +192,9 @@ describe("lib/api/team", () => {
     } catch (err) {
       caught = err;
     }
+    expect(caught).toBeInstanceOf(InvalidTeamEnvelope);
     expect(caught).toBeInstanceOf(ApiError);
-    expect((caught as ApiError).code).toBe("malformed_envelope");
+    expect((caught as ApiError).code).toBe("invalid_team_envelope");
   });
 
   describe("demo-mode catch-all (perpetual skeleton regression)", () => {

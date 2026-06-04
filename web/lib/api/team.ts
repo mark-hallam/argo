@@ -54,6 +54,28 @@ class GatewayTimeoutError extends Error {
   }
 }
 
+/**
+ * Thrown when `/api/v1/workers` answers with anything other than the
+ * canonical `{ workers: Worker[], total_count: number }` envelope —
+ * including a bare `Worker[]` array (the legacy shape) or an object
+ * missing the `workers` field. Tightening to envelope-only stops a
+ * legacy gateway / a buggy redeploy from silently shipping a
+ * non-canonical payload through the SPA. Extends `ApiError` so existing
+ * `instanceof ApiError` catch paths (e.g. the demo-mode catch-all)
+ * keep working unchanged.
+ */
+export class InvalidTeamEnvelope extends ApiError {
+  constructor(body: unknown) {
+    super(
+      200,
+      "Invalid team envelope: expected { workers: Worker[], total_count: number }",
+      "invalid_team_envelope",
+      body,
+    );
+    this.name = "InvalidTeamEnvelope";
+  }
+}
+
 function isStrictProduction(): boolean {
   return (
     process.env.NODE_ENV === "production" &&
@@ -152,29 +174,22 @@ async function fetchTeamInner(): Promise<FetchTeamResult> {
   const demoMode = isDemoMode();
 
   try {
-    // Gateway returns { workers: Worker[], total_count: number } envelope.
-    // Fall back to treating a bare-array response as Worker[] for any older
-    // gateway build that hasn't been redeployed. Guard against a malformed
-    // envelope (missing `workers` field) so a server bug doesn't silently
-    // collapse the roster to empty.
-    const gatewayCall = apiGet<{ workers: Worker[]; total_count?: number } | Worker[]>(
+    // Gateway returns the canonical { workers: Worker[], total_count: number }
+    // envelope. A bare-array response is NO LONGER tolerated: a legacy gateway
+    // or a buggy redeploy shipping a bare `Worker[]` is a contract violation,
+    // surfaced as `InvalidTeamEnvelope` rather than silently accepted. A
+    // malformed object (missing `workers` array) is rejected the same way so a
+    // server bug doesn't silently collapse the roster to empty.
+    const gatewayCall = apiGet<{ workers: Worker[]; total_count?: number }>(
       "/api/v1/workers",
     );
     const response = demoMode
       ? await withTimeout(gatewayCall, DEMO_GATEWAY_TIMEOUT_MS)
       : await gatewayCall;
-    if (Array.isArray(response)) {
-      return { workers: response, source: "gateway" };
-    }
-    if (response && Array.isArray(response.workers)) {
+    if (response && !Array.isArray(response) && Array.isArray(response.workers)) {
       return { workers: response.workers, source: "gateway" };
     }
-    throw new ApiError(
-      200,
-      "Malformed team envelope: missing workers array",
-      "malformed_envelope",
-      response,
-    );
+    throw new InvalidTeamEnvelope(response);
   } catch (err) {
     // Demo mode is the recorded-demo path; the camera must never see a
     // perpetual skeleton. Any error (404, 5xx, network TypeError,

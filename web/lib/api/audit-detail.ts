@@ -18,6 +18,46 @@ import { isDemoLive, isDemoMode } from "@/lib/skycot/demo-mode";
 import type { AuditDetail } from "@/lib/types/audit-detail";
 import type { AuditStatus, DataClassification } from "@/lib/types/audit";
 
+/**
+ * Canonical audit-API endpoint paths. The SPA API client builds every
+ * audit request from this single source of truth so the contract is
+ * pinned in one place (and by `web/tests/surface_contract_audit_paths.test.ts`).
+ *
+ * | Method | Path                              | Purpose                       |
+ * | ------ | --------------------------------- | ----------------------------- |
+ * | GET    | `/api/v1/audit`                   | Paginated audit feed          |
+ * | GET    | `/api/v1/audit/{actionId}`        | Single-action detail drill-in |
+ * | POST   | `/api/v1/audit/{actionId}/replay` | Deterministic action replay   |
+ *
+ * Deprecated — these older paths were never canonical and MUST NOT be
+ * reintroduced anywhere in the API client. They are pinned absent by the
+ * surface-contract test:
+ *
+ * | Deprecated path         | Replaced by                |
+ * | ----------------------- | -------------------------- |
+ * | `/api/v1/audit/actions` | `/api/v1/audit` (the feed) |
+ * | `/api/v1/audit/events`  | `/api/v1/audit` (the feed) |
+ */
+export const AUDIT_ENDPOINT_PATHS = {
+  /** Paginated audit feed. */
+  feed: "/api/v1/audit",
+  /** Single-action detail drill-in. */
+  detail: (actionId: string): string =>
+    `/api/v1/audit/${encodeURIComponent(actionId)}`,
+  /** Deterministic replay of a single action. */
+  replay: (actionId: string): string =>
+    `/api/v1/audit/${encodeURIComponent(actionId)}/replay`,
+} as const;
+
+/**
+ * Deprecated audit paths that must never reappear in the API client.
+ * Pinned by `web/tests/surface_contract_audit_paths.test.ts`.
+ */
+export const DEPRECATED_AUDIT_ENDPOINT_PATHS = [
+  "/api/v1/audit/actions",
+  "/api/v1/audit/events",
+] as const;
+
 export type DelegationRole = "originator" | "delegated_to" | "executed";
 
 export interface DelegationStep {
@@ -100,7 +140,7 @@ export async function fetchAuditDetail(actionId: string): Promise<AuditDetailWit
     return mockDetail(actionId);
   }
 
-  const path = `/api/v1/audit/${encodeURIComponent(actionId)}`;
+  const path = AUDIT_ENDPOINT_PATHS.detail(actionId);
   try {
     return normalizeAuditDetail(await apiGet<unknown>(path));
   } catch (err) {
