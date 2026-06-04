@@ -233,6 +233,9 @@ mod routes_voice_io;
 mod routes_voice_realtime;
 // Public early-access waitlist capture (`POST /api/v1/waitlist`, WS6).
 mod routes_waitlist;
+// Public enterprise Expression-of-Interest capture
+// (`POST /api/v1/enterprise-inquiry`, WS6-2).
+mod routes_enterprise_inquiry;
 mod routes_wizard;
 mod routes_worker_activity;
 mod routes_worker_detail;

@@ -8,6 +8,7 @@ import { Suspense, useState } from "react";
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
+import { EnterpriseInquiryForm } from "@/components/marketing/EnterpriseInquiryForm";
 import { useSkycotSession } from "@/lib/skycot/use-session";
 import {
   useOnboardingDraft,
@@ -108,8 +109,8 @@ const TIERS: TierCard[] = [
       "On-prem / single-binary deploy",
     ],
     cta: "Talk to sales",
-    signedOutHref: "mailto:hello@skycot.com?subject=Enterprise%20pricing",
-    signedInHref: "mailto:hello@skycot.com?subject=Enterprise%20pricing",
+    signedOutHref: "#enterprise-inquiry",
+    signedInHref: "#enterprise-inquiry",
   },
 ];
 
@@ -326,6 +327,28 @@ function PricingPageContent() {
             );
           })}
         </div>
+
+        <section className="pri-section" id="enterprise-inquiry">
+          <p className="pri-section-label">ENTERPRISE</p>
+          <h2 className="pri-section-title">Talk to sales.</h2>
+          <p
+            style={{
+              maxWidth: 560,
+              margin: "0 auto 28px",
+              textAlign: "center",
+              fontSize: 16,
+              lineHeight: 1.55,
+              color: "var(--muted-foreground)",
+            }}
+          >
+            SSO, audit export, custom verticals, and a negotiated rate. Tell us
+            a little about your team and we’ll be in touch within one business
+            day.
+          </p>
+          <div style={{ maxWidth: 560, margin: "0 auto" }}>
+            <EnterpriseInquiryForm source="pricing" />
+          </div>
+        </section>
 
         <section className="pri-section">
           <p className="pri-section-label">FEATURE MATRIX</p>

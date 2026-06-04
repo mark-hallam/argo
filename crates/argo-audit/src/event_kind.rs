@@ -282,4 +282,13 @@ pub enum AuditKind {
     /// worker_id? }`. Persisting each spoken turn into the hash-chained audit
     /// chain makes the conversation tamper-evident and queryable for history.
     VoiceTranscriptTurn,
+    /// A public enterprise Expression-of-Interest was captured at the gateway
+    /// (`POST /api/v1/enterprise-inquiry`, WS6-2). Payload carries `company`,
+    /// `email`, `has_message`, `source_ip`, and `inquiry_id` — the contact
+    /// `name`, free-text `message`, and `seats` estimate are NOT written into
+    /// the audit chain (the `enterprise_inquiry` table is the lead record of
+    /// truth; the audit row is the tamper-evident "a lead arrived" breadcrumb).
+    /// Written under the anonymous audit tenant — the inquiry is pre-tenant,
+    /// same lane as magic-link signup + the waitlist.
+    EnterpriseInquiryReceived,
 }

@@ -152,6 +152,14 @@ async fn dispatch_route_inner(
     if super::routes_waitlist::is_waitlist_request(req) {
         return super::routes_waitlist::waitlist_response(req, store).await;
     }
+    // Public enterprise Expression-of-Interest capture (WS6-2). Same un-gated
+    // lane as the waitlist so the /pricing + /contact enterprise form can POST
+    // `{company, name, email, seats?, message?}` anonymously. Reuses the signup
+    // per-IP limiter + honeypot; appends to the `enterprise_inquiry` table and
+    // writes a hash-chained audit row (the EOI→MOU→contract front door).
+    if super::routes_enterprise_inquiry::is_enterprise_inquiry_request(req) {
+        return super::routes_enterprise_inquiry::enterprise_inquiry_response(req, store).await;
+    }
     // Demo-mode magic-link bypass
     // (demo-ops-add-magic-link-bypass-for-recording). Active only
     // when `ARGO_DEMO_MODE=1` is set at gateway startup; mounted

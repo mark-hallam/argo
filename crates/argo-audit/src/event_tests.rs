@@ -19,9 +19,10 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    // Includes ProbationHold (DEC-025 #2 Genesis P3 dispatch-seam gate)
-    // and VoiceTranscriptTurn (live-voice transcript persistence).
-    assert_eq!(AuditKind::all().len(), 85);
+    // Includes ProbationHold (DEC-025 #2 Genesis P3 dispatch-seam gate),
+    // VoiceTranscriptTurn (live-voice transcript persistence), and
+    // EnterpriseInquiryReceived (WS6-2 enterprise EOI capture).
+    assert_eq!(AuditKind::all().len(), 86);
 }
 
 #[test]
@@ -32,6 +33,19 @@ fn voice_transcript_turn_round_trips_and_listed() {
     );
     assert_eq!(AuditKind::VoiceTranscriptTurn.label(), "voice.transcript_turn");
     assert!(AuditKind::all().contains(&AuditKind::VoiceTranscriptTurn));
+}
+
+#[test]
+fn enterprise_inquiry_received_round_trips_and_listed() {
+    assert_eq!(
+        AuditKind::from_label("enterprise.inquiry_received"),
+        Some(AuditKind::EnterpriseInquiryReceived)
+    );
+    assert_eq!(
+        AuditKind::EnterpriseInquiryReceived.label(),
+        "enterprise.inquiry_received"
+    );
+    assert!(AuditKind::all().contains(&AuditKind::EnterpriseInquiryReceived));
 }
 
 #[test]

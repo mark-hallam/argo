@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
+import { EnterpriseInquiryForm } from "@/components/marketing/EnterpriseInquiryForm";
 
 /**
- * Contact page — v1.0 minimal version. Three options: mailto (matches
- * the address already on /pricing), demo workspace link (honest copy
- * per fix-signup-no-email-required-button-honest-copy), and the
- * founder's X + LinkedIn handles. Real contact form / Calendly embed
- * deferred per the brief.
+ * Contact page — v1.0 minimal version. The enterprise/sales path is now a
+ * real structured inquiry form (WS6-2) that POSTs to
+ * `POST /api/v1/enterprise-inquiry` (persisted + audited) instead of a bare
+ * `mailto:`. The remaining options — general email (press/partnerships),
+ * demo workspace link, and the founder's X + LinkedIn handles — are unchanged.
  */
 export default function ContactPage() {
   return (
@@ -59,9 +60,18 @@ export default function ContactPage() {
 
       <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 28 }}>
         <li>
+          <h2 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px" }}>Enterprise</h2>
+          <p style={{ fontSize: 15, lineHeight: 1.55, margin: "0 0 16px", color: "var(--muted-foreground)" }}>
+            SSO, audit export, custom verticals, and a negotiated rate. Tell us
+            about your team — we reply within one business day.
+          </p>
+          <EnterpriseInquiryForm source="contact" />
+        </li>
+
+        <li>
           <h2 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px" }}>Email</h2>
           <p style={{ fontSize: 15, lineHeight: 1.55, margin: "0 0 8px", color: "var(--muted-foreground)" }}>
-            For sales, partnerships, press, or anything that doesn&apos;t fit a
+            For partnerships, press, or anything that doesn&apos;t fit a
             form.
           </p>
           <a
