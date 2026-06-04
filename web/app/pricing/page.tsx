@@ -13,6 +13,7 @@ import {
   useOnboardingDraft,
   type SelectedPlan,
 } from "@/lib/onboarding/use-onboarding-draft";
+import { useCheckout, redirectToCheckout } from "@/lib/billing/use-checkout";
 
 /**
  * Public pricing page — `/pricing`, exempt from auth middleware.
@@ -22,9 +23,12 @@ import {
  * constant in `web/app/(app)/billing/page.tsx`. Feature comparison
  * matrix + FAQ + final CTA.
  *
- * Per-tier deep-link CTAs (signed-out → /auth/signup?plan=<tier>, signed-in
- * Pro → /billing/subscribe?plan=pro). The selected plan is persisted on the
- * onboarding draft store so the post-signup welcome step can hop to
+ * Per-tier CTAs. Signed-out → /auth/signup?plan=<tier> (you must have a
+ * workspace before you can pay). Signed-in Pro → invokes `useCheckout()`
+ * directly (→ POST /api/v1/billing/checkout → redirect to the Stripe hosted
+ * URL); if Stripe isn't provisioned yet the CTA surfaces a truthful error
+ * rather than a fake success (NO THEATER). The selected plan is persisted on
+ * the onboarding draft store so the post-signup welcome step can hop to
  * checkout. `?featured=pro` campaign param visually expands the Pro card.
  *
  * V1 ships static copy; CMS-driven feature matrix arrives in a
@@ -194,11 +198,38 @@ function PricingPageContent() {
   const params = useSearchParams();
   const featuredOverride = params?.get("featured");
   const isSignedIn = session.status === "authenticated";
+  const checkout = useCheckout();
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   function persistPlan(tier: Tier): void {
     // Only the two paid-flow tiers persist; "enterprise" is talk-to-sales.
     if (tier === "free" || tier === "pro") {
       setSelectedPlan(tier satisfies SelectedPlan);
+    }
+  }
+
+  // Signed-in Pro CTA: start a real Stripe Checkout session. The price id
+  // comes from NEXT_PUBLIC_STRIPE_PRICE_PRO (set once WS4-2 provisions
+  // Stripe). Until then — and on any backend error — we surface a clean,
+  // truthful message instead of a silent no-op or a fake success.
+  async function startProCheckout(): Promise<void> {
+    persistPlan("pro");
+    setCheckoutError(null);
+    const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO;
+    if (!priceId) {
+      setCheckoutError(
+        "Checkout isn’t available yet — Stripe billing is still being set up. Email hello@skycot.com and we’ll get you onto Pro.",
+      );
+      return;
+    }
+    try {
+      await redirectToCheckout(checkout.mutateAsync, { priceId });
+    } catch (err) {
+      setCheckoutError(
+        err instanceof Error
+          ? err.message
+          : "Couldn’t start checkout. Please try again.",
+      );
     }
   }
 
@@ -249,14 +280,48 @@ function PricingPageContent() {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  href={href}
-                  className={`pri-tier-cta ${isFeatured ? "primary" : "secondary"}`}
-                  onClick={() => persistPlan(t.tier)}
-                  data-testid={`pricing-cta-${t.tier}`}
-                >
-                  {t.cta} <ArrowRight size={15} />
-                </Link>
+                {t.tier === "pro" && isSignedIn ? (
+                  <>
+                    <button
+                      type="button"
+                      className={`pri-tier-cta ${isFeatured ? "primary" : "secondary"}`}
+                      onClick={() => void startProCheckout()}
+                      disabled={checkout.isPending}
+                      data-testid={`pricing-cta-${t.tier}`}
+                    >
+                      {checkout.isPending ? (
+                        "Starting checkout…"
+                      ) : (
+                        <>
+                          {t.cta} <ArrowRight size={15} />
+                        </>
+                      )}
+                    </button>
+                    {checkoutError && (
+                      <p
+                        role="alert"
+                        data-testid="pricing-checkout-error"
+                        style={{
+                          marginTop: 10,
+                          fontSize: 13,
+                          lineHeight: 1.45,
+                          color: "var(--destructive)",
+                        }}
+                      >
+                        {checkoutError}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <Link
+                    href={href}
+                    className={`pri-tier-cta ${isFeatured ? "primary" : "secondary"}`}
+                    onClick={() => persistPlan(t.tier)}
+                    data-testid={`pricing-cta-${t.tier}`}
+                  >
+                    {t.cta} <ArrowRight size={15} />
+                  </Link>
+                )}
               </div>
             );
           })}
