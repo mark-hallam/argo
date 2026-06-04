@@ -59,3 +59,48 @@ describe("middleware public-paths allowlist — marketing footer legal links", (
     );
   });
 });
+
+// sprint-ws5-2: `(app)/marketing` is the internal operator-facing GTM console
+// (Marcus, DEC-028), not a public landing. It was wrongly allowlisted on
+// 2026-05-20 (commit 75b73e369) so it rendered without a session. Pin that an
+// unauthenticated request now redirects to sign-in, while genuinely-public
+// routes (e.g. /pricing, and the public marketing vertical landing
+// /for/marketing) still pass through.
+describe("middleware auth gate — internal /marketing console is cookie-gated", () => {
+  beforeEach(() => {
+    Object.defineProperty(process.env, "NODE_ENV", {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: "test",
+    });
+    delete process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
+    delete process.env.NEXT_PUBLIC_ARGO_DEMO_MODE;
+  });
+
+  afterEach(() => {
+    restoreEnv();
+  });
+
+  it("redirects unauthenticated GET /marketing to sign-in", () => {
+    const res = middleware(makeRequest("http://localhost:3000/marketing"));
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe(
+      "http://localhost:3000/auth/signin?from=%2Fmarketing",
+    );
+  });
+
+  it("keeps the public /pricing route reachable without a session", () => {
+    const res = middleware(makeRequest("http://localhost:3000/pricing"));
+
+    // NextResponse.next() carries no Location header; a redirect would.
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("keeps the public /for/marketing vertical landing reachable without a session", () => {
+    const res = middleware(makeRequest("http://localhost:3000/for/marketing"));
+
+    expect(res.headers.get("location")).toBeNull();
+  });
+});

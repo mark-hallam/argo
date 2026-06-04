@@ -26,7 +26,13 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
     pathname.startsWith("/landing") ||
-    pathname.startsWith("/marketing") ||
+    // NOTE: `/marketing` is intentionally NOT allowlisted. `(app)/marketing`
+    // is the internal operator-facing GTM console for Marcus (DEC-028) — it
+    // must be cookie-gated like the rest of the `(app)/` group. It was wrongly
+    // added to the public allowlist on 2026-05-20 (commit 75b73e369) alongside
+    // the genuinely-public footer pages; removed here (sprint-ws5-2). The
+    // public marketing vertical landing lives at `/for/marketing`, which is
+    // covered by the `/for/` prefix below.
     pathname.startsWith("/teammates") ||
     pathname.startsWith("/pricing") ||
     pathname.startsWith("/customers") ||
