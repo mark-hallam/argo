@@ -1,0 +1,44 @@
+output "alb_dns_name" {
+  description = "Public DNS name of the ALB. Point api.skycot.com here (CNAME if behind Cloudflare; A/AAAA alias if on Route53)."
+  value       = module.alb.alb_dns_name
+}
+
+output "alb_zone_id" {
+  description = "Hosted zone ID of the ALB (needed for Route53 alias records)."
+  value       = module.alb.alb_zone_id
+}
+
+output "acm_certificate_arn" {
+  description = "ACM cert ARN for the public hostname. Pending DNS validation on first apply."
+  value       = module.alb.certificate_arn
+}
+
+output "acm_validation_records" {
+  description = "DNS validation records for the ACM cert. Operator creates these out-of-band (Cloudflare) unless route53_zone_id is set."
+  value       = module.alb.certificate_validation_records
+}
+
+output "ecr_repository_url" {
+  description = "ECR repo URL. Push the argo image here: docker push <repo>:<tag>."
+  value       = module.ecr.repository_url
+}
+
+output "secret_arns" {
+  description = "Map of Secrets Manager ARNs the operator populates via aws secretsmanager put-secret-value."
+  value       = module.secrets.secret_arns
+}
+
+output "efs_file_system_id" {
+  description = "EFS filesystem id holding /data (the SQLite store)."
+  value       = module.efs.file_system_id
+}
+
+output "ecs_cluster_name" {
+  description = "Name of the ECS cluster the gateway runs in."
+  value       = module.ecs.cluster_name
+}
+
+output "ecs_service_name" {
+  description = "Name of the ECS service. Use for force-new-deployment on image rollout."
+  value       = module.ecs.service_name
+}

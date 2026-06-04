@@ -1,0 +1,28 @@
+# Terraform state — NEVER commit to git.
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform/
+
+# NB: .terraform.lock.hcl IS committed (terraform best practice — pins
+# provider versions for reproducible plans across machines).
+
+# Variable files — may contain account IDs, ARNs, or secrets.
+# `terraform.tfvars.example` is checked in as the documented shape; all other
+# .tfvars files are operator-local.
+*.tfvars
+!terraform.tfvars.example
+
+# Crash logs.
+crash.log
+crash.*.log
+
+# Override files (used for local-only overrides).
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# OS / editor noise.
+.DS_Store
+*.swp

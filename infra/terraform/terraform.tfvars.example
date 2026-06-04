@@ -1,0 +1,25 @@
+# SKYCOT — example variable values. Copy to terraform.tfvars (gitignored) and edit.
+#
+# This file MUST NOT contain real secrets. Secret values are populated via
+# `aws secretsmanager put-secret-value` after `terraform apply` — see
+# docs/skycot/deploy/AWS_DEPLOY_RUNBOOK.md.
+
+region      = "ap-southeast-2"
+env         = "prod"
+project     = "skycot"
+domain_name = "api.skycot.com"
+
+# Override only if 10.40.0.0/16 collides with an existing VPC in the account.
+# vpc_cidr = "10.41.0.0/16"
+
+# Operator pushes :latest by default; pin to a SHA tag for a controlled rollout.
+# image_tag = "sha-3e36d058d"
+
+# Leave route53_zone_id empty when DNS is on Cloudflare. Set ONLY if Route53
+# manages api.skycot.com — the IaC will then create the ACM validation record.
+# route53_zone_id = "Z0123456789ABCDEFGHIJ"
+
+tags = {
+  Owner   = "skycot-ops"
+  CostCenter = "skycot-mvp"
+}

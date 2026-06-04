@@ -8,6 +8,12 @@ Pairs with `deploy/docker/` (K1): docker-compose is the single-machine
 path; this directory is the cluster path. Both consume the same
 `argo:dev` / `argo-web:dev` image conventions.
 
+> **Cloud-agnostic reference.** These manifests target EKS / GKE / AKS /
+> bare-metal Kubernetes. The **operative AWS path for the v1.0 public
+> launch** is `infra/terraform/` (ECS Fargate; see
+> [`docs/skycot/deploy/AWS_DEPLOY_RUNBOOK.md`](../../docs/skycot/deploy/AWS_DEPLOY_RUNBOOK.md)).
+> Both paths run the same `argo` container.
+
 ## Prerequisites
 
 - `kubectl` 1.28+ (built-in `kustomize` is fine; standalone `kustomize`
