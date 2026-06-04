@@ -4,7 +4,9 @@ use super::{
 };
 use argo_identity::user::UserAccount;
 use argo_identity::user_store::{get_user_by_email, insert_user, update_last_login};
+use argo_identity::user_tenant::UserTenantRole;
 use argo_identity::user_tenant_store::list_tenants_for_user;
+use argo_identity::{provision_for_user, ProvisionRequest};
 use argo_store::user_account::{self, ConsumedToken};
 use argo_types::ArgoResult;
 use chrono::Utc;
@@ -105,11 +107,8 @@ pub(crate) async fn verify_outcome(req: &str, store: Option<&Arc<SessionStore>>)
         Ok(u) => u,
         Err(e) => return err_outcome("500 Internal Server Error", &format!("user: {e}")),
     };
-    let (tenant_id, role) = match list_tenants_for_user(s, user.id).await {
-        Ok(tenants) => match tenants.into_iter().next() {
-            Some(t) => (Some(t.tenant_id.to_string()), Some(t.role.as_str().to_string())),
-            None => (None, None),
-        },
+    let (tenant_id, role, needs_onboarding) = match resolve_session_tenant(s, &user).await {
+        Ok(triple) => triple,
         Err(e) => return err_outcome("500 Internal Server Error", &format!("tenant: {e}")),
     };
     let (jwt, jti) = match mint_jwt(
@@ -124,7 +123,7 @@ pub(crate) async fn verify_outcome(req: &str, store: Option<&Arc<SessionStore>>)
     };
     emit_auth_succeeded(s, &user.id.to_string(), tenant_id.as_deref(), source_ip).await;
     let body = json!({
-        "needs_onboarding": tenant_id.is_none(),
+        "needs_onboarding": needs_onboarding,
         "tenant_id": tenant_id,
     });
     // Two `Set-Cookie` headers in one wire response: the session JWT
@@ -160,3 +159,73 @@ async fn upsert_user(store: &SessionStore, email: &str) -> ArgoResult<UserAccoun
     insert_user(store, &user).await?;
     Ok(user)
 }
+
+/// Resolve the tenant binding to stamp into the verifying user's session
+/// JWT. Returns `(tenant_id, role, needs_onboarding)`.
+///
+/// - **Returning user** (already linked to ≥1 tenant): bind their newest
+///   tenant + the role they hold there; `needs_onboarding = false`.
+/// - **First-time user** (no tenant yet): auto-provision their OWN tenant
+///   here (WS1-3) and bind it as `owner`; `needs_onboarding = true`.
+///
+/// Why provision on verify: the per-request resolver
+/// ([`super::resolve_tenant::resolve_tenant_for_request`]) reads the
+/// `tnt` claim from the `__Host-session` JWT. A freshly-verified user
+/// with no tenant would mint a `tnt`-less JWT, so the resolver would
+/// fall back to the gateway's cwd/demo tenant — the user's very first
+/// data read could momentarily resolve to shared demo data. Provisioning
+/// here guarantees the minted JWT always carries the user's real tenant.
+/// [`provision_for_user`] is idempotent, so a re-verify reuses the
+/// existing tenant rather than creating a second one.
+async fn resolve_session_tenant(
+    store: &SessionStore,
+    user: &UserAccount,
+) -> ArgoResult<(Option<String>, Option<String>, bool)> {
+    if let Some(t) = list_tenants_for_user(store, user.id).await?.into_iter().next() {
+        return Ok((
+            Some(t.tenant_id.to_string()),
+            Some(t.role.as_str().to_string()),
+            false,
+        ));
+    }
+    let tenant_id = provision_on_verify(store, user).await?;
+    Ok((
+        Some(tenant_id),
+        Some(UserTenantRole::Owner.as_str().to_string()),
+        true,
+    ))
+}
+
+/// Auto-provision the verifying user's own tenant + workspace and return
+/// the provisioned `tenant_id` as a string for the JWT `tnt` claim.
+async fn provision_on_verify(store: &SessionStore, user: &UserAccount) -> ArgoResult<String> {
+    let workspace_name = default_workspace_name(&user.email);
+    let outcome = provision_for_user(
+        store,
+        ProvisionRequest {
+            user_id: user.id,
+            user_email: &user.email,
+            workspace_name: &workspace_name,
+            company_name: None,
+        },
+    )
+    .await?;
+    Ok(outcome.tenant_id.to_string())
+}
+
+/// A non-empty default workspace label derived from the verified email's
+/// local-part (`alice@acme.com` → `alice's Workspace`). Only needs to be
+/// non-empty so [`provision_for_user`] accepts it; the user can rename
+/// their workspace in onboarding / settings later.
+fn default_workspace_name(email: &str) -> String {
+    let local = email.split('@').next().unwrap_or("").trim();
+    if local.is_empty() {
+        "My Workspace".to_string()
+    } else {
+        format!("{local}'s Workspace")
+    }
+}
+
+#[cfg(test)]
+#[path = "auth_magic_link_verify_provision_tests.rs"]
+mod provision_tests;
