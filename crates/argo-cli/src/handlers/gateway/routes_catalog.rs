@@ -263,6 +263,31 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/api/v1/verticals/<v>/workflows/<n>/runs", "history of runs for one workflow"),
         ("GET", "/api/v1/skill-library/list", "skill-library catalog: shared + tenant-private skills"),
         ("POST", "/api/v1/auth/logout", "clear the SSO session cookie"),
+        // ── settings: SKYCOT service tokens + BYOK provider keys
+        ("GET", "/api/v1/api-keys", "list SKYCOT service tokens for the tenant (metadata only, never the secret value)"),
+        ("POST", "/api/v1/api-keys", "mint a named, scoped service token ({name, scopes?}); returns the secret once"),
+        ("DELETE", "/api/v1/api-keys/<id>", "revoke one service token (tenant-verified)"),
+        ("GET", "/api/v1/providers/keys", "BYOK upstream-provider key status (configured/missing per family; metadata only)"),
+        ("GET", "/api/v1/providers/policy", "provider routing-policy panel for the settings page"),
+        ("PATCH", "/api/v1/providers/policy", "update the provider routing-policy panel"),
+        // ── governance readiness snapshot
+        ("GET", "/api/v1/governance/readiness", "governance readiness snapshot (controls + gaps)"),
+        // ── GTM + marketing agent drafting
+        ("POST", "/api/v1/gtm/draft-followup", "draft a go-to-market follow-up message from a prompt"),
+        ("POST", "/api/v1/marketing/draft-response", "draft a marketing response from a prompt"),
+        // ── pitch agent (v1 demo headline) — truth-bounded Q&A
+        ("POST", "/api/v1/pitch/ask", "ask the pitch agent a question (truth-bounded Q&A)"),
+        // ── voice I/O (pitch + coach + live transcripts)
+        ("GET", "/api/v1/voice/sessions", "list voice sessions (?mode=coach|pitch)"),
+        ("GET", "/api/v1/voice/settings", "voice settings panel (provider, voice id, model)"),
+        ("PATCH", "/api/v1/voice/settings", "update the voice settings panel"),
+        ("POST", "/api/v1/voice/tts", "text-to-speech synthesis for a voice turn"),
+        ("POST", "/api/v1/voice/stt", "speech-to-text transcription of an audio clip"),
+        ("POST", "/api/v1/voice/pitch-turn", "run one pitch voice turn (STT → pitch answer → TTS)"),
+        ("POST", "/api/v1/voice/realtime-session", "mint a realtime voice session token"),
+        ("POST", "/api/v1/voice/transcript", "append a voice transcript row (hash-chained audit)"),
+        // ── public early-access waitlist capture (WS6)
+        ("POST", "/api/v1/waitlist", "capture a public early-access waitlist signup ({email})"),
     ];
     let body: Vec<serde_json::Value> = rows
         .iter()
