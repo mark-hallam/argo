@@ -12,9 +12,10 @@ use argo_identity::UserAccount;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId, WorkspaceId};
 use argo_vertical::LoadedVertical;
+use regex::Regex;
 use serde_json::{json, Value};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 // The former `cwd_write_tenant` shim lived here. It resolved the
 // gateway-cwd tenant for the first-hire write so the worker would be
@@ -294,29 +295,85 @@ fn truncate_on_word_boundary(s: &str, max_chars: usize) -> String {
     format!("{}…", trimmed.trim_end_matches(|c: char| c.is_whitespace() || c == ','))
 }
 
-/// Derive a worker display name from the first capitalised token in
-/// the operator's description. Falls back to `"Pioneer"` so the row
-/// always has a non-empty name (the persona validator rejects empties).
+/// Derive a worker display name from the operator's description.
+///
+/// Resolution order (first match wins):
+/// 1. An **explicit naming pattern** — `named X` / `called X` /
+///    `name is X` / `I am X` / `my <noun> is X` (case-insensitive).
+///    This is preferred so a prompt like *"A marketing intern named
+///    Maya …"* resolves to `Maya`, not the leading article `A`
+///    (UX-AUDIT-T22-20: the first-capitalised-token heuristic named
+///    every demo hire after the wizard's own example article).
+/// 2. The **first capitalised token** that isn't an article or a
+///    single letter.
+/// 3. `"Pioneer"` so the row always has a non-empty name (the persona
+///    validator rejects empties).
+///
+/// The Genesis-driven first-hire path reuses this extractor as the
+/// fallback when the SPA doesn't POST an explicit `name`, so the fix
+/// propagates into that flow too.
 pub(super) fn name_from_description(desc: &str) -> String {
     let trimmed = desc.trim();
-    let first_token = trimmed
-        .split(|c: char| c.is_whitespace() || c == ',' || c == '.')
-        .find(|t| {
-            !t.is_empty()
-                && t.chars()
-                    .next()
-                    .is_some_and(|c| c.is_alphabetic() && c.is_uppercase())
-        });
-    if let Some(name) = first_token {
-        let cleaned: String = name
-            .chars()
-            .filter(|c| c.is_alphanumeric() || *c == '\'')
-            .collect();
-        if !cleaned.is_empty() {
-            return cleaned;
-        }
+    explicit_name_from_description(trimmed)
+        .or_else(|| first_capitalized_name(trimmed))
+        .unwrap_or_else(|| "Pioneer".into())
+}
+
+/// Match an explicit naming clause and return the named token, or
+/// `None` when no clause is present (or the captured token is an
+/// article / single letter).
+fn explicit_name_from_description(desc: &str) -> Option<String> {
+    // Compiled once; fail-safe to `None` rather than `expect` (no
+    // `unwrap`/`expect` is permitted outside `#[cfg(test)]`). A regex
+    // compile failure simply disables the explicit path so the
+    // capitalised-token fallback still runs.
+    static RE: OnceLock<Option<Regex>> = OnceLock::new();
+    let re = RE
+        .get_or_init(|| {
+            Regex::new(r"(?i)\b(?:named|called|name is|i am|my \w+ is)\s+([A-Za-z][A-Za-z'\-]*)")
+                .ok()
+        })
+        .as_ref()?;
+    // `captures_iter` walks matches left-to-right; the first one whose
+    // token survives `clean_name_token` wins. This lets a clause like
+    // *"I am a marketing intern named Maya"* skip the article `a`
+    // captured by `I am` and land on `Maya` from `named`.
+    re.captures_iter(desc)
+        .filter_map(|caps| caps.get(1).and_then(|m| clean_name_token(m.as_str())))
+        .next()
+}
+
+/// First whitespace/comma/period-delimited token that starts with an
+/// uppercase letter and survives the article / single-letter filter.
+fn first_capitalized_name(desc: &str) -> Option<String> {
+    desc.split(|c: char| c.is_whitespace() || c == ',' || c == '.')
+        .filter(|t| {
+            t.chars()
+                .next()
+                .is_some_and(|c| c.is_alphabetic() && c.is_uppercase())
+        })
+        .find_map(clean_name_token)
+}
+
+/// Strip non-name characters, then reject single-letter tokens and
+/// articles (`a`, `an`, `the`, `my`, `your`, `our`). Returns the
+/// cleaned token with its first letter upper-cased.
+fn clean_name_token(raw: &str) -> Option<String> {
+    let cleaned: String = raw
+        .chars()
+        .filter(|c| c.is_alphabetic() || *c == '\'' || *c == '-')
+        .collect();
+    if cleaned.chars().count() < 2 {
+        return None;
     }
-    "Pioneer".into()
+    const STOPWORDS: [&str; 6] = ["a", "an", "the", "my", "your", "our"];
+    if STOPWORDS.contains(&cleaned.to_ascii_lowercase().as_str()) {
+        return None;
+    }
+    let mut chars = cleaned.chars();
+    chars
+        .next()
+        .map(|first| first.to_uppercase().chain(chars).collect::<String>())
 }
 
 pub(super) async fn emit_audit(
@@ -415,3 +472,7 @@ pub(super) fn map_workspace_error(err: WorkspaceResolve) -> (&'static str, Strin
         WorkspaceResolve::Internal(msg) => server_error(&msg),
     }
 }
+
+#[cfg(test)]
+#[path = "routes_onboarding_helpers_name_tests.rs"]
+mod name_tests;
