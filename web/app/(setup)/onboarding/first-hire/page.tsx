@@ -1,8 +1,10 @@
 "use client";
 
 import { Loader2, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import {
   FIRST_HIRE_VERIFY_FAILED_MESSAGE,
@@ -11,9 +13,17 @@ import {
 import { exampleForVertical } from "@/lib/onboarding/example-prompts";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
 import { FirstHireErrorBanner } from "@/components/skycot/onboarding/FirstHireErrorBanner";
+import { Toaster } from "@/components/ui/sonner";
 import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
+
+// Hold the success toast on screen briefly before navigating so the
+// buyer registers the "✓ Hired" acknowledgment (F14). Long enough to
+// read, short enough not to stall the camera. The (setup) route group
+// has no global Toaster (only (app)/layout.tsx mounts one), so this
+// page mounts its own — same pattern as the workspace step.
+const SUCCESS_TOAST_HOLD_MS = 600;
 
 const NAME_PLACEHOLDER_BY_VERTICAL: Record<string, string> = {
   "marketing-intern": "Maya",
@@ -97,6 +107,10 @@ function FirstHireFormBody() {
         tenantId,
         verticalId,
       });
+      // Acknowledge the hire before navigating away. Without this the
+      // page swaps to the celebration/roster with no confirmation that
+      // the click landed — the buyer is left guessing whether it worked.
+      toast.success(`✓ Hired ${res.workerName}. Taking you to their page…`);
       reset();
       // sessionStorage flag drives the one-shot "Set their schedule"
       // callout on the worker overview page; per-tab + cleared on first
@@ -123,6 +137,9 @@ function FirstHireFormBody() {
       //   `?worker=<id>&name=<workerName>` from the URL (the draft is
       //   reset above so the URL is the only carrier) and auto-advances
       //   to `/workers/<id>` after 6s.
+      // Brief hold so the success toast is visible before the route
+      // change unmounts this page.
+      await new Promise((resolve) => setTimeout(resolve, SUCCESS_TOAST_HOLD_MS));
       if (isDemoMode()) {
         router.push(`/workers?just-hired=1&new=${encodeURIComponent(res.workerId)}`);
       } else {
@@ -211,7 +228,22 @@ function FirstHireFormBody() {
           </p>
         </label>
         {error ? (
-          <FirstHireErrorBanner message={error} showHelpLink={showHelpLink} />
+          <>
+            <FirstHireErrorBanner message={error} showHelpLink={showHelpLink} />
+            {/* Escape hatch (F14): a failed hire shouldn't trap the buyer
+                on this step. They can retry (resubmit), step Back, or
+                bail straight to their team. */}
+            <p className="ob-field-hint" data-testid="first-hire-skip-to-team-row">
+              Or{" "}
+              <Link
+                href="/team"
+                className="underline"
+                data-testid="first-hire-skip-to-team"
+              >
+                skip to your team →
+              </Link>
+            </p>
+          </>
         ) : null}
         <div className="ob-cta-row is-split">
           <button
@@ -241,6 +273,7 @@ function FirstHireFormBody() {
           </button>
         </div>
       </form>
+      <Toaster />
     </OnboardingShell>
   );
 }
