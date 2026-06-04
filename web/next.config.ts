@@ -205,6 +205,10 @@ const config: NextConfig = {
         "/privacy/:path*",
         "/terms/:path*",
         "/security/:path*",
+        "/dpa/:path*",
+        "/about/:path*",
+        "/features/:path*",
+        "/blog/:path*",
         "/for/:path*",
       ];
       for (const source of marketingPaths) {

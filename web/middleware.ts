@@ -38,6 +38,11 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/privacy") ||
     pathname.startsWith("/terms") ||
     pathname.startsWith("/security") ||
+    pathname.startsWith("/dpa") ||
+    pathname.startsWith("/about") ||
+    pathname.startsWith("/contact") ||
+    pathname.startsWith("/features") ||
+    pathname.startsWith("/blog") ||
     pathname.startsWith("/for/") ||
     pathname === "/opengraph-image" ||
     pathname === "/icon" ||

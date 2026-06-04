@@ -22,10 +22,10 @@ Two equivalent paths: Cloudflare UI, or `setup.sh` /
 
 | Host                 | Type  | Target                       | Proxy | TTL    | Notes                           |
 |----------------------|-------|------------------------------|-------|--------|---------------------------------|
-| `skycot.com` (apex)  | A     | `76.76.21.21`                | ✅    | 5 min  | Vercel apex marketing site     |
+| `skycot.com` (apex)  | A     | `76.76.21.21`                | ✅    | 5 min  | Apex → `web/` Vercel project (single app) |
 | `skycot.com` (apex)  | AAAA  | `2606:4700:90:0:f22e:fbec:5bed:a9b9` | ✅ | 5 min | Vercel apex IPv6           |
 | `www.skycot.com`     | CNAME | `cname.vercel-dns.com`       | ✅    | 5 min  | Redirects to apex via Vercel    |
-| `app.skycot.com`     | CNAME | `cname.vercel-dns.com`       | ✅    | 5 min  | SPA (Vercel project)            |
+| `app.skycot.com`     | CNAME | `cname.vercel-dns.com`       | ✅    | 5 min  | Same `web/` Vercel project (product) |
 | `api.skycot.com`     | A     | `<fly-ipv4>`                 | ✅    | 5 min  | Gateway (Fly.io dedicated IPv4) |
 | `api.skycot.com`     | AAAA  | `<fly-ipv6>`                 | ✅    | 5 min  | Gateway (Fly.io dedicated IPv6) |
 | `try.skycot.com`     | A     | `<fly-ipv4>`                 | ✅    | 5 min  | Demo workspace (same Fly app)   |

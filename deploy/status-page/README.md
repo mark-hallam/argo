@@ -34,8 +34,8 @@ Stack Uptime"). Free tier sufficient for v1.
    is configured; until then `operator@example.com` is fine.
 2. **Create monitors** — three at minimum, all HTTP(S) GET, 3-min
    interval, alert-after-2-failed-checks:
-   - `https://skycot.com` — marketing site, expect 200.
-   - `https://app.skycot.com` — SPA shell, expect 200.
+   - `https://skycot.com` — public site (single `web/` app), expect 200.
+   - `https://app.skycot.com` — product shell (same `web/` app), expect 200.
    - `https://api.skycot.com/health` — gateway health,
      expect 200 + body contains `"status":"ok"`. The gateway's
      `/health` response is contracted in

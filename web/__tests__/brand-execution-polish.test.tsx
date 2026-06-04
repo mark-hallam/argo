@@ -5,10 +5,10 @@ import { describe, expect, it } from "vitest";
 
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(THIS_DIR, "..", "..");
-const SCAN_DIRS = [
-  join(REPO_ROOT, "web", "components"),
-  join(REPO_ROOT, "marketing", "components"),
-];
+// `marketing/components` was removed in the 2026-06-04 single-app
+// consolidation (the standalone marketing/ app was deleted and folded
+// into web/). Only web/components remains to scan.
+const SCAN_DIRS = [join(REPO_ROOT, "web", "components")];
 const PRIMITIVES = [
   "web/components/ui/Button.tsx",
   "web/components/ui/Card.tsx",

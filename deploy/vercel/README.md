@@ -1,6 +1,16 @@
-# SKYCOT SPA Vercel Deployment
+# SKYCOT Vercel Deployment (single app, both domains)
 
-This runbook configures the `web/` Next.js app for `app.skycot.com`.
+This runbook configures the `web/` Next.js app. As of the 2026-06-04
+single-app consolidation, `web/` is the **only** front-end project and
+serves **both** the public marketing site (`skycot.com` apex + `www`)
+and the product (`app.skycot.com`). The old separate `marketing/`
+project was deleted. Public marketing routes (`/landing`, `/pricing`,
+`/about`, `/contact`, `/customers`, `/changelog`, `/features`, `/blog`,
+`/privacy`, `/terms`, `/security`, `/sla`, `/dpa`) are auth-exempt in
+`web/middleware.ts`; the product surfaces under the `(app)/` route
+group stay cookie-gated. See
+`docs/skycot/deploy/consolidated-single-app-domain-attach.md` for the
+apex domain-attach + DNS steps.
 
 ## Project
 
@@ -13,9 +23,13 @@ This runbook configures the `web/` Next.js app for `app.skycot.com`.
 ## Domains
 
 1. Add `app.skycot.com` in Vercel Project Settings -> Domains.
-2. Keep the Vercel-provided CNAME target for the DNS brief.
-3. Wait for Vercel to issue the managed TLS certificate.
-4. Keep `skycot.com`, `api.skycot.com`, and `try.skycot.com` out of this project; they are owned by the marketing, gateway, and demo deployments.
+2. Add `skycot.com` (apex) and `www.skycot.com` to the **same** project
+   (the single-app consolidation; `www` redirects to the apex). Full
+   step-by-step in `docs/skycot/deploy/consolidated-single-app-domain-attach.md`.
+3. Keep the Vercel-provided CNAME / apex A-record targets for the DNS brief.
+4. Wait for Vercel to issue the managed TLS certificates.
+5. Keep `api.skycot.com` and `try.skycot.com` out of this project; they
+   are owned by the gateway (AWS Fargate) and demo deployments.
 
 ## Environment
 
