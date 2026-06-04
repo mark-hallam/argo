@@ -93,7 +93,7 @@ async fn build_overview(
             &format!("invalid worker_id '{raw_id}': {e}"),
         )
     })?;
-    let tenant = resolve_workspace_tenant(store)
+    let tenant = super::resolve_tenant::resolve_tenant_for_request(req, store)
         .await
         .map_err(|e| ise(&format!("resolve tenant: {e}")))?;
     // Cross-tenant existence is hidden from the HTTP response.
@@ -333,17 +333,6 @@ async fn exists_in_other_tenant(
             .await
             .map_err(|e| ArgoError::Provider(format!("cross-tenant probe: {e}")))?;
     Ok(row.is_some())
-}
-
-async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
 }
 
 pub(super) fn micros_to_utc(micros: i64) -> DateTime<Utc> {

@@ -28,7 +28,7 @@ use argo_audit::{AuditKind, AuditSink};
 use argo_identity::{CircuitState, IdentityStore, OrgStore, Worker, WorkerId};
 use argo_store::SessionStore;
 use argo_team_headline::{generate_team_headline, TeamHeadline};
-use argo_types::{ArgoError, ArgoResult, TenantId};
+use argo_types::{ArgoResult, TenantId};
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -57,7 +57,8 @@ pub(super) async fn list_response(
         Some(s) => s,
         None => return super::store_unavailable(),
     };
-    let workspace_tenant = match resolve_workspace_tenant(store).await {
+    let workspace_tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await
+    {
         Ok(t) => t,
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -229,17 +230,6 @@ async fn build_org_index(
         idx.insert(wid, (department, team));
     }
     Ok(idx)
-}
-
-async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
 }
 
 fn parse_tenant_query(req: &str) -> Result<Option<TenantId>, String> {

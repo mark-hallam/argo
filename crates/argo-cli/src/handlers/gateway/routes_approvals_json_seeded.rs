@@ -293,65 +293,23 @@ fn verb_from_action(action: &str) -> String {
 /// race; see the module header). Returns the `(text, uuid)` tenant
 /// pair, or `None` on any resolver miss so the caller falls back to an
 /// empty seeded list rather than erroring.
+/// Resolve the tenant whose seeded `approval_request` rows to surface.
+///
+/// Sprint WS1: routes through the canonical
+/// [`super::resolve_tenant::resolve_tenant_for_request`] so a signed-in
+/// user's `/approvals` feed scopes to THEIR `__Host-session` JWT tenant
+/// — not the cwd demo tenant. The prior header→cwd contract is preserved
+/// underneath: with no session cookie the canonical resolver still falls
+/// through to the explicit `?tenant=` / `X-Tenant-Id` /
+/// `X-Argo-Tenant-Id` override and then the cwd workspace, so the seed /
+/// demo paths behave exactly as before. The cross-tenant invisibility
+/// property (`claim_6_cross_tenant_approval_select_no_existence_leak`)
+/// stays closed: the SELECT still binds the resolved tenant id.
 async fn resolve_tenant(req: &str, store: &Arc<SessionStore>) -> Option<(String, Uuid)> {
-    let cwd = std::env::current_dir().ok()?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    // `ensure_workspace` is idempotent (INSERT-or-fetch) and runs
-    // against the shared pool — it does not re-create schema. It mirrors
-    // how `routes_audit_feed::resolve_workspace_default` derives the
-    // cwd-bound tenant from the same shared handle.
-    let (workspace_tenant, _ws) = store.ensure_workspace(name, &root).await.ok()?;
-    // Tenant resolution mirrors the audit feed contract: explicit
-    // `X-Tenant-Id` / `X-Argo-Tenant-Id` header overrides the
-    // cwd-bound workspace default. The config default is intentionally
-    // NOT consulted here — the seed writes to either the cwd workspace
-    // (most common) or an explicit `--tenant <T>` (header-overridden).
-    let tenant_text = header_tenant_override(req).unwrap_or_else(|| workspace_tenant.to_string());
-    let tenant_uuid = Uuid::parse_str(&tenant_text).ok()?;
-    Some((tenant_text, tenant_uuid))
-}
-
-/// Read the canonical tenant override headers off a raw request. Falls
-/// back through `?tenant=` query param → `X-Tenant-Id` → legacy
-/// `X-Argo-Tenant-Id` (mirroring `rate_limit::extract_tenant`'s
-/// precedence chain, minus its config-default fallback).
-fn header_tenant_override(req: &str) -> Option<String> {
-    let target = req
-        .split_once(' ')
-        .and_then(|(_, rest)| rest.split_whitespace().next())
-        .unwrap_or("");
-    if let Some((_, qs)) = target.split_once('?') {
-        for kv in qs.split('&') {
-            if let Some(("tenant", value)) = kv.split_once('=') {
-                if !value.is_empty() {
-                    return Some(value.to_string());
-                }
-            }
-        }
-    }
-    let headers = req
-        .split_once("\r\n\r\n")
-        .map_or(req, |(h, _)| h);
-    for line in headers.lines().skip(1) {
-        let Some((name, value)) = line.split_once(':') else {
-            continue;
-        };
-        let name = name.trim();
-        let value = value.trim();
-        if value.is_empty() {
-            continue;
-        }
-        if name.eq_ignore_ascii_case("x-tenant-id")
-            || name.eq_ignore_ascii_case("x-argo-tenant-id")
-        {
-            return Some(value.to_string());
-        }
-    }
-    None
+    let tenant = super::resolve_tenant::resolve_tenant_for_request(req, store)
+        .await
+        .ok()?;
+    Some((tenant.to_string(), tenant.0))
 }
 
 #[cfg(test)]

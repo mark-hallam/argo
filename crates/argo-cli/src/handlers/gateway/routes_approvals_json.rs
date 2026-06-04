@@ -252,10 +252,13 @@ pub(super) async fn decide_response(approval_id: &str, req: &str) -> (&'static s
     match result {
         Ok(decided) => {
             if decision == "refuse" {
-                let tenant = match resolve_workspace_tenant_id(store.as_ref()).await {
-                    Ok(t) => t,
-                    Err(e) => return server_error(&e),
-                };
+                let tenant =
+                    match super::resolve_tenant::resolve_tenant_for_request(req, store.as_ref())
+                        .await
+                    {
+                        Ok(t) => t.to_string(),
+                        Err(e) => return server_error(&format!("resolve tenant: {e}")),
+                    };
                 if let Err(e) =
                     emit_approval_declined(&store, &tenant, &actor, &located.record, &decided).await
                 {
@@ -266,20 +269,6 @@ pub(super) async fn decide_response(approval_id: &str, req: &str) -> (&'static s
         }
         Err(e) => server_error(&format!("decide: {e}")),
     }
-}
-
-async fn resolve_workspace_tenant_id(store: &SessionStore) -> Result<String, String> {
-    let cwd = std::env::current_dir().map_err(|e| format!("current_dir: {e}"))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _workspace) = store
-        .ensure_workspace(name, &root)
-        .await
-        .map_err(|e| format!("resolve workspace tenant: {e}"))?;
-    Ok(tenant.to_string())
 }
 
 async fn emit_approval_declined(

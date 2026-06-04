@@ -10,7 +10,6 @@
 use argo_identity::tier::{Tier, TierConfig};
 use argo_store::tenant_query::{tenant_tier, tenant_usage_for_period};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::{DateTime, Datelike, NaiveDate, TimeZone, Utc};
 use serde_json::json;
 use std::str::FromStr;
@@ -18,14 +17,14 @@ use std::sync::Arc;
 
 /// `GET /api/v1/tenant/usage` entry point.
 pub(super) async fn show_response(
-    _req: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let store = match store {
         Some(s) => s,
         None => return super::store_unavailable(),
     };
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t,
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -59,15 +58,6 @@ pub(super) async fn show_response(
         "resets_at": resets_at,
     });
     ("200 OK", body.to_string())
-}
-
-async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
 }
 
 fn next_month_start_rfc3339(now: DateTime<Utc>) -> String {

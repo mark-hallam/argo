@@ -95,7 +95,7 @@ pub(super) async fn list_response(
         Ok(p) => p,
         Err(resp) => return resp,
     };
-    let workspace_default = resolve_workspace_default(store).await;
+    let workspace_default = resolve_workspace_default(req, store).await;
     let scope = resolve_tenant_scope(req, &params, &workspace_default);
     let raw = match fetch_raw_rows(store, &params).await {
         Ok(rows) => rows,

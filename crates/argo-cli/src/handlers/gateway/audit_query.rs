@@ -30,26 +30,22 @@ use sqlx::Row;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-/// Resolve the cwd-bound workspace tenant UUID for the gateway, used
-/// as the default audit-scope when the request omits any tenant
-/// signal. Mirrors what `/api/v1/team`, `/skills`, `/workflows`,
-/// `/verticals` already do via `SessionStore::ensure_workspace`.
-/// Returns the empty string on any failure (cwd lookup or store
-/// error), in which case callers fall back to whatever sentinel is
-/// appropriate for their route.
-pub(super) async fn resolve_workspace_default(store: &Arc<SessionStore>) -> String {
-    let Ok(cwd) = std::env::current_dir() else {
-        return String::new();
-    };
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    store
-        .ensure_workspace(name, &root)
+/// Resolve the default audit-scope tenant for the gateway, used when
+/// the request omits an explicit `?as_tenant=` cross-tenant signal.
+///
+/// Sprint WS1: now JWT-aware via [`super::resolve_tenant::
+/// resolve_tenant_for_request`] — a signed-in user's audit feed
+/// defaults to THEIR own tenant, not the cwd demo tenant. The
+/// `X-Argo-Tenant-Id` header override + capability-gated `?as_tenant=`
+/// cross-tenant path in [`super::routes_audit_feed_scope::
+/// resolve_tenant_scope`] are unchanged (it still treats this value as
+/// the `workspace_default` it layers the header chain on top of).
+/// Returns the empty string on any failure, in which case callers fall
+/// back to whatever sentinel is appropriate for their route.
+pub(super) async fn resolve_workspace_default(req: &str, store: &Arc<SessionStore>) -> String {
+    super::resolve_tenant::resolve_tenant_for_request(req, store)
         .await
-        .map(|(t, _)| t.to_string())
+        .map(|t| t.to_string())
         .unwrap_or_default()
 }
 
@@ -70,7 +66,7 @@ pub(super) async fn resolve_audit_tenant(store: &Arc<SessionStore>, req: &str) -
     if let Some(explicit) = explicit_tenant_from_request(req) {
         return explicit;
     }
-    let workspace_default = resolve_workspace_default(store).await;
+    let workspace_default = resolve_workspace_default(req, store).await;
     if !workspace_default.is_empty() {
         return workspace_default;
     }

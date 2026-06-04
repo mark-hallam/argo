@@ -52,6 +52,7 @@ mod quota_middleware;
 mod rate_limit;
 mod rate_limit_ip;
 mod rate_limit_tenant;
+mod resolve_tenant;
 mod region_gate;
 mod request_audit;
 mod role_gate;

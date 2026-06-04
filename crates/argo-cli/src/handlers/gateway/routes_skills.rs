@@ -15,7 +15,7 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /skills/learned-this-month ")
         || req.starts_with("GET /skills/learned-this-month?")
     {
-        return Some(skills_learned_this_month_response(store).await);
+        return Some(skills_learned_this_month_response(store, req).await);
     }
 
     if req.starts_with("GET /skills ") || req.starts_with("GET /skills?") {
@@ -36,7 +36,7 @@ pub(super) async fn dispatch_route(
         if name.is_empty() || name.contains('/') {
             return None;
         }
-        return Some(skill_usage_response(store, name).await);
+        return Some(skill_usage_response(store, req, name).await);
     }
 
     if name_no_query == "count" || name_no_query.contains('/') {
@@ -76,6 +76,7 @@ async fn skill_show_response(
 /// mission-skill-discovery marketplace surface.
 async fn skill_usage_response(
     store: Option<&Arc<SessionStore>>,
+    req: &str,
     name: &str,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -98,7 +99,7 @@ async fn skill_usage_response(
         }
     };
 
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t,
         Err(e) => {
             return (
@@ -168,11 +169,12 @@ async fn skill_usage_response(
 /// client can intersect with the existing `/skills` registry list.
 async fn skills_learned_this_month_response(
     store: Option<&Arc<SessionStore>>,
+    req: &str,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return super::store_unavailable();
     };
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t,
         Err(e) => {
             return (
@@ -212,23 +214,6 @@ fn month_start_iso(now: chrono::DateTime<chrono::Utc>) -> String {
     // back to `naive_date.and_time(MIN)` instead to keep the lint happy.
     let first = first_date.and_time(chrono::NaiveTime::MIN);
     chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(first, chrono::Utc).to_rfc3339()
-}
-
-/// Resolve the workspace-bound tenant for read-only usage queries.
-/// Mirrors `routes_cohorts::resolve_workspace_tenant`; kept local so the
-/// crate stays under HARD RULE 6's 500-LOC per-file ceiling.
-async fn resolve_workspace_tenant(
-    store: &SessionStore,
-) -> argo_types::ArgoResult<argo_types::TenantId> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| argo_types::ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
 }
 
 /// Map a skill's `provenance.source` to the operator-facing
