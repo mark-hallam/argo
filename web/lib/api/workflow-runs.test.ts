@@ -120,3 +120,42 @@ describe("lib/api/workflow-runs", () => {
     });
   });
 });
+
+// ws3-3 (sprint-ws3-3-verify-prod-no-bypass-fetchers): a NODE_ENV=
+// production bundle ignores the dev auth-bypass flag and never
+// short-circuits to `mockSummary`; in strict production a 404
+// propagates rather than returning a mock summary.
+describe("lib/api/workflow-runs — ws3-3: prod path never serves fixtures", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
+  });
+
+  afterEach(() => {
+    globalThis.fetch = ORIGINAL_FETCH;
+    process.env = { ...originalEnv };
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("ignores a hostile auth-bypass flag under NODE_ENV=production and hits the gateway", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS", "1");
+    const fetchMock = installMock(() =>
+      makeResponse({ status: 200, body: makeSummary("sales", "qualify_lead") }),
+    );
+    const result = await fetchWorkflowRuns({ verticalId: "sales", name: "qualify_lead" });
+    expect(fetchMock).toHaveBeenCalled();
+    expect(result.source).toBe("gateway");
+  });
+
+  it("propagates a gateway 404 in strict production instead of returning a mock summary", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_ENV", "production");
+    installMock(() => makeResponse({ status: 404, body: { error: "not found" } }));
+    await expect(
+      fetchWorkflowRuns({ verticalId: "sales", name: "qualify_lead" }),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+});

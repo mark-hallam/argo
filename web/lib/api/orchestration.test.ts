@@ -253,3 +253,41 @@ describe("lib/api/orchestration — team-run grouping", () => {
     expect(rollup?.children).toHaveLength(2);
   });
 });
+
+// ws3-3 (sprint-ws3-3-verify-prod-no-bypass-fetchers): prove the prod
+// path is authoritative — a NODE_ENV=production bundle ignores the dev
+// auth-bypass flag and never short-circuits to MOCK_QUEUE fixtures.
+describe("lib/api/orchestration — ws3-3: prod path never serves fixtures", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
+  });
+
+  afterEach(() => {
+    globalThis.fetch = ORIGINAL_FETCH;
+    process.env = { ...originalEnv };
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("ignores a hostile auth-bypass flag under NODE_ENV=production and calls the live gateway", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS", "1");
+    const runs = SAMPLE_ORCHESTRATION_RUNS.slice(0, 2);
+    const fetchMock = installMock(() =>
+      makeResponse(200, { runs, summary: summarizeRuns(runs) }),
+    );
+    const result = await fetchOrchestrationRuns();
+    expect(fetchMock).toHaveBeenCalled();
+    expect(result.source).toBe("gateway");
+    expect(result.runs).toEqual(runs);
+  });
+
+  it("propagates a gateway 404 in strict production instead of returning MOCK_QUEUE", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_ENV", "production");
+    installMock(() => makeResponse(404, { error: { message: "missing" } }));
+    await expect(fetchOrchestrationRuns()).rejects.toBeInstanceOf(ApiError);
+  });
+});

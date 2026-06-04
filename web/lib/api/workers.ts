@@ -515,7 +515,14 @@ export async function listWorkersInVertical(verticalId: string): Promise<Worker[
       const env = raw as { workers?: unknown };
       if (Array.isArray(env.workers)) return env.workers as Worker[];
     }
-    return sampleWorkersForVertical(verticalId);
+    // The live endpoint responded but in a shape we don't recognize.
+    // Only the dev/bypass path renders the bundled sample roster; a
+    // production (or demo-live) session gets an honest empty list so a
+    // real signed-in user never sees fixtures (NO THEATER, ws3-3).
+    if (process.env.NODE_ENV !== "production" && !isDemoLive()) {
+      return sampleWorkersForVertical(verticalId);
+    }
+    return [];
   } catch (err) {
     if (shouldFallBackToMock(err)) return sampleWorkersForVertical(verticalId);
     throw err;

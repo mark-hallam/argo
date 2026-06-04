@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchWorker, hireWorker, WorkerNotFoundError } from "./workers";
+import {
+  fetchWorker,
+  hireWorker,
+  listWorkersInVertical,
+  WorkerNotFoundError,
+} from "./workers";
 import { fetchTeam } from "./team";
 import {
   fetchWorkerOverview,
@@ -263,5 +268,57 @@ describe("lib/api/workers — demo-mode roster", () => {
     _clearDemoRosterForTests();
     const afterClear = await fetchTeam();
     expect(afterClear.workers.length).toBe(SAMPLE_TEAM.length);
+  });
+});
+
+// ws3-3 (sprint-ws3-3-verify-prod-no-bypass-fetchers): the
+// workflow→schedule drawer's `listWorkersInVertical` had a 200-OK-but-
+// unrecognized-shape branch that returned the bundled sample roster
+// UNCONDITIONALLY — a real signed-in production user could see fixture
+// workers. These pin the fix: prod gets an honest empty list, only the
+// dev/bypass path renders the sample roster (NO THEATER).
+describe("lib/api/workers — ws3-3: listWorkersInVertical never serves fixtures in prod", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
+  });
+
+  afterEach(() => {
+    globalThis.fetch = ORIGINAL_FETCH;
+    process.env = { ...originalEnv };
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("returns the live worker array from a { workers } envelope under NODE_ENV=production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const fetchMock = installMock(() =>
+      makeResponse({ body: { workers: [MARIAH] } }),
+    );
+    const result = await listWorkersInVertical(MARIAH.role.vertical);
+    expect(fetchMock).toHaveBeenCalled();
+    expect(result).toEqual([MARIAH]);
+  });
+
+  it("returns an honest empty list (NOT sample fixtures) when a prod 200 has an unrecognized shape", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    // 200 OK, but neither a bare array nor a { workers } envelope.
+    installMock(() => makeResponse({ body: { unexpected: true } }));
+    const result = await listWorkersInVertical(MARIAH.role.vertical);
+    expect(result).toEqual([]);
+    const sampleIds = new Set(SAMPLE_WORKERS_DETAIL.map((w) => w.id));
+    expect(result.some((w) => sampleIds.has(w.id))).toBe(false);
+  });
+
+  it("still renders the bundled sample roster on an unrecognized shape in dev (bypass behavior preserved)", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    installMock(() => makeResponse({ body: { unexpected: true } }));
+    const result = await listWorkersInVertical(MARIAH.role.vertical);
+    const expected = SAMPLE_WORKERS_DETAIL.filter(
+      (w) => w.role.vertical === MARIAH.role.vertical,
+    );
+    expect(result).toEqual(expected);
+    expect(result.length).toBeGreaterThan(0);
   });
 });

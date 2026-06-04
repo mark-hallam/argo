@@ -79,3 +79,18 @@ describe("listKnowledgeDocs strict-mode behavior", () => {
     expect(result.docs).toEqual([]);
   });
 });
+
+// ws3-3 (sprint-ws3-3-verify-prod-no-bypass-fetchers): a NODE_ENV=
+// production bundle ignores the dev auth-bypass flag and never
+// short-circuits to SAMPLE_KNOWLEDGE.
+describe("listKnowledgeDocs — ws3-3: prod path never serves fixtures", () => {
+  it("ignores a hostile auth-bypass flag under NODE_ENV=production and calls the live apiGet", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS", "1");
+    apiGetMock.mockResolvedValueOnce({ count: 0, items: [] });
+    const result = await listKnowledgeDocs();
+    expect(apiGetMock).toHaveBeenCalledTimes(1);
+    expect(result.source).toBe("gateway");
+    expect(result.docs).toEqual([]);
+  });
+});

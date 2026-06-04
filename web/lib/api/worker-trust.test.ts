@@ -125,3 +125,40 @@ describe("lib/api/worker-trust", () => {
     });
   });
 });
+
+// ws3-3 (sprint-ws3-3-verify-prod-no-bypass-fetchers): a NODE_ENV=
+// production bundle ignores the dev auth-bypass flag and never
+// short-circuits to `findSampleWorkerTrust`; in strict production a
+// 404 propagates rather than returning a sample snapshot.
+describe("lib/api/worker-trust — ws3-3: prod path never serves fixtures", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
+  });
+
+  afterEach(() => {
+    globalThis.fetch = ORIGINAL_FETCH;
+    process.env = { ...originalEnv };
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("ignores a hostile auth-bypass flag under NODE_ENV=production and hits the gateway", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS", "1");
+    const fetchMock = installMock(() =>
+      makeResponse({ status: 200, body: makeGatewayBody("priya") }),
+    );
+    const result = await fetchWorkerTrustGrade("priya");
+    expect(fetchMock).toHaveBeenCalled();
+    expect(result.source).toBe("gateway");
+  });
+
+  it("propagates a gateway 404 in strict production instead of returning a sample snapshot", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_ENV", "production");
+    installMock(() => makeResponse({ status: 404, body: { error: "not found" } }));
+    await expect(fetchWorkerTrustGrade("priya")).rejects.toMatchObject({ status: 404 });
+  });
+});
