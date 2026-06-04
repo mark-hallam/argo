@@ -45,6 +45,7 @@ mod onboarding_seeds;
 mod routes_onboarding;
 mod routes_onboarding_genesis;
 mod routes_onboarding_helpers;
+mod routes_onboarding_live_key;
 mod peer;
 mod print_routes;
 mod proxy_guard;

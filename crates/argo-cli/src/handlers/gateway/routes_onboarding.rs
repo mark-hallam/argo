@@ -42,6 +42,7 @@ use super::routes_onboarding_helpers::{
     resolve_workspace, server_error, unauthorized, validate_key_shape,
     voice_preamble_from_description, wrap_secret, HUMAN_PRINCIPAL_PREFIX,
 };
+use super::routes_onboarding_live_key::LiveKeyOutcome;
 use super::store_unavailable;
 use argo_audit::{AuditKind, AuditSink};
 use argo_identity::{ApprovalPolicyChoice, HireDraft, IdentityStore, VoiceProfile};
@@ -103,6 +104,14 @@ pub(super) async fn provider_key_response(
     let validation = validate_key_shape(&provider, &api_key);
     if !validation.ok {
         return bad_request(&validation.reason);
+    }
+    // Bounded live one-token validation against the REAL provider (gated
+    // off by default; skipped in mock/test + for unmapped providers). NO
+    // THEATER: a clear 401/403 rejects the save (`routes_onboarding_live_key`).
+    if let LiveKeyOutcome::Invalid(reason) =
+        super::routes_onboarding_live_key::validate_key_live(&provider, &api_key).await
+    {
+        return bad_request(&reason);
     }
     let masked = mask_key(&api_key);
     let ciphertext = match wrap_secret(&api_key, tenant) {
