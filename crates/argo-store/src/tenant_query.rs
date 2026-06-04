@@ -394,6 +394,25 @@ pub async fn get_tenant_tier(store: &SessionStore, tenant: TenantId) -> ArgoResu
     tenant_tier(store, tenant).await
 }
 
+/// Count of `worker` rows owned by `tenant`. Drives the tier
+/// `max_workers` gate at the hire path
+/// (`tier_gate::check_worker_cap_or_reject`). Returns `0` when the
+/// `worker` table has not been created yet (fresh checkout / pre-hire
+/// tenant). The `worker.tenant_id` column stores the hyphenated UUID
+/// string (see `worker_create_store.rs` / `IdentityStore` inserts), so
+/// the bind matches those write paths.
+pub async fn tenant_worker_count(store: &SessionStore, tenant: TenantId) -> ArgoResult<u64> {
+    if !crate::tenant_quota_usage::table_exists(store.pool(), "worker").await? {
+        return Ok(0);
+    }
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM worker WHERE tenant_id = ?")
+        .bind(tenant.to_string())
+        .fetch_one(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("tenant worker count: {e}")))?;
+    Ok(u64::try_from(count).unwrap_or(0))
+}
+
 /// Period-to-date action count for `tenant`. Returns `(used_actions,
 /// period_start_unix_seconds)`. `period_start` falls back to the
 /// current calendar-month boundary when no row exists yet.

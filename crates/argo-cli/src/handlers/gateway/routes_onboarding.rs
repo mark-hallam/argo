@@ -90,6 +90,16 @@ pub(super) async fn provider_key_response(
         Err(e) => return map_workspace_error(e),
     };
 
+    // TIER GATE (sprint-ws4-3). Free tier is mock-only: it lacks the
+    // `provider_real_keys` feature, so reject the real-key save with a
+    // 403 upsell rather than let a Free tenant persist + later dispatch
+    // through a real provider. This is the runtime reader that closes
+    // the WS5-4 "Free→mock is SOFT" finding.
+    if !super::tier_gate::tier_allows(store, tenant, "provider_real_keys").await {
+        let tier = super::tier_gate::tenant_tier_or_free(store, tenant).await;
+        return super::tier_gate::tier_forbidden_response(tier, "provider_real_keys");
+    }
+
     let validation = validate_key_shape(&provider, &api_key);
     if !validation.ok {
         return bad_request(&validation.reason);

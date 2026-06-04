@@ -123,7 +123,7 @@ pub(super) async fn hire_response(
     // role contract (DEC-025 #1 + #4).
     let confirmed_digest =
         super::routes_workers_hire_gate::confirmed_contract_digest(&parsed);
-    if let Some(blocked) = super::routes_workers_hire_gate::enforce_genesis_hire_gate(
+    if let Some(blocked) = super::routes_workers_hire_gate::enforce_hire_gates(
         store,
         tenant_id,
         &principal_id,

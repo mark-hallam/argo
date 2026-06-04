@@ -284,6 +284,7 @@ mod tenant_header;
 #[cfg(test)]
 mod routes_session_tenant_bind_tests;
 mod tier_capability_filter;
+mod tier_gate;
 mod ws_inbox_events;
 mod ws_skill_trace;
 mod ws_upgrade;

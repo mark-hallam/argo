@@ -109,6 +109,30 @@ pub(super) async fn enforce_genesis_hire_gate(
     }
 }
 
+/// Run every hire-time gate in order and return the first refusal, or
+/// `None` to let the hire proceed. Composed so the canonical
+/// `POST /api/v1/workers` call site stays a single delegated call:
+///
+/// 1. **Tier `max_workers` cap** (`sprint-ws4-3`) — applies to ALL
+///    hires (catalog + Genesis); checked first so a tenant already at
+///    its tier's worker cap is refused before the (heavier) Genesis
+///    safety gate runs.
+/// 2. **Genesis safety gate** (DEC-025 / Genesis P0) — see
+///    [`enforce_genesis_hire_gate`]; a no-op (`None`) for non-Genesis
+///    catalog verticals.
+pub(super) async fn enforce_hire_gates(
+    store: &Arc<SessionStore>,
+    tenant_id: TenantId,
+    principal_id: &str,
+    vertical_id: &str,
+    confirmed_digest: Option<&str>,
+) -> Option<(&'static str, String)> {
+    if let Some(blocked) = super::tier_gate::check_worker_cap_or_reject(store, tenant_id).await {
+        return Some(blocked);
+    }
+    enforce_genesis_hire_gate(store, tenant_id, principal_id, vertical_id, confirmed_digest).await
+}
+
 /// `true` when `id` resolves to a Genesis-generated vertical under the
 /// caller's OWN tenant segment (`<verticals_root>/.genesis/<tenant>/<id>/`).
 /// Tenant-scoped (P5 (b)): a vertical owned by a different tenant is not

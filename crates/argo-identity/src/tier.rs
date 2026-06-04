@@ -123,6 +123,23 @@ impl TierLimits {
         let needle = feature_or_action.trim_start_matches("feature:");
         self.features.iter().any(|f| f == needle)
     }
+
+    /// Whether this tier's feature set contains the bare flag `feature`
+    /// (e.g. `"provider_real_keys"`, `"channel_voice"`). Unlike
+    /// [`Self::allows`] this takes the raw flag name, not a
+    /// `feature:`-prefixed action kind, and is the primitive the
+    /// gateway tier gate (`tier_gate::tier_allows`) builds on.
+    ///
+    /// ```
+    /// use argo_identity::tier::{Tier, TierConfig};
+    /// let cfg = TierConfig::default_config();
+    /// assert!(cfg.limits(Tier::Pro).unwrap().has_feature("provider_real_keys"));
+    /// assert!(!cfg.limits(Tier::Free).unwrap().has_feature("provider_real_keys"));
+    /// ```
+    #[must_use]
+    pub fn has_feature(&self, feature: &str) -> bool {
+        self.features.iter().any(|f| f == feature)
+    }
 }
 
 /// Decoded `v1-tiers.toml` — a map keyed by tier slug.
