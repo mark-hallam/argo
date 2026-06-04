@@ -26,20 +26,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Suspense } from "react";
-import { apiGet } from "@/lib/api/client";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useCheckout, redirectToCheckout } from "@/lib/billing/use-checkout";
 import { usePortal, redirectToPortal } from "@/lib/billing/use-portal";
-
-interface UsageResponse {
-  tier: "free" | "pro" | "enterprise";
-  display_name: string;
-  used: number;
-  limit: number;
-  remaining: number | null;
-  resets_at: string;
-}
+import { fetchTenantUsage, type UsageResponse } from "@/lib/api/usage";
+import { UsageMeter } from "@/components/billing/UsageMeter";
 
 interface PlanOffer {
   tier: "free" | "pro" | "enterprise";
@@ -102,7 +94,7 @@ function BillingFallback() {
 function BillingContent() {
   const { data, isLoading, error } = useQuery<UsageResponse>({
     queryKey: ["billing", "usage"],
-    queryFn: () => apiGet<UsageResponse>("/api/v1/tenant/usage"),
+    queryFn: fetchTenantUsage,
   });
   const checkout = useCheckout();
   const portal = usePortal();
@@ -123,7 +115,7 @@ function BillingContent() {
             Failed to load usage: {(error as Error).message}
           </p>
         )}
-        {data && <CurrentTierSummary usage={data} />}
+        {data && <UsageMeter usage={data} />}
         <div className="mt-4 flex gap-2">
           <Button
             type="button"
@@ -159,24 +151,6 @@ function BillingContent() {
           </p>
         )}
       </section>
-    </div>
-  );
-}
-
-function CurrentTierSummary({ usage }: { usage: UsageResponse }) {
-  const limitLabel = usage.limit === 0 ? "Unlimited" : usage.limit.toLocaleString();
-  return (
-    <div>
-      <p className="text-sm uppercase tracking-wide text-[var(--muted-foreground)]">
-        Current plan
-      </p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight">
-        {usage.display_name}
-      </p>
-      <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-        Used {usage.used.toLocaleString()} of {limitLabel} actions this month.
-        Resets {new Date(usage.resets_at).toLocaleDateString()}.
-      </p>
     </div>
   );
 }
