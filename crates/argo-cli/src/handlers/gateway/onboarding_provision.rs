@@ -109,6 +109,15 @@ pub(super) async fn provision_response(
 
     emit_audit(store, &user, &workspace_name, &outcome).await;
 
+    // WS2-1: install a small REAL default skill baseline into the new
+    // tenant so a fresh signup's `/skills` page paints cards instead of
+    // an empty shell. Reuses the canonical per-tenant install path
+    // (`install_for_tenant_if_absent`, via `seed_demo_marketplace_skills`)
+    // — NO parallel seeder. Idempotent + per-tenant isolated by that
+    // helper. Best-effort: a seed failure must not 500 a successful
+    // provision (the catalog can still be filled from the marketplace).
+    seed_baseline_skills(store, &outcome.tenant_id).await;
+
     if let Err(e) = seed_and_audit(store, &outcome.tenant_id).await {
         // Seeds are best-effort polish: failing to seed shouldn't 500
         // a successful provision — the wiki can still be authored by
@@ -258,6 +267,37 @@ async fn seed_and_audit(store: &Arc<SessionStore>, tenant_id: &TenantId) -> Argo
         }
     }
     Ok(())
+}
+
+/// Install the default skill baseline into a freshly-provisioned
+/// tenant (WS2-1). Delegates to
+/// [`argo_demo_seed::seed_demo_marketplace_skills`] — the same
+/// per-tenant install path (`install_for_tenant_if_absent`) the demo
+/// seed uses, so there is exactly one seeding code path. That helper is
+/// idempotent per-tenant (a re-provision inserts nothing new) and
+/// tenant-scoped (rows carry `tenant_id`, so tenant B never sees tenant
+/// A's baseline). Best-effort: a seed failure is logged and swallowed so
+/// it never 500s an otherwise-successful provision. Starter verticals
+/// need no per-tenant seed — `/api/v1/verticals` serves the global
+/// on-disk catalog (already verified non-empty above via
+/// [`vertical_exists`]), so a fresh tenant always has ≥1 vertical for the
+/// hire flow without inventing a parallel per-tenant vertical seeder.
+async fn seed_baseline_skills(store: &Arc<SessionStore>, tenant_id: &TenantId) {
+    match argo_demo_seed::seed_demo_marketplace_skills(store, *tenant_id).await {
+        Ok(inserted) => tracing::info!(
+            target: "gateway::onboarding_provision::baseline",
+            tenant_id = %tenant_id,
+            inserted,
+            catalog_size = argo_demo_seed::demo_marketplace_catalog_size(),
+            "baseline skill set seeded for fresh tenant",
+        ),
+        Err(e) => tracing::warn!(
+            target: "gateway::onboarding_provision::baseline",
+            error = %e,
+            tenant_id = %tenant_id,
+            "baseline skill seed failed; /skills will paint empty until the operator installs from the marketplace",
+        ),
+    }
 }
 
 fn unauthorized() -> (&'static str, String) {

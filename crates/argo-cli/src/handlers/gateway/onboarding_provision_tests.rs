@@ -373,3 +373,98 @@ async fn idempotent_call_does_not_write_second_audit_row() {
     // re-call. Two rows is the documented contract.
     assert_eq!(count, 2);
 }
+
+// --- WS2-1: fresh-tenant baseline skill seed --------------------------
+
+/// Count the `skill` rows owned by a tenant.
+async fn skill_count_for(store: &Arc<SessionStore>, tenant_id: &str) -> i64 {
+    sqlx::query_scalar("SELECT COUNT(*) FROM skill WHERE tenant_id = ?")
+        .bind(tenant_id)
+        .fetch_one(store.pool())
+        .await
+        .expect("count seeded skills")
+}
+
+#[tokio::test]
+async fn fresh_provision_seeds_baseline_skill_set() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let (status, resp) = provision_response(
+        &req(&body(), Some("human:alice@acme.com")),
+        Some(&store),
+    )
+    .await;
+    assert_eq!(status, "201 Created", "body: {resp}");
+    let v: Value = serde_json::from_str(&resp).unwrap();
+    let tenant_id = v["tenant_id"].as_str().unwrap().to_string();
+
+    let count = skill_count_for(&store, &tenant_id).await;
+    assert!(count > 0, "fresh tenant must have a non-empty skill baseline");
+    assert_eq!(
+        count,
+        argo_demo_seed::demo_marketplace_catalog_size() as i64,
+        "baseline matches the canonical per-tenant install catalog size"
+    );
+}
+
+#[tokio::test]
+async fn baseline_skill_seed_is_idempotent_on_re_provision() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let r = req(&body(), Some("human:alice@acme.com"));
+    let (s1, _b1) = provision_response(&r, Some(&store)).await;
+    assert_eq!(s1, "201 Created");
+    let (s2, b2) = provision_response(&r, Some(&store)).await;
+    assert_eq!(s2, "200 OK");
+    let v2: Value = serde_json::from_str(&b2).unwrap();
+    let tenant_id = v2["tenant_id"].as_str().unwrap().to_string();
+
+    let count = skill_count_for(&store, &tenant_id).await;
+    assert_eq!(
+        count,
+        argo_demo_seed::demo_marketplace_catalog_size() as i64,
+        "re-provision must not duplicate the baseline skills"
+    );
+}
+
+#[tokio::test]
+async fn baseline_skills_are_tenant_isolated() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+
+    let (sa, ba) = provision_response(
+        &req(&body(), Some("human:alice@acme.com")),
+        Some(&store),
+    )
+    .await;
+    assert_eq!(sa, "201 Created");
+    let tenant_a = serde_json::from_str::<Value>(&ba).unwrap()["tenant_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    let body_b = json!({ "workspace_name": "Beta Workspace" }).to_string();
+    let (sb, bb) = provision_response(
+        &req(&body_b, Some("human:bob@beta.test")),
+        Some(&store),
+    )
+    .await;
+    assert_eq!(sb, "201 Created");
+    let tenant_b = serde_json::from_str::<Value>(&bb).unwrap()["tenant_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    assert_ne!(tenant_a, tenant_b, "each user owns a distinct tenant");
+    let catalog = argo_demo_seed::demo_marketplace_catalog_size() as i64;
+    // Each tenant carries exactly its own baseline — seeding A never
+    // leaks rows into B (rows are stamped with `tenant_id`).
+    assert_eq!(skill_count_for(&store, &tenant_a).await, catalog);
+    assert_eq!(skill_count_for(&store, &tenant_b).await, catalog);
+}
