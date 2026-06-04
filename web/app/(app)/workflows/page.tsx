@@ -201,63 +201,67 @@ export default function WorkflowsPage() {
             ) : null}
 
             {filtered.length === 0 ? (
-              <div
-                data-testid="workflows-empty"
-                style={{
-                  gridColumn: "1 / -1",
-                  padding: "48px 24px",
-                  textAlign: "center",
-                  border: "1px dashed var(--border)",
-                  borderRadius: "16px",
-                  color: "var(--muted-foreground)",
-                }}
-              >
-                <p
+              !query.trim() && workflows.length === 0 ? (
+                <WorkflowsFreshEmpty />
+              ) : (
+                <div
+                  data-testid="workflows-empty"
                   style={{
-                    fontSize: 16,
-                    fontWeight: 600,
-                    color: "var(--foreground)",
-                    margin: "0 0 6px",
+                    gridColumn: "1 / -1",
+                    padding: "48px 24px",
+                    textAlign: "center",
+                    border: "1px dashed var(--border)",
+                    borderRadius: "16px",
+                    color: "var(--muted-foreground)",
                   }}
                 >
-                  No workflows match &ldquo;{query.trim()}&rdquo;.
-                </p>
-                <p style={{ fontSize: 14, margin: "0 0 16px" }}>
-                  Try a different query or open the template library.
-                </p>
-                <div style={{ display: "inline-flex", gap: 12 }}>
-                  <button
-                    type="button"
-                    onClick={() => setQuery("")}
+                  <p
                     style={{
-                      padding: "8px 16px",
-                      borderRadius: 8,
-                      border: "1px solid var(--border)",
-                      background: "var(--card)",
-                      cursor: "pointer",
-                      fontSize: 13,
+                      fontSize: 16,
                       fontWeight: 600,
                       color: "var(--foreground)",
+                      margin: "0 0 6px",
                     }}
                   >
-                    Clear search
-                  </button>
-                  <Link
-                    href="/workflows/templates"
-                    style={{
-                      padding: "8px 16px",
-                      borderRadius: 8,
-                      background: "var(--brand-gradient)",
-                      color: "var(--brand-primary-foreground)",
-                      textDecoration: "none",
-                      fontSize: 13,
-                      fontWeight: 600,
-                    }}
-                  >
-                    Browse templates →
-                  </Link>
+                    No workflows match &ldquo;{query.trim()}&rdquo;.
+                  </p>
+                  <p style={{ fontSize: 14, margin: "0 0 16px" }}>
+                    Try a different query or open the template library.
+                  </p>
+                  <div style={{ display: "inline-flex", gap: 12 }}>
+                    <button
+                      type="button"
+                      onClick={() => setQuery("")}
+                      style={{
+                        padding: "8px 16px",
+                        borderRadius: 8,
+                        border: "1px solid var(--border)",
+                        background: "var(--card)",
+                        cursor: "pointer",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "var(--foreground)",
+                      }}
+                    >
+                      Clear search
+                    </button>
+                    <Link
+                      href="/workflows/templates"
+                      style={{
+                        padding: "8px 16px",
+                        borderRadius: 8,
+                        background: "var(--brand-gradient)",
+                        color: "var(--brand-primary-foreground)",
+                        textDecoration: "none",
+                        fontSize: 13,
+                        fontWeight: 600,
+                      }}
+                    >
+                      Browse templates →
+                    </Link>
+                  </div>
                 </div>
-              </div>
+              )
             ) : (
               <div className="workflows-grid">
                 {filtered.map((wf) => {
@@ -315,5 +319,78 @@ export default function WorkflowsPage() {
       </div>
       <WorkflowProposeModal open={proposeOpen} onOpenChange={setProposeOpen} />
     </>
+  );
+}
+
+/**
+ * Fresh-tenant empty state (WS2). Shown only when the LIVE workflow
+ * list is genuinely empty AND no search query is active — i.e. a
+ * brand-new workspace that has not authored or installed a workflow
+ * yet. The search-empty panel above still owns the "query typed, no
+ * match" case.
+ *
+ * Copy is truth-bounded (NO THEATER): it describes what a workflow IS
+ * and the next action, without implying any workflow already exists.
+ * The single CTA routes forward to the template library. Brand: D3
+ * tokens — `--brand-gradient` (purple→PINK) on the CTA, dashed-border
+ * panel matching the surrounding catalog empty states.
+ *
+ * Note: under today's API the catalog fetcher substitutes
+ * `SAMPLE_WORKFLOW_SUMMARIES` on a zero-row gateway response, so this
+ * branch lights up once WS3 flips the live fetcher off the seed
+ * fallback. It is wired now so the zero-row render is correct the
+ * moment that lands.
+ */
+function WorkflowsFreshEmpty() {
+  return (
+    <div
+      data-testid="workflows-fresh-empty"
+      style={{
+        gridColumn: "1 / -1",
+        padding: "56px 24px",
+        textAlign: "center",
+        border: "1px dashed var(--border)",
+        borderRadius: "16px",
+        color: "var(--muted-foreground)",
+      }}
+    >
+      <p
+        style={{
+          fontSize: 18,
+          fontWeight: 700,
+          color: "var(--foreground)",
+          margin: "0 0 8px",
+        }}
+      >
+        No workflows yet.
+      </p>
+      <p
+        style={{
+          fontSize: 14,
+          margin: "0 auto 20px",
+          maxWidth: 460,
+          lineHeight: 1.5,
+        }}
+      >
+        Workflows are the plain-English playbooks your teammates follow.
+        Start from a template, then version it like code as your team learns.
+      </p>
+      <Link
+        href="/workflows/templates"
+        data-testid="workflows-fresh-empty-cta"
+        style={{
+          display: "inline-block",
+          padding: "10px 20px",
+          borderRadius: 10,
+          background: "var(--brand-gradient)",
+          color: "var(--brand-primary-foreground)",
+          textDecoration: "none",
+          fontSize: 14,
+          fontWeight: 600,
+        }}
+      >
+        Browse the template library →
+      </Link>
+    </div>
   );
 }

@@ -125,12 +125,19 @@ describe("/skills marketplace page", () => {
 
     render(wrap(<SkillsPage />));
 
+    const empty = await screen.findByTestId("skills-workspace-empty");
+    expect(empty).toBeInTheDocument();
     expect(
-      await screen.findByTestId("skills-workspace-empty"),
+      screen.getByRole("heading", { name: /no skills yet/i }),
     ).toBeInTheDocument();
+    // Truth-bounded, future-framed copy (WS2) — no fabricated counts.
     expect(
-      screen.getByRole("heading", { name: /no skills installed yet/i }),
+      screen.getByText(/your teammates earn and share skills as they work/i),
     ).toBeInTheDocument();
+    // CTA routes forward to the first-hire flow (teammates earn skills).
+    expect(
+      screen.getByRole("link", { name: /hire your first teammate/i }),
+    ).toHaveAttribute("href", "/onboarding/first-hire");
     expect(screen.queryByTestId("skills-error")).not.toBeInTheDocument();
   });
 

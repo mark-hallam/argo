@@ -295,9 +295,9 @@ export default function SkillsPage() {
           <EmptyState
             data-testid="skills-workspace-empty"
             illustration={SkillsIllustration}
-            headline="No skills installed yet"
-            body="Pick from the curated catalog — approval routing, invoice extraction, candidate screening, and more — and your AI teammates start using it the same shift."
-            cta={{ label: "Talk to the team", href: "/team" }}
+            headline="No skills yet"
+            body="Your teammates earn and share skills as they work — hire your first teammate and watch the library grow."
+            cta={{ label: "Hire your first teammate", href: "/onboarding/first-hire" }}
           />
         )}
 
