@@ -57,7 +57,7 @@ const PLANS: PlanOffer[] = [
   {
     tier: "pro",
     title: "Pro",
-    price: "$29 / month",
+    price: "$49 / month",
     blurb: "Real provider keys, multi-channel, marketplace skills.",
     features: ["5 workers", "5,000 actions / month", "Email support"],
     priceEnv: "NEXT_PUBLIC_STRIPE_PRICE_PRO",
