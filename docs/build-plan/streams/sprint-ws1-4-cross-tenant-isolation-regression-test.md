@@ -2,7 +2,7 @@
 
 **Owner**: claude or codex.
 **Depends on**: #2676 (MERGED — JWT tenant resolver + the 6 migrated read routes).
-**Authored against**: origin/main `0ee90d905` on `2026-06-04`.
+**Authored against**: origin/main `c9ff99509` on `2026-06-04` (call sites re-verified 2026-06-04: resolver `resolve_tenant_for_request` @ `crates/argo-cli/src/handlers/gateway/resolve_tenant.rs:54`; sibling tests `resolve_tenant_tests.rs` + `crates/argo-cli/tests/tenant_resolve_from_session_jwt.rs` present; keystone #2676 MERGED).
 **Validate before claim**: `bash scripts/check-brief-freshness.sh sprint-ws1-4-cross-tenant-isolation-regression-test`.
 
 ## Why

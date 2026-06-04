@@ -2,7 +2,7 @@
 
 **Owner**: claude or codex.
 **Depends on**: #2676 (MERGED — per-user JWT tenant resolution). Pairs with WS1-2 (#2682, write paths → user tenant).
-**Authored against**: origin/main `0ee90d905` on `2026-06-04`.
+**Authored against**: origin/main `c9ff99509` on `2026-06-04` (call sites re-verified 2026-06-04: `provision_for_user` @ `crates/argo-identity/src/tenant_provision.rs:86`; provision handler @ `crates/argo-cli/src/handlers/gateway/onboarding_provision.rs:52`; `install_for_tenant_if_absent` @ `crates/argo-skill/src/store_vertical.rs:110`).
 **Validate before claim**: `bash scripts/check-brief-freshness.sh sprint-ws2-1-fresh-tenant-seeds-usable-baseline`.
 
 ## Why
