@@ -69,7 +69,7 @@ pub(super) async fn post_run(
     let Some(store) = store else {
         return store_unavailable();
     };
-    let (tenant, worker) = match preflight(worker_id_raw, store).await {
+    let (tenant, worker) = match preflight(worker_id_raw, req, store).await {
         Ok(p) => p,
         Err(resp) => return resp,
     };
@@ -113,10 +113,17 @@ pub(super) async fn post_run(
 
 async fn preflight(
     worker_id_raw: &str,
+    req: &str,
     store: &Arc<SessionStore>,
 ) -> Result<(TenantId, Worker), (&'static str, String)> {
     let worker_id = parse_worker_id(worker_id_raw)?;
-    let tenant = resolve_tenant(store)
+    // Resolve via the canonical per-request resolver (#2676 / sprint
+    // WS1-2): a signed-in user's "Run now" must resolve THEIR JWT tenant
+    // so the worker row they're acting on is found under the same tenant
+    // their /workers and /team reads query. The old cwd resolver looked
+    // up the gateway demo tenant, so a stranger's worker was invisible.
+    // No session (demo/anonymous) still falls through to the cwd tenant.
+    let tenant = super::resolve_tenant::resolve_tenant_for_request(req, store)
         .await
         .map_err(|e| server_error(&format!("resolve tenant: {e}")))?;
     let worker = load_worker(store, tenant, worker_id).await?;
@@ -134,17 +141,6 @@ fn parse_worker_id(raw: &str) -> Result<WorkerId, (&'static str, String)> {
     cleaned
         .parse::<WorkerId>()
         .map_err(|e| bad_request(&format!("invalid worker_id '{cleaned}': {e}")))
-}
-
-async fn resolve_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
 }
 
 async fn load_worker(

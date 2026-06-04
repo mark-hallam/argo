@@ -35,8 +35,8 @@ use super::routes_onboarding_genesis::{
     charter_hash, derive_duties, enforce_first_hire_gate, invoke_genesis, synthesise_charter,
 };
 use super::routes_onboarding_helpers::{
-    bad_request, count_approval_gates, count_skill_files, count_workflow_files, cwd_write_tenant,
-    emit_audit, infer_provider, is_workspace_root_key_error, load_vertical, map_workspace_error,
+    bad_request, count_approval_gates, count_skill_files, count_workflow_files, emit_audit,
+    infer_provider, is_workspace_root_key_error, load_vertical, map_workspace_error,
     mask_key, memory_schema_attached, micros_to_usd, name_from_description, not_found,
     principal_email, provider_key_storage_error, provider_validation_unconfigured,
     resolve_workspace, server_error, unauthorized, validate_key_shape,
@@ -283,19 +283,21 @@ pub(super) async fn first_hire_response(
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(str::to_string);
-    // `resolve_workspace` enforces the 401 / 412 provisioning gate; the
-    // returned `(user_tenant, _workspace)` is the user-account-bound pair
-    // and must not be used for the worker write itself. Every read
-    // surface in the gateway (`/api/v1/team`, `/api/v1/workers/{id}/overview`,
-    // `POST /api/v1/workers`) resolves tenant via
-    // `ensure_workspace(name, cwd)`, so writes routed to the user tenant
-    // persist but are invisible — the "ghost worker" symptom that
-    // motivated this brief. Switch the write tenant to the same
-    // CWD-derived row those reads use.
+    // `resolve_workspace` still enforces the 401 / 412 provisioning gate
+    // (the user must have provisioned before they can hire). But the
+    // WRITE tenant is now the SAME canonical tenant the JWT-aware reads
+    // resolve since #2676: `resolve_tenant_for_request` prefers the
+    // `__Host-session` JWT's `tnt` claim (== the provisioned tenant).
+    // Pre-#2676 this path deliberately wrote to the cwd tenant to match
+    // the then-cwd-based reads; now that `/api/v1/team` &c. key off the
+    // JWT tenant, a cwd write would orphan the hire — A hires, A's /team
+    // shows empty. The anonymous/demo path (no session cookie) still
+    // falls through to the cwd tenant inside the resolver, so the demo
+    // walkthrough is unchanged.
     if let Err(e) = resolve_workspace(store, &email).await {
         return map_workspace_error(e);
     }
-    let tenant = match cwd_write_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t,
         Err(e) => return server_error(&format!("resolve write tenant: {e}")),
     };

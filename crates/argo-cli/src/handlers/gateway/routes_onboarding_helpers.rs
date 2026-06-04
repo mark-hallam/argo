@@ -16,28 +16,13 @@ use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::Arc;
 
-/// Resolve the CWD-derived tenant the gateway's read endpoints query
-/// (`/api/v1/team`, `/api/v1/workers/{id}/overview`, `POST /api/v1/workers`).
-///
-/// `resolve_workspace` returns the user-account-bound tenant from
-/// `provision_for_user`. That tenant lives under `root_path =
-/// tenant://<id>/<ws>` while every read surface above does
-/// `ensure_workspace(name, cwd)` — they never look at the user-bound
-/// row. Worker writes routed through the user tenant are persisted but
-/// invisible: the "ghost worker" symptom in
-/// `fix-gateway-first-hire-second-call-ghost-worker-not-persisted`.
-/// Onboarding writes that need to be visible to those reads call this
-/// helper instead of (or in addition to) `resolve_workspace`.
-pub(super) async fn cwd_write_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
-}
+// The former `cwd_write_tenant` shim lived here. It resolved the
+// gateway-cwd tenant for the first-hire write so the worker would be
+// visible to the (then cwd-based) read routes. #2676 migrated the reads
+// to the `__Host-session` JWT tenant, and sprint WS1-2 migrated the
+// first-hire write to the SAME canonical resolver
+// (`resolve_tenant::resolve_tenant_for_request`), so this cwd shim is no
+// longer needed and was removed to keep a single tenant-resolution home.
 
 pub(super) const HUMAN_PRINCIPAL_PREFIX: &str = "human:";
 const PRINCIPAL_HEADER: &str = "X-Argo-Principal";
