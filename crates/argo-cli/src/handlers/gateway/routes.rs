@@ -144,6 +144,14 @@ async fn dispatch_route_inner(
     if let Some(resp) = super::auth_magic_link::dispatch(req, store).await {
         return resp;
     }
+    // Public early-access waitlist capture (WS6). Mounted in the same
+    // un-gated lane as magic-link signup so the landing page's anonymous
+    // form can POST `{email, name?, company?, source?}` without a bearer
+    // token. Reuses the signup per-IP limiter + honeypot; persists to the
+    // `waitlist_signups` table, deduped on email (idempotent 202).
+    if super::routes_waitlist::is_waitlist_request(req) {
+        return super::routes_waitlist::waitlist_response(req, store).await;
+    }
     // Demo-mode magic-link bypass
     // (demo-ops-add-magic-link-bypass-for-recording). Active only
     // when `ARGO_DEMO_MODE=1` is set at gateway startup; mounted
