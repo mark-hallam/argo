@@ -74,7 +74,7 @@ const TIERS: TierCard[] = [
   {
     tier: "pro",
     title: "Pro",
-    price: "$29",
+    price: "$49",
     period: "per teammate / month",
     blurb: "Real provider keys, multi-channel, marketplace skills.",
     features: [
@@ -144,7 +144,7 @@ interface FaqItem {
 const FAQ: FaqItem[] = [
   {
     q: "How does per-teammate billing work?",
-    a: "On Pro, every named teammate you hire (Mariah, Priya, Jamal, etc.) is $29/month. You only pay for teammates that are actively working — pause them and billing stops. Enterprise is a flat negotiated rate regardless of teammate count.",
+    a: "On Pro, every named teammate you hire (Mariah, Priya, Jamal, etc.) is $49/month. You only pay for teammates that are actively working — pause them and billing stops. Enterprise is a flat negotiated rate regardless of teammate count.",
   },
   {
     q: "Can I bring my own AI model keys?",

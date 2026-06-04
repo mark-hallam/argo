@@ -24,7 +24,7 @@ const PRICING_FAQ = [
   {
     question: "How does per-teammate billing work?",
     answer:
-      "On Pro, every named teammate you hire (Mariah, Priya, Jamal, etc.) is $29/month. You only pay for teammates that are actively working — pause them and billing stops. Enterprise is a flat negotiated rate regardless of teammate count.",
+      "On Pro, every named teammate you hire (Mariah, Priya, Jamal, etc.) is $49/month. You only pay for teammates that are actively working — pause them and billing stops. Enterprise is a flat negotiated rate regardless of teammate count.",
   },
   {
     question: "Can I bring my own AI model keys?",
@@ -61,7 +61,7 @@ export default function PricingLayout({ children }: { children: ReactNode }) {
           softwareApplicationSchema({
             url: "https://skycot.com/pricing",
             lowPrice: "0",
-            highPrice: "29",
+            highPrice: "49",
             offers: [
               {
                 "@type": "Offer",
@@ -74,7 +74,7 @@ export default function PricingLayout({ children }: { children: ReactNode }) {
               {
                 "@type": "Offer",
                 name: "Pro",
-                price: "29",
+                price: "49",
                 priceCurrency: "USD",
                 category: "Subscription",
                 url: "https://skycot.com/auth/signup?tier=pro",

@@ -20,7 +20,7 @@ features = [
 
 [pro]
 display_name      = "Pro"
-price_monthly_usd = 29
+price_monthly_usd = 49
 max_workers       = 5
 max_actions_per_month = 5000
 features = [

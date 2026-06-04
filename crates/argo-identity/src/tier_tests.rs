@@ -22,7 +22,7 @@ fn free_tier_has_documented_quotas() {
 fn pro_tier_includes_marketplace_skills() {
     let cfg = TierConfig::default_config();
     let pro = cfg.limits(Tier::Pro).expect("pro");
-    assert_eq!(pro.price_monthly_usd, 29);
+    assert_eq!(pro.price_monthly_usd, 49);
     assert!(pro.features.contains(&"marketplace_skills".to_string()));
 }
 

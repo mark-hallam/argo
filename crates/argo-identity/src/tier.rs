@@ -32,7 +32,7 @@ const DEFAULT_TOML: &str = include_str!("../../../docs/skycot/pricing/v1-tiers.t
 pub enum Tier {
     /// Free tier — mock provider only, single worker, 100 actions/mo.
     Free,
-    /// Pro tier — $29/mo, real providers, 5 workers, 5k actions/mo.
+    /// Pro tier — $49/mo, real providers, 5 workers, 5k actions/mo.
     Pro,
     /// Enterprise tier — custom-quoted, unlimited workers/actions.
     Enterprise,

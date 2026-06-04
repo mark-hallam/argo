@@ -27,7 +27,7 @@ stripe products create \
   --metadata tier=free \
   --description "Mock provider, 1 worker, 100 actions / month"
 
-# Pro — $29 / month recurring.
+# Pro — $49 / month recurring.
 PRO_PRODUCT=$(stripe products create \
   --name "Skycot Pro" \
   --metadata tier=pro \
@@ -35,7 +35,7 @@ PRO_PRODUCT=$(stripe products create \
   | jq -r .id)
 stripe prices create \
   --product "$PRO_PRODUCT" \
-  --unit-amount 2900 \
+  --unit-amount 4900 \
   --currency usd \
   --recurring interval=month \
   --metadata tier=pro
