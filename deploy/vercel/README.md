@@ -12,6 +12,11 @@ group stay cookie-gated. See
 `docs/skycot/deploy/consolidated-single-app-domain-attach.md` for the
 apex domain-attach + DNS steps.
 
+> **Where this fits.** The SPA (`app.skycot.com`, Vercel) talks to the gateway
+> (`api.skycot.com`, AWS Fargate). Deploy the gateway per
+> [`docs/skycot/deploy/AWS_DEPLOY_RUNBOOK.md`](../../docs/skycot/deploy/AWS_DEPLOY_RUNBOOK.md)
+> first, then this. Full map: [`docs/skycot/deploy/README.md`](../../docs/skycot/deploy/README.md).
+
 ## Project
 
 1. In Vercel, import `github.com/mark-hallam/Argo-Agent`.
@@ -40,10 +45,17 @@ Set these in Vercel for Production and Preview:
 | `NEXT_PUBLIC_ENV` | `production` | Forces production gateway error behavior. |
 | `NEXT_PUBLIC_GATEWAY_URL` | `https://api.skycot.com` | Gateway base URL used by the SPA. |
 | `NEXT_PUBLIC_API_URL` | `https://api.skycot.com` | Compatibility alias for deployment tooling. |
-| `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS` | `0` | Never enable on hosted deployments. |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key | Safe public browser key. |
+| `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS` | `0` | Never enable on hosted deployments. The SPA reads this exact name (`web/lib/api/*.ts`, e.g. `approvals.ts:89`). A prod build ignores it anyway, but set it `0` to be explicit. |
+| `NEXT_PUBLIC_STRIPE_PRICE_PRO` | `price_…` | Stripe price id for the Pro tier. The SPA sends it in the Checkout body (`web/app/pricing/page.tsx:218`, `billing/subscribe/page.tsx:20`). Create the product matching the `pro` slug in `docs/skycot/pricing/v1-tiers.toml` (WS4-2), then paste its id here. **Without it the Pro CTA fails.** |
+| `NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE` | `price_…` | Stripe price id for the Enterprise tier (`billing/subscribe/page.tsx:21`). |
 | `NEXTAUTH_URL` | `https://app.skycot.com` | Callback origin. |
 | `NEXTAUTH_SECRET` | generated secret | Generate with `openssl rand -base64 32`. |
+
+> **Removed:** the prior `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` row — it is **not read**
+> anywhere in `web/` (`rg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY web/` → 0 hits). SKYCOT uses
+> redirect Checkout via the gateway (`use-checkout.ts` → `POST /api/v1/billing/checkout`),
+> which needs the server-side `STRIPE_SECRET_KEY` (gateway env, see
+> `deploy/secrets/skycot-production.env.example`), not a client publishable key.
 
 ## Monorepo Deploy Filtering
 
