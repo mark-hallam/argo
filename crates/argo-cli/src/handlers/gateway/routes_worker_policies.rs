@@ -42,7 +42,7 @@ const MAX_OPERATOR_NOTE_BYTES: usize = 1024;
 /// `GET /api/v1/workers/<id>/policies` — full per-action list.
 pub(super) async fn list_response(
     worker_id_raw: &str,
-    _req: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let worker_id = match worker_id_raw.parse::<WorkerId>() {
@@ -60,7 +60,7 @@ pub(super) async fn list_response(
     // Cross-tenant existence is hidden from the HTTP response.
     // See routes_workflows.rs:13-21 for the canonical invariant.
     // Probe runs internally for telemetry; response is identical for both branches.
-    let paused = match resolve_paused(store, worker_id).await {
+    let paused = match resolve_paused(req, store, worker_id).await {
         Ok(p) => p,
         Err(WorkerLookupError::NotFound) => return worker_not_found(),
         Err(WorkerLookupError::CrossTenant) => {
@@ -128,7 +128,7 @@ pub(super) async fn update_response(
     // Cross-tenant existence is hidden from the HTTP response.
     // See routes_workflows.rs:13-21 for the canonical invariant.
     // Probe runs internally for telemetry; response is identical for both branches.
-    let paused = match resolve_paused(store, worker_id).await {
+    let paused = match resolve_paused(req, store, worker_id).await {
         Ok(p) => p,
         Err(WorkerLookupError::NotFound) => return worker_not_found(),
         Err(WorkerLookupError::CrossTenant) => {
@@ -154,6 +154,7 @@ pub(super) async fn update_response(
     }
     let principal_id = principal_id_for_audit(req).unwrap_or_else(|| "system:policies".to_string());
     emit_policy_audit(
+        req,
         store,
         &principal_id,
         worker_id,
@@ -317,10 +318,11 @@ enum WorkerLookupError {
 }
 
 async fn resolve_paused(
+    req: &str,
     store: &Arc<SessionStore>,
     worker_id: WorkerId,
 ) -> Result<bool, WorkerLookupError> {
-    let tenant = resolve_workspace_tenant(store)
+    let tenant = super::resolve_tenant::resolve_tenant_for_request(req, store)
         .await
         .map_err(|e| WorkerLookupError::Backend(format!("resolve tenant: {e}")))?;
     let identities = IdentityStore::new(store);
@@ -355,18 +357,9 @@ async fn exists_in_other_tenant(
     Ok(row.is_some())
 }
 
-async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
-}
-
+#[allow(clippy::too_many_arguments)]
 async fn emit_policy_audit(
+    req: &str,
     store: &Arc<SessionStore>,
     principal_id: &str,
     worker_id: WorkerId,
@@ -375,7 +368,7 @@ async fn emit_policy_audit(
     new_policy: &str,
     operator_note: &str,
 ) {
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t,
         Err(e) => {
             tracing::warn!(

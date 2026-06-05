@@ -3,7 +3,9 @@
 //!
 //! Bearer auth is applied upstream in `routes::dispatch_route` (GET)
 //! and `routes_dispatch_post::preflight_dispatch` (POST); this module
-//! resolves the workspace tenant from cwd (the same convention as
+//! resolves the workspace tenant via the canonical
+//! `resolve_tenant::resolve_tenant_for_request` (signed-in user's JWT
+//! tenant → explicit override → cwd fallback, the same convention as
 //! `routes_team_list`), parses the `X-Argo-Principal` header to scope
 //! visibility, and forwards to `argo_store::notifications`.
 //!
@@ -23,7 +25,6 @@ use argo_store::notifications::{
     NotificationRow, MAX_LIMIT,
 };
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, TenantId};
 use serde_json::{json, Value};
 use std::sync::Arc;
 
@@ -78,7 +79,7 @@ async fn list_response(
         Some(s) => s,
         None => return super::store_unavailable(),
     };
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t.to_string(),
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -110,7 +111,7 @@ async fn unread_count_response(
         Some(s) => s,
         None => return super::store_unavailable(),
     };
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t.to_string(),
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -133,7 +134,7 @@ async fn dismiss_one_response(
         Some(s) => s,
         None => return super::store_unavailable(),
     };
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t.to_string(),
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -156,7 +157,7 @@ async fn dismiss_all_response(
         Some(s) => s,
         None => return super::store_unavailable(),
     };
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t.to_string(),
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -206,17 +207,6 @@ fn parse_list_query(req: &str) -> Result<ListQuery, String> {
 
 fn iter_query_pairs(query_str: &str) -> impl Iterator<Item = (&str, &str)> {
     query_str.split('&').filter_map(|kv| kv.split_once('='))
-}
-
-async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
 }
 
 /// Accept ids matching `[A-Za-z0-9_-]{1,128}` so the URL path cannot
