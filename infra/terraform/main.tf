@@ -52,10 +52,18 @@ module "efs" {
   efs_gid         = 65532
 }
 
+module "kms" {
+  source = "./modules/kms"
+
+  name_prefix = local.name_prefix
+  region      = var.region
+}
+
 module "secrets" {
   source = "./modules/secrets"
 
   name_prefix = local.name_prefix
+  kms_key_arn = module.kms.key_arn
 }
 
 module "iam" {
@@ -63,6 +71,7 @@ module "iam" {
 
   name_prefix = local.name_prefix
   secret_arns = module.secrets.secret_arns
+  kms_key_arn = module.kms.key_arn
 }
 
 module "alb" {

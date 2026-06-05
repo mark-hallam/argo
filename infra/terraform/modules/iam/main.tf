@@ -24,9 +24,19 @@ resource "aws_iam_role_policy_attachment" "execution_default" {
 
 data "aws_iam_policy_document" "secrets_read" {
   statement {
+    sid       = "ReadSecrets"
     effect    = "Allow"
     actions   = ["secretsmanager:GetSecretValue"]
     resources = values(var.secret_arns)
+  }
+
+  # The secrets are encrypted with the customer-managed CMK, so reading them
+  # requires kms:Decrypt on that key. Scoped to the one key ARN — no wildcard.
+  statement {
+    sid       = "DecryptSecretsCmk"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt"]
+    resources = [var.kms_key_arn]
   }
 }
 

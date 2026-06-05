@@ -33,6 +33,11 @@ output "efs_file_system_id" {
   value       = module.efs.file_system_id
 }
 
+output "secrets_kms_key_arn" {
+  description = "ARN of the customer-managed CMK encrypting the Secrets Manager entries."
+  value       = module.kms.key_arn
+}
+
 output "ecs_cluster_name" {
   description = "Name of the ECS cluster the gateway runs in."
   value       = module.ecs.cluster_name

@@ -63,8 +63,9 @@ The operator verifies the plan matches the resource shape in this runbook:
 - 1 VPC, 1 IGW, 1 NAT GW, 1 EIP, 2 public + 2 private subnets, 2 route tables, 4 RT associations.
 - 1 ECR repository + 1 lifecycle policy.
 - 1 EFS filesystem, 2 mount targets, 1 access point, 1 backup policy, 1 EFS SG.
-- 6 Secrets Manager secrets + 6 placeholder versions.
-- 2 IAM roles (exec + task), 1 customer policy, 2 attachments.
+- 1 KMS CMK + 1 alias (encrypts the secrets — WS5-3).
+- 7 Secrets Manager secrets + 7 placeholder versions (bearer, master key, JWT, **DB key**, Stripe secret, Stripe webhook, Stripe price-ids record).
+- 2 IAM roles (exec + task), 1 customer policy (GetSecretValue + kms:Decrypt), 2 attachments.
 - 1 ALB, 1 target group, 1 ACM cert, 2 listeners, 1 ALB SG, 1 service SG.
 - 1 ECS cluster, 1 cluster capacity provider, 1 task definition, 1 service, 1 log group.
 
@@ -89,12 +90,28 @@ The operator writes these into the 1Password vault.
 
 ## 4. Build and push the argo image (operator runs)
 
+> ⚠️ **SQLCipher build prerequisite — the deploy will NOT boot without it.**
+> In production mode (which this deploy is — both `ARGO_GATEWAY_PROFILE=production`
+> and the `0.0.0.0` bind trigger it) the gateway runs a fail-closed at-rest-encryption
+> gate (`crates/argo-store/src/store_open.rs:238`). It **refuses to boot** unless the
+> binary was built with the `bundled-sqlcipher` Cargo feature AND `SKYCOT_DB_KEY_BASE64`
+> is set. The **stock root `Dockerfile` does NOT enable the feature** — building it as-is
+> produces an image that crash-loops at boot with *"enterprise mode requires SQLCipher"*.
+>
+> Until the Dockerfile carries the feature (tracked as a follow-up —
+> `infra-dockerfile-bundled-sqlcipher-feature`), build the production image with the
+> feature explicitly. Either pass it as a build-arg the Dockerfile threads into the
+> `cargo build` line, or build the binary locally with
+> `cargo build --locked --release -p argo-cli --bin argo --features bundled-sqlcipher`
+> and `COPY` it in. Confirm the resulting image is SQLCipher-linked before pushing.
+
 ```sh
 # From repo root.
 aws ecr get-login-password --region ap-southeast-2 \
   | docker login --username AWS --password-stdin <ECR_REPO_URL_WITHOUT_/skycot-prod-argo>
 
 # Build for linux/amd64 (Fargate is x86_64 in our task def).
+# NB: the image MUST be SQLCipher-linked (see the prerequisite box above).
 docker build --platform linux/amd64 -t skycot-argo:bootstrap .
 
 # Tag + push to the ECR repo from terraform output.
@@ -143,9 +160,13 @@ automatically during `terraform apply` — no Cloudflare touching needed.)
 ## 6. Populate the secret values (operator runs)
 
 The secrets module creates each secret with the placeholder string
-`REPLACE_ME`. The operator populates the real values via
-`aws secretsmanager put-secret-value`. `lifecycle.ignore_changes` means
-future `terraform apply` runs will NOT overwrite these.
+`REPLACE_ME`, encrypted with the customer-managed CMK (WS5-3). The operator
+populates the real values via `aws secretsmanager put-secret-value`.
+`lifecycle.ignore_changes` means future `terraform apply` runs will NOT
+overwrite these.
+
+The canonical list of every secret + what reads it is
+[`deploy/secrets/skycot-production.env.example`](../../../deploy/secrets/skycot-production.env.example).
 
 ```sh
 PREFIX=skycot-prod    # matches var.project + var.env in terraform.tfvars
@@ -164,6 +185,12 @@ aws secretsmanager put-secret-value \
 aws secretsmanager put-secret-value \
   --secret-id "${PREFIX}/skycot-auth-jwt-secret" \
   --secret-string "$(openssl rand -base64 48)"
+
+# DB at-rest encryption key (base64 of 32 raw bytes). REQUIRED — the production
+# boot gate refuses to start without it (and a SQLCipher-linked image; see §4).
+aws secretsmanager put-secret-value \
+  --secret-id "${PREFIX}/skycot-db-key-base64" \
+  --secret-string "$(openssl rand -base64 32)"
 
 # Stripe live keys (from the Stripe dashboard). DOUBLE-CHECK live vs test.
 aws secretsmanager put-secret-value \
@@ -261,9 +288,10 @@ terraform destroy
 ```
 
 NB: `terraform destroy` does not delete Secrets Manager secrets immediately —
-they enter a 30-day recovery window. Force-delete with
+they enter the 7-day recovery window (WS5-3 set `recovery_window_in_days = 7`).
+Force-delete with
 `aws secretsmanager delete-secret --secret-id <id> --force-delete-without-recovery`
-if you need the names freed sooner.
+if you need the names freed sooner. The CMK has a 7-day deletion window too.
 
 ---
 
@@ -273,8 +301,11 @@ if you need the names freed sooner.
   points at `api.skycot.com`.
 - **WAF / Cloudflare per-IP rate-limit / global LLM-spend cap.** WS5-4
   (separate brief).
-- **Production secrets hardening** (KMS CMK, rotation policy, recovery
-  window). WS5-3 (separate brief).
+- **Secret-rotation automation** (Lambda rotation). Post-launch follow-up.
+  CMK encryption + recovery window + the DB-key secret landed in WS5-3.
+- **The SQLCipher Dockerfile feature flip** (see the §4 prerequisite box) —
+  tracked as `infra-dockerfile-bundled-sqlcipher-feature`. Until it lands, build
+  the production image with `--features bundled-sqlcipher` manually.
 - **Backups beyond the EFS default policy.** Filesystem snapshots only;
   application-level SQLite snapshots TBD.
 - **Multi-instance / horizontal scale.** Single-task, single-writer SQLite is

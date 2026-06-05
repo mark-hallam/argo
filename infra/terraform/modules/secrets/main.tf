@@ -28,6 +28,10 @@ locals {
       id   = "skycot-auth-jwt-secret"
       desc = "SKYCOT_AUTH_JWT_SECRET — HMAC secret for __Host-session JWTs. 32+ random bytes."
     }
+    db_key = {
+      id   = "skycot-db-key-base64"
+      desc = "SKYCOT_DB_KEY_BASE64 — SQLCipher at-rest DB encryption key (32 raw bytes, base64). REQUIRED in production: the image must be built --features bundled-sqlcipher AND this set, or the gateway refuses to boot."
+    }
     stripe_secret_key = {
       id   = "stripe-secret-key"
       desc = "STRIPE_SECRET_KEY — Stripe live/test secret key."
@@ -38,7 +42,7 @@ locals {
     }
     stripe_price_ids = {
       id   = "stripe-price-ids"
-      desc = "JSON map { free, pro, enterprise } → Stripe price ids matching v1-tiers.toml."
+      desc = "Operator record: JSON map { free, pro, enterprise } -> Stripe price ids matching v1-tiers.toml slugs. NOT read by the gateway (the SPA sends the price id in the checkout body via NEXT_PUBLIC_STRIPE_PRICE_*); kept here as the canonical price-id record."
     }
   }
 }
@@ -48,6 +52,14 @@ resource "aws_secretsmanager_secret" "this" {
 
   name        = "${var.name_prefix}/${each.value.id}"
   description = each.value.desc
+
+  # Encrypt with the customer-managed CMK (WS5-3 hardening). Scoped decrypt is
+  # granted to the task-execution role in the iam module.
+  kms_key_id = var.kms_key_arn
+
+  # A fat-finger delete is recoverable for a week, but the name frees fast
+  # enough for a re-apply (the AWS default is 30 days).
+  recovery_window_in_days = 7
 }
 
 resource "aws_secretsmanager_secret_version" "placeholder" {

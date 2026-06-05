@@ -26,14 +26,23 @@ resource "aws_ecs_cluster_capacity_providers" "this" {
 locals {
   # env var -> Secrets Manager key. Order matches the secrets module.
   # workspace_root_key is referenced TWICE because the binary accepts either env name.
+  #
+  # NB: stripe_price_ids is intentionally NOT injected as a container env var — the
+  # gateway reads the price id from the SPA's checkout request body
+  # (checkout.rs `price_id`), and the SPA sources it from the build-time public
+  # `NEXT_PUBLIC_STRIPE_PRICE_*`. The `stripe_price_ids` secret is kept as an
+  # operator record only (see modules/secrets), so binding it here would inject a
+  # variable nothing reads. Only real gateway-read secrets are bound below.
   secret_env_bindings = [
     { env = "ARGO_GATEWAY_BEARER_TOKEN", key = "bearer_token" },
     { env = "SKYCOT_WORKSPACE_ROOT_KEY_BASE64", key = "workspace_root_key" },
     { env = "ARGO_CREDENTIALS_MASTER_KEY", key = "workspace_root_key" },
     { env = "SKYCOT_AUTH_JWT_SECRET", key = "auth_jwt_secret" },
+    # Required in production: the enterprise-encryption boot gate fails closed
+    # unless the image is built --features bundled-sqlcipher AND this is set.
+    { env = "SKYCOT_DB_KEY_BASE64", key = "db_key" },
     { env = "STRIPE_SECRET_KEY", key = "stripe_secret_key" },
     { env = "STRIPE_WEBHOOK_SECRET", key = "stripe_webhook_secret" },
-    { env = "SKYCOT_STRIPE_PRICE_IDS", key = "stripe_price_ids" },
   ]
 
   container_secrets = [

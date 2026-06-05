@@ -1,3 +1,7 @@
 # Never commit real deploy secrets or the gate file.
 .env.deploy
 .htpasswd
+
+# Filled-in production secrets (the *.example template is the only env file we track).
+secrets/*.env
+!secrets/*.env.example
