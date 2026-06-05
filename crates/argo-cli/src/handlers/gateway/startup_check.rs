@@ -56,9 +56,9 @@ pub(super) const STARTUP_CHECK_EXIT: i32 = 78;
 ///
 /// Returns `Err` on any critical failure. Caller maps that to
 /// `exit(78)` before the listener binds.
-pub(super) async fn run_startup_checks(skip: bool, cwd: &Path) -> ArgoResult<()> {
+pub(super) async fn run_startup_checks(skip: bool, bind: &str, cwd: &Path) -> ArgoResult<()> {
     let dispatch = anomaly_dispatch_from_cwd(cwd);
-    match run_startup_checks_inner(skip, cwd).await {
+    match run_startup_checks_inner(skip, bind, cwd).await {
         Ok(()) => Ok(()),
         Err(e) => {
             dispatch_gateway_boot_fail(&dispatch, cwd, &e).await;
@@ -67,7 +67,7 @@ pub(super) async fn run_startup_checks(skip: bool, cwd: &Path) -> ArgoResult<()>
     }
 }
 
-async fn run_startup_checks_inner(skip: bool, cwd: &Path) -> ArgoResult<()> {
+async fn run_startup_checks_inner(skip: bool, bind: &str, cwd: &Path) -> ArgoResult<()> {
     // demo-ops-add-magic-link-bypass-for-recording: refuse to bind
     // when ARGO_DEMO_MODE=1 is set in an environment that still has
     // bearer-auth enforcement on. Honored even with --skip-startup-check
@@ -78,6 +78,11 @@ async fn run_startup_checks_inner(skip: bool, cwd: &Path) -> ArgoResult<()> {
         eprintln!("argo gateway: --skip-startup-check set; bypassing critical health checks");
         return Ok(());
     }
+    // sprint-ws1-1c-jwt-secret-fail-closed-boot-guard: refuse to bind
+    // in production mode when the session-cookie HS256 secret is
+    // unset / empty / too-short. Runs FIRST among the critical checks
+    // (before any store/provider work) so a misconfig surfaces cheaply.
+    jwt_secret_boot_guard(bind, cwd)?;
     let started = Instant::now();
     let home = resolve_home(cwd)?;
     ensure_dir(&home)?;
@@ -168,6 +173,87 @@ fn demo_mode_compatibility_check() -> ArgoResult<()> {
          every mint emits a warn log + audit row with demo_mode_bypass=true"
     );
     Ok(())
+}
+
+/// Env var holding the session-cookie HS256 secret. Mirrors
+/// `middleware_session_verify::SECRET_ENV` (kept as a local const
+/// rather than reaching across the module boundary — that file is
+/// outside this brief's scope).
+const SESSION_JWT_SECRET_ENV: &str = "SKYCOT_AUTH_JWT_SECRET";
+
+/// Minimum byte length for the HS256 session secret. 32 bytes = 256
+/// bits, the HS256 key-size floor.
+const MIN_JWT_SECRET_BYTES: usize = 32;
+
+/// Fail-closed boot-guard for the session-cookie HS256 secret.
+///
+/// `middleware_session_verify::decode_session_cookie` treats an empty
+/// `SKYCOT_AUTH_JWT_SECRET` as `NoCookie` — silently ignoring every
+/// session cookie — on the comment-asserted promise that "production
+/// callers detect the missing secret upstream". **This is that upstream
+/// guard.** Without it, booting a production gateway with the secret
+/// unset / empty silently disables session-cookie auth for every
+/// browser user: a fail-open misconfiguration with no error and no log.
+///
+/// In production mode the secret MUST be set, non-empty, and at least
+/// [`MIN_JWT_SECRET_BYTES`] bytes (the HS256 256-bit floor). Dev / demo
+/// / bypass runs are left untouched so the documented dev-without-secret
+/// recovery path (`middleware_session_verify.rs:161-167`) still works.
+fn jwt_secret_boot_guard(bind: &str, cwd: &Path) -> ArgoResult<()> {
+    if !jwt_guard_active(bind, cwd) {
+        return Ok(());
+    }
+    let secret = std::env::var(SESSION_JWT_SECRET_ENV).unwrap_or_default();
+    if secret.is_empty() {
+        return Err(ArgoError::Provider(
+            "SKYCOT_AUTH_JWT_SECRET must be set in production — session-cookie \
+             auth is silently disabled without it. Set it to a random secret of \
+             at least 32 bytes, or set ARGO_GATEWAY_AUTH_BYPASS=1 for dev/demo runs."
+                .into(),
+        ));
+    }
+    if secret.len() < MIN_JWT_SECRET_BYTES {
+        return Err(ArgoError::Provider(format!(
+            "SKYCOT_AUTH_JWT_SECRET is too short ({} bytes) — HS256 requires a \
+             secret of at least {MIN_JWT_SECRET_BYTES} bytes (256-bit) in production.",
+            secret.len()
+        )));
+    }
+    Ok(())
+}
+
+/// Whether the JWT-secret boot-guard should enforce. True only when the
+/// gateway is in production mode AND not in a dev/demo/bypass escape
+/// hatch (those paths do not rely on session-cookie auth, so a missing
+/// secret is not a fail-open there).
+///
+/// Production mode reuses the canonical **bind-aware** signal the two
+/// sibling boot gates already honor —
+/// [`super::routes_auth_production_mode::is_production_mode_for_bind`]
+/// (`ARGO_GATEWAY_PROFILE=production`, a non-loopback `ARGO_GATEWAY_BIND`,
+/// or — the load-bearing disjunct — the explicit non-loopback `--bind`
+/// CLI value the socket actually binds to). The bind-blind
+/// `is_production_mode()` checks the *compiled default* host, not the
+/// runtime `--bind`, so a standard `argo gateway start --bind 0.0.0.0`
+/// deploy without an `ARGO_GATEWAY_PROFILE` export would evade it — the
+/// exact fail-open hole the bearer-token (`boot.rs`) and
+/// enterprise-encryption gates already close by taking `bind`.
+///
+/// The escape hatches mirror `boot_serve::init_boot`'s effective config
+/// merge:
+///   - `gateway.auth_bypass` from `argo.toml`, merged with env
+///     `ARGO_GATEWAY_AUTH_BYPASS` via [`ArgoConfig::from_env`].
+///   - `ARGO_DEMO_MODE=1` (the demo signup-bypass escape hatch).
+fn jwt_guard_active(bind: &str, cwd: &Path) -> bool {
+    if !super::routes_auth_production_mode::is_production_mode_for_bind(bind) {
+        return false;
+    }
+    let mut cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
+    if let Ok(env_cfg) = ArgoConfig::from_env() {
+        cfg.merge(env_cfg);
+    }
+    let demo_mode = std::env::var("ARGO_DEMO_MODE").is_ok_and(|v| v == "1");
+    !(cfg.gateway.auth_bypass || demo_mode)
 }
 
 /// Load-bearing bind-safety guard

@@ -64,7 +64,7 @@ pub(super) async fn init_boot(
     let cwd_for_check =
         std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     validate_bind_safety(bind, bind_non_loopback, &cwd_for_check)?;
-    if let Err(e) = run_startup_checks(skip_startup_check, &cwd_for_check).await {
+    if let Err(e) = run_startup_checks(skip_startup_check, bind, &cwd_for_check).await {
         eprintln!("argo gateway: STARTUP CHECK FAILED ({e}); refusing to bind");
         std::process::exit(STARTUP_CHECK_EXIT);
     }
