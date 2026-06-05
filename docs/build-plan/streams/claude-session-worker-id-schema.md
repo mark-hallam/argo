@@ -1,5 +1,12 @@
 # claude-session-worker-id-schema — add worker_id to session table + thread through gateway + CLI
 
+> **🟢 STALE-FIXED 2026-06-05 (claude conductor) — DO NOT BUILD.** `session.worker_id` ALREADY EXISTS:
+> verified via `crates/argo-store/src/session_worker_id_tests.rs` (`set_session_worker_id`,
+> `get_session().worker_id`, `list_sessions().worker_id`). This brief's premise (add `worker_id` to the
+> session table) is already shipped. The remaining per-teammate-cost gap (`spend_ledger.worker_id`) is now
+> `uf-spend-worker-id-attribution` (UF Phase-A · A6), which **consumes** this field. No claimable ledger
+> row exists for this brief; left as a historical marker.
+
 **Owner**: claude. **Depends on**: nothing — schema gap that has bounced 3+ tabs (memory-compose-context's per-worker scope blocked on this; bearer-auth audit-stamping needs principal which needs worker; per-Principal duty scheduling needs this). **Phase B claim-1 closure brief**.
 
 ## Why
