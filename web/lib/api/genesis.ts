@@ -241,11 +241,31 @@ export interface RoleContractAction {
   executor: string;
 }
 
+/** One typed, measurable success criterion captured at intake — HOW the
+ *  teammate's performance is judged. Reuses the manifest KPI vocabulary
+ *  (`kind` + `comparator`). Mirrors `argo_genesis::SuccessCriterion`. */
+export interface SuccessCriterion {
+  /** Operator-facing metric label (e.g. `"first response time"`). */
+  name: string;
+  /** Metric type tag — `percentage` | `duration_ms` | `count` | `ratio` |
+   *  `score`. Controls unit/format downstream. */
+  kind: string;
+  /** The pass/fail line the operator chose, interpreted via `comparator`. */
+  target: number;
+  /** Pass direction — `gte` | `lte` | `eq`. */
+  comparator: string;
+}
+
 /** The truthful, operator-confirmable role contract derived from the
  *  teammate's ACTUAL bound capability profile (DEC-025 #4). The SPA renders
  *  this as the "what can this teammate do" review screen; the operator
  *  confirms it by echoing `GenesisVerticalReadyEvent.contract_digest` back at
- *  the hire call. Mirrors `argo_genesis::RoleContract`. */
+ *  the hire call. Mirrors `argo_genesis::RoleContract`.
+ *
+ *  `cadence` / `exceptions` / `success_criteria` are intake-context slots
+ *  (WHEN it runs, WHAT carve-outs apply, HOW success is measured), enriched
+ *  display-only and excluded from the governance digest. Optional for
+ *  forward-compat with older gateways. */
 export interface RoleContract {
   role_name: string;
   does: string;
@@ -255,6 +275,9 @@ export interface RoleContract {
   escalation: string;
   will_not: string[];
   draft_integrations: string[];
+  cadence?: string | null;
+  exceptions?: string[];
+  success_criteria?: SuccessCriterion[];
 }
 
 /** The honest gate evidence block the SSE `vertical_ready` payload carries

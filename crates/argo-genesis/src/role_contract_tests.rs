@@ -382,3 +382,73 @@ fn empty_manifest_yields_an_empty_but_honest_contract() {
     assert!(c.will_not.iter().any(|w| w.contains("outside its declared vocabulary")));
     assert!(c.will_not.iter().any(|w| w.contains("none bound")));
 }
+
+#[test]
+fn derive_from_manifest_leaves_intake_slots_empty() {
+    // The intake slots are NOT derivable from the manifest, so the gate path
+    // always leaves them empty — keeping the byte-equality forgery check intact.
+    let m = manifest_with(
+        &[(
+            "draft_post",
+            ActionRiskLevel::Low,
+            false,
+            ExecutorDeclaration::default(),
+        )],
+        &[],
+        None,
+    );
+    let c = RoleContract::derive_from_manifest(&m);
+    assert_eq!(c.cadence, None);
+    assert!(c.exceptions.is_empty());
+    assert!(c.success_criteria.is_empty());
+}
+
+#[test]
+fn with_intake_slots_enriches_for_display_without_breaking_the_digest() {
+    use crate::archetype::Archetype;
+    use crate::spec::SuccessCriterion;
+    use crate::BroadRoleDraft;
+    use argo_vertical::{KpiComparator, KpiKind};
+
+    let m = manifest_with(
+        &[(
+            "draft_post",
+            ActionRiskLevel::Low,
+            false,
+            ExecutorDeclaration::default(),
+        )],
+        &[],
+        None,
+    );
+    let base = RoleContract::derive_from_manifest(&m);
+    let digest_before = base.digest();
+
+    let draft = BroadRoleDraft {
+        charter: "be my marketing intern".into(),
+        persona: "maya".into(),
+        persona_description: "Drafts posts.".into(),
+        action_vocabulary: vec!["draft_post".into()],
+        success_metrics: vec![],
+        onboarding_script: "Hi.".into(),
+    };
+    let mut spec = crate::CapabilitySpec::from_broad_draft(draft, Archetype::MarketingIntern);
+    spec.cadence = Some("every weekday at 9am".into());
+    spec.exceptions = vec!["never touch legal escalations".into()];
+    spec.success_criteria = vec![SuccessCriterion {
+        name: "on-time rate".into(),
+        kind: KpiKind::Percentage,
+        target: 95.0,
+        comparator: KpiComparator::Gte,
+    }];
+
+    let enriched = base.clone().with_intake_slots(&spec);
+    // The intake slots are carried for the review screen…
+    assert_eq!(enriched.cadence.as_deref(), Some("every weekday at 9am"));
+    assert_eq!(enriched.exceptions, vec!["never touch legal escalations"]);
+    assert_eq!(enriched.success_criteria.len(), 1);
+    // …but the governance digest is UNCHANGED (intake context is excluded), so
+    // an enriched display copy can never invalidate a hire confirmation.
+    assert_eq!(enriched.digest(), digest_before);
+    // And the gate-path contract still matches the manifest byte-for-byte.
+    assert!(verify_contract_matches(&base, &m));
+}

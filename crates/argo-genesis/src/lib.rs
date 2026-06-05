@@ -119,7 +119,9 @@ pub use job_description::{
 };
 pub use materialize::{materialize_spec, write_capability_vertical};
 pub use materialize_writer::{persona_prompt_from_spec, system_prompt_from_spec};
-pub use spec::{CapabilityDecl, CapabilitySpec, EscalationSpec, ExecutorIntent};
+pub use spec::{
+    CapabilityDecl, CapabilitySpec, EscalationSpec, ExecutorIntent, SuccessCriterion,
+};
 pub use pipeline::{
     plan, plan_from_seed_vertical, plan_from_seed_vertical_in_default_root, plan_with,
     plan_with_quality, seeded_from, write_vertical, write_vertical_with_overlap,

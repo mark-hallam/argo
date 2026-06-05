@@ -45,7 +45,7 @@
 use crate::archetype::Archetype;
 use crate::broad_role::BroadRoleDraft;
 use crate::safety_judge;
-use argo_vertical::ActionRiskLevel;
+use argo_vertical::{ActionRiskLevel, KpiComparator, KpiKind};
 use serde::{Deserialize, Serialize};
 
 /// Where the materializer proposes an action should execute. Mirrors the
@@ -138,9 +138,40 @@ pub struct EscalationSpec {
     pub escalate_to: Option<String>,
 }
 
+/// One measurable success criterion captured at intake — HOW the teammate's
+/// performance is judged. Each carries a [`KpiKind`] (the unit/format) + a
+/// numeric `target` + a [`KpiComparator`] (pass direction), reusing the
+/// manifest's KPI vocabulary rather than defining a parallel comparator enum.
+///
+/// This is an **intake record**, not a live-evaluated KPI: it pins WHAT the
+/// operator said "good" looks like at hire time. Wiring these into the
+/// manifest's `[[kpi]]` block + live enforcement is a follow-up
+/// (`mission-kpi-enforcement-gate`); here they are captured + surfaced for the
+/// `vertical_ready` review so the intake is honest about how success is
+/// measured.
+///
+/// `Eq` is intentionally NOT derived — `target` is `f64`, mirroring
+/// [`argo_vertical::KpiDefinition`], which omits `Eq` for the same reason.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SuccessCriterion {
+    /// Operator-facing label for the metric (e.g. `"first response time"`).
+    pub name: String,
+    /// The metric's type tag — controls unit/format downstream (percentage,
+    /// duration, count, ratio, score). Reuses the manifest KPI vocabulary.
+    pub kind: KpiKind,
+    /// The pass/fail line the operator chose, interpreted via `comparator`.
+    pub target: f64,
+    /// How an observed value is compared against `target` (`gte` / `lte` /
+    /// `eq`). Reuses the manifest KPI comparator.
+    pub comparator: KpiComparator,
+}
+
 /// The typed capability IR. Produced by a `SpecSynthesizer` (the archetype
 /// prior or the LLM synthesizer), consumed by `materialize_spec`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// `Eq` is intentionally NOT derived — [`Self::success_criteria`] carries an
+/// `f64` target (see [`SuccessCriterion`]).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CapabilitySpec {
     /// The operator's original role description, byte-identical.
     pub charter: String,
@@ -166,6 +197,22 @@ pub struct CapabilitySpec {
     /// synthesis for an off-taxonomy role. Surfaced to the operator as the
     /// honest `low-fit` signal (replaces the dishonest `confidence=1.0`).
     pub from_scratch: bool,
+    /// WHEN the teammate runs — a free-text cadence/schedule the operator
+    /// stated at intake (e.g. `"every weekday at 9am"`, `"on inbound ticket"`).
+    /// Additive + `#[serde(default)]`: specs authored before this field still
+    /// deserialize (cadence `None`).
+    #[serde(default)]
+    pub cadence: Option<String>,
+    /// WHAT exceptions / carve-outs apply — situations the teammate must NOT
+    /// act on, or must hand off (e.g. `"never touch legal escalations"`).
+    /// Additive + `#[serde(default)]` for back-compat.
+    #[serde(default)]
+    pub exceptions: Vec<String>,
+    /// HOW success is measured — typed, measurable criteria captured at intake.
+    /// Reuses the manifest [`KpiKind`] / [`KpiComparator`] vocabulary.
+    /// Additive + `#[serde(default)]` for back-compat.
+    #[serde(default)]
+    pub success_criteria: Vec<SuccessCriterion>,
 }
 
 impl CapabilitySpec {
@@ -213,6 +260,12 @@ impl CapabilitySpec {
             // A draft produced by the broad-role path is by definition the
             // off-taxonomy / from-scratch case.
             from_scratch: true,
+            // The legacy broad-draft path carries no cadence / exceptions /
+            // typed success-criteria; these are populated by the richer intake
+            // (the capture panel) or a later author pass.
+            cadence: None,
+            exceptions: Vec::new(),
+            success_criteria: Vec::new(),
         }
     }
 

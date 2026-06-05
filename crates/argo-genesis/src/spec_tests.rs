@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::BroadRoleDraft;
+use argo_vertical::{KpiComparator, KpiKind};
 
 fn vineyard_draft() -> BroadRoleDraft {
     BroadRoleDraft {
@@ -151,4 +152,78 @@ fn role_descriptor_titlecases_lowercased_operator_name() {
         descriptor.contains("Maya"),
         "lowercase operator name must be Title-cased, got {descriptor:?}"
     );
+}
+
+#[test]
+fn from_broad_draft_leaves_new_intake_slots_empty() {
+    // The legacy broad-draft path carries no cadence / exceptions / typed
+    // success-criteria — the richer intake (capture panel) populates them.
+    let spec = CapabilitySpec::from_broad_draft(vineyard_draft(), Archetype::CalendarCoordinator);
+    assert_eq!(spec.cadence, None);
+    assert!(spec.exceptions.is_empty());
+    assert!(spec.success_criteria.is_empty());
+}
+
+#[test]
+fn cadence_exceptions_success_criteria_round_trip() {
+    // A spec that DID capture all three intake slots survives a JSON
+    // serialize → deserialize round-trip byte-for-byte (typed fields, not
+    // free text). `target` is an `f64` reusing the manifest KPI vocabulary.
+    let mut spec =
+        CapabilitySpec::from_broad_draft(vineyard_draft(), Archetype::CalendarCoordinator);
+    spec.cadence = Some("every weekday at 9am".into());
+    spec.exceptions = vec![
+        "never dispatch trucks during a frost warning".into(),
+        "hand off any contract over $50k to the operator".into(),
+    ];
+    spec.success_criteria = vec![
+        SuccessCriterion {
+            name: "missed harvest windows".into(),
+            kind: KpiKind::Count,
+            target: 0.0,
+            comparator: KpiComparator::Lte,
+        },
+        SuccessCriterion {
+            name: "on-time dispatch rate".into(),
+            kind: KpiKind::Percentage,
+            target: 95.0,
+            comparator: KpiComparator::Gte,
+        },
+    ];
+
+    let json = serde_json::to_string(&spec).expect("serialize spec");
+    let back: CapabilitySpec = serde_json::from_str(&json).expect("deserialize spec");
+    assert_eq!(spec, back, "all three intake slots round-trip");
+    assert_eq!(back.success_criteria.len(), 2);
+    assert_eq!(back.success_criteria[1].kind, KpiKind::Percentage);
+    assert_eq!(back.success_criteria[1].comparator, KpiComparator::Gte);
+    assert!((back.success_criteria[1].target - 95.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn old_spec_without_new_fields_still_deserializes() {
+    // Back-compat: a spec JSON authored BEFORE the three slots existed (no
+    // `cadence` / `exceptions` / `success_criteria` keys) must still
+    // deserialize — `#[serde(default)]` fills the gaps.
+    let legacy = r#"{
+        "charter": "a vineyard logistics coordinator",
+        "persona": "vinny",
+        "persona_description": "Coordinates harvest logistics.",
+        "responsibilities": [],
+        "capabilities": [],
+        "success_metrics": ["zero missed windows"],
+        "onboarding_script": "Hi.",
+        "escalation": {
+            "human_approval_required": [],
+            "escalate_after_failures": 3,
+            "escalate_to": "the operator"
+        },
+        "nearest_archetype": "calendar_coordinator",
+        "from_scratch": true
+    }"#;
+    let spec: CapabilitySpec = serde_json::from_str(legacy).expect("legacy spec deserializes");
+    assert_eq!(spec.persona, "vinny");
+    assert_eq!(spec.cadence, None);
+    assert!(spec.exceptions.is_empty());
+    assert!(spec.success_criteria.is_empty());
 }

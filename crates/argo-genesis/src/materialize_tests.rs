@@ -165,6 +165,9 @@ fn materialized_action_with_sensitive_verb_synthesized_unsafe_is_still_gated() {
         escalation: EscalationSpec::default(),
         nearest_archetype: Archetype::SocialMediaDrafter,
         from_scratch: true,
+        cadence: None,
+        exceptions: vec![],
+        success_criteria: vec![],
     };
     let plan = materialize_spec(&spec).expect("materialize");
     assert!(
@@ -186,6 +189,9 @@ fn empty_capability_spec_fails_closed() {
         escalation: EscalationSpec::default(),
         nearest_archetype: Archetype::ResearchAnalyst,
         from_scratch: true,
+        cadence: None,
+        exceptions: vec![],
+        success_criteria: vec![],
     };
     let err = materialize_spec(&spec).expect_err("empty spec must fail closed");
     assert!(matches!(err, crate::GenesisError::Validation { .. }));
@@ -217,6 +223,9 @@ fn mcp_intent_is_draft_only_action_stays_human() {
         escalation: EscalationSpec::default(),
         nearest_archetype: Archetype::CustomerSupportAgent,
         from_scratch: true,
+        cadence: None,
+        exceptions: vec![],
+        success_criteria: vec![],
     };
     let plan = materialize_spec(&spec).expect("materialize");
     // gmail is declared as a draft mcp server...

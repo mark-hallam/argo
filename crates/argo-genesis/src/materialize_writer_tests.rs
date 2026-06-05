@@ -37,6 +37,9 @@ fn spec() -> CapabilitySpec {
         escalation: EscalationSpec::default(),
         nearest_archetype: Archetype::CalendarCoordinator,
         from_scratch: true,
+        cadence: None,
+        exceptions: vec![],
+        success_criteria: vec![],
     }
 }
 

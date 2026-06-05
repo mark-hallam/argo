@@ -62,7 +62,10 @@ pub struct ContractAction {
 /// a Genesis teammate activates. Built by [`RoleContract::derive_from_manifest`]
 /// from the teammate's actual bound capability profile so every clause is
 /// truthful.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// `Eq` is intentionally NOT derived — [`Self::success_criteria`] carries an
+/// `f64` target (see [`crate::spec::SuccessCriterion`]).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RoleContract {
     /// The teammate's persona/role name (manifest `vertical.name`).
     pub role_name: String,
@@ -94,6 +97,25 @@ pub struct RoleContract {
     /// Surfaced so the operator sees the teammate physically cannot transmit
     /// through them until a deliberate post-hire grant.
     pub draft_integrations: Vec<String>,
+    /// WHEN the teammate runs — the operator's stated cadence/schedule, carried
+    /// from the [`crate::spec::CapabilitySpec`] for the review screen.
+    ///
+    /// Intake-context only: NOT part of the governance-bearing digest (see
+    /// [`Self::digest`]) and NOT populated by [`Self::derive_from_manifest`]
+    /// (the manifest does not carry it), so the byte-equality forgery check in
+    /// [`verify_contract_matches`] is unaffected. Populate via
+    /// [`Self::with_intake_slots`]. Additive + `#[serde(default)]` for
+    /// back-compat.
+    #[serde(default)]
+    pub cadence: Option<String>,
+    /// WHAT exceptions / carve-outs the operator stated at intake. Same
+    /// intake-context, digest-excluded treatment as [`Self::cadence`].
+    #[serde(default)]
+    pub exceptions: Vec<String>,
+    /// HOW success is measured — the typed criteria captured at intake. Same
+    /// intake-context, digest-excluded treatment as [`Self::cadence`].
+    #[serde(default)]
+    pub success_criteria: Vec<crate::spec::SuccessCriterion>,
 }
 
 impl RoleContract {
@@ -180,7 +202,33 @@ impl RoleContract {
             escalation,
             will_not,
             draft_integrations,
+            // Intake-context slots are NOT derivable from the manifest; the gate
+            // path always leaves them empty, so the byte-equality forgery check
+            // stays intact. The SSE payload enriches a *display* copy via
+            // `with_intake_slots`.
+            cadence: None,
+            exceptions: Vec::new(),
+            success_criteria: Vec::new(),
         }
+    }
+
+    /// Enrich a derived contract with the operator's intake slots — cadence,
+    /// exceptions, and typed success-criteria — read from the
+    /// [`crate::spec::CapabilitySpec`] the plan was materialized from.
+    ///
+    /// This is **display-only** enrichment for the `vertical_ready` review
+    /// screen. The added slots are deliberately excluded from [`Self::digest`]
+    /// and are never set by [`Self::derive_from_manifest`], so an enriched copy
+    /// is never fed back through the gate's byte-equality
+    /// [`verify_contract_matches`] check — the governance contract the operator
+    /// confirms is unchanged; only the surrounding "here's when it runs and how
+    /// we'll judge it" context is added.
+    #[must_use]
+    pub fn with_intake_slots(mut self, spec: &crate::spec::CapabilitySpec) -> Self {
+        self.cadence = spec.cadence.clone();
+        self.exceptions = spec.exceptions.clone();
+        self.success_criteria = spec.success_criteria.clone();
+        self
     }
 
     /// A SHA-256 digest over the truthful capability projection — the

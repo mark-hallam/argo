@@ -42,10 +42,21 @@ pub(super) fn build_final_payload(
     // A freshly-generated teammate is always `unconfirmed` here (the operator
     // has not yet seen the contract), so a fresh SSE teammate is `needs_review`
     // and NOT hireable until confirmed — human-review-before-activation (#1).
+    //
+    // The displayed contract is enriched (display-only) with the operator's
+    // intake slots — cadence / exceptions / typed success-criteria — read from
+    // the materialized `CapabilitySpec` so the review screen shows WHEN the
+    // teammate runs, WHAT exceptions apply, and HOW success is measured. These
+    // slots are excluded from the governance digest, so the enrichment never
+    // affects the hire-confirmation byte-equality check.
     let role_contract = gate
         .role_contract
         .as_ref()
-        .and_then(|c| serde_json::to_value(c).ok())
+        .map(|c| match plan.spec.as_ref() {
+            Some(spec) => c.clone().with_intake_slots(spec),
+            None => c.clone(),
+        })
+        .and_then(|c| serde_json::to_value(&c).ok())
         .unwrap_or(Value::Null);
     // SOP-comprehension surface (Genesis P6). `sop_uploaded` lets the SPA render
     // the moat moment ("this teammate read your playbook and passed a quiz on
