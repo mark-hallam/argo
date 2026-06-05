@@ -4,9 +4,19 @@ End-to-end smoke test that exercises the K1 docker-compose stack
 (`deploy/docker/docker-compose.yml`) and asserts the deployed gateway
 + SPA respond on the documented endpoints.
 
-Runs on every push to `main` and nightly at 04:00 UTC via
-`.github/workflows/deploy-smoke.yml`. The first green run on `main`
-cuts the DEPLOYMENT-PATH DIRECTIVE v3 §5 box 7 stop condition.
+> **CI status (v1): this does NOT run automatically.** The companion workflow
+> `.github/workflows/deploy-smoke.yml` is currently **`.disabled`** — ALL GitHub
+> Actions are disabled for v1 (GHA billing is operator-blocked; admin-merge is the
+> merge strategy). See
+> [`DISABLED_WORKFLOWS_POLICY.md`](../../.github/workflows/DISABLED_WORKFLOWS_POLICY.md)
+> — `deploy-smoke.yml` is classified **keep-disabled (v1)** ("nothing to deploy yet
+> for v1; re-enable when K5 deploy-smoke-test ships"). Until GHA is restored, run
+> this smoke **manually/locally** (see [Local debugging](#local-debugging)).
+
+Historically (when CI was active) this ran on every push to `main` + nightly at
+04:00 UTC, and its first green run on `main` cut the DEPLOYMENT-PATH DIRECTIVE v3
+§5 box 7 stop condition — that milestone shipped via #1490 (see the
+`K5-deploy-smoke-test-e2e` row in `docs/build-plan/BUILD_STATUS.md`).
 
 ## What it covers
 
