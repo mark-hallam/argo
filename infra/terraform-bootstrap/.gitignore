@@ -1,0 +1,7 @@
+# This bootstrap keeps LOCAL state (it creates the bucket the main stack uses).
+# Back up terraform.tfstate here securely; never commit it.
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+!*.tfvars.example
