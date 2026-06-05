@@ -16,6 +16,7 @@ import { buttonVariants } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { BrandLoudHero } from "@/components/skycot/BrandLoudHero";
 import { TeamEmptyState } from "@/components/skycot/TeamEmptyState";
+import { TeamGoalsCard } from "@/components/skycot/team/TeamGoalsCard";
 import { TeammateCard } from "@/components/skycot/TeammateCard";
 import { TeammateGrid } from "@/components/skycot/TeammateGrid";
 import { TeammateCardSkeleton } from "@/components/skycot/TeammateCardSkeleton";
@@ -86,6 +87,7 @@ export default function TeamPage() {
         working={workingCount}
         weeklyActions={weeklyActions}
       />
+      <TeamGoalsCard />
       <Suspense fallback={<TeamFiltersFallback query={teamQuery} workers={workers} />}>
         <TeamFilteredView query={teamQuery} workers={workers} />
       </Suspense>

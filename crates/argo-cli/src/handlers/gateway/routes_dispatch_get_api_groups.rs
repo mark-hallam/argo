@@ -91,6 +91,11 @@ pub(super) async fn dispatch_scim_and_team(
     if req.starts_with("GET /api/v1/workers ") || req.starts_with("GET /api/v1/workers?") {
         return Some(routes_workers_list::list_response(req, store).await);
     }
+    if req.starts_with("GET /api/v1/team/scorecard ")
+        || req.starts_with("GET /api/v1/team/scorecard?")
+    {
+        return Some(super::routes_worker_scorecard::team_scorecard_response(req, store).await);
+    }
     if req.starts_with("GET /api/v1/team ") || req.starts_with("GET /api/v1/team?") {
         return Some(super::routes_team_list::deprecated_list_response(req, store).await);
     }
@@ -230,6 +235,11 @@ async fn dispatch_worker_subpath(
     if tail.starts_with("activity ") || tail.starts_with("activity?") {
         return Some(
             super::routes_worker_activity::list_response(id_with_suffix, req, store).await,
+        );
+    }
+    if tail.starts_with("scorecard ") || tail.starts_with("scorecard?") {
+        return Some(
+            super::routes_worker_scorecard::show_response(id_with_suffix, req, store).await,
         );
     }
     if tail.starts_with("memory ") || tail.starts_with("memory?") {

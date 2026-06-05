@@ -3,6 +3,7 @@
 import { CalendarClock, Sparkles, X } from "lucide-react";
 import { use, useEffect, useState } from "react";
 import { WorkerOverviewContent } from "@/components/skycot/worker/WorkerOverviewContent";
+import { ScorecardCard } from "@/components/skycot/worker/ScorecardCard";
 import { RecentChangesPanel } from "@/components/skycot/worker/RecentChangesPanel";
 import { WorkerPersonalityCard } from "@/components/skycot/worker/WorkerPersonalityCard";
 import { findDemoWorker } from "@/lib/api/demo-roster-store";
@@ -30,6 +31,7 @@ export default function WorkerOverviewPage({
       <JustHiredScheduleCallout workerId={workerId} />
       <WorkerPersonalityCard workerId={workerId} />
       <WorkerOverviewContent workerId={workerId} />
+      <ScorecardCard workerId={workerId} />
       <RecentChangesPanel workerId={workerId} />
     </div>
   );

@@ -62,6 +62,12 @@ vi.mock("@/lib/hooks/use-team", () => ({
   useTeam: () => useTeamSpy(),
 }));
 
+// Stub the team-goals rollup hook so the card (above the Suspense
+// boundary) doesn't fire a real fetch or need a QueryClientProvider.
+vi.mock("@/lib/hooks/use-worker-scorecard", () => ({
+  useTeamScorecard: () => ({ data: undefined, isLoading: false, isError: false }),
+}));
+
 const useAuditFeedSpy = vi.fn<() => { data: { pages: Array<{ rows: unknown[] }> } | undefined; isPending: boolean }>();
 vi.mock("@/lib/hooks/use-audit-feed", () => ({
   useAuditFeed: () => useAuditFeedSpy(),

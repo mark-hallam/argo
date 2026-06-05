@@ -34,6 +34,14 @@ vi.mock("@/lib/hooks/use-team", () => ({
   useTeam: () => useTeamMock(),
 }));
 
+// The team-goals rollup card (above the Suspense boundary) calls
+// `useTeamScorecard` (a real `useQuery`). Stub it so these page tests
+// don't need a QueryClientProvider; the default has no measured goals,
+// so the card renders nothing — page-level assertions are unaffected.
+vi.mock("@/lib/hooks/use-worker-scorecard", () => ({
+  useTeamScorecard: () => ({ data: undefined, isLoading: false, isError: false }),
+}));
+
 // Stub the 7-day audit feed that the hero now reads for the real
 // Actions/wk count. Each test that needs a specific value overrides
 // via `useAuditFeedMock.mockReturnValue(...)`. The default returns
