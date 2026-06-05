@@ -24,7 +24,7 @@
 
 use crate::archetype::{Archetype, ClassificationResult, ProviderClient};
 use crate::error::GenesisError;
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::ArgoResult;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -34,7 +34,7 @@ mod broad_role_parse;
 mod broad_role_plan;
 
 pub(crate) use broad_role_parse::{
-    first_balanced_object, parse_broad_role_response, parse_confidence_response,
+    first_balanced_object, is_non_json_refusal, parse_broad_role_response, parse_confidence_response,
 };
 pub use broad_role_plan::{plan_or_broad, GenesisOutcome};
 
@@ -188,24 +188,44 @@ pub fn build_broad_role_prompt(charter: &str, persona: &str) -> String {
 ///
 /// # Errors
 ///
-/// - `EmptyCharter` if the charter is whitespace-only.
-/// - `ArgoError::Provider` on transport failure or unparseable response.
+/// - [`GenesisError::EmptyCharter`] if the charter is whitespace-only.
+/// - [`GenesisError::InvalidPersona`] if the persona is whitespace-only.
+/// - [`GenesisError::RoleRefused`] (graceful + recoverable) when the model
+///   returns prose with no JSON object at all — typically a refusal to
+///   synthesize a destructive / unsafe role.
+/// - [`GenesisError::Validation`] on a transport failure or a transient
+///   malformed-JSON glitch (a `{...}` that won't parse / is missing fields).
 pub async fn genesis_broad_role(
     charter: &str,
     persona: &str,
     client: &dyn BroadRoleClient,
-) -> ArgoResult<BroadRoleDraft> {
+) -> Result<BroadRoleDraft, GenesisError> {
     if charter.trim().is_empty() {
-        return Err(ArgoError::from(GenesisError::EmptyCharter));
+        return Err(GenesisError::EmptyCharter);
     }
     if persona.trim().is_empty() {
-        return Err(ArgoError::from(GenesisError::InvalidPersona(
-            persona.to_string(),
-        )));
+        return Err(GenesisError::InvalidPersona(persona.to_string()));
     }
     let prompt = build_broad_role_prompt(charter, persona);
-    let raw = client.synthesize(&prompt).await?;
-    let parsed = parse_broad_role_response(&raw)?;
+    let raw = client
+        .synthesize(&prompt)
+        .await
+        .map_err(|e| GenesisError::Validation {
+            stage: "broad_role.transport",
+            detail: e.to_string(),
+        })?;
+    // Refusal vs glitch: a response with NO JSON object at all is the model
+    // returning prose (commonly declining a destructive role). Degrade to a
+    // graceful, recoverable RoleRefused instead of a hard "no JSON object"
+    // provider error that pre-empts the safety gate. A response that DID carry
+    // a `{...}` but failed to parse stays a (retryable) Validation glitch.
+    if is_non_json_refusal(&raw) {
+        return Err(GenesisError::RoleRefused);
+    }
+    let parsed = parse_broad_role_response(&raw).map_err(|e| GenesisError::Validation {
+        stage: "broad_role.synthesize",
+        detail: e.to_string(),
+    })?;
     Ok(BroadRoleDraft {
         charter: charter.to_string(),
         persona: persona.to_string(),

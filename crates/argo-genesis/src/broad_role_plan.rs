@@ -145,12 +145,13 @@ async fn build_broad_outcome(
         stage: "broad_role.client",
         detail: "broad-role generation requires a BroadRoleClient".into(),
     })?;
-    let draft = genesis_broad_role(charter, persona, client)
-        .await
-        .map_err(|e| GenesisError::Validation {
-            stage: "broad_role.synthesize",
-            detail: e.to_string(),
-        })?;
+    // Propagate the typed error verbatim — DON'T re-wrap it into a generic
+    // `Validation`. `genesis_broad_role` now distinguishes a graceful
+    // `RoleRefused` (model returned prose / declined a destructive role) from a
+    // transient transport/parse `Validation` glitch; flattening both into one
+    // `Validation` here would erase the recoverable signal the SSE layer reads
+    // via `GenesisError::is_role_refusal`.
+    let draft = genesis_broad_role(charter, persona, client).await?;
     Ok(GenesisOutcome::Broad(Box::new(draft)))
 }
 

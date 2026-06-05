@@ -73,6 +73,21 @@ fn json_string_array(value: &serde_json::Value, key: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// `true` when a broad-role provider response contains **no** balanced JSON
+/// object at all — i.e. the model returned prose rather than the requested
+/// JSON envelope. This is the refusal signal: the most common cause is the
+/// model declining to synthesize a destructive / unsafe role and answering in
+/// natural language instead.
+///
+/// It is deliberately distinct from a *transient* parse glitch (a `{...}` that
+/// IS present but fails `serde_json::from_str`, or is missing required fields).
+/// [`parse_broad_role_response`] still reports that glitch as a retryable
+/// `ArgoError::Provider`; the caller routes a refusal (this predicate `true`)
+/// to the graceful, recoverable [`crate::GenesisError::RoleRefused`] instead.
+pub(crate) fn is_non_json_refusal(raw: &str) -> bool {
+    first_balanced_object(raw).is_none()
+}
+
 /// Extract the first balanced top-level JSON object from `s`.
 pub(crate) fn first_balanced_object(s: &str) -> Option<&str> {
     let start = s.find('{')?;

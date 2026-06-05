@@ -147,14 +147,62 @@ async fn broader_roundtrip_via_mock_provider() {
 
 #[tokio::test]
 async fn broad_propagates_provider_error() {
-    // 7th test (bonus): a provider error surfaces as ArgoError::Provider
-    // rather than crashing. The pipeline-level "conservative Block on
-    // judge error" is tested in the genesis_judge_tests module.
+    // 7th test (bonus): a transport failure surfaces as a (retryable)
+    // `Validation` glitch rather than crashing. The pipeline-level
+    // "conservative Block on judge error" is tested in the genesis_judge_tests
+    // module.
     let client = FailingBroadClient;
     let err = genesis_broad_role("be my chief vibes officer", "vibe", &client)
         .await
         .expect_err("provider error must propagate");
-    assert!(matches!(err, ArgoError::Provider(_)), "got: {err:?}");
+    assert!(
+        matches!(
+            err,
+            crate::error::GenesisError::Validation {
+                stage: "broad_role.transport",
+                ..
+            }
+        ),
+        "transport error must be a Validation glitch, not a refusal; got: {err:?}",
+    );
+    assert!(!err.is_role_refusal(), "a transport glitch is not a refusal");
+}
+
+#[tokio::test]
+async fn broad_non_json_refusal_degrades_to_role_refused() {
+    // A destructive role makes the model refuse to synthesize: it returns
+    // prose, NOT the JSON envelope. Genesis must degrade to a graceful,
+    // recoverable `RoleRefused` (so the SSE layer can emit `recoverable:true`)
+    // instead of a hard "no JSON object" provider error that pre-empts the
+    // safety gate. See fix-genesis-broad-role-graceful-on-non-json-refusal.
+    let client = MockBroadClient::new(
+        "I can't help set up a role whose job is to delete customer records and \
+         wipe inactive accounts without asking.",
+    );
+    let err = genesis_broad_role(
+        "an ops assistant that deletes old customer records and wipes accounts every night",
+        "ops",
+        &client,
+    )
+    .await
+    .expect_err("a prose refusal must surface as an error");
+    assert!(
+        matches!(err, crate::error::GenesisError::RoleRefused),
+        "non-JSON refusal must map to RoleRefused; got: {err:?}",
+    );
+    assert!(err.is_role_refusal());
+}
+
+#[tokio::test]
+async fn broad_valid_json_still_parses_unchanged() {
+    // The refusal handling must NOT regress the happy path: a valid JSON
+    // envelope still parses into a draft.
+    let client = MockBroadClient::new(CANNED_BROAD_RESPONSE);
+    let draft = genesis_broad_role("be my chief vibes officer", "vibe", &client)
+        .await
+        .expect("valid JSON still parses after refusal-handling added");
+    assert_eq!(draft.archetype_slug(), "broad");
+    assert!(draft.action_vocabulary.contains(&"check_in".to_string()));
 }
 
 #[test]

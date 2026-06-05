@@ -228,6 +228,7 @@ fn genesis_error_reason(err: &GenesisError) -> String {
         GenesisError::Json { .. } => "json_failure".into(),
         GenesisError::Toml { .. } => "toml_failure".into(),
         GenesisError::Validation { .. } => "validation_failure".into(),
+        GenesisError::RoleRefused => "role_refused".into(),
     }
 }
 

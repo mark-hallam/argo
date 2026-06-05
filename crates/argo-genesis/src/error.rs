@@ -64,6 +64,39 @@ pub enum GenesisError {
     /// Stream `claude-genesis-llm-refinement`.
     #[error("refinement validation failed at {stage}: {detail}")]
     Validation { stage: &'static str, detail: String },
+
+    /// The provider returned prose instead of the requested JSON envelope —
+    /// commonly the model declining to synthesize a destructive / unsafe role
+    /// (e.g. "deletes customer records and wipes accounts without asking").
+    ///
+    /// This is a GRACEFUL, **recoverable** outcome, NOT a hard provider error:
+    /// the role can't be set up *as written*, but the request itself is
+    /// retryable after a rephrase. The SSE layer maps it to `recoverable:true`
+    /// (see [`Self::is_role_refusal`]) so the operator can reword and retry
+    /// rather than dead-ending on a raw "no JSON object" parser error. Reusing
+    /// the safety-rejection framing keeps a single user-facing message surface.
+    /// See `fix-genesis-broad-role-graceful-on-non-json-refusal`.
+    #[error("We couldn't set up this role. It may involve actions we can't safely \
+             automate, so try rephrasing it without destructive or irreversible steps.")]
+    RoleRefused,
+}
+
+impl GenesisError {
+    /// `true` for the graceful, **recoverable** role-refusal case — the
+    /// provider returned prose / declined to synthesize a destructive role
+    /// ([`Self::RoleRefused`]). The Genesis SSE layer maps this to
+    /// `recoverable:true` so the operator can rephrase and retry, instead of
+    /// surfacing a non-recoverable technical parser error.
+    ///
+    /// ```
+    /// use argo_genesis::GenesisError;
+    /// assert!(GenesisError::RoleRefused.is_role_refusal());
+    /// assert!(!GenesisError::EmptyCharter.is_role_refusal());
+    /// ```
+    #[must_use]
+    pub fn is_role_refusal(&self) -> bool {
+        matches!(self, Self::RoleRefused)
+    }
 }
 
 impl From<GenesisError> for argo_types::ArgoError {

@@ -183,6 +183,17 @@ pub(super) async fn serve_genesis_stream(
 
     let (mut plan, gen_mode) = match resolve_plan(&role_description, &persona).await {
         Ok(pair) => pair,
+        // A role-refusal (the model returned prose / declined a destructive
+        // role, so the broad-role parser found no JSON object) is a GRACEFUL,
+        // recoverable case: surface the user-facing "couldn't set up this role,
+        // try rephrasing" message with `recoverable:true` so the SPA lets the
+        // operator reword and retry, instead of dead-ending on a raw
+        // "no JSON object" technical error. Every other failure stays a
+        // non-recoverable technical error. See
+        // fix-genesis-broad-role-graceful-on-non-json-refusal.
+        Err(e) if e.is_role_refusal() => {
+            return write_error_event(out, "drafting_persona", &e.to_string(), true).await;
+        }
         Err(e) => {
             return write_error_event(
                 out,
