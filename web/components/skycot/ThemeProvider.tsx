@@ -1,6 +1,7 @@
 "use client";
 
 import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { BUILTIN_THEMES, SKYCOT_THEME, getThemeById, resolveDataTheme, type ThemePair } from "@/lib/theme/themes";
 
@@ -29,6 +30,17 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ initialThemeId, registeredThemes = [], children }: ThemeProviderProps) {
+  // Auth surfaces (`/auth/*`) are a locked light-only design. Force
+  // next-themes to "light" on those routes so it never applies the
+  // `dark` class there. This replaces the old `app/auth/layout.tsx`
+  // MutationObserver that force-rewrote the class on every mutation —
+  // under `prefers-color-scheme: dark` that observer fought next-themes
+  // in an infinite class-toggle ping-pong that froze the renderer.
+  // `forcedTheme` resolves light without touching the user's stored
+  // preference (so they keep dark for the rest of the app).
+  const pathname = usePathname();
+  const forcedTheme = pathname?.startsWith("/auth") ? "light" : undefined;
+
   const allThemes = useMemo(
     () => [...BUILTIN_THEMES, ...registeredThemes.filter((t) => !BUILTIN_THEMES.some((b) => b.id === t.id))],
     [registeredThemes],
@@ -78,6 +90,7 @@ export function ThemeProvider({ initialThemeId, registeredThemes = [], children 
         enableColorScheme
         themes={["light", "dark"]}
         disableTransitionOnChange={false}
+        forcedTheme={forcedTheme}
       >
         <DataThemeBridge theme={activeTheme}>{children}</DataThemeBridge>
       </NextThemesProvider>
