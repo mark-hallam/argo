@@ -137,6 +137,7 @@ mod genesis_tenant;
 mod routes_genesis;
 mod routes_genesis_author;
 mod routes_genesis_gate;
+mod routes_genesis_gate_judge;
 mod routes_genesis_rubric;
 mod routes_genesis_sop;
 mod routes_genesis_stream;

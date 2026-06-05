@@ -54,6 +54,7 @@ pub mod hire_gate_rubric;
 pub mod job_description;
 pub mod manifest_writer;
 pub mod materialize;
+mod materialize_naming;
 pub mod materialize_writer;
 pub mod memory_schema;
 pub mod pipeline;
