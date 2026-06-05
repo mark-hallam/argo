@@ -78,6 +78,7 @@ const SETTINGS_LAYOUT_STYLES = `
   --settings-border: var(--border);
   --settings-card: var(--card);
   --settings-soft: color-mix(in srgb, var(--muted) 68%, transparent);
+  --settings-muted-bg: var(--muted);
   font-family: "Inter", sans-serif;
   max-width: 1280px;
   margin: 0 auto;
