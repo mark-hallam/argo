@@ -92,3 +92,107 @@ fn ok_decide_envelope_has_counts() {
     assert!(body.contains("\"members_decided\":5"));
     assert!(body.contains("\"members_skipped\":2"));
 }
+
+// ---------------------------------------------------------------------
+// Cross-tenant decide guard (WS1 — mirrors WS1-4 #2696).
+//
+// `decide_response` loads the bundle by its GLOBAL uuid, so before this
+// fix a signed-in user could approve/reject ANY tenant's bundle by
+// holding its id. The guard resolves the caller's tenant and rejects a
+// mismatch as `not_found` (no existence leak, no transition). These
+// tests drive the resolver via the `X-Tenant-Id` override header.
+// ---------------------------------------------------------------------
+use std::sync::Arc;
+
+use argo_store::approval_bundle::{create_bundle, get_bundle, BundleStatus, NewBundle};
+use argo_store::SessionStore;
+use argo_types::TenantId;
+
+use super::decide_response;
+
+async fn store_with_two_tenants() -> (Arc<SessionStore>, TenantId, TenantId) {
+    let store = SessionStore::open(":memory:").await.expect("open store");
+    store.migrate().await.expect("migrate");
+    // `ensure_workspace` creates the workspace row the tenant->workspace
+    // lookup needs and hands back the generated tenant id.
+    let (tenant_a, _) = store
+        .ensure_workspace("ws-a", "/root/a")
+        .await
+        .expect("workspace a");
+    let (tenant_b, _) = store
+        .ensure_workspace("ws-b", "/root/b")
+        .await
+        .expect("workspace b");
+    (Arc::new(store), tenant_a, tenant_b)
+}
+
+fn decide_req(bundle_id: &str, tenant: TenantId) -> String {
+    format!(
+        "POST /api/v1/approvals/bundles/{bundle_id}/decide HTTP/1.1\r\n\
+         X-Tenant-Id: {tenant}\r\n\r\n{{\"decision\":\"approve\"}}"
+    )
+}
+
+#[tokio::test]
+async fn decide_rejects_cross_tenant_bundle_with_not_found_and_no_transition() {
+    let (store, tenant_a, tenant_b) = store_with_two_tenants().await;
+    // Bundle owned by tenant B.
+    let bundle_id = create_bundle(
+        store.pool(),
+        &NewBundle {
+            tenant_id: tenant_b,
+            label: "tenant-b work",
+            member_approval_ids: vec!["act-b-1".to_string()],
+        },
+    )
+    .await
+    .expect("create bundle b");
+
+    // Tenant A's session tries to decide tenant B's bundle.
+    let req = decide_req(&bundle_id, tenant_a);
+    let (status, body) = decide_response(&bundle_id, &req, Some(&store)).await;
+
+    assert_eq!(status, "404 Not Found", "cross-tenant decide must 404");
+    assert!(body.contains("bundle_not_found"), "body: {body}");
+    // No transition applied: bundle B is still Pending.
+    let after = get_bundle(store.pool(), &bundle_id)
+        .await
+        .expect("reload")
+        .expect("bundle still exists");
+    assert_eq!(
+        after.status,
+        BundleStatus::Pending,
+        "cross-tenant decide must not flip the bundle"
+    );
+    assert!(after.decision.is_none(), "no decision should be recorded");
+}
+
+#[tokio::test]
+async fn decide_allows_same_tenant_bundle() {
+    let (store, _tenant_a, tenant_b) = store_with_two_tenants().await;
+    let bundle_id = create_bundle(
+        store.pool(),
+        &NewBundle {
+            tenant_id: tenant_b,
+            label: "tenant-b work",
+            member_approval_ids: vec!["act-b-1".to_string()],
+        },
+    )
+    .await
+    .expect("create bundle b");
+
+    // Tenant B decides its OWN bundle — succeeds and flips the row.
+    let req = decide_req(&bundle_id, tenant_b);
+    let (status, _body) = decide_response(&bundle_id, &req, Some(&store)).await;
+
+    assert_eq!(status, "200 OK", "same-tenant decide must succeed");
+    let after = get_bundle(store.pool(), &bundle_id)
+        .await
+        .expect("reload")
+        .expect("bundle exists");
+    assert_eq!(
+        after.status,
+        BundleStatus::Approved,
+        "same-tenant decide must flip the bundle to approved"
+    );
+}

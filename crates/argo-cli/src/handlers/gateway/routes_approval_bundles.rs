@@ -6,10 +6,15 @@
 //! - `POST /api/v1/approvals/bundles` — worker creates a bundle.
 //! - `POST /api/v1/approvals/bundles/<id>/decide` — operator
 //!   decides; per-member transitions cascade through the existing
-//!   `worker_actions_transitions` state machine. The bundle row is
-//!   flipped FIRST so concurrent operators short-circuit; the loop
-//!   then drives still-pending members to terminal. Already-decided
-//!   members are skipped (surfaced via `members_skipped`).
+//!   `worker_actions_transitions` state machine. The caller's tenant
+//!   is resolved first and the bundle's `tenant_id` is verified to
+//!   match — a mismatch returns `not_found` (no existence leak, no
+//!   transition), so a held UUID cannot decide another tenant's
+//!   bundle. The bundle row is flipped FIRST so concurrent operators
+//!   short-circuit; the loop then drives still-pending members to
+//!   terminal, scoped to the resolved tenant's workspace (not cwd).
+//!   Already-decided members are skipped (surfaced via
+//!   `members_skipped`).
 //!
 //! Bearer auth + principal-header parse run upstream in
 //! `dispatch_post`. Tenant scoping flows through the canonical
@@ -20,14 +25,14 @@
 
 use super::body_from_request;
 use super::routes_auth_principal::principal_id_for_audit;
-use crate::handlers::worker_actions_transitions::{self, find_action, open_workspace_memory};
+use crate::handlers::worker_actions_transitions::{self, find_action};
 use argo_memory::MemoryStore;
 use argo_store::approval_bundle::{
     create_bundle, decide_bundle, get_bundle, list_pending_bundles, ApprovalBundle, BundleDecision,
     BundleStatus, NewBundle,
 };
 use argo_store::SessionStore;
-use argo_types::{ArgoResult, WorkspaceId};
+use argo_types::{ArgoError, ArgoResult, TenantId, WorkspaceId};
 use serde_json::{json, Value};
 use std::sync::Arc;
 
@@ -138,12 +143,27 @@ pub(super) async fn decide_response(
     };
     let actor = principal_id_for_audit(req).unwrap_or_else(|| "gateway".to_string());
 
+    // Resolve the caller's own tenant (JWT-session first, then explicit
+    // override, then cwd) — same canonical resolver `list`/`create` in
+    // this file use. Mirrors the WS1 keystone (#2676 / #2708).
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
+        Ok(t) => t,
+        Err(e) => return server_error(&format!("resolve tenant: {e}")),
+    };
+
     // Idempotency: same-decision repeat → 200, different → 409.
     let pre = match get_bundle(store.pool(), bundle_id).await {
         Ok(Some(b)) => b,
         Ok(None) => return not_found(bundle_id),
         Err(e) => return server_error(&format!("load bundle: {e}")),
     };
+    // Cross-tenant write guard: `get_bundle` loads by GLOBAL bundle id,
+    // so a bundle owned by another tenant is reachable by UUID. Reject
+    // it as `not_found` — identical to a missing bundle so the existence
+    // of another tenant's bundle does not leak — and apply NO transition.
+    if pre.tenant_id != tenant {
+        return not_found(bundle_id);
+    }
     if pre.status != BundleStatus::Pending {
         let prior = pre.decision.as_deref().unwrap_or("");
         return if prior == decision.as_str() {
@@ -172,7 +192,17 @@ pub(super) async fn decide_response(
             conflict(bundle_id, prior)
         };
     }
-    let outcome = match apply_to_members(&pre.members, decision, &actor).await {
+    // Drive member transitions against the RESOLVED tenant's workspace
+    // memory (not cwd `open_workspace_memory()`), so the cascade can only
+    // touch this tenant's worker actions. The gateway store and the
+    // worker-action memory share one DB, so a `MemoryStore` over `store`
+    // reaches the same rows the cwd path did — but scoped by workspace.
+    let workspace = match workspace_for_tenant(store, tenant).await {
+        Ok(w) => w,
+        Err(e) => return server_error(&format!("resolve tenant workspace: {e}")),
+    };
+    let memory = MemoryStore::new(Arc::clone(store));
+    let outcome = match apply_to_members(&memory, workspace, &pre.members, decision, &actor).await {
         Ok(o) => o,
         Err(e) => return server_error(&format!("apply to members: {e}")),
     };
@@ -190,6 +220,8 @@ struct MemberOutcome {
 }
 
 async fn apply_to_members(
+    memory: &MemoryStore,
+    workspace: WorkspaceId,
     members: &[String],
     decision: BundleDecision,
     actor: &str,
@@ -200,17 +232,29 @@ async fn apply_to_members(
             skipped: 0,
         });
     }
-    let (memory, ws) = open_workspace_memory().await?;
     let mut decided = 0_usize;
     let mut skipped = 0_usize;
     for approval_id in members {
-        match transition_member(&memory, ws, approval_id, decision, actor).await {
+        match transition_member(memory, workspace, approval_id, decision, actor).await {
             Ok(true) => decided += 1,
             Ok(false) => skipped += 1,
             Err(_) => skipped += 1,
         }
     }
     Ok(MemberOutcome { decided, skipped })
+}
+
+/// Resolve the [`WorkspaceId`] owning `tenant`'s worker-action memory.
+///
+/// `decide_response` keys member transitions off this instead of the
+/// cwd workspace so a decide can only cascade into the caller's own
+/// tenant. Reuses the canonical tenant→primary-workspace lookup the
+/// tenant-lifecycle handlers share.
+async fn workspace_for_tenant(store: &SessionStore, tenant: TenantId) -> ArgoResult<WorkspaceId> {
+    let blob = crate::handlers::tenant_archive::primary_workspace_id(store, tenant).await?;
+    let uuid = uuid::Uuid::from_slice(&blob)
+        .map_err(|e| ArgoError::Provider(format!("workspace id decode: {e}")))?;
+    Ok(WorkspaceId(uuid))
 }
 
 async fn transition_member(
