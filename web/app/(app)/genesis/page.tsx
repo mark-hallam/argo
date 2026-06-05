@@ -17,12 +17,21 @@ import {
   type CadenceExceptionsSelection,
 } from "@/components/skycot/genesis/CadenceExceptionsCapture";
 import {
+  GenesisModeToggle,
+  type GenesisMode,
+} from "@/components/skycot/genesis/GenesisModeToggle";
+import {
+  ConversationIntake,
+  type ConversationGatheredSlots,
+} from "@/components/skycot/genesis/ConversationIntake";
+import {
   GENESIS_PHASES,
   hireFromGenesis,
   streamGenesis,
   type GenesisErrorEvent,
   type GenesisPhase,
   type GenesisVerticalReadyEvent,
+  type SuccessCriterion,
 } from "@/lib/api/genesis";
 
 /**
@@ -79,6 +88,10 @@ export default function GenesisPage() {
   const [intake, setIntake] = useState<CadenceExceptionsSelection>(
     EMPTY_CADENCE_EXCEPTIONS,
   );
+  // UF Phase-A · A3 (DEC-039): "Describe it" (one-shot) ↔ "Talk it through"
+  // (conversational intake). ADDITIVE — both land on the identical review →
+  // hire path below; the toggle only chooses how the role is described.
+  const [mode, setMode] = useState<GenesisMode>("describe");
   const [status, setStatus] = useState<Status>("idle");
   const [activePhase, setActivePhase] = useState<GenesisPhase | null>(null);
   const [vertical, setVertical] = useState<GenesisVerticalReadyEvent | null>(null);
@@ -108,6 +121,100 @@ export default function GenesisPage() {
     setHireError(null);
   }, []);
 
+  // Shared one-shot SSE kickoff. Both "Describe it" (handleSubmit) and "Talk it
+  // through" (handleConversationComplete) funnel through here with EXPLICIT
+  // params so the conversational path reaches the SAME materialize → review →
+  // hire flow as the textarea — no parallel client-side materializer (DEC-039).
+  const startStream = useCallback(
+    (params: {
+      roleDescription: string;
+      cadence?: string;
+      exceptions?: string[];
+      successCriteria?: SuccessCriterion[];
+      sopDocument?: string;
+      sopDocumentFormat?: "text" | "pdf_base64";
+      sopFilename?: string;
+      isRetry: boolean;
+    }) => {
+      setStatus("streaming");
+      setActivePhase(null);
+      setVertical(null);
+      setErrorEvent(null);
+      setHireError(null);
+      const controller = new AbortController();
+      abortRef.current?.abort();
+      abortRef.current = controller;
+      streamGenesis(
+        {
+          roleDescription: params.roleDescription,
+          tenantId: tenantIdRef.current,
+          overwrite: params.isRetry,
+          // P6: attach the SOP (if any) so the teammate is ingested + quizzed
+          // against the SPECIFIC document before it can be hired.
+          ...(params.sopDocument
+            ? {
+                sopDocument: params.sopDocument,
+                sopDocumentFormat: params.sopDocumentFormat,
+                sopFilename: params.sopFilename,
+              }
+            : {}),
+          // A1-wire: forward the intake-capture slots (each omitted from the
+          // wire when blank, so the text-only path is unchanged).
+          ...(params.cadence && params.cadence.trim().length > 0
+            ? { cadence: params.cadence }
+            : {}),
+          ...(params.exceptions && params.exceptions.length > 0
+            ? { exceptions: params.exceptions }
+            : {}),
+          ...(params.successCriteria && params.successCriteria.length > 0
+            ? { successCriteria: params.successCriteria }
+            : {}),
+          signal: controller.signal,
+        },
+        {
+          onProgress: (ev) => {
+            // Late events for earlier phases shouldn't rewind the strip.
+            setActivePhase((prev) => {
+              if (prev === null) return ev.phase;
+              const prevIdx = GENESIS_PHASES.indexOf(prev);
+              const nextIdx = GENESIS_PHASES.indexOf(ev.phase);
+              return nextIdx > prevIdx ? ev.phase : prev;
+            });
+          },
+          onVerticalReady: (ev) => {
+            setVertical(ev);
+            setActivePhase("ready");
+            setStatus("ready");
+          },
+          onError: (ev) => {
+            setErrorEvent(ev);
+            setStatus("error");
+          },
+        },
+      ).catch((err) => {
+        if (controller.signal.aborted) return;
+        // Don't overwrite an error event already set by the SSE `onError`
+        // callback (e.g. the gateway's specific "output dir is not empty"
+        // reason). The stream-close .catch fires AFTER onError on the
+        // gateway's abrupt half-close, and would otherwise replace the
+        // specific message with chrome's generic "network error" text.
+        // See fix-spa-genesis-catch-overwrites-sse-error-event-message.
+        setErrorEvent((prev) =>
+          prev ?? {
+            phase: "drafting_persona",
+            message:
+              err instanceof Error
+                ? err.message
+                : "Couldn't reach the Genesis stream.",
+            recoverable: true,
+          },
+        );
+        setStatus("error");
+      });
+    },
+    [],
+  );
+
   const handleSubmit = useCallback(() => {
     if (status === "streaming" || status === "hiring") return;
     // The "Try again" button re-invokes this from the error state. On
@@ -117,78 +224,43 @@ export default function GenesisPage() {
     // off so the default refuse-to-clobber safety still applies if
     // the operator submits the same description twice by accident.
     const isRetry = status === "error";
-    setStatus("streaming");
-    setActivePhase(null);
-    setVertical(null);
-    setErrorEvent(null);
-    setHireError(null);
-    const controller = new AbortController();
-    abortRef.current?.abort();
-    abortRef.current = controller;
-    streamGenesis(
-      {
-        roleDescription,
-        tenantId: tenantIdRef.current,
-        overwrite: isRetry,
-        // P6: attach the SOP (if any) so the teammate is ingested + quizzed
-        // against the SPECIFIC document before it can be hired.
-        ...(sop
-          ? {
-              sopDocument: sop.document,
-              sopDocumentFormat: sop.format,
-              sopFilename: sop.filename,
-            }
-          : {}),
-        // A1-wire: forward the intake-capture slots (each omitted from the wire
-        // when blank, so the text-only path is unchanged).
-        ...(intake.cadence.trim().length > 0 ? { cadence: intake.cadence } : {}),
-        ...(intake.exceptions.length > 0 ? { exceptions: intake.exceptions } : {}),
-        ...(intake.success_criteria.length > 0
-          ? { successCriteria: intake.success_criteria }
-          : {}),
-        signal: controller.signal,
-      },
-      {
-        onProgress: (ev) => {
-          // Late events for earlier phases shouldn't rewind the strip.
-          setActivePhase((prev) => {
-            if (prev === null) return ev.phase;
-            const prevIdx = GENESIS_PHASES.indexOf(prev);
-            const nextIdx = GENESIS_PHASES.indexOf(ev.phase);
-            return nextIdx > prevIdx ? ev.phase : prev;
-          });
-        },
-        onVerticalReady: (ev) => {
-          setVertical(ev);
-          setActivePhase("ready");
-          setStatus("ready");
-        },
-        onError: (ev) => {
-          setErrorEvent(ev);
-          setStatus("error");
-        },
-      },
-    ).catch((err) => {
-      if (controller.signal.aborted) return;
-      // Don't overwrite an error event already set by the SSE `onError`
-      // callback (e.g. the gateway's specific "output dir is not empty"
-      // reason). The stream-close .catch fires AFTER onError on the
-      // gateway's abrupt half-close, and would otherwise replace the
-      // specific message with chrome's generic "network error" text.
-      // See fix-spa-genesis-catch-overwrites-sse-error-event-message.
-      setErrorEvent((prev) =>
-        prev ?? {
-          phase: activePhase ?? "drafting_persona",
-          message:
-            err instanceof Error
-              ? err.message
-              : "Couldn't reach the Genesis stream.",
-          recoverable: true,
-        },
-      );
-      setStatus("error");
+    startStream({
+      roleDescription,
+      cadence: intake.cadence,
+      exceptions: intake.exceptions,
+      successCriteria: intake.success_criteria,
+      ...(sop
+        ? {
+            sopDocument: sop.document,
+            sopDocumentFormat: sop.format,
+            sopFilename: sop.filename,
+          }
+        : {}),
+      isRetry,
     });
-  }, [roleDescription, sop, intake, status, activePhase]);
+  }, [roleDescription, sop, intake, status, startStream]);
+
+  // "Talk it through" confirmed: hand the gathered slots to the SAME one-shot
+  // stream. We also mirror them into the describe-mode state so a downstream
+  // "Try again" / "Modify description" stays coherent.
+  const handleConversationComplete = useCallback(
+    (gathered: ConversationGatheredSlots) => {
+      setRoleDescription(gathered.roleDescription);
+      setIntake({
+        cadence: gathered.cadence,
+        exceptions: gathered.exceptions,
+        success_criteria: gathered.successCriteria,
+      });
+      startStream({
+        roleDescription: gathered.roleDescription,
+        cadence: gathered.cadence,
+        exceptions: gathered.exceptions,
+        successCriteria: gathered.successCriteria,
+        isRetry: false,
+      });
+    },
+    [startStream],
+  );
 
   const handleHire = useCallback(async () => {
     if (!vertical) return;
@@ -303,21 +375,40 @@ export default function GenesisPage() {
             sub="Describe the role, then optionally attach one SOP or playbook. Genesis builds the teammate and checks it comprehends your document before it can start work."
             subMaxWidth={560}
           />
-          <HeroInput
-            value={roleDescription}
-            onChange={setRoleDescription}
-            onSubmit={handleSubmit}
-            isBusy={isBusy}
-          />
-          {status === "idle" || status === "error" ? (
+          {status === "idle" ? (
+            <GenesisModeToggle mode={mode} onChange={setMode} disabled={isBusy} />
+          ) : null}
+          {/* "Describe it" (one-shot) — the original, unchanged flow. Always the
+              path on the error state so "Try again" / "Modify description"
+              behave identically regardless of how the role was first described. */}
+          {mode === "describe" || status === "error" ? (
             <>
-              <SopUpload value={sop} onChange={setSop} disabled={isBusy} />
-              <CadenceExceptionsCapture
-                value={intake}
-                onChange={setIntake}
-                disabled={isBusy}
+              <HeroInput
+                value={roleDescription}
+                onChange={setRoleDescription}
+                onSubmit={handleSubmit}
+                isBusy={isBusy}
               />
+              {status === "idle" || status === "error" ? (
+                <>
+                  <SopUpload value={sop} onChange={setSop} disabled={isBusy} />
+                  <CadenceExceptionsCapture
+                    value={intake}
+                    onChange={setIntake}
+                    disabled={isBusy}
+                  />
+                </>
+              ) : null}
             </>
+          ) : null}
+          {/* "Talk it through" — additive conversational intake (DEC-039). On
+              confirm it hands the gathered slots to the SAME stream above. */}
+          {mode === "talk" && status === "idle" ? (
+            <ConversationIntake
+              tenantId={tenantIdRef.current}
+              onComplete={handleConversationComplete}
+              disabled={isBusy}
+            />
           ) : null}
           {(status === "streaming" ||
             status === "ready" ||
