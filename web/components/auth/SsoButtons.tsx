@@ -3,6 +3,17 @@
 import { startOAuth, type OAuthProvider } from "@/lib/api/sso";
 
 /**
+ * SSO is gated OFF until the gateway OAuth routes AND the provider OAuth
+ * clients (Google/GitHub/Azure client id + secret) are configured. The
+ * gateway's `/api/v1/auth/oauth/<provider>/start` currently returns
+ * `{"error":"not found"}`, so an enabled button would dump the user on a
+ * raw 404. Hide the SSO row until `NEXT_PUBLIC_SSO_ENABLED=1` is set
+ * (flip it on once the OAuth flow is built + credentials are in env).
+ */
+export const SSO_ENABLED =
+  typeof process !== "undefined" && process.env.NEXT_PUBLIC_SSO_ENABLED === "1";
+
+/**
  * Active SSO button row — replaces the v1.x placeholder buttons that
  * shipped with the editorial-A auth design lock (2026-05-18). Clicking
  * a button navigates to the gateway's OAuth start endpoint, which
@@ -25,6 +36,10 @@ export function SsoButtons({
   highlight?: OAuthProvider;
   disabled?: boolean;
 }) {
+  // Gated off until OAuth is wired (see SSO_ENABLED above) — avoids the
+  // gateway 404 dead-end. Pages also hide their "OR WITH EMAIL" divider
+  // when SSO_ENABLED is false so it isn't left orphaned.
+  if (!SSO_ENABLED) return null;
   return (
     <div className="sso-row" data-testid="sso-row">
       {PROVIDERS.map((p) => (

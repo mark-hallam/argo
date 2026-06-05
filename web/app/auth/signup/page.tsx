@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { SIGNUP_REQUEST_TIMEOUT_MS, useSignup } from "@/lib/auth/use-signup";
 import { AuthEditorialShell } from "@/components/auth/AuthEditorialShell";
-import { SsoButtons } from "@/components/auth/SsoButtons";
+import { SsoButtons, SSO_ENABLED } from "@/components/auth/SsoButtons";
 import { parseReturnTo, storeReturnToPending } from "@/lib/auth/return-to";
 
 /**
@@ -262,9 +262,11 @@ function SignupInner() {
 
       <SsoButtons />
 
-      <div className="divider">
-        <span className="divider-lbl">OR WITH EMAIL</span>
-      </div>
+      {SSO_ENABLED ? (
+        <div className="divider">
+          <span className="divider-lbl">OR WITH EMAIL</span>
+        </div>
+      ) : null}
 
       <form onSubmit={onSubmit} noValidate data-testid="signup-form">
         <div className="field-block">

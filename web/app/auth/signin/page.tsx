@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSignup } from "@/lib/auth/use-signup";
 import { AuthEditorialShell } from "@/components/auth/AuthEditorialShell";
-import { SsoButtons } from "@/components/auth/SsoButtons";
+import { SsoButtons, SSO_ENABLED } from "@/components/auth/SsoButtons";
 import {
   discoverSso,
   startOAuth,
@@ -150,9 +150,11 @@ function SignInInner() {
         </p>
       ) : null}
 
-      <div className="divider">
-        <span className="divider-lbl">OR WITH EMAIL</span>
-      </div>
+      {SSO_ENABLED ? (
+        <div className="divider">
+          <span className="divider-lbl">OR WITH EMAIL</span>
+        </div>
+      ) : null}
 
       <form onSubmit={onSubmit} noValidate data-testid="signin-form">
         <div className="field-block">
