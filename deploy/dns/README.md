@@ -7,6 +7,14 @@ automatic HTTPS via Cloudflare Universal SSL.
 Two equivalent paths: Cloudflare UI, or `setup.sh` /
 `cloudflare-records.tf` for reproducible apply. Pick one; do not mix.
 
+> **🟢 AWS is the operative gateway path (2026-06-04).** `api.skycot.com` +
+> `try.skycot.com` now point at the **AWS ALB** (the Fargate deploy —
+> `infra/terraform/`), not Fly.io. In `cloudflare-records.tf`, set
+> `alb_dns_name` (from `terraform -chdir=infra/terraform output -raw alb_dns_name`)
+> and `api`/`try` become **CNAMEs → ALB**. Leave `alb_dns_name` empty to fall back
+> to the legacy Fly A/AAAA records (rollback). The apex/`www`/`app` stay on Vercel
+> either way. Full deploy map: [`docs/skycot/deploy/README.md`](../../docs/skycot/deploy/README.md).
+
 ## Pre-flight
 
 1. `skycot.com` is registered and nameservers point at Cloudflare:
@@ -26,10 +34,8 @@ Two equivalent paths: Cloudflare UI, or `setup.sh` /
 | `skycot.com` (apex)  | AAAA  | `2606:4700:90:0:f22e:fbec:5bed:a9b9` | ✅ | 5 min | Vercel apex IPv6           |
 | `www.skycot.com`     | CNAME | `cname.vercel-dns.com`       | ✅    | 5 min  | Redirects to apex via Vercel    |
 | `app.skycot.com`     | CNAME | `cname.vercel-dns.com`       | ✅    | 5 min  | Same `web/` Vercel project (product) |
-| `api.skycot.com`     | A     | `<fly-ipv4>`                 | ✅    | 5 min  | Gateway (Fly.io dedicated IPv4) |
-| `api.skycot.com`     | AAAA  | `<fly-ipv6>`                 | ✅    | 5 min  | Gateway (Fly.io dedicated IPv6) |
-| `try.skycot.com`     | A     | `<fly-ipv4>`                 | ✅    | 5 min  | Demo workspace (same Fly app)   |
-| `try.skycot.com`     | AAAA  | `<fly-ipv6>`                 | ✅    | 5 min  | Demo workspace IPv6             |
+| `api.skycot.com`     | CNAME | `<alb-dns-name>`             | ✅    | 5 min  | Gateway (AWS ALB). Legacy: A/AAAA → Fly IPs |
+| `try.skycot.com`     | CNAME | `<alb-dns-name>`             | ✅    | 5 min  | Demo workspace (same ALB). Legacy: A/AAAA → Fly IPs |
 | `docs.skycot.com`    | CNAME | `cname.vercel-dns.com`       | ✅    | 5 min  | Optional — docs site            |
 | `status.skycot.com`  | CNAME | `<provider-CNAME>`           | ❌    | 1 hr   | Optional — Statuspage etc.      |
 
@@ -60,13 +66,22 @@ exactly which records get created.
 
 ## Path C — Terraform
 
+**AWS (operative):** point `api`/`try` at the ALB.
+
 ```bash
 cd deploy/dns
 export CLOUDFLARE_API_TOKEN=...
+ALB=$(terraform -chdir=../../infra/terraform output -raw alb_dns_name)
 terraform init
-terraform plan -var "zone_id=$CLOUDFLARE_ZONE_ID" \
-               -var "fly_ipv4=$FLY_IPV4" -var "fly_ipv6=$FLY_IPV6"
-terraform apply ...
+terraform plan  -var "zone_id=$CLOUDFLARE_ZONE_ID" -var "alb_dns_name=$ALB"
+terraform apply -var "zone_id=$CLOUDFLARE_ZONE_ID" -var "alb_dns_name=$ALB"
+```
+
+**Fly (legacy / rollback):** omit `alb_dns_name`; pass the Fly IPs instead.
+
+```bash
+terraform apply -var "zone_id=$CLOUDFLARE_ZONE_ID" \
+                -var "fly_ipv4=$FLY_IPV4" -var "fly_ipv6=$FLY_IPV6"
 ```
 
 Terraform state lives wherever the operator wires the backend; the
@@ -81,10 +96,13 @@ they will issue + serve the right TLS cert:
 - **Vercel**: project Settings → Domains → add `skycot.com`,
   `www.skycot.com`, `app.skycot.com` (and `docs.` if enabled). Vercel
   verifies via the records above and provisions Let's Encrypt.
-- **Fly.io**: `flyctl certs add api.skycot.com -a <app>` and
+- **AWS (operative)**: the ALB serves the ACM cert for `api.skycot.com`
+  (issued in `infra/terraform/`, see the AWS runbook §5). No per-host cert
+  command needed — the ALB terminates TLS. Cloudflare's proxy uses Full
+  (Strict) against the ALB's ACM cert.
+- **Fly.io (legacy)**: `flyctl certs add api.skycot.com -a <app>` and
   `flyctl certs add try.skycot.com -a <app>`. Fly provisions Let's
-  Encrypt + serves the cert at the origin; Cloudflare's proxy uses
-  Full (Strict) mode against it.
+  Encrypt + serves the cert at the origin.
 
 In Cloudflare → SSL/TLS → Overview, set encryption mode to **Full
 (Strict)**. This is required so the proxy validates the origin's
@@ -107,7 +125,7 @@ done
 
 # End-to-end origin reachability:
 curl -sI https://app.skycot.com/             | head -1   # 200 OK (Vercel)
-curl -sI https://api.skycot.com/health       | head -1   # 200 OK (Fly gateway)
+curl -sI https://api.skycot.com/health       | head -1   # 200 OK (AWS ALB → gateway)
 ```
 
 Once all checks pass, raise the TTL on each record to 3600 (1h) so
