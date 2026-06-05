@@ -354,3 +354,8 @@ fn genesis_hire_no_name_and_generic_slug_falls_back_to_role_label_not_placeholde
         );
     }
 }
+
+// UF-A2: typed success-criteria → real scored `[[kpi]]` targets (split into a
+// sibling file to keep each test module under the 500-LOC ceiling).
+#[path = "materialize_kpi_tests.rs"]
+mod kpi;

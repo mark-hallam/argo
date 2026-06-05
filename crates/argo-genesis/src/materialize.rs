@@ -45,7 +45,7 @@ use argo_vertical::{
     KpiDefinition, KpiGate, KpiKind, McpServerDeclaration, McpServersSection, RoleSection,
     SuccessMetricsSection, ToolsSection, VerticalIdentity, VerticalManifest, SCHEMA_VERSION,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 /// The slug stamped on the synthesized vertical's id prefix, distinguishing a
@@ -144,7 +144,12 @@ fn build_spec_manifest(
         memory: Some(memory_schema::manifest_section()),
         escalation: Some(build_escalation(spec)),
         kpis: build_kpis(spec),
-        success_metrics: Some(default_success_metrics()),
+        // SLA skeleton is a fallback floor ONLY — kept when no typed criteria
+        // were captured; when they were, the `[[kpi]]` rows ARE the scored goals.
+        success_metrics: spec
+            .success_criteria
+            .is_empty()
+            .then(default_success_metrics),
         actions: Some(actions),
         mcp_servers: build_mcp_servers(spec),
         ..VerticalManifest::default()
@@ -253,13 +258,40 @@ fn build_escalation(spec: &CapabilitySpec) -> EscalationSection {
     }
 }
 
-/// Build typed `[[kpi]]` entries from the spec's free-text success metrics.
-/// Each metric becomes an `Inform`-gated `Count` KPI with a `>= 1` threshold
-/// (a non-blocking telemetry hint the operator tunes later); the legacy
-/// SLA skeleton in `[success_metrics]` still provides the release-gating
-/// floor via `all_kpis`. Returns an empty vec when the spec lists no metrics
-/// (the legacy block then supplies the KPIs).
+/// Build the typed `[[kpi]]` rows the dashboards score against, in priority
+/// order so a teammate is scored against its ACTUAL goals (UF-A2):
+/// (1) the operator's typed [`crate::spec::SuccessCriterion`] set wins — each
+/// becomes a real `gate = Warn` KPI carrying the chosen `kind`/`target`/
+/// `comparator`, so DIFFERENT criteria emit DIFFERENT thresholds; (2) else the
+/// free-text `success_metrics` become `Count`/`>= 1` `Inform` hints; (3) else
+/// empty, so `all_kpis` falls back to the `[success_metrics]` SLA skeleton.
 fn build_kpis(spec: &CapabilitySpec) -> Vec<KpiDefinition> {
+    if !spec.success_criteria.is_empty() {
+        let mut seen: BTreeSet<String> = BTreeSet::new();
+        return spec
+            .success_criteria
+            .iter()
+            .enumerate()
+            .map(|(idx, criterion)| {
+                // KPI names must be unique within a manifest (validation rejects
+                // dups). Sanitize the operator label into a slug, suffixing the
+                // 1-based index on any collision rather than failing the hire.
+                let mut name = crate::spec::sanitize_action_name(&criterion.name);
+                if !seen.insert(name.clone()) {
+                    name = format!("{name}_{}", idx + 1);
+                    seen.insert(name.clone());
+                }
+                KpiDefinition {
+                    name,
+                    kind: criterion.kind,
+                    threshold: criterion.target,
+                    comparator: criterion.comparator,
+                    gate: KpiGate::Warn,
+                    description: Some(truncate_description(criterion.name.trim())),
+                }
+            })
+            .collect();
+    }
     spec.success_metrics
         .iter()
         .enumerate()
