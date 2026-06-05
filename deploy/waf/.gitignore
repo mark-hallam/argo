@@ -1,0 +1,10 @@
+# Terraform state + provider plugins — NEVER commit.
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# NB: .terraform.lock.hcl IS committed (pins the cloudflare provider version).
+
+# Operator-local var files.
+*.tfvars
+!*.tfvars.example
