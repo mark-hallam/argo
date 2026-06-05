@@ -12,6 +12,11 @@ import {
   type SopSelection,
 } from "@/components/skycot/genesis/SopUpload";
 import {
+  CadenceExceptionsCapture,
+  EMPTY_CADENCE_EXCEPTIONS,
+  type CadenceExceptionsSelection,
+} from "@/components/skycot/genesis/CadenceExceptionsCapture";
+import {
   GENESIS_PHASES,
   hireFromGenesis,
   streamGenesis,
@@ -67,6 +72,13 @@ export default function GenesisPage() {
   // Genesis P6 — the moat (DEC-025 #5): an optional SOP the teammate must
   // comprehend before hire. `null` until the operator attaches one.
   const [sop, setSop] = useState<SopSelection | null>(null);
+  // UF Phase-A · A1-wire: the operator's intake-capture slots (WHEN it runs,
+  // WHAT carve-outs apply, HOW success is measured). Threaded into the SSE
+  // request so they land on the teammate's `CapabilitySpec` (and surface back
+  // on the `vertical_ready` review), not dropped on the floor.
+  const [intake, setIntake] = useState<CadenceExceptionsSelection>(
+    EMPTY_CADENCE_EXCEPTIONS,
+  );
   const [status, setStatus] = useState<Status>("idle");
   const [activePhase, setActivePhase] = useState<GenesisPhase | null>(null);
   const [vertical, setVertical] = useState<GenesisVerticalReadyEvent | null>(null);
@@ -127,6 +139,13 @@ export default function GenesisPage() {
               sopFilename: sop.filename,
             }
           : {}),
+        // A1-wire: forward the intake-capture slots (each omitted from the wire
+        // when blank, so the text-only path is unchanged).
+        ...(intake.cadence.trim().length > 0 ? { cadence: intake.cadence } : {}),
+        ...(intake.exceptions.length > 0 ? { exceptions: intake.exceptions } : {}),
+        ...(intake.success_criteria.length > 0
+          ? { successCriteria: intake.success_criteria }
+          : {}),
         signal: controller.signal,
       },
       {
@@ -169,7 +188,7 @@ export default function GenesisPage() {
       );
       setStatus("error");
     });
-  }, [roleDescription, sop, status, activePhase]);
+  }, [roleDescription, sop, intake, status, activePhase]);
 
   const handleHire = useCallback(async () => {
     if (!vertical) return;
@@ -291,7 +310,14 @@ export default function GenesisPage() {
             isBusy={isBusy}
           />
           {status === "idle" || status === "error" ? (
-            <SopUpload value={sop} onChange={setSop} disabled={isBusy} />
+            <>
+              <SopUpload value={sop} onChange={setSop} disabled={isBusy} />
+              <CadenceExceptionsCapture
+                value={intake}
+                onChange={setIntake}
+                disabled={isBusy}
+              />
+            </>
           ) : null}
           {(status === "streaming" ||
             status === "ready" ||

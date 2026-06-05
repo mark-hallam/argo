@@ -196,6 +196,7 @@ pub(super) async fn serve_genesis_stream(
     // Unique id BEFORE the dir is resolved + written, so a regeneration writes a
     // new dir (see the module-level non-determinism section).
     super::routes_genesis_stream_unique_id::apply_unique_vertical_suffix(&mut plan);
+    super::routes_genesis_stream_intake::apply_intake(body, &mut plan);
 
     write_progress(
         out,

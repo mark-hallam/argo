@@ -367,6 +367,17 @@ export interface StreamGenesisRequest {
   sopDocumentFormat?: "text" | "pdf_base64";
   /** Operator-supplied filename for the SOP (surfaced on the review screen). */
   sopFilename?: string;
+  /** WHEN the teammate runs — free-text cadence/schedule captured at intake
+   *  (UF Phase-A · A1). Threaded into `CapabilitySpec.cadence` on the gateway.
+   *  Omitted from the wire when blank so the text-only path is unchanged. */
+  cadence?: string;
+  /** WHAT carve-outs apply — situations the teammate must hand off, not act on.
+   *  Threaded into `CapabilitySpec.exceptions`. */
+  exceptions?: string[];
+  /** HOW success is measured — typed, measurable criteria captured at intake.
+   *  Threaded into `CapabilitySpec.success_criteria` (non-empty makes A2's emit
+   *  use the operator's REAL goals instead of the default KPI skeleton). */
+  successCriteria?: SuccessCriterion[];
   /** Aborts the in-flight stream when the caller unmounts / retries. */
   signal?: AbortSignal;
 }
@@ -478,6 +489,18 @@ export async function streamGenesis(
           sop_document_format: req.sopDocumentFormat ?? "text",
           ...(req.sopFilename ? { sop_filename: req.sopFilename } : {}),
         }
+      : {}),
+    // UF Phase-A · A1-wire: the operator's intake-capture slots. Each is sent
+    // only when supplied so the text-only wire shape is byte-unchanged; the
+    // gateway parses them into `CapabilitySpec.{cadence,exceptions,success_criteria}`.
+    ...(req.cadence && req.cadence.trim().length > 0
+      ? { cadence: req.cadence.trim() }
+      : {}),
+    ...(req.exceptions && req.exceptions.length > 0
+      ? { exceptions: req.exceptions }
+      : {}),
+    ...(req.successCriteria && req.successCriteria.length > 0
+      ? { success_criteria: req.successCriteria }
       : {}),
   });
   const res = await fetch(url, {
