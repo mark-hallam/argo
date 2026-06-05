@@ -103,6 +103,7 @@ async fn max_rounds_returns_ok_with_stopped_on_tool_budget_flag() {
         provider: "mock-provider",
         model: "mock-model",
         pricing: None, // skip spend recording
+        worker_id: None,
     };
     let deny = std::collections::HashSet::new();
     let approval = std::collections::HashSet::new();

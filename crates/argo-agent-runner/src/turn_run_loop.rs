@@ -134,6 +134,10 @@ pub(crate) async fn run_turn_with_events_inner(
         provider: provider_id.as_str(),
         model: effective_model.as_str(),
         pricing,
+        // Attribute the turn's cost to the session's teammate (v90,
+        // DEC-038); duty-fired sessions carry it, ad-hoc/system
+        // sessions leave it `None` (NULL column).
+        worker_id: session.worker_id,
     };
     // mission-skill-select-variant-runtime-wire: per-turn invocation
     // id seeds `argo_skill::select_variant` and dedups

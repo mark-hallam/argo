@@ -158,6 +158,7 @@ async fn pre_dispatch_check_refuses_tool_calls_for_frozen_worker() {
         provider: "mock-provider",
         model: "mock-model",
         pricing: None,
+        worker_id: None,
     };
     let deny = std::collections::HashSet::new();
     let approval = std::collections::HashSet::new();

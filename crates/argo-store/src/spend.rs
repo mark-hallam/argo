@@ -4,10 +4,12 @@
 //! [`super::SessionStore::load_spend_counters`] into
 //! [`argo_types::enforce_pre_spend`] before authorising a charge,
 //! then [`super::SessionStore::record_spend`] after.
+use crate::WorkerId;
 use argo_types::{ArgoError, SessionId, SpendCounters, TenantId};
 use chrono::{DateTime, Datelike, TimeZone, Utc};
 use sqlx::{Pool, Sqlite};
 
+#[allow(clippy::too_many_arguments)] // spend row is a wide, flat record; grouping into a struct adds indirection without clarity
 pub(super) async fn record_spend(
     pool: &Pool<Sqlite>,
     tenant_id: TenantId,
@@ -16,10 +18,15 @@ pub(super) async fn record_spend(
     amount_usd_micros: u64,
     provider: &str,
     model: &str,
+    worker_id: Option<WorkerId>,
 ) -> Result<(), ArgoError> {
+    // Stored as a nullable 16-byte BLOB (v90). `None` (system /
+    // non-teammate sessions) binds SQL NULL, which every existing
+    // rollup ignores — see `migrations/v90.rs`.
+    let worker_blob: Option<Vec<u8>> = worker_id.map(|w| w.0.as_bytes().to_vec());
     sqlx::query(
         "INSERT INTO spend_ledger (tenant_id, session_id, charged_at_micros, \
-         amount_usd_micros, provider, model) VALUES (?, ?, ?, ?, ?, ?)",
+         amount_usd_micros, provider, model, worker_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(tenant_id.0.as_bytes().as_slice())
     .bind(session_id.0.as_bytes().as_slice())
@@ -27,6 +34,7 @@ pub(super) async fn record_spend(
     .bind(i64::try_from(amount_usd_micros).unwrap_or(i64::MAX))
     .bind(provider)
     .bind(model)
+    .bind(worker_blob)
     .execute(pool)
     .await
     .map_err(|e| ArgoError::Provider(format!("record_spend: {e}")))?;

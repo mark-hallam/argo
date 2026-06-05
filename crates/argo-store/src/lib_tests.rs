@@ -100,6 +100,62 @@ async fn spend_ledger_records_and_aggregates_session_total() {
 }
 
 #[tokio::test]
+async fn spend_ledger_attributes_worker_id_and_is_null_safe() {
+    // Per-teammate cost attribution (v90, DEC-038): a teammate turn
+    // writes its `worker_id`, a system session writes NULL, and the
+    // existing tenant rollup still sums both rows unchanged.
+    let (store, tenant, ws) = fresh_store_with_workspace().await;
+    let session = store
+        .create_session(tenant, ws, "m", "p", None, None)
+        .await
+        .unwrap();
+    let now = chrono::Utc::now();
+    let worker = WorkerId::new();
+    store
+        .record_spend_with_worker(
+            tenant,
+            session,
+            now.timestamp_micros(),
+            400_000,
+            "anth",
+            "haiku",
+            Some(worker),
+        )
+        .await
+        .unwrap();
+    // A system session (no teammate) records NULL via the plain path.
+    store
+        .record_spend(tenant, session, now.timestamp_micros(), 100_000, "anth", "haiku")
+        .await
+        .unwrap();
+
+    // The teammate row carries the worker_id BLOB.
+    let attributed: Option<Vec<u8>> = sqlx::query_scalar(
+        "SELECT worker_id FROM spend_ledger WHERE amount_usd_micros = 400000",
+    )
+    .fetch_one(store.pool())
+    .await
+    .unwrap();
+    assert_eq!(attributed.as_deref(), Some(worker.0.as_bytes().as_slice()));
+
+    // The system row is NULL.
+    let system: Option<Vec<u8>> = sqlx::query_scalar(
+        "SELECT worker_id FROM spend_ledger WHERE amount_usd_micros = 100000",
+    )
+    .fetch_one(store.pool())
+    .await
+    .unwrap();
+    assert!(system.is_none());
+
+    // Existing tenant rollup is null-safe: both rows still sum.
+    let counters = store
+        .load_spend_counters(tenant, session, now)
+        .await
+        .unwrap();
+    assert_eq!(counters.session_used, 500_000);
+}
+
+#[tokio::test]
 async fn spend_ledger_isolates_by_tenant() {
     let (store, tenant_a, ws_a) = fresh_store_with_workspace().await;
     let session_a = store

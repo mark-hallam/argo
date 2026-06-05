@@ -268,6 +268,34 @@ impl SessionStore {
         provider: &str,
         model: &str,
     ) -> StoreResult<()> {
+        self.record_spend_with_worker(
+            tenant_id,
+            session_id,
+            charged_at_micros,
+            amount_usd_micros,
+            provider,
+            model,
+            None,
+        )
+        .await
+    }
+
+    /// Append a spend record that also attributes the charge to a
+    /// specific AI teammate (`worker_id`, v90 — per-teammate cost,
+    /// DEC-038). A `None` `worker_id` (system / non-teammate sessions)
+    /// records a NULL column and behaves exactly like
+    /// [`Self::record_spend`]; existing rollups ignore the column.
+    #[allow(clippy::too_many_arguments)] // mirrors the flat spend_ledger row shape
+    pub async fn record_spend_with_worker(
+        &self,
+        tenant_id: TenantId,
+        session_id: SessionId,
+        charged_at_micros: i64,
+        amount_usd_micros: u64,
+        provider: &str,
+        model: &str,
+        worker_id: Option<crate::WorkerId>,
+    ) -> StoreResult<()> {
         spend::record_spend(
             &self.pool,
             tenant_id,
@@ -276,6 +304,7 @@ impl SessionStore {
             amount_usd_micros,
             provider,
             model,
+            worker_id,
         )
         .await
     }

@@ -2,7 +2,7 @@
 //! external drivers (e.g. eval harnesses) can reuse the same
 //! lifting + spend math without re-implementing it.
 use argo_provider::{ProviderManifest, ProviderRequest, ProviderResponseDelta, Transport};
-use argo_store::SessionStore;
+use argo_store::{SessionStore, WorkerId};
 use argo_types::{
     ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, SessionId, TenantId,
     ToolCallId, ToolCallRequest,
@@ -133,6 +133,10 @@ pub struct SpendCtx<'a> {
     pub model: &'a str,
     /// `(price_per_1k_in, price_per_1k_out)` if the manifest carries it.
     pub pricing: Option<(f64, f64)>,
+    /// AI teammate the turn runs as, for per-teammate cost attribution
+    /// (v90, DEC-038). Sourced from the session's `worker_id`; `None`
+    /// for system / non-teammate sessions (records a NULL column).
+    pub worker_id: Option<WorkerId>,
 }
 
 /// Look up `(price_per_1k_in, price_per_1k_out)` for a given model
@@ -163,13 +167,14 @@ pub async fn record_turn_spend(
         return Ok(());
     }
     store
-        .record_spend(
+        .record_spend_with_worker(
             spend.tenant_id,
             session_id,
             Utc::now().timestamp_micros(),
             micros,
             spend.provider,
             spend.model,
+            spend.worker_id,
         )
         .await?;
     Ok(())

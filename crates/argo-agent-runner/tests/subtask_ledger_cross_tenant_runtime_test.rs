@@ -139,6 +139,7 @@ async fn post_turn_spend_is_session_scoped_does_not_bleed_across_tenants() {
         model: "claude-sonnet-test",
         // $1 / 1k tokens in, $2 / 1k tokens out.
         pricing: Some((1.0, 2.0)),
+        worker_id: None,
     };
     // 1_000 in + 500 out → $2.00 → 200 cents charged to tenant A's
     // running subtask.

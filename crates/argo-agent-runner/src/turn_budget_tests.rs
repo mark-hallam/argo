@@ -104,6 +104,7 @@ async fn post_turn_spend_accumulates_onto_running_subtask() {
         model: "claude-sonnet-test",
         // $1 per 1k tokens in, $2 per 1k tokens out.
         pricing: Some((1.0, 2.0)),
+        worker_id: None,
     };
     // 1000 tokens in + 500 tokens out → 1.0 + 1.0 = $2.00 → 200 cents.
     record_subtask_turn_spend(&store, session_id, &spend, Some(1000), Some(500))

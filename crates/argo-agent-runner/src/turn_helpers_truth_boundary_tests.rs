@@ -379,6 +379,7 @@ async fn truth_boundary_run_turn_with_tools_gates_final_once() {
         provider: "mock-provider",
         model: "mock-model",
         pricing: None,
+        worker_id: None,
     };
     let deny = std::collections::HashSet::new();
     let approval = std::collections::HashSet::new();
