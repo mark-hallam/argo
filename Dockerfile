@@ -8,7 +8,17 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY . .
-RUN cargo build --locked --release -p argo-cli --bin argo
+
+# Build with SQLCipher by default. In production mode (the deploy binds
+# non-loopback / sets ARGO_GATEWAY_PROFILE=production) the gateway runs a
+# fail-closed at-rest-encryption gate (argo-store store_open.rs
+# enforce_enterprise_encryption) that REFUSES TO BOOT unless the binary is
+# SQLCipher-linked AND a DB key (SKYCOT_DB_KEY_BASE64) is set. A stock build
+# crash-loops at boot in production. A SQLCipher-linked binary is safe in dev
+# mode too (the gate doesn't fire without production mode). Override to "" for
+# a faster stock dev image.
+ARG CARGO_FEATURES=bundled-sqlcipher
+RUN cargo build --locked --release -p argo-cli --bin argo --features "${CARGO_FEATURES}"
 
 FROM gcr.io/distroless/cc-debian12
 
