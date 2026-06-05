@@ -46,7 +46,8 @@ use crate::{memory_schema, pipeline::GenesisPlan};
 use argo_vertical::{
     ActionDeclaration, ActionsSection, EscalationSection, ExecutorDeclaration, KpiComparator,
     KpiDefinition, KpiGate, KpiKind, McpServerDeclaration, McpServersSection, RoleSection,
-    SuccessMetricsSection, ToolsSection, VerticalIdentity, VerticalManifest, SCHEMA_VERSION,
+    SuccessMetricsSection, ToolsSection, VerticalIdentity, VerticalManifest, WorkflowsSection,
+    SCHEMA_VERSION,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -150,6 +151,10 @@ fn build_spec_manifest(
             .then(default_success_metrics),
         actions: Some(actions),
         mcp_servers: build_mcp_servers(spec),
+        // Declare one smoke workflow per primary duty so a hired teammate ships
+        // with a runnable `[workflows]` block (the files are written by
+        // `materialize_writer::write_spec_workflows`).
+        workflows: build_workflows_section(spec),
         ..VerticalManifest::default()
     };
     Ok(manifest)
@@ -235,6 +240,20 @@ fn build_mcp_servers(spec: &CapabilitySpec) -> Option<McpServersSection> {
         }
     }
     (!servers.is_empty()).then_some(McpServersSection { servers })
+}
+
+/// Build the `[workflows]` section: list the smoke-workflow files emitted by
+/// [`crate::materialize_writer::spec_workflow_files`] (one per primary duty),
+/// so the loader knows about them. Mirrors the receptionist manifest's
+/// `files = ["workflows/<name>.workflow.toml"]`. Returns `None` only for a
+/// capability-less spec — which [`materialize_spec`] already rejects upstream —
+/// so a materialized teammate always ships at least one declared workflow.
+fn build_workflows_section(spec: &CapabilitySpec) -> Option<WorkflowsSection> {
+    let files: Vec<String> = crate::materialize_writer::spec_workflow_files(spec)
+        .into_iter()
+        .map(|(rel, _body)| rel)
+        .collect();
+    (!files.is_empty()).then_some(WorkflowsSection { files })
 }
 
 /// Build the `[escalation]` section from the spec's typed escalation routing.

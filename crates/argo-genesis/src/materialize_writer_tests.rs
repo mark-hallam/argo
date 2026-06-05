@@ -89,3 +89,54 @@ fn write_spec_artefacts_lays_out_all_companion_files() {
         assert!(v.get("prompt").is_some(), "line missing prompt: {line}");
     }
 }
+
+#[test]
+fn spec_workflow_files_emits_one_loadable_workflow_per_duty() {
+    let s = spec();
+    let files = spec_workflow_files(&s);
+    // One workflow per declared capability ("primary duty").
+    assert_eq!(files.len(), s.capabilities.len());
+    for (rel, body) in &files {
+        assert!(rel.starts_with("workflows/"), "bad path: {rel}");
+        assert!(rel.ends_with(".workflow.toml"), "bad path: {rel}");
+        // Every emitted TOML validates against the canonical loader.
+        let wf = argo_vertical::parse_workflow(body)
+            .unwrap_or_else(|e| panic!("{rel} must parse: {e}"));
+        // Matches the receptionist reference shape: two ordered tool_call steps.
+        assert_eq!(wf.steps.len(), 2, "{rel}");
+        assert!(wf.steps.iter().all(|st| st.kind == "tool_call"), "{rel}");
+        assert_eq!(wf.steps[1].depends_on, vec!["read_manifest"], "{rel}");
+    }
+    // Named after the duties (sanitised action names).
+    assert!(files
+        .iter()
+        .any(|(rel, _)| rel == "workflows/triage_request.workflow.toml"));
+    assert!(files
+        .iter()
+        .any(|(rel, _)| rel == "workflows/send_booking_confirmation.workflow.toml"));
+}
+
+#[test]
+fn write_spec_artefacts_writes_validated_workflow_files() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_spec_artefacts(dir.path(), &spec()).expect("write artefacts");
+    for (rel, _) in spec_workflow_files(&spec()) {
+        let path = dir.path().join(&rel);
+        assert!(path.exists(), "missing {rel}");
+        let body = std::fs::read_to_string(&path).expect("read workflow");
+        argo_vertical::parse_workflow(&body).expect("on-disk workflow must validate");
+    }
+}
+
+#[test]
+fn workflow_description_with_quotes_stays_loadable() {
+    // A free-text intent carrying a double-quote must not break the emitted TOML.
+    let mut s = spec();
+    s.capabilities[0].intent = "Triage a \"VIP\" patient request\nwith newline".into();
+    let files = spec_workflow_files(&s);
+    let (_, body) = files
+        .iter()
+        .find(|(rel, _)| rel.contains("triage_request"))
+        .expect("triage workflow present");
+    argo_vertical::parse_workflow(body).expect("escaped description must validate");
+}

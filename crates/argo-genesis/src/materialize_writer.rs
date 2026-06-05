@@ -16,8 +16,11 @@
 
 use crate::error::GenesisError;
 use crate::eval_seed::{self, EvalSeedAction};
+use crate::materialize_naming::truncate_description;
 use crate::memory_schema;
 use crate::spec::CapabilitySpec;
+use argo_vertical::WORKFLOW_SCHEMA_VERSION;
+use std::collections::BTreeSet;
 use std::path::Path;
 
 /// Build the system prompt for a synthesized teammate from its spec. Mirrors
@@ -117,6 +120,105 @@ pub fn write_spec_artefacts(dir: &Path, spec: &CapabilitySpec) -> Result<(), Gen
     let schema = memory_schema::generate(&spec.charter, None)?;
     write(&memory_dir.join("schema.toml"), &memory_schema::to_toml(&schema))?;
     write(&eval_dir.join("seed.jsonl"), &spec_eval_seed_jsonl(spec))?;
+    write_spec_workflows(dir, spec)?;
+    Ok(())
+}
+
+/// Build the smoke-workflow files for a synthesized teammate — one minimal
+/// `workflows/<duty>.workflow.toml` per declared capability ("primary duty"),
+/// mirroring the hand-built
+/// `verticals/receptionist/workflows/caller_greeting_check.workflow.toml`: two
+/// `tool_call` steps that open the teammate's manifest + system prompt so the
+/// runner is wired against this generated vertical end-to-end. Returns
+/// `(relative_path, toml_body)` pairs; the relative path is exactly what the
+/// manifest's `[workflows].files` list references, so the manifest builder and
+/// the disk writer agree on the file set.
+///
+/// De-duped by `action_name` (mirroring `materialize::build_actions`, which
+/// keeps the first of any sanitised collision) so a duplicate verb does not
+/// emit two same-named workflows.
+#[must_use]
+pub fn spec_workflow_files(spec: &CapabilitySpec) -> Vec<(String, String)> {
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+    spec.capabilities
+        .iter()
+        .filter(|cap| seen.insert(cap.action_name.clone()))
+        .map(|cap| {
+            (
+                format!("workflows/{}.workflow.toml", cap.action_name),
+                workflow_toml(&cap.action_name, &cap.intent),
+            )
+        })
+        .collect()
+}
+
+/// Render one minimal `.workflow.toml`, schema-matching the receptionist
+/// reference shape: `schema_version` + `[workflow]` + two ordered `tool_call`
+/// `[[step]]`s. `name` is a sanitised `action_name` slug (safe to embed
+/// unescaped); the free-text `intent` is truncated to the manifest cap and
+/// TOML-basic-string-escaped.
+fn workflow_toml(action_name: &str, intent: &str) -> String {
+    let description = escape_toml_basic(&truncate_description(intent.trim()));
+    format!(
+        "schema_version = \"{ver}\"\n\n\
+         [workflow]\n\
+         name        = \"{name}\"\n\
+         description = \"{description}\"\n\n\
+         [[step]]\n\
+         name = \"read_manifest\"\n\
+         kind = \"tool_call\"\n\
+         tool = \"file_read\"\n\
+         args = {{ path = \"vertical.toml\" }}\n\n\
+         [[step]]\n\
+         name = \"read_anchor\"\n\
+         kind = \"tool_call\"\n\
+         tool = \"file_read\"\n\
+         args = {{ path = \"prompts/system.md\" }}\n\
+         depends_on = [\"read_manifest\"]\n",
+        ver = WORKFLOW_SCHEMA_VERSION,
+        name = action_name,
+    )
+}
+
+/// Escape a string for a TOML basic (double-quoted) string literal.
+fn escape_toml_basic(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    for ch in raw.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04X}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// Write the generated smoke workflows under `<dir>/workflows/`. Each emitted
+/// TOML is round-tripped through [`argo_vertical::parse_workflow`] BEFORE it
+/// touches disk — fail-closed, so a workflow that won't validate aborts the
+/// whole materialization rather than shipping an unloadable file.
+fn write_spec_workflows(dir: &Path, spec: &CapabilitySpec) -> Result<(), GenesisError> {
+    let files = spec_workflow_files(spec);
+    if files.is_empty() {
+        return Ok(());
+    }
+    let workflows_dir = dir.join("workflows");
+    std::fs::create_dir_all(&workflows_dir).map_err(|e| GenesisError::Io {
+        what: "materialize.workflows.dir.create",
+        source: e,
+    })?;
+    for (rel, body) in &files {
+        argo_vertical::parse_workflow(body).map_err(|e| GenesisError::Validation {
+            stage: "materialize.workflow",
+            detail: format!("emitted {rel} failed workflow validation: {e}"),
+        })?;
+        let file_name = rel.rsplit('/').next().unwrap_or(rel.as_str());
+        write(&workflows_dir.join(file_name), body)?;
+    }
     Ok(())
 }
 

@@ -50,6 +50,13 @@ fn novel_role_materializes_to_a_load_dir_valid_vertical() {
     assert!(manifest.tools.is_some(), "[tools] present");
     assert!(manifest.escalation.is_some(), "[escalation] present");
     assert!(!manifest.all_kpis().is_empty(), "KPIs present");
+    // C1: the manifest declares one smoke workflow per primary duty.
+    let workflows = manifest.workflows.as_ref().expect("[workflows] present");
+    assert_eq!(workflows.files.len(), actions.actions.len());
+    assert!(workflows
+        .files
+        .iter()
+        .all(|f| f.starts_with("workflows/") && f.ends_with(".workflow.toml")));
 
     // Round-trip through the REAL loader and assert zero LoadErrors.
     let dir = tempfile::tempdir().expect("tempdir");
@@ -65,6 +72,13 @@ fn novel_role_materializes_to_a_load_dir_valid_vertical() {
         "eval/seed.jsonl",
     ] {
         assert!(out.join(rel).exists(), "missing {rel}");
+    }
+    // Each declared workflow file is on disk and validates against the loader.
+    for rel in &workflows.files {
+        let path = out.join(rel);
+        assert!(path.exists(), "missing workflow {rel}");
+        let body = std::fs::read_to_string(&path).expect("read workflow");
+        argo_vertical::parse_workflow(&body).expect("on-disk workflow validates");
     }
     let (registry, errors) = argo_vertical::load_dir(dir.path()).expect("load_dir");
     assert!(errors.is_empty(), "load errors for novel role: {errors:?}");
