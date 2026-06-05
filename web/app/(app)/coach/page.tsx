@@ -147,7 +147,7 @@ export default function CoachPage() {
           margin: 0 auto;
           padding: 48px 24px 80px;
           font-family: "Inter", system-ui, sans-serif;
-          color: #1e1b4b;
+          color: var(--foreground);
         }
         .head {
           text-align: center;
@@ -176,7 +176,7 @@ export default function CoachPage() {
         }
         .tag {
           font-size: 17px;
-          color: #4b5563;
+          color: var(--muted-foreground);
           margin: 0;
         }
         .modes {
@@ -186,9 +186,9 @@ export default function CoachPage() {
           margin-bottom: 28px;
         }
         .mode {
-          border: 1px solid #e5e7eb;
-          background: #fff;
-          color: #4b5563;
+          border: 1px solid var(--border);
+          background: var(--card);
+          color: var(--muted-foreground);
           padding: 10px 18px;
           border-radius: 999px;
           font-size: 14px;
@@ -209,8 +209,8 @@ export default function CoachPage() {
           cursor: not-allowed;
         }
         .panel {
-          background: #fff;
-          border: 1px solid #eee;
+          background: var(--card);
+          border: 1px solid var(--border);
           border-radius: 20px;
           padding: 28px;
           box-shadow: 0 8px 40px rgba(139, 92, 246, 0.08);
@@ -238,7 +238,7 @@ export default function CoachPage() {
         .status {
           font-size: 13px;
           font-weight: 600;
-          color: #6b7280;
+          color: var(--muted-foreground);
         }
         .status.live {
           color: #ec4899;
@@ -274,27 +274,27 @@ export default function CoachPage() {
           text-transform: uppercase;
         }
         .line.user .who {
-          color: #6b7280;
+          color: var(--muted-foreground);
         }
         .line .said {
-          color: #1e1b4b;
+          color: var(--foreground);
         }
         .line.live .said {
-          color: #6b7280;
+          color: var(--muted-foreground);
           font-style: italic;
         }
         .boundary {
           margin: 24px 0 0;
           font-size: 12.5px;
           line-height: 1.5;
-          color: #6b7280;
-          border-top: 1px solid #f3f4f6;
+          color: var(--muted-foreground);
+          border-top: 1px solid var(--border);
           padding-top: 16px;
         }
         .note {
           margin: 0;
           font-size: 15px;
-          color: #4b5563;
+          color: var(--muted-foreground);
           line-height: 1.6;
         }
       `}</style>

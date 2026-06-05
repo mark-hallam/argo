@@ -15,7 +15,7 @@ export function PitchStyles() {
       .pitch-page-bg {
         position: relative;
         min-height: calc(100vh - 64px);
-        background: #fafaff;
+        background: var(--background);
         overflow: hidden;
       }
       .pitch-page-bg::before {
@@ -53,7 +53,7 @@ export function PitchStyles() {
         flex-direction: column;
         gap: 12px;
         padding: 18px;
-        background: white;
+        background: var(--card);
         border: 1px solid rgba(139, 92, 246, 0.18);
         border-radius: 16px;
         box-shadow: 0 12px 36px -22px rgba(76, 29, 149, 0.35);
@@ -63,13 +63,13 @@ export function PitchStyles() {
         min-height: 96px;
         resize: vertical;
         padding: 14px 16px;
-        border: 1px solid rgba(15, 23, 42, 0.12);
+        border: 1px solid var(--border);
         border-radius: 12px;
         font-family: "Inter", sans-serif;
         font-size: 15px;
         line-height: 1.5;
-        color: #1e1b4b;
-        background: #fdfcff;
+        color: var(--foreground);
+        background: var(--card);
         outline: none;
       }
       .pitch-input:focus {
@@ -87,7 +87,7 @@ export function PitchStyles() {
         font-size: 11px;
         letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: rgba(30, 27, 75, 0.55);
+        color: var(--muted-foreground);
       }
       .pitch-submit {
         display: inline-flex;
@@ -121,7 +121,7 @@ export function PitchStyles() {
         padding: 10px 16px;
         border-radius: 12px;
         border: 1px solid rgba(139, 92, 246, 0.4);
-        background: white;
+        background: var(--card);
         color: #5b21b6;
         font-family: "Inter", sans-serif;
         font-size: 14px;
@@ -181,9 +181,9 @@ export function PitchStyles() {
         margin: 20px 0;
         padding: 22px;
         border-radius: 14px;
-        background: rgba(255, 255, 255, 0.7);
+        background: var(--card);
         border: 1px dashed rgba(139, 92, 246, 0.32);
-        color: rgba(30, 27, 75, 0.7);
+        color: var(--muted-foreground);
         text-align: center;
         font-family: "Inter", sans-serif;
         font-size: 14px;
@@ -194,7 +194,7 @@ export function PitchStyles() {
         font-family: "Inter", sans-serif;
         font-size: 15px;
         line-height: 1.5;
-        color: #1e1b4b;
+        color: var(--foreground);
       }
       .pitch-msg.is-operator {
         background: linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(236, 72, 153, 0.92));
@@ -204,8 +204,8 @@ export function PitchStyles() {
         box-shadow: 0 10px 28px -18px rgba(139, 92, 246, 0.7);
       }
       .pitch-msg.is-agent {
-        background: white;
-        border: 1px solid rgba(15, 23, 42, 0.08);
+        background: var(--card);
+        border: 1px solid var(--border);
         align-self: flex-start;
         max-width: 92%;
         box-shadow: 0 8px 24px -20px rgba(15, 23, 42, 0.3);
@@ -264,7 +264,7 @@ export function PitchStyles() {
       }
       .pitch-pill.is-latency {
         background: rgba(15, 23, 42, 0.05);
-        color: rgba(30, 27, 75, 0.7);
+        color: var(--muted-foreground);
         text-transform: none;
         letter-spacing: 0.04em;
       }
@@ -288,7 +288,7 @@ export function PitchStyles() {
       }
       .pitch-pill.is-tokens {
         background: rgba(15, 23, 42, 0.04);
-        color: rgba(30, 27, 75, 0.6);
+        color: var(--muted-foreground);
         text-transform: none;
         letter-spacing: 0.04em;
         font-variant-numeric: tabular-nums;

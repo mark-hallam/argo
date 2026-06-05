@@ -77,9 +77,9 @@ export function HeroInput({ value, onChange, onSubmit, isBusy }: HeroInputProps)
           font-family: "Inter", sans-serif;
           font-size: 17px;
           line-height: 1.5;
-          color: #1e1b4b;
-          background: rgba(255, 255, 255, 0.96);
-          border: 1.5px solid #ece9f5;
+          color: var(--foreground);
+          background: var(--card);
+          border: 1.5px solid var(--border);
           border-radius: 16px;
           resize: vertical;
           outline: none;
@@ -87,7 +87,7 @@ export function HeroInput({ value, onChange, onSubmit, isBusy }: HeroInputProps)
           transition: border-color 0.15s, box-shadow 0.15s;
         }
         .gen-hero-textarea::placeholder {
-          color: #a1a1aa;
+          color: var(--muted-foreground);
           font-weight: 400;
         }
         .gen-hero-textarea:focus {

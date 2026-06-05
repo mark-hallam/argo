@@ -155,7 +155,7 @@ export function InstallPrompt(): React.ReactElement | null {
           right: 12px;
           bottom: 12px;
           z-index: 9999;
-          background: white;
+          background: var(--card);
           border: 1px solid rgba(139, 92, 246, 0.18);
           border-radius: 14px;
           box-shadow: 0 12px 32px -8px rgba(30, 27, 75, 0.25);

@@ -105,7 +105,7 @@ export default function MarketingPage() {
         .mk-page-bg {
           position: relative;
           min-height: calc(100vh - 64px);
-          background: #fafaff;
+          background: var(--background);
           overflow: hidden;
         }
         .mk-page-bg::before {
@@ -143,7 +143,7 @@ export default function MarketingPage() {
           flex-direction: column;
           gap: 14px;
           padding: 18px;
-          background: white;
+          background: var(--card);
           border: 1px solid rgba(139, 92, 246, 0.18);
           border-radius: 16px;
           box-shadow: 0 12px 36px -22px rgba(76, 29, 149, 0.35);
@@ -163,7 +163,7 @@ export default function MarketingPage() {
           font-size: 11px;
           letter-spacing: 0.12em;
           text-transform: uppercase;
-          color: rgba(30, 27, 75, 0.55);
+          color: var(--muted-foreground);
         }
         .mk-segmented {
           display: inline-flex;
@@ -183,7 +183,7 @@ export default function MarketingPage() {
           font-family: "Inter", sans-serif;
           font-size: 13px;
           font-weight: 600;
-          color: rgba(30, 27, 75, 0.6);
+          color: var(--muted-foreground);
           cursor: pointer;
         }
         .mk-seg svg {
@@ -191,7 +191,7 @@ export default function MarketingPage() {
           height: 14px;
         }
         .mk-seg.is-active {
-          background: white;
+          background: var(--card);
           color: #5b21b6;
           box-shadow: 0 4px 12px -6px rgba(76, 29, 149, 0.4);
         }
@@ -204,20 +204,20 @@ export default function MarketingPage() {
           font-size: 11px;
           letter-spacing: 0.12em;
           text-transform: uppercase;
-          color: rgba(30, 27, 75, 0.55);
+          color: var(--muted-foreground);
           margin-bottom: 4px;
           display: block;
         }
         .mk-field {
           width: 100%;
           padding: 12px 14px;
-          border: 1px solid rgba(15, 23, 42, 0.12);
+          border: 1px solid var(--border);
           border-radius: 12px;
           font-family: "Inter", sans-serif;
           font-size: 15px;
           line-height: 1.5;
-          color: #1e1b4b;
-          background: #fdfcff;
+          color: var(--foreground);
+          background: var(--card);
           outline: none;
           min-height: 110px;
           resize: vertical;
@@ -235,7 +235,7 @@ export default function MarketingPage() {
         .mk-note {
           font-family: "Inter", sans-serif;
           font-size: 12px;
-          color: rgba(30, 27, 75, 0.5);
+          color: var(--muted-foreground);
         }
         .mk-submit {
           display: inline-flex;
@@ -259,8 +259,8 @@ export default function MarketingPage() {
         .mk-result {
           margin-top: 24px;
           padding: 18px;
-          background: white;
-          border: 1px solid rgba(15, 23, 42, 0.08);
+          background: var(--card);
+          border: 1px solid var(--border);
           border-radius: 16px;
           box-shadow: 0 10px 30px -22px rgba(15, 23, 42, 0.4);
         }
@@ -277,7 +277,7 @@ export default function MarketingPage() {
           font-family: "Inter", sans-serif;
           font-size: 15px;
           line-height: 1.6;
-          color: #1e1b4b;
+          color: var(--foreground);
         }
         .mk-filed {
           display: inline-flex;
@@ -343,7 +343,7 @@ export default function MarketingPage() {
         }
         .mk-pill.is-tokens {
           background: rgba(15, 23, 42, 0.04);
-          color: rgba(30, 27, 75, 0.6);
+          color: var(--muted-foreground);
           font-variant-numeric: tabular-nums;
         }
         .mk-error-panel {

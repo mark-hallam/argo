@@ -98,7 +98,7 @@ export default function GtmPage() {
         .gtm-page-bg {
           position: relative;
           min-height: calc(100vh - 64px);
-          background: #fafaff;
+          background: var(--background);
           overflow: hidden;
         }
         .gtm-page-bg::before {
@@ -136,7 +136,7 @@ export default function GtmPage() {
           flex-direction: column;
           gap: 12px;
           padding: 18px;
-          background: white;
+          background: var(--card);
           border: 1px solid rgba(139, 92, 246, 0.18);
           border-radius: 16px;
           box-shadow: 0 12px 36px -22px rgba(76, 29, 149, 0.35);
@@ -146,20 +146,20 @@ export default function GtmPage() {
           font-size: 11px;
           letter-spacing: 0.12em;
           text-transform: uppercase;
-          color: rgba(30, 27, 75, 0.55);
+          color: var(--muted-foreground);
           margin-bottom: 4px;
           display: block;
         }
         .gtm-field {
           width: 100%;
           padding: 12px 14px;
-          border: 1px solid rgba(15, 23, 42, 0.12);
+          border: 1px solid var(--border);
           border-radius: 12px;
           font-family: "Inter", sans-serif;
           font-size: 15px;
           line-height: 1.5;
-          color: #1e1b4b;
-          background: #fdfcff;
+          color: var(--foreground);
+          background: var(--card);
           outline: none;
         }
         .gtm-field:focus {
@@ -205,8 +205,8 @@ export default function GtmPage() {
         .gtm-result {
           margin-top: 24px;
           padding: 18px;
-          background: white;
-          border: 1px solid rgba(15, 23, 42, 0.08);
+          background: var(--card);
+          border: 1px solid var(--border);
           border-radius: 16px;
           box-shadow: 0 10px 30px -22px rgba(15, 23, 42, 0.4);
         }
@@ -220,7 +220,7 @@ export default function GtmPage() {
         .gtm-qual {
           margin-bottom: 14px;
           padding-bottom: 14px;
-          border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+          border-bottom: 1px solid var(--border);
         }
         .gtm-qual-head {
           display: flex;
@@ -254,7 +254,7 @@ export default function GtmPage() {
         .gtm-qual-rationale {
           font-family: "Inter", sans-serif;
           font-size: 13px;
-          color: rgba(30, 27, 75, 0.75);
+          color: var(--foreground);
         }
         .gtm-signals {
           display: flex;
@@ -279,7 +279,7 @@ export default function GtmPage() {
           font-family: "Inter", sans-serif;
           font-size: 15px;
           line-height: 1.6;
-          color: #1e1b4b;
+          color: var(--foreground);
         }
         .gtm-filed {
           display: inline-flex;
@@ -339,7 +339,7 @@ export default function GtmPage() {
         }
         .gtm-pill.is-tokens {
           background: rgba(15, 23, 42, 0.04);
-          color: rgba(30, 27, 75, 0.6);
+          color: var(--muted-foreground);
           font-variant-numeric: tabular-nums;
         }
         .gtm-error-panel {

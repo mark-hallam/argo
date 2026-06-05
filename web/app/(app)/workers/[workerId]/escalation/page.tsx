@@ -235,7 +235,7 @@ function CurrentRulesCard({
     <div data-testid="escalation-current-rules">
       <style jsx>{`
         .erc-card {
-          background: white;
+          background: var(--card);
           border: 1px solid var(--border, #ece9f5);
           border-radius: 14px;
           padding: 22px;
@@ -319,7 +319,7 @@ function HistoryCard({ entries }: { entries: EscalationHistoryEntry[] }) {
     <div data-testid="escalation-history">
       <style jsx>{`
         .eh-card {
-          background: white;
+          background: var(--card);
           border: 1px solid var(--border, #ece9f5);
           border-radius: 14px;
           padding: 22px;

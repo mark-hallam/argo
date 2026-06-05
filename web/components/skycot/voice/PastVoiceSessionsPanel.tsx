@@ -127,14 +127,14 @@ export function PastVoiceSessionsPanel({
 
       <style jsx>{`
         .past {
-          background: #fff;
-          border: 1px solid #eee;
+          background: var(--card);
+          border: 1px solid var(--border);
           border-radius: 20px;
           padding: 24px 28px;
           box-shadow: 0 8px 40px rgba(139, 92, 246, 0.08);
           margin-top: 20px;
           font-family: "Inter", system-ui, sans-serif;
-          color: #1e1b4b;
+          color: var(--foreground);
         }
         .phead {
           display: flex;
@@ -146,12 +146,12 @@ export function PastVoiceSessionsPanel({
           font-size: 16px;
           font-weight: 700;
           margin: 0;
-          color: #1e1b4b;
+          color: var(--foreground);
         }
         .refresh {
-          border: 1px solid #e5e7eb;
-          background: #fff;
-          color: #6b7280;
+          border: 1px solid var(--border);
+          background: var(--card);
+          color: var(--muted-foreground);
           padding: 6px 14px;
           border-radius: 999px;
           font-size: 12px;
@@ -171,7 +171,7 @@ export function PastVoiceSessionsPanel({
           margin: 16px 0 0;
           font-size: 14px;
           line-height: 1.6;
-          color: #6b7280;
+          color: var(--muted-foreground);
         }
         .pnote.err {
           color: #b91c1c;
@@ -184,7 +184,7 @@ export function PastVoiceSessionsPanel({
           gap: 10px;
         }
         .srow {
-          border: 1px solid #f3f4f6;
+          border: 1px solid var(--border);
           border-radius: 14px;
           overflow: hidden;
           transition: border-color 0.15s;
@@ -199,13 +199,13 @@ export function PastVoiceSessionsPanel({
           align-items: center;
           gap: 14px;
           padding: 14px 16px;
-          background: #fff;
+          background: var(--card);
           border: none;
           cursor: pointer;
           text-align: left;
         }
         .ssum:hover {
-          background: #faf5ff;
+          background: var(--muted);
         }
         .meta {
           display: flex;
@@ -221,12 +221,12 @@ export function PastVoiceSessionsPanel({
         }
         .count {
           font-size: 11px;
-          color: #9ca3af;
+          color: var(--muted-foreground);
           white-space: nowrap;
         }
         .preview {
           font-size: 14px;
-          color: #4b5563;
+          color: var(--muted-foreground);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -241,8 +241,8 @@ export function PastVoiceSessionsPanel({
           margin: 0;
           display: grid;
           gap: 12px;
-          border-top: 1px solid #f3f4f6;
-          background: #fcfaff;
+          border-top: 1px solid var(--border);
+          background: var(--muted);
         }
         .line {
           display: grid;
@@ -258,10 +258,10 @@ export function PastVoiceSessionsPanel({
           text-transform: uppercase;
         }
         .line.user .who {
-          color: #6b7280;
+          color: var(--muted-foreground);
         }
         .line .said {
-          color: #1e1b4b;
+          color: var(--foreground);
           line-height: 1.5;
         }
       `}</style>

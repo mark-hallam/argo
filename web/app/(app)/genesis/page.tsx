@@ -219,7 +219,7 @@ export default function GenesisPage() {
         .gen-page-bg {
           position: relative;
           min-height: calc(100vh - 64px);
-          background: #fafaff;
+          background: var(--background);
           overflow: hidden;
         }
         .gen-page-bg::before {
