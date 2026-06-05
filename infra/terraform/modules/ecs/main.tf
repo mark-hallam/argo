@@ -52,12 +52,22 @@ locals {
     }
   ]
 
-  container_env = [
+  # When fronted by Cloudflare, trust the X-Forwarded-For hop so the gateway's
+  # per-IP rate limiter (argo-config [gateway.rate_limit.ip], read via
+  # ARGO_TRUST_XFF in loader.rs) keys on the real client IP, not Cloudflare's
+  # edge IP. SAFE ONLY because the ALB SG restricts ingress to Cloudflare ranges
+  # (front_with_cloudflare in the alb module) — otherwise XFF would be spoofable.
+  proxy_env = var.trust_xff ? [
+    { name = "ARGO_TRUST_XFF", value = "1" },
+    { name = "ARGO_IP_RATE_LIMIT", value = "1" },
+  ] : []
+
+  container_env = concat([
     # ARGO_GATEWAY_PROFILE=production forces auth_bypass=false in routes_auth.rs.
     { name = "ARGO_GATEWAY_PROFILE", value = "production" },
     { name = "ARGO_HOME", value = "/data" },
     { name = "RUST_LOG", value = "info" },
-  ]
+  ], local.proxy_env)
 
   container_def = [{
     name      = "argo"

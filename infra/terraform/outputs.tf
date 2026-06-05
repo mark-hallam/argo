@@ -47,3 +47,8 @@ output "ecs_service_name" {
   description = "Name of the ECS service. Use for force-new-deployment on image rollout."
   value       = module.ecs.service_name
 }
+
+output "alerts_sns_topic_arn" {
+  description = "SNS topic the CloudWatch alarms publish to. Subscribe Slack/PagerDuty/email."
+  value       = module.observability.sns_topic_arn
+}

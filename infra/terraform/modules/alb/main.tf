@@ -1,30 +1,35 @@
+# When front_with_cloudflare = true, restrict ingress to Cloudflare's ranges so
+# the origin can't be hit directly (DDoS/scraping protection) AND the gateway can
+# safely trust X-Forwarded-For for per-IP rate limiting. Else open to the internet.
+locals {
+  alb_ingress_v4 = var.front_with_cloudflare ? var.cloudflare_ipv4_cidrs : ["0.0.0.0/0"]
+  alb_ingress_v6 = var.front_with_cloudflare ? var.cloudflare_ipv6_cidrs : ["::/0"]
+}
+
 resource "aws_security_group" "alb" {
   name        = "${var.name_prefix}-alb-sg"
-  description = "ALB — public ingress on 80 and 443."
+  description = "ALB — public ingress on 80 and 443 (Cloudflare-only when front_with_cloudflare)."
   vpc_id      = var.vpc_id
 
-  ingress {
-    description = "HTTPS from the internet"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "HTTP from the internet (redirected to HTTPS at the listener)"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  dynamic "ingress" {
+    for_each = toset([80, 443])
+    content {
+      description      = "HTTP(S) ingress on ${ingress.value}"
+      from_port        = ingress.value
+      to_port          = ingress.value
+      protocol         = "tcp"
+      cidr_blocks      = local.alb_ingress_v4
+      ipv6_cidr_blocks = local.alb_ingress_v6
+    }
   }
 
   egress {
-    description = "Forward to the service in private subnets"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    description      = "Forward to the service in private subnets"
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
   }
 
   tags = {

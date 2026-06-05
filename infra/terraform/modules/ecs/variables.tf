@@ -83,3 +83,9 @@ variable "container_port" {
   type        = number
   default     = 8080
 }
+
+variable "trust_xff" {
+  description = "When true, inject ARGO_TRUST_XFF=1 so the gateway's per-IP limiter keys on the real client IP behind Cloudflare. Set together with the alb module's front_with_cloudflare (which makes XFF non-spoofable)."
+  type        = bool
+  default     = false
+}

@@ -69,6 +69,18 @@ variable "route53_zone_id" {
   default     = ""
 }
 
+variable "front_with_cloudflare" {
+  description = "When true (the operative posture once api.skycot.com is proxied through Cloudflare): the ALB SG accepts 80/443 only from Cloudflare's IP ranges, AND the gateway gets ARGO_TRUST_XFF=1 so its per-IP rate limiter keys on the real client IP. Set false during initial bring-up (before DNS is on Cloudflare) so the ALB is directly reachable for smoke tests."
+  type        = bool
+  default     = false
+}
+
+variable "alert_email" {
+  description = "Optional email subscribed to the CloudWatch-alarm SNS topic. Empty = topic created with no subscription (operator wires Slack/PagerDuty later)."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Extra tags merged onto every resource."
   type        = map(string)

@@ -231,9 +231,30 @@ the Fly.io v4/v6 per `deploy/dns/cloudflare-records.tf`):
 1. **DNS → Records → Edit `api.skycot.com`**.
 2. Change to **CNAME** → the ALB DNS name above. Proxy = **ON** (orange cloud —
    gives DDoS + bot-management + WAF; WS5-4 hardens further). TTL = Auto.
-3. Save.
+3. Save. (Or apply `deploy/dns/` with `-var alb_dns_name=<ALB>` — see its README.)
 
 Wait a minute for the Cloudflare cache.
+
+### 7a. Lock the origin to Cloudflare + trust XFF (operator runs, after DNS is live)
+
+Once traffic flows through Cloudflare, flip `front_with_cloudflare = true` and
+re-apply. This (a) restricts the ALB SG to Cloudflare's IP ranges so the origin
+can't be hit directly, and (b) sets `ARGO_TRUST_XFF=1` so the gateway's per-IP
+rate limiter keys on the **real client IP** instead of Cloudflare's edge IP
+(without this, WS5-4's per-IP limits are useless — all traffic looks like ~15
+Cloudflare IPs).
+
+```sh
+echo 'front_with_cloudflare = true' >> terraform.tfvars
+terraform apply
+aws ecs update-service \
+  --cluster $(terraform output -raw ecs_cluster_name) \
+  --service $(terraform output -raw ecs_service_name) \
+  --force-new-deployment   # pick up ARGO_TRUST_XFF
+```
+
+Keep it `false` during initial bring-up (this step's smoke test hits the ALB
+directly, before DNS is on Cloudflare).
 
 ## 8. Smoke test (operator verifies)
 

@@ -10,8 +10,14 @@ Provisions:
 - HTTPS:443 listener forwarding to the target group, using TLS-1.3 minimum
   (`ELBSecurityPolicy-TLS13-1-2-2021-06`).
 - HTTP:80 listener that 301-redirects to HTTPS.
-- ALB security group (ingress 80+443 from `0.0.0.0/0`) and service security group
-  (ingress on the container port only from the ALB SG).
+- ALB security group and service security group (ingress on the container port only
+  from the ALB SG).
+  - **`front_with_cloudflare = false` (default):** ALB ingress 80+443 from `0.0.0.0/0` + `::/0`.
+  - **`front_with_cloudflare = true`:** ALB ingress 80+443 from Cloudflare's published IP
+    ranges only (`cloudflare_ipv4_cidrs` / `cloudflare_ipv6_cidrs`). Blocks direct-to-origin
+    hits AND makes `X-Forwarded-For` trustworthy so the gateway's per-IP limiter
+    (`ARGO_TRUST_XFF`, set by the ecs module) keys on the real client IP. Flip this on after
+    `api.skycot.com` is proxied through Cloudflare (runbook §7a).
 
 ## ACM validation
 

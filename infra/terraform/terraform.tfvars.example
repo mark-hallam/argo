@@ -19,6 +19,15 @@ domain_name = "api.skycot.com"
 # manages api.skycot.com — the IaC will then create the ACM validation record.
 # route53_zone_id = "Z0123456789ABCDEFGHIJ"
 
+# Flip to true AFTER api.skycot.com is proxied through Cloudflare (runbook §7a):
+# restricts the ALB to Cloudflare IPs + sets ARGO_TRUST_XFF=1 so the per-IP rate
+# limiter sees the real client IP. Keep false during initial bring-up.
+# front_with_cloudflare = true
+
+# Email to subscribe to the CloudWatch-alarm SNS topic (needs confirmation).
+# Leave unset to create the topic without a subscription (wire Slack/PagerDuty later).
+# alert_email = "ops@skycot.com"
+
 tags = {
   Owner   = "skycot-ops"
   CostCenter = "skycot-mvp"

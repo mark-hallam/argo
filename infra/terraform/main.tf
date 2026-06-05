@@ -77,11 +77,12 @@ module "iam" {
 module "alb" {
   source = "./modules/alb"
 
-  name_prefix     = local.name_prefix
-  vpc_id          = module.network.vpc_id
-  public_subnets  = module.network.public_subnet_ids
-  domain_name     = var.domain_name
-  route53_zone_id = var.route53_zone_id
+  name_prefix           = local.name_prefix
+  vpc_id                = module.network.vpc_id
+  public_subnets        = module.network.public_subnet_ids
+  domain_name           = var.domain_name
+  route53_zone_id       = var.route53_zone_id
+  front_with_cloudflare = var.front_with_cloudflare
 }
 
 module "ecs" {
@@ -103,4 +104,16 @@ module "ecs" {
   efs_file_system_id  = module.efs.file_system_id
   efs_access_point_id = module.efs.access_point_id
   secret_arns         = module.secrets.secret_arns
+  trust_xff           = var.front_with_cloudflare
+}
+
+module "observability" {
+  source = "./modules/observability"
+
+  name_prefix             = local.name_prefix
+  alert_email             = var.alert_email
+  alb_arn_suffix          = module.alb.alb_arn_suffix
+  target_group_arn_suffix = module.alb.target_group_arn_suffix
+  cluster_name            = module.ecs.cluster_name
+  service_name            = module.ecs.service_name
 }
