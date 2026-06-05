@@ -221,6 +221,12 @@ async fn api_v1_dispatch(
     if req.starts_with("POST /api/v1/genesis/classify ") {
         return Some(super::routes_genesis::classify_response(req, store).await);
     }
+    // uf-genesis-conversation-layer — additive multi-turn "Talk it through"
+    // intake (DEC-039). Each POST is one conversation turn; state persists
+    // per-tenant between turns. Converges on the SAME materialize → hire path.
+    if req.starts_with("POST /api/v1/genesis/conversation ") {
+        return Some(super::routes_genesis_intake_conversation::respond(req, store).await);
+    }
     // pitch-agent-rehearsal-ui-and-gateway — operator-facing Pitch
     // Agent endpoint. Deterministic canonical-Q&A + truth-boundary
     // evaluation; same code path the 111-case pitch-eval suite proves.

@@ -249,6 +249,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/api/v1/demo/mint-principal", "mint a demo principal cookie for the v1 demo"),
         ("POST", "/api/v1/genesis/classify", "classify a plain-English role description for Genesis"),
         ("POST", "/api/v1/genesis/draft-worker", "draft a worker_draft from a Genesis classification"),
+        ("POST", "/api/v1/genesis/conversation", "one turn of the multi-turn 'Talk it through' Genesis intake"),
         ("GET", "/api/v1/me/export/<id>", "fetch a personal-data export by id"),
         ("POST", "/api/v1/me/export", "request a personal-data export"),
         ("POST", "/api/v1/audit/<id>/replay", "replay an audit-row's tool dispatch in a fresh session"),

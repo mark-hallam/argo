@@ -51,6 +51,9 @@ pub mod hire_gate;
 pub mod hire_gate_contract;
 pub mod hire_gate_disk;
 pub mod hire_gate_rubric;
+pub mod intake_llm;
+pub mod intake_machine;
+pub mod intake_store;
 pub mod job_description;
 pub mod manifest_writer;
 pub mod materialize;
@@ -104,6 +107,13 @@ pub use hire_gate::{
 pub use hire_gate_contract::{ContractConfirmation, ContractGateInput};
 pub use hire_gate_rubric::judge_input_for_plan;
 pub use hire_gate_disk::{gate_inputs_from_dir, DiskGateInputs};
+pub use intake_llm::{
+    build_extract_prompt, build_question_prompt, extract_delta, propose_question, IntakeClient,
+};
+pub use intake_machine::{
+    IntakeSlot, IntakeState, IntakeTurn, NextStep, SlotDelta, Speaker,
+};
+pub use intake_store::IntakeStore;
 pub use role_contract::{verify_contract_matches, ContractAction, RoleContract};
 pub use author::{apply_authored, author_teammate, build_author_prompt, AuthorClient, AuthoredTeammate};
 pub use rubric::{
