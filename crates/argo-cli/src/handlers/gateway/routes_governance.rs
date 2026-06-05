@@ -26,10 +26,14 @@
 //! source that is not readily countable is reported `null` with a `note`
 //! rather than fabricated.
 //!
-//! Tenant scope: an explicit `?tenant=<uuid>` pins the report to that
-//! tenant; without it the report resolves the workspace tenant from cwd
-//! the same way [`super::routes_workspace_settings`] does. A tenant with
-//! no rows returns a well-formed, clean report (no cross-tenant leak).
+//! Tenant scope flows through the canonical
+//! [`super::resolve_tenant::resolve_tenant_for_request`]: a signed-in
+//! user's `__Host-session` JWT tenant wins first (so an authenticated
+//! operator reads THEIR own readiness, not the cwd/demo tenant), then
+//! an explicit `?tenant=<uuid>` / `X-Tenant-Id` override on the
+//! no-session path (the auditor/buyer download path), then the
+//! cwd/anonymous fallback. A tenant with no rows returns a well-formed,
+//! clean report (no cross-tenant leak).
 //!
 //! Bearer auth is applied upstream by the GET dispatcher; this module is
 //! a pure read.
@@ -62,13 +66,38 @@ async fn readiness_response(
     let Some(store) = store else {
         return super::store_unavailable();
     };
-    let tenant = match resolve_tenant(req, store).await {
+    // Preserve the strict explicit-tenant contract from the pre-migration
+    // local resolver: a `?tenant=` present but not a well-formed UUID is a
+    // client error, NOT a silent fall-through to the cwd/demo tenant —
+    // which would hand an auditor the wrong tenant's report. The canonical
+    // resolver tolerates a malformed override by ignoring it, so we reject
+    // it up front here before delegating resolution.
+    if let Some(resp) = reject_malformed_tenant_query(req) {
+        return resp;
+    }
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t,
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
     match build_report(store, tenant).await {
         Ok(report) => ("200 OK", report.to_string()),
         Err(e) => server_error(&format!("governance report: {e}")),
+    }
+}
+
+/// If the request carries an explicit `?tenant=<value>` whose value is
+/// not a valid UUID, return the error envelope (matching the
+/// pre-migration `resolve_tenant` contract). `None` when the query is
+/// absent or well-formed — resolution then flows through the canonical
+/// [`super::resolve_tenant::resolve_tenant_for_request`].
+fn reject_malformed_tenant_query(req: &str) -> Option<(&'static str, String)> {
+    let tail = req.strip_prefix("GET ").unwrap_or(req);
+    let raw = super::routes_query::parse_query_kv(tail, "tenant")?;
+    match Uuid::parse_str(&raw) {
+        Ok(_) => None,
+        Err(e) => Some(server_error(&format!(
+            "resolve tenant: invalid tenant id '{raw}': {e}"
+        ))),
     }
 }
 
@@ -227,29 +256,6 @@ fn truth_boundary_summary(tenant: TenantId) -> Value {
             "note": format!("truth-boundary policy failed to load: {e}"),
         }),
     }
-}
-
-/// Resolve the report's target tenant. An explicit `?tenant=<uuid>`
-/// query pins it to that tenant (the buyer/auditor download path); a
-/// malformed value is a 400-worthy error surfaced by the caller. Absent
-/// the query, the workspace tenant is resolved from cwd exactly as
-/// [`super::routes_workspace_settings::resolve_workspace_tenant`] does,
-/// so an unscoped call reports the operator's own workspace.
-async fn resolve_tenant(req: &str, store: &SessionStore) -> ArgoResult<TenantId> {
-    let tail = req.strip_prefix("GET ").unwrap_or(req);
-    if let Some(raw) = super::routes_query::parse_query_kv(tail, "tenant") {
-        let uuid = Uuid::parse_str(&raw)
-            .map_err(|e| ArgoError::Schema(format!("invalid tenant id '{raw}': {e}")))?;
-        return Ok(TenantId(uuid));
-    }
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
 }
 
 fn server_error(message: &str) -> (&'static str, String) {

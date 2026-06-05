@@ -4,9 +4,11 @@
 //! The webhook is mounted ahead of the bearer-token gate in
 //! `routes.rs` because Stripe authenticates via the `Stripe-Signature`
 //! HMAC header, not the operator bearer. Checkout + portal sit inside
-//! the bearer-gated POST funnel and resolve the active tenant from the
-//! workspace cwd, matching the convention used by the J11 worker
-//! settings handlers + `usage_endpoint`.
+//! the bearer-gated POST funnel and resolve the active tenant via the
+//! canonical `resolve_tenant::resolve_tenant_for_request` (JWT-session
+//! tenant first, then explicit override, then cwd) so a signed-in
+//! user's checkout/usage is scoped to THEIR tenant, not the cwd/demo
+//! tenant — matching `usage_endpoint` and the WS1 keystone (#2676).
 
 use super::role_gate::{enforce_role, Action};
 use argo_billing::{
@@ -20,7 +22,7 @@ use argo_billing::{
     StripeClient,
 };
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, TenantId};
+use argo_types::TenantId;
 use chrono::Utc;
 use serde::Deserialize;
 use serde_json::json;
@@ -47,7 +49,7 @@ pub(super) async fn checkout_response(
         Ok(c) => c,
         Err(e) => return server_error(&format!("stripe client: {e}")),
     };
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t,
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -92,7 +94,7 @@ pub(super) async fn portal_response(
         Ok(c) => c,
         Err(e) => return server_error(&format!("stripe client: {e}")),
     };
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t,
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -186,18 +188,6 @@ pub(super) async fn webhook_response(
             }
         }
     }
-}
-
-async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
 }
 
 fn header_value<'a>(req: &'a str, name: &str) -> Option<&'a str> {

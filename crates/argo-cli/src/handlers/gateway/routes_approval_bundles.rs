@@ -12,8 +12,11 @@
 //!   members are skipped (surfaced via `members_skipped`).
 //!
 //! Bearer auth + principal-header parse run upstream in
-//! `dispatch_post`. Tenant scoping is workspace-derived (single
-//! tenant per workspace).
+//! `dispatch_post`. Tenant scoping flows through the canonical
+//! `resolve_tenant::resolve_tenant_for_request` (JWT-session tenant
+//! first, then explicit override, then cwd) so a signed-in user's
+//! bundles are scoped to THEIR tenant, not the cwd/demo tenant —
+//! matching the WS1 keystone (#2676).
 
 use super::body_from_request;
 use super::routes_auth_principal::principal_id_for_audit;
@@ -24,7 +27,7 @@ use argo_store::approval_bundle::{
     BundleStatus, NewBundle,
 };
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, TenantId, WorkspaceId};
+use argo_types::{ArgoResult, WorkspaceId};
 use serde_json::{json, Value};
 use std::sync::Arc;
 
@@ -52,7 +55,7 @@ pub(super) async fn list_response(
         Ok(n) => n,
         Err(resp) => return resp,
     };
-    let (tenant, _ws) = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t,
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -87,7 +90,7 @@ pub(super) async fn create_response(
         Ok(v) => v,
         Err(msg) => return bad_request(&msg),
     };
-    let (tenant, _ws) = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t,
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -278,16 +281,6 @@ fn parse_members(value: Option<&Value>) -> Result<Vec<String>, String> {
         out.push(s.to_string());
     }
     Ok(out)
-}
-
-async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<(TenantId, WorkspaceId)> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    store.ensure_workspace(name, &root).await
 }
 
 fn parse_limit(tail: &str) -> Result<u32, (&'static str, String)> {
