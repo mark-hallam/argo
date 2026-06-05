@@ -224,17 +224,21 @@ impl CapabilitySpec {
     /// escalation set is the union of every approval-gated action.
     #[must_use]
     pub fn from_broad_draft(draft: BroadRoleDraft, nearest_archetype: Archetype) -> Self {
-        // Derive a short role descriptor once so every capability's
-        // description is anchored in the teammate's ACTUAL role (DEC-025 #7:
-        // the deterministic eval floor must validate a real teammate, not the
-        // presence of a boilerplate token).
-        let role_descriptor = role_descriptor(&draft);
+        // Each capability gets a grammatical last-resort description anchored
+        // in its own action verb. This is ONLY the fallback floor — the LLM
+        // authoring pass (`author::apply_authored`) overwrites each `intent`
+        // with a specific, role-aware one-liner when it runs, and
+        // `GenesisPlan::sync_action_descriptions_from_spec` plumbs that authored
+        // text into the operator-visible manifest. The eval floor (DEC-025 #7)
+        // still validates real domain vocabulary: the charter is embedded
+        // verbatim in the behaviour contract and drives the eval-seed `primary`
+        // keyword (`hire_gate::behaviour_contract_text` /
+        // `eval_seed::generate(&plan.charter, …)`), so the floor no longer
+        // depends on the per-action description carrying a role descriptor.
         let capabilities: Vec<CapabilityDecl> = draft
             .action_vocabulary
             .iter()
-            .map(|name| {
-                CapabilityDecl::from_action_name(name, synthesized_intent(name, &role_descriptor))
-            })
+            .map(|name| CapabilityDecl::from_action_name(name, synthesized_intent(name)))
             .collect();
         let human_approval_required: Vec<String> = capabilities
             .iter()
@@ -307,23 +311,24 @@ pub(crate) fn sanitize_action_name(raw: &str) -> String {
     }
 }
 
-/// Build a **meaningful** one-line capability description anchored in the
-/// teammate's actual role (DEC-025 #7). Replaces the prior boilerplate
-/// `"Genesis-synthesized capability: {name}"`, whose only useful token was the
-/// word "capability" present in *every* contract — a weak eval seed even once
-/// it tokenized. Here the description is the de-snake-cased action verb phrase
-/// (`schedule_harvest` → "schedule harvest") plus the role descriptor, so the
-/// eval floor's rubric keywords are drawn from the teammate's real action
-/// vocabulary + domain. The text is plain English (spaces only), so it
-/// tokenizes byte-identically on the eval-seed side and the behaviour-contract
-/// side (no embedded `-`/`_` to diverge on).
-fn synthesized_intent(action_name: &str, role_descriptor: &str) -> String {
-    let phrase = humanize_action_name(action_name);
-    if role_descriptor.is_empty() {
-        capitalize_first(&phrase)
-    } else {
-        format!("{} as the {role_descriptor}", capitalize_first(&phrase))
-    }
+/// Build the **last-resort** one-line capability description — a grammatical
+/// sentence built from the action's own de-snake-cased verb phrase
+/// (`schedule_harvest` → "Schedule harvest."). This is the fallback floor ONLY:
+/// the LLM authoring pass overwrites each `intent` with a specific, role-aware
+/// description when it runs (`author::apply_authored` +
+/// `GenesisPlan::sync_action_descriptions_from_spec`).
+///
+/// The prior version appended an "as the {role_descriptor}" tail
+/// (`"Archive article as the assistant named Remy reads"`) — ungrammatical,
+/// repetitive, and camera-visible in the Genesis review panel. A plain
+/// capitalized verb phrase reads far better. The eval floor (DEC-025 #7) is
+/// unaffected: the charter is embedded verbatim in the behaviour contract and
+/// drives the eval-seed `primary` keyword, so the domain vocabulary no longer
+/// has to ride on the per-action description. The text stays plain English
+/// (spaces only) so it tokenizes byte-identically on the eval-seed and
+/// behaviour-contract sides (no embedded `-`/`_` to diverge on).
+fn synthesized_intent(action_name: &str) -> String {
+    format!("{}.", capitalize_first(&humanize_action_name(action_name)))
 }
 
 /// Turn a `snake_case` action name into a lower-case space-separated verb
@@ -339,97 +344,6 @@ fn humanize_action_name(action_name: &str) -> String {
     } else {
         words.join(" ").to_lowercase()
     }
-}
-
-/// Extract a short, role-relevant descriptor from the draft — the first few
-/// meaningful charter words (stopwords + the persona handle dropped). Used as
-/// the noun phrase every capability description hangs off, so the eval floor
-/// validates the teammate's real domain vocabulary. Empty when the charter has
-/// no usable content (the description then degrades to the bare verb phrase).
-///
-/// A proper name introduced by a naming phrase ("named Maya", "goes by Sam")
-/// is rendered Title-cased regardless of how the operator typed it — generic
-/// charter words are lowercased for tokenization stability, but a lowercased
-/// person's name surfaces "as the success lead named maya" on the generated
-/// capability descriptions, which reads wrong.
-fn role_descriptor(draft: &BroadRoleDraft) -> String {
-    let persona = draft.persona.to_lowercase();
-    let names = charter_name_tokens(&draft.charter);
-    let words: Vec<String> = draft
-        .charter
-        .split(|c: char| !c.is_ascii_alphanumeric())
-        .filter(|s| !s.is_empty())
-        .map(|tok| {
-            let lower = tok.to_lowercase();
-            // A token that is the teammate's proper name keeps Title case.
-            if names.contains(&lower) {
-                title_case_word(&lower)
-            } else {
-                lower
-            }
-        })
-        .filter(|w| w.len() >= 3 && !is_descriptor_stopword(&w.to_lowercase()) && w.to_lowercase() != persona)
-        .take(4)
-        .collect();
-    words.join(" ")
-}
-
-/// The set of lowercased proper-name tokens the charter introduces via a
-/// naming phrase (e.g. `{"maya"}` for "...named Maya..."). Used to keep names
-/// Title-cased in the role descriptor. Matches the trigger PHRASES
-/// `materialize::name_from_charter` keys on — "named X", "called X",
-/// "name is X", "goes by X", "call her/him/them X" — so a bare "is"/"by"
-/// (e.g. "who is responsible") never captures a non-name word. Only the single
-/// alphabetic token after the phrase is taken (a name, not a clause).
-fn charter_name_tokens(charter: &str) -> std::collections::HashSet<String> {
-    let tokens: Vec<String> = charter
-        .split(|c: char| !c.is_ascii_alphanumeric())
-        .filter(|s| !s.is_empty())
-        .map(str::to_lowercase)
-        .collect();
-    let mut names = std::collections::HashSet::new();
-    for (i, tok) in tokens.iter().enumerate() {
-        let prev = i.checked_sub(1).and_then(|p| tokens.get(p)).map(String::as_str);
-        let is_trigger = match tok.as_str() {
-            "named" | "called" => true,
-            "is" => prev == Some("name"),
-            "by" => prev == Some("goes"),
-            "her" | "him" | "them" => prev == Some("call"),
-            _ => false,
-        };
-        if !is_trigger {
-            continue;
-        }
-        if let Some(candidate) = tokens.get(i + 1) {
-            // A name is alphabetic and short; reject numbers / long clauses.
-            if candidate.chars().all(|c| c.is_ascii_alphabetic()) && candidate.len() <= 20 {
-                names.insert(candidate.clone());
-            }
-        }
-    }
-    names
-}
-
-/// Title-case a single token: upper-case the first ASCII letter, lower-case
-/// the rest (so an operator's "MAYA" or "maya" both render "Maya").
-fn title_case_word(token: &str) -> String {
-    let mut chars = token.chars();
-    match chars.next() {
-        Some(first) => first.to_ascii_uppercase().to_string() + &chars.as_str().to_lowercase(),
-        None => String::new(),
-    }
-}
-
-/// Stopwords dropped from the role descriptor so it carries domain content,
-/// not filler. Intentionally small — the goal is a recognisable role phrase,
-/// not perfect grammar.
-fn is_descriptor_stopword(word: &str) -> bool {
-    const STOPWORDS: &[&str] = &[
-        "the", "and", "for", "with", "who", "that", "this", "from", "into", "are", "you", "your",
-        "our", "all", "any", "but", "not", "can", "will", "role", "agent", "worker", "team",
-        "help", "helps", "assist", "assists",
-    ];
-    STOPWORDS.contains(&word)
 }
 
 /// Capitalize the first ASCII letter of a phrase, leaving the rest untouched.

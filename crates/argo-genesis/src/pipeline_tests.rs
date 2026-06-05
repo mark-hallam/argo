@@ -160,3 +160,68 @@ async fn plan_with_falls_back_to_keyword_when_no_provider() {
     .expect("plan_with builds");
     assert_eq!(p.archetype, Archetype::MarketingIntern);
 }
+
+#[test]
+fn sync_action_descriptions_plumbs_authored_intent_into_the_manifest() {
+    // The live `/genesis` finding: the from-scratch path materializes the
+    // manifest from the spec's *templated* fallback descriptions, then the LLM
+    // author enriches `spec.capabilities[].intent` — but the review panel reads
+    // the manifest, so without this sync the operator only ever saw the
+    // fallback. Assert: (a) authored intent reaches the manifest + the derived
+    // RoleContract, and (b) an un-authored action keeps the grammatical
+    // fallback (no "as the …" tail).
+    use crate::{apply_authored, AuthoredTeammate, BroadRoleDraft, CapabilitySpec, RoleContract};
+
+    let draft = BroadRoleDraft {
+        charter: "research assistant who reads and summarises articles".into(),
+        persona: "remy".into(),
+        persona_description: "Reads and summarises.".into(),
+        action_vocabulary: vec!["archive_article".into(), "extract_takeaways".into()],
+        success_metrics: vec![],
+        onboarding_script: String::new(),
+    };
+    let spec = CapabilitySpec::from_broad_draft(draft, Archetype::ResearchAnalyst);
+    let mut plan = crate::materialize_spec(&spec).expect("materialize broad spec");
+
+    // Before authoring: the manifest carries the grammatical fallback floor.
+    let actions = plan.manifest.actions.as_ref().expect("actions block");
+    assert_eq!(actions.actions["archive_article"].description, "Archive article.");
+
+    // Simulate the LLM author providing ONE specific per-action intent.
+    let authored_intent = "File the source article to the research library for citation";
+    let authored = AuthoredTeammate {
+        persona_description: "Reads and summarises sources for the team.".into(),
+        action_intents: [("archive_article".to_string(), authored_intent.to_string())]
+            .into_iter()
+            .collect(),
+        ..AuthoredTeammate::default()
+    };
+    plan.spec = Some(apply_authored(spec, authored));
+    plan.sync_action_descriptions_from_spec();
+
+    let actions = plan.manifest.actions.as_ref().expect("actions block");
+    // (a) Authored intent reached the manifest.
+    assert_eq!(actions.actions["archive_article"].description, authored_intent);
+    // (b) Un-authored action kept the grammatical fallback — no "as the" tail.
+    assert_eq!(actions.actions["extract_takeaways"].description, "Extract takeaways.");
+
+    // The review panel (RoleContract derived from the manifest) shows the prose.
+    let contract = RoleContract::derive_from_manifest(&plan.manifest);
+    assert!(
+        contract
+            .actions
+            .iter()
+            .any(|a| a.action == "archive_article" && a.description == authored_intent),
+        "review-panel contract must carry the authored description"
+    );
+}
+
+#[test]
+fn sync_action_descriptions_is_a_noop_on_the_archetype_path() {
+    // The archetype path leaves `spec` None; the sync must not panic or mutate.
+    let mut plan = plan("be my marketing intern, run weekly campaigns", "maya")
+        .expect("archetype plan builds");
+    let before = plan.manifest.clone();
+    plan.sync_action_descriptions_from_spec();
+    assert_eq!(plan.manifest, before, "archetype-path manifest is untouched");
+}

@@ -49,6 +49,53 @@ pub struct GenesisPlan {
     pub spec: Option<crate::spec::CapabilitySpec>,
 }
 
+impl GenesisPlan {
+    /// Re-sync the manifest's `[actions]` descriptions from this plan's
+    /// [`crate::CapabilitySpec`] capability intents.
+    ///
+    /// The from-scratch (broad-role) path materializes the manifest from the
+    /// spec's *templated* fallback intents, then an optional LLM-authoring pass
+    /// ([`crate::apply_authored`]) enriches `spec.capabilities[].intent` with a
+    /// specific, role-aware one-liner per action. Because the manifest was
+    /// already built, the operator-visible action descriptions — the Genesis
+    /// review panel derives them from the manifest's `[actions]` via
+    /// [`crate::RoleContract::derive_from_manifest`] — would otherwise keep the
+    /// fallback text and the LLM author's prose would never reach the screen.
+    /// Call this *after* applying authored intents so the review panel shows the
+    /// author's description when present.
+    ///
+    /// No-op when the plan carries no spec (the archetype path) or no
+    /// `[actions]` block. Only the human-readable `description` is rewritten —
+    /// risk / approval / executor are untouched, so the governance
+    /// `contract_digest` (which hashes the gated surface, not the prose) is
+    /// unaffected.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # fn demo() -> Result<(), argo_genesis::GenesisError> {
+    /// let mut plan = argo_genesis::plan("be my marketing intern", "maya")?;
+    /// // After an LLM-authoring pass has updated `plan.spec`, push the
+    /// // authored per-action prose into the operator-visible manifest.
+    /// plan.sync_action_descriptions_from_spec();
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn sync_action_descriptions_from_spec(&mut self) {
+        let Some(spec) = self.spec.as_ref() else {
+            return;
+        };
+        let Some(actions) = self.manifest.actions.as_mut() else {
+            return;
+        };
+        for cap in &spec.capabilities {
+            if let Some(decl) = actions.actions.get_mut(&cap.action_name) {
+                decl.description.clone_from(&cap.intent);
+            }
+        }
+    }
+}
+
 /// Pipeline-level knobs. Defaults preserve the v1 deterministic
 /// behaviour (`use_llm_classifier=false`); a caller that wires a
 /// provider can opt in via [`plan_with`].

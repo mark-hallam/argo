@@ -154,6 +154,14 @@ pub(super) async fn resolve_plan(
     // persona.md via the unchanged write path.
     if let Some(spec) = built.spec.take() {
         built.spec = Some(super::routes_genesis_author::run_author_pass(spec).await);
+        // The manifest was materialized from the spec's *templated* fallback
+        // descriptions BEFORE the author pass enriched them. Push the (possibly
+        // authored) per-action `intent` into the manifest's `[actions]` so the
+        // review panel — which derives its descriptions from the manifest via
+        // `RoleContract::derive_from_manifest` — shows the LLM author's specific
+        // prose instead of the grammatical fallback. Governance-digest-safe
+        // (description is cosmetic; the digest hashes the gated surface).
+        built.sync_action_descriptions_from_spec();
     }
     Ok((built, mode))
 }
