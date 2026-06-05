@@ -32,6 +32,7 @@ import { useCheckout, redirectToCheckout } from "@/lib/billing/use-checkout";
 import { usePortal, redirectToPortal } from "@/lib/billing/use-portal";
 import { fetchTenantUsage, type UsageResponse } from "@/lib/api/usage";
 import { UsageMeter } from "@/components/billing/UsageMeter";
+import { SpendPanel } from "@/components/billing/SpendPanel";
 
 interface PlanOffer {
   tier: "free" | "pro" | "enterprise";
@@ -129,6 +130,8 @@ function BillingContent() {
           </Button>
         </div>
       </Card>
+
+      <SpendPanel />
 
       <section>
         <h2 className="text-lg font-semibold tracking-tight">Plans</h2>

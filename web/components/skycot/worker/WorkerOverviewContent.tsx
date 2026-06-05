@@ -16,6 +16,7 @@ import {
   ChannelStripCardSkeleton,
 } from "@/components/skycot/worker/ChannelStripCard";
 import { KpiCard, KpiCardSkeleton } from "@/components/skycot/worker/KpiCard";
+import { WorkerCostChip } from "@/components/skycot/worker/WorkerCostChip";
 import {
   RecentActivityCard,
   RecentActivityCardSkeleton,
@@ -237,6 +238,9 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
         workerId={workerId}
         workerName={workerQuery.data?.name}
       />
+      <div className="flex items-center justify-end">
+        <WorkerCostChip workerId={workerId} />
+      </div>
       <KpiCard kpis={overview.kpis} />
       <RecentActivityCard workerId={workerId} rows={overview.recentActivity} />
       <EditDutyDialog

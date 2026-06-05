@@ -148,6 +148,24 @@ pub fn price_for(manifest: &ProviderManifest, model: &str) -> Option<(f64, f64)>
     Some((spec.price_per_1k_in?, spec.price_per_1k_out?))
 }
 
+/// The USD cost of one turn from `(tokens_in, tokens_out)` × the
+/// manifest pricing tuple. `None` when pricing or token counts are
+/// missing (e.g. the mock provider) — callers must then emit no cost,
+/// never a fabricated zero (NO THEATER, DEC-007). Shared by
+/// [`record_turn_spend`] (spend ledger) and the turn-loop audit stamp
+/// (UF A7) so both agree on the same number.
+#[must_use]
+pub fn turn_cost_usd(
+    spend: &SpendCtx<'_>,
+    tokens_in: Option<u32>,
+    tokens_out: Option<u32>,
+) -> Option<f64> {
+    let (Some((p_in, p_out)), Some(ti), Some(to)) = (spend.pricing, tokens_in, tokens_out) else {
+        return None;
+    };
+    Some((f64::from(ti) * p_in + f64::from(to) * p_out) / 1000.0)
+}
+
 /// Convert `(tokens_in, tokens_out)` × pricing into USD-micros and
 /// record one spend row per turn. No-op when pricing or token
 /// counts are missing.
@@ -158,10 +176,9 @@ pub async fn record_turn_spend(
     tokens_in: Option<u32>,
     tokens_out: Option<u32>,
 ) -> ArgoResult<()> {
-    let (Some((p_in, p_out)), Some(ti), Some(to)) = (spend.pricing, tokens_in, tokens_out) else {
+    let Some(usd) = turn_cost_usd(spend, tokens_in, tokens_out) else {
         return Ok(());
     };
-    let usd = (f64::from(ti) * p_in + f64::from(to) * p_out) / 1000.0;
     let micros = (usd * 1_000_000.0).round().max(0.0) as u64;
     if micros == 0 {
         return Ok(());
@@ -301,6 +318,25 @@ mod tests {
     fn build_assistant_content_skips_empty_text() {
         let v = build_assistant_content("", &[]);
         assert_eq!(v.as_array().map(Vec::len), Some(0));
+    }
+
+    #[test]
+    fn turn_cost_usd_prices_tokens_and_is_none_without_pricing() {
+        let ctx = |pricing| SpendCtx {
+            tenant_id: TenantId::new(),
+            provider: "anthropic",
+            model: "claude-opus-4-8",
+            pricing,
+            worker_id: None,
+        };
+        // 1000 in × 0.015/1k + 2000 out × 0.075/1k = 0.015 + 0.150 = 0.165
+        let priced = ctx(Some((0.015, 0.075))); // $/1k in, $/1k out
+        let usd = turn_cost_usd(&priced, Some(1000), Some(2000)).expect("priced turn");
+        assert!((usd - 0.165).abs() < 1e-9, "got {usd}");
+        // Missing token counts → None even when priced.
+        assert!(turn_cost_usd(&priced, None, Some(2000)).is_none());
+        // No pricing (mock provider) → None, never a fabricated zero.
+        assert!(turn_cost_usd(&ctx(None), Some(1000), Some(2000)).is_none());
     }
 
     #[tokio::test]

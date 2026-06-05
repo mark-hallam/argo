@@ -120,6 +120,19 @@ pub(super) async fn dispatch_scim_and_team(
     {
         return Some(super::usage_endpoint::show_response(req, store).await);
     }
+    // UF A7 — tenant-scoped dollar surface. The `/tenant/costs/...`
+    // prefix is disjoint from the rollups above; the more-specific
+    // `by-worker` suffix is matched before the `total` read.
+    if req.starts_with("GET /api/v1/tenant/costs/by-worker ")
+        || req.starts_with("GET /api/v1/tenant/costs/by-worker?")
+    {
+        return Some(super::routes_tenant_costs::by_worker_response(req, store).await);
+    }
+    if req.starts_with("GET /api/v1/tenant/costs/total ")
+        || req.starts_with("GET /api/v1/tenant/costs/total?")
+    {
+        return Some(super::routes_tenant_costs::total_response(req, store).await);
+    }
     None
 }
 

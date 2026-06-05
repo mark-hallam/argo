@@ -14,8 +14,8 @@ use super::turn_skills_runtime::PendingAbOutcome;
 use super::{build_system_prompt_with_ab, ContextWindowPolicy, TurnResult};
 use crate::dispatch::{build_dispatch_ctx, dispatch_one_with_runtime, provider_schemas_filtered};
 use crate::helpers::{
-    build_assistant_content, emit_event, record_turn_spend, stream_one_round, RoundResp,
-    RunEventSink, SpendCtx,
+    build_assistant_content, emit_event, record_turn_spend, stream_one_round, turn_cost_usd,
+    RoundResp, RunEventSink, SpendCtx,
 };
 use crate::transport::load_manifest;
 use crate::turn_vertical::{consume_one_shot_if_present, SessionGrantState};
@@ -283,12 +283,18 @@ pub(super) async fn run_one_round(
             &assistant_content.to_string(),
         )
         .await?;
+    // UF A7 — stamp the turn's USD cost onto the audit row so the SPA
+    // activity feed (`ActivityRow.tsx`) renders a cost chip for normal
+    // teammate work, not just forge/eval. `None` (mock provider / no
+    // pricing) emits a JSON `null`, never a fabricated zero (NO THEATER).
+    let cost_usd = turn_cost_usd(spend, resp.tokens_in, resp.tokens_out);
     let assistant_payload = serde_json::json!({
         "message_id": assistant_id,
         "round": round,
         "tool_calls": resp.tool_calls.len(),
         "tokens_in": resp.tokens_in,
         "tokens_out": resp.tokens_out,
+        "cost_usd": cost_usd,
     });
     audit
         .write(

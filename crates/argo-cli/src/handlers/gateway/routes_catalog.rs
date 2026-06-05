@@ -232,6 +232,8 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/api/v1/verticals", "list verticals (api-prefixed alias of /verticals)"),
         ("GET", "/api/v1/verticals/<id>", "vertical detail (api-prefixed alias)"),
         ("GET", "/api/v1/tenant/usage", "tenant usage roll-up ($ spend, action counts, quota state)"),
+        ("GET", "/api/v1/tenant/costs/total", "tenant-scoped all-time $ spend ({spent_usd_micros})"),
+        ("GET", "/api/v1/tenant/costs/by-worker", "tenant $ spend grouped per AI teammate (GROUP BY worker_id)"),
         ("GET", "/api/v1/wizard", "first-run wizard state (?step=…)"),
         ("POST", "/api/v1/wizard/answer", "submit one wizard answer ({step, value})"),
         ("POST", "/api/v1/wizard/reset", "reset wizard state to step 1"),
