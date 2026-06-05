@@ -290,6 +290,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/api/v1/voice/transcript", "append a voice transcript row (hash-chained audit)"),
         // ── public early-access waitlist capture (WS6)
         ("POST", "/api/v1/waitlist", "capture a public early-access waitlist signup ({email})"),
+        ("POST", "/api/v1/enterprise-inquiry", "capture a public enterprise expression-of-interest lead (persisted + audited)"),
     ];
     let body: Vec<serde_json::Value> = rows
         .iter()

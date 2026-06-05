@@ -392,3 +392,6 @@ mod migration_reconciliation_tests;
 #[cfg(test)]
 #[path = "lib_tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "lib_tests_spend_ledger.rs"]
+mod spend_ledger_tests;
