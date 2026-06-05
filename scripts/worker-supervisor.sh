@@ -41,6 +41,13 @@ WORKER_SCRIPT="$REPO/scripts/claude-worker-loop.sh"
 STOP_SENTINEL_TMP="/tmp/argo-stop"
 STOP_SENTINEL_HOME="$HOME/.argo/stop"
 SUPERVISOR_PID_FILE="/tmp/argo-worker-supervisor.pid"
+
+# Shared cargo target dir bound. All workers + this supervisor's gate compile
+# into one CARGO_TARGET_DIR (see claude-worker-loop.sh). Under the old per-brief
+# convention the legacy ~/.cache/argo-shared-target bloated to 136 GB with
+# nothing pruning it; with one shared dir we bound it here.
+WORKER_SHARED_TARGET_DIR="${WORKER_SHARED_TARGET_DIR:-$HOME/.cache/argo-shared-target}"
+SHARED_TARGET_MAX_GB="${SHARED_TARGET_MAX_GB:-80}"
 # Extend WAIT_LOOP_REGEX when future worker-loop stalls settle into
 # another repeated no-progress result phrase.
 WAIT_LOOP_REGEX="${WAIT_LOOP_REGEX:-^(Waiting for|Still waiting|Monitor is armed|Build cache is huge)}"
@@ -114,6 +121,32 @@ ram_under_pressure() {
   [ -z "$purg_pages" ] && purg_pages=0
   avail_mb=$(( (free_pages + spec_pages + inact_pages + purg_pages) * page_size / 1024 / 1024 ))
   [ "$avail_mb" -lt "$RAM_PRESSURE_THRESHOLD_MB" ]
+}
+
+# Bound the shared CARGO_TARGET_DIR so it can't grow unbounded the way the
+# legacy 136 GB ~/.cache/argo-shared-target did. Pre-iteration check: if the
+# dir exceeds SHARED_TARGET_MAX_GB *and* no compile is currently running,
+# delete it wholesale (cargo recreates it cold on the next build — a one-time
+# ~28min cost paid only when the dir is genuinely bloated, so reuse is
+# preserved the vast majority of the time). cargo-sweep would prune more gently
+# but is not installed on this machine; delete-when-idle-over-threshold is the
+# documented fallback. 🔴 NEVER prune while a compile holds the cargo-lock:
+# macOS has no portable `flock` CLI, so we gate on `pgrep rustc|cargo` as an
+# idleness proxy and defer the prune whenever either is running.
+prune_shared_target_if_oversized() {
+  local dir="$WORKER_SHARED_TARGET_DIR" size_gb
+  [ -d "$dir" ] || return 0
+  # BSD du (-g = 1-GB blocks, -s = summary). Traverses the tree; cheaper than
+  # one cold compile, runs once per slot iteration.
+  size_gb=$(du -sg "$dir" 2>/dev/null | awk '{print $1}')
+  [ -z "$size_gb" ] && return 0
+  [ "$size_gb" -lt "$SHARED_TARGET_MAX_GB" ] && return 0
+  if pgrep -x rustc >/dev/null 2>&1 || pgrep -x cargo >/dev/null 2>&1; then
+    echo "[$(date +%H:%M:%S)] shared-target ${size_gb}GB ≥ ${SHARED_TARGET_MAX_GB}GB but a compile is active (rustc/cargo running) — deferring prune" >&2
+    return 0
+  fi
+  echo "[$(date +%H:%M:%S)] shared-target ${size_gb}GB ≥ ${SHARED_TARGET_MAX_GB}GB and idle — pruning $dir (cargo recompiles cold on next build)" >&2
+  rm -rf "${dir:?}" 2>/dev/null || true
 }
 
 active_worker_ndjson_log() {
@@ -389,6 +422,10 @@ for slot in $(seq 1 "$N_SLOTS"); do
       done
       # Pressure cleared — reset backoff counter for next event.
       ram_backoff_step=0
+
+      # Bound the shared cargo target dir (delete-when-idle-over-threshold).
+      # Runs pre-iteration so a bloated dir is pruned before the next compile.
+      prune_shared_target_if_oversized
 
       # Stagger initial launches by ~3s so all N slots don't race the
       # ledger at the same moment.

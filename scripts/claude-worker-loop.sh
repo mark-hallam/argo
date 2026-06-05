@@ -94,6 +94,28 @@ fi
 REPO="${REPO:-~/code/argo}"
 FAMILY="${FAMILY:-claude}"
 
+# --- Shared cargo target dir (one dir, real disk, cargo-lock serialized) ----
+# Every worker compiles into ONE shared CARGO_TARGET_DIR on real disk (NOT
+# /tmp — survives reboot). Forced here (not deferred to the inherited env) so
+# all workers converge regardless of launch path: the supervisor plist sets
+# this same value, but ~/.zshenv points interactive-launched workers at
+# /tmp/argo-shared-target, which (a) does not survive reboot and (b) splits the
+# cache. Two wins from one shared dir:
+#   1. Artifact reuse — worker B reuses the serde/tokio/workspace crates worker
+#      A (and the supervisor gate) already compiled, via cargo's own
+#      fingerprinting. Measured 2026-06-05: the old per-brief convention gave
+#      sccache a 0.90% Rust hit-rate (22/2431) — effectively zero reuse.
+#   2. Free compile serialization — cargo takes an exclusive flock on
+#      <target>/debug/.cargo-lock, so a 2nd concurrent compile BLOCKS until the
+#      first releases it instead of spawning a 2nd parallel rustc fleet (which
+#      OOM'd under macOS jetsam; swap hit 9.3 GB on 2026-06-05). This is what
+#      makes re-enabling a 2nd worker slot safe later — no custom semaphore.
+# Bounded by the supervisor's size-guard (worker-supervisor.sh). Override with
+# WORKER_SHARED_TARGET_DIR for non-default machines.
+# 🔴 Worker exit cleanup must NEVER delete this dir — see the cleanup block
+#    near the end of this file and step 9 of the worker prompt below.
+export CARGO_TARGET_DIR="${WORKER_SHARED_TARGET_DIR:-$HOME/.cache/argo-shared-target}"
+
 # Per-bash-process sentinel for quota detection. Using a shared
 # /tmp/argo-quota-hit causes a race when multiple worker tabs run:
 # each tab's `tee >(grep ... > sentinel)` truncates the file at session
@@ -376,15 +398,18 @@ If you cannot ship (premise wrong, may-touch too tight, 3-attempt fail):
 
    ALLOWED (scoped to your brief):
    - /tmp/\$BRIEF_ID/                       (your worktree)
-   - /tmp/\$BRIEF_ID-target/                (your target dir)
-   - /tmp/argo-shared-target-\$BRIEF_ID/    (alt target dir naming)
+
+   🔴 There is NO per-brief target dir to delete. All workers share ONE
+   CARGO_TARGET_DIR (\$HOME/.cache/argo-shared-target). Deleting it would wipe
+   every worker's compile cache AND can race a live compile. NEVER touch it.
 
    FORBIDDEN (would damage other workers):
-   - rm -rf /tmp/*-target                   (nukes every worker)
+   - rm -rf \$CARGO_TARGET_DIR              (the shared cache — wipes all reuse)
+   - rm -rf ~/.cache/argo-shared-target     (same dir, spelled out)
+   - rm -rf /tmp/*-target                   (legacy per-brief dirs; glob is unsafe)
    - rm -rf /tmp/*                          (nukes everything)
    - cargo clean --workspace                (invalidates shared cache)
    - rm -rf ~/.cargo/registry               (cross-iteration cache)
-   - rm -rf /tmp/argo-shared-target         (without brief-id suffix)
    - git worktree prune --expire=now        (too aggressive)
 
    Run from \$REPO (NOT inside the worktree):
@@ -394,12 +419,14 @@ If you cannot ship (premise wrong, may-touch too tight, 3-attempt fail):
    else
      cd \$REPO
      git worktree remove --force \"/tmp/\$BRIEF_ID\" 2>/dev/null || true
-     rm -rf \"/tmp/\$BRIEF_ID-target\" \"/tmp/argo-shared-target-\$BRIEF_ID\" 2>/dev/null || true
      git worktree prune
    fi
+   # NB: do NOT rm the shared CARGO_TARGET_DIR — the supervisor size-guard
+   # bounds it; worker exit only removes the worktree.
 
    Hard rules:
    - Scope is sacred: only paths containing \$BRIEF_ID may be touched. No globs.
+   - NEVER delete \$CARGO_TARGET_DIR / ~/.cache/argo-shared-target (shared cache).
    - Always 'cd \$REPO' BEFORE 'git worktree remove' (git refuses if cwd is
      inside the target worktree).
    - Use 'git worktree remove', NEVER 'rm -rf' the worktree directly.
@@ -777,6 +804,12 @@ PY
   # 'git worktree prune --expire=now'. Plain 'git worktree prune' is
   # safe — it only removes refs to dirs that no longer exist on disk
   # (other workers' active worktrees stay intact).
+  #
+  # 🔴 SHARED-TARGET SAFETY: all workers share ONE CARGO_TARGET_DIR
+  # (${CARGO_TARGET_DIR}). This safety net must NEVER delete it — doing so
+  # wipes every worker's compile cache and can race a live compile. Only the
+  # per-brief worktree is removed here; the shared target dir is bounded by the
+  # supervisor's size-guard (worker-supervisor.sh), not by worker exit.
   if [ -n "${BRIEF_ID:-}" ]; then
     cd "$REPO" 2>/dev/null || true
 
@@ -796,8 +829,8 @@ PY
       esac
     fi
 
-    # Target dirs are unambiguously per-brief by naming convention.
-    rm -rf "/tmp/${BRIEF_ID}-target" "/tmp/argo-shared-target-${BRIEF_ID}" 2>/dev/null || true
+    # No per-brief target dir to remove — all workers share one
+    # CARGO_TARGET_DIR which must NOT be deleted here (see comment above).
 
     # 'git worktree prune' only removes worktree refs whose dirs no
     # longer exist on disk. Other workers' active worktrees survive.

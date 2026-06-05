@@ -66,8 +66,15 @@ authority.
 Before launching workers, the operator should set:
 
 ```bash
-export CARGO_TARGET_DIR=/tmp/argo-shared-target
+export CARGO_TARGET_DIR="$HOME/.cache/argo-shared-target"
 ```
+
+Use a path on **real disk** (e.g. `~/.cache/...`), NOT `/tmp` — `/tmp` does
+not survive a reboot, so a `/tmp` target dir forces a ~28 min cold rebuild on
+every boot. `scripts/claude-worker-loop.sh` now **forces** this same value for
+every worker process (overriding whatever the shell inherited), so all workers
+and the supervisor gate converge on one shared dir regardless of launch path;
+the export above only matters for ad-hoc `cargo` runs outside the worker loop.
 
 **Where to put it:**
 
@@ -96,18 +103,31 @@ var is non-empty; `scripts/bootstrap-machine.sh` flags it as a fail.
 If you have legitimate need for API-key auth in some other workflow,
 scope it via `direnv` to a non-worker directory, never global env.
 
-Without `CARGO_TARGET_DIR`, every `/tmp/<brief-id>` worktree gets its
+Without a shared `CARGO_TARGET_DIR`, every `/tmp/<brief-id>` worktree gets its
 own `target/` and rebuilds all 56 crates from scratch (~28 min cold)
 every time a worker starts a brief. With the shared target dir,
 worktrees reuse compiled crates across briefs; first brief is cold
 (~28 min one-time), subsequent briefs touching 1-3 crates compile in
-~30s-2min. Cargo's lockfile handles concurrent worker contention
-cleanly.
+~30s-2min.
+
+Cargo's lockfile handles concurrent worker contention cleanly, and that
+serialization is load-bearing: cargo takes an exclusive lock on
+`<target>/debug/.cargo-lock`, so a second concurrent `cargo build` against the
+same dir **blocks** until the first releases it rather than spawning a second
+parallel rustc fleet (which OOM'd under macOS jetsam — swap hit 9.3 GB on
+2026-06-05, forcing the swarm down to 1 slot). The shared dir is therefore what
+makes re-enabling a 2nd worker slot safe (a separate operator/conductor action:
+plist edit + `launchctl` reload). The supervisor bounds the dir size with a
+pre-iteration size-guard (`SHARED_TARGET_MAX_GB`, default 80) that deletes the
+dir wholesale only when it is over threshold **and** idle (no `rustc`/`cargo`
+running), so a runaway dir can't repeat the 136 GB legacy bloat. 🔴 Worker exit
+cleanup removes only the per-brief worktree, NEVER the shared target dir.
 
 Optional but recommended: `brew install sccache` and
 `export RUSTC_WRAPPER=sccache` for cross-machine / cross-tab
-compile-cache sharing. Sccache + shared target dir = 5-10× iteration
-speedup vs unconfigured.
+compile-cache sharing. (Note: sccache's measured Rust hit-rate is near-zero for
+this path-dep workspace — 0.90% on 2026-06-05 — so cargo's own target-dir reuse
+above is what actually saves the compile time; sccache is harmless to leave on.)
 
 ## HARD RULES (memorize)
 
