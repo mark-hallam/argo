@@ -46,6 +46,13 @@ use chrono::{DateTime, Duration, Utc};
 use serde_json::{json, Value};
 use std::sync::Arc;
 
+/// Demo-mode permission override shared with `routes_worker_overview`.
+/// Nested here (not in `gateway/mod.rs`) so the home of `Permissions` /
+/// `PrincipalRole` / `resolve_permissions` owns the override that consumes
+/// them, and both routes call one surface instead of duplicating it.
+#[path = "routes_worker_permissions_demo.rs"]
+pub(super) mod permissions_demo;
+
 const RECOVERABLE_DAYS: i64 = 30;
 const ROLE_HEADER: &str = "X-Argo-Role";
 
@@ -194,11 +201,27 @@ pub(super) async fn show_response(
         Err(e) => return server_error(&format!("archived lookup: {e}")),
     }
 
-    let actor = principal_id_for_audit(req).unwrap_or_else(|| "anonymous".to_string());
+    // Permissions must match the overview route (`routes_worker_overview`):
+    // the SPA's `useWorker` hook reads them from THIS route, so the same demo
+    // override the overview route applies has to run here too — otherwise a
+    // demo principal sees an all-false block and the Schedules tab is stuck
+    // read-only (GO/NO-GO 2026-06-06 Blocker-3).
+    let header_actor = principal_id_for_audit(req);
+    let demo_principal = permissions_demo::demo_principal_for_request(req);
+    let actor = header_actor
+        .clone()
+        .or_else(|| demo_principal.as_ref().map(|p| p.principal_id.clone()))
+        .unwrap_or_else(|| "anonymous".to_string());
     let role = parse_role_header(req).unwrap_or(PrincipalRole::Delegator);
     let is_hire_author = !worker.persona.builder_attribution.is_empty()
         && worker.persona.builder_attribution == actor;
-    let permissions = resolve_permissions(role, is_hire_author);
+    let demo_override_allowed = permissions_demo::demo_permission_override_allowed(
+        permissions_demo::demo_mode_enabled_for_permissions(),
+        header_actor.as_deref(),
+        demo_principal.as_ref(),
+    );
+    let (permissions, demo_override_granted) =
+        permissions_demo::compute_permissions_demo(role, is_hire_author, demo_override_allowed);
 
     let pending = pending_approval_count(&worker.id).await;
     let kpi_today = derive_kpi_today(&worker.vertical_id);
@@ -218,6 +241,13 @@ pub(super) async fn show_response(
         pending,
     );
     emit_audit(store, tenant, &worker, &actor, role).await;
+    if demo_override_granted {
+        // Reuse the overview route's emitter so both routes write one
+        // identical `PermissionDemoOverrideGranted` row shape (no parallel
+        // audit surface).
+        super::routes_worker_overview::emit_demo_override_audit(store, tenant, &worker, &actor)
+            .await;
+    }
     ("200 OK", body.to_string())
 }
 

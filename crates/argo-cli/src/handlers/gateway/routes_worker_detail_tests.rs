@@ -411,3 +411,88 @@ async fn unknown_id_in_random_uuid_is_404_not_403() {
     let (status, _body) = show_response(&id, &req, Some(&store)).await;
     assert_eq!(status, "404 Not Found");
 }
+
+fn req_for_auth(id: &str, role: Option<&str>, principal: Option<&str>, token: &str) -> String {
+    let mut req = req_for(id, role, principal);
+    let insert_at = req.find("\r\n\r\n").expect("headers terminator");
+    req.insert_str(insert_at, &format!("\r\nAuthorization: Bearer {token}"));
+    req
+}
+
+fn mint_demo_jwt(email: &str) -> String {
+    #[derive(serde::Serialize)]
+    struct Claims<'a> {
+        sub: &'a str,
+        email: &'a str,
+        iat: i64,
+        exp: i64,
+        demo: bool,
+    }
+    // Same secret value the overview demo test sets → concurrent env writes
+    // are idempotent.
+    std::env::set_var("SKYCOT_AUTH_JWT_SECRET", "overview-demo-permission-secret");
+    let now = chrono::Utc::now().timestamp();
+    jsonwebtoken::encode(
+        &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256),
+        &Claims {
+            sub: email,
+            email,
+            iat: now,
+            exp: now + 3600,
+            demo: true,
+        },
+        &jsonwebtoken::EncodingKey::from_secret(&super::super::auth_magic_link::jwt_secret()),
+    )
+    .expect("mint demo jwt")
+}
+
+/// Route-level regression guard (GO/NO-GO 2026-06-06 Blocker-3): under demo
+/// mode + a matching demo principal the DETAIL route returns the full owner
+/// block, identical to the OVERVIEW route, even for a non-author delegator.
+/// Pins that the detail route actually CALLS the override (the bug was a
+/// missing wire-up; the helper itself is unit-tested in `permissions_demo`).
+#[tokio::test]
+async fn demo_override_detail_matches_overview_route() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let tenant = workspace_tenant(&store).await;
+    // Built by someone else → a bare delegator would get an all-false block.
+    let worker = add_worker(&store, tenant, "Maya", "human:owner").await;
+    let token = mint_demo_jwt("demo@example.com");
+    std::env::set_var(super::super::demo_mode::DEMO_MODE_ENV, "1");
+
+    let req = req_for_auth(
+        &worker.id.to_string(),
+        Some("delegator"),
+        Some("human:demo@example.com"),
+        &token,
+    );
+
+    let detail = parse_ok(&req, &store).await;
+    for k in [
+        "can_edit_charter", "can_edit_duties", "can_pause_resume", "can_archive",
+        "can_delete", "can_view_audit", "can_view_settings",
+    ] {
+        assert_eq!(
+            detail["permissions"][k],
+            Value::Bool(true),
+            "demo override must grant {k} on the detail route"
+        );
+    }
+
+    // Core pin: detail perms == overview perms for the same demo principal.
+    let (ov_status, ov_body) = super::super::routes_worker_overview::show_response(
+        &worker.id.to_string(),
+        &req,
+        Some(&store),
+    )
+    .await;
+    assert_eq!(ov_status, "200 OK", "overview body: {ov_body}");
+    let overview: Value = serde_json::from_str(&ov_body).expect("overview json");
+    assert_eq!(
+        detail["permissions"], overview["permissions"],
+        "detail-route permissions must match overview-route permissions under demo mode"
+    );
+}
