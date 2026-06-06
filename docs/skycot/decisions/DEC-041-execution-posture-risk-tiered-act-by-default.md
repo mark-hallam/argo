@@ -81,3 +81,27 @@ review worked. Findings:
 
 Then re-run THIS review → clean → operator flips → verify a real internal-document
 executed-action audit row. The flip remains operator-only; nothing was flipped.
+
+### Deeper finding (same re-review): the autonomous surface is the agent TOOL engine, not (only) the action path
+
+Tracing the duty path: a fired duty → `GatewayDutyAgentRunner::run_turn` →
+`argo_agent_runner::run_turn(..., MAX_TOOL_ROUNDS)` → the agent runner's OWN tool
+dispatch (`argo-agent-runner/src/dispatch.rs`): a `CapabilityEngine`-gated tool
+registry of builtin tools + MCP tools via `McpClientPool`. This is a **separate
+execution path** from the worker-action executor lifecycle
+(`worker_actions_dispatch` → `resolve_executor[_with_promotion]`) that pieces 1–3
+gate. So flipping `ARGO_DUTY_AUTOFIRE` lets a fired duty's agent call its
+**capability-gated tools directly** — the blast radius is whatever the
+`CapabilityEngine` defaults + the registered MCP tools allow for an autonomous
+duty session, which is NOT yet analyzed.
+
+**Implication:** the risk-tiered gate + the document-graduation (pieces 1–3) gate
+the *action* lifecycle, but the duty-fire→agent-tool path needs its OWN blast-radius
+analysis + gating before any flip. Required additional work (pre-flip):
+- **(D) Analyze + constrain the autonomous agent-tool surface:** verify what the
+  `CapabilityEngine` permits for an autonomously-fired duty session (can it reach
+  external MCP tools like gmail.send?), and gate it so an autonomous turn cannot call
+  external/mutating tools without an explicit grant — the same "no grant → no external"
+  principle as fix (A), applied to the agent-tool path.
+
+The flip stays blocked until (A)+(B)+(C)+(D) land and this review re-runs clean.
