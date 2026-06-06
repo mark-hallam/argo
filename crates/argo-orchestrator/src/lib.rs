@@ -93,7 +93,9 @@ pub use duty_scheduler::{
     spawn_duty_scheduler, ClosedGate, DutyAgentRunner, DutyGate, DutyRecord, DutyRunContext,
     DutyScheduler, DutyStore, DutyTickReport, FireDecision, NoopDutyRunner, OpenGate,
 };
-pub use duty_scheduler_auto_gate::{AutoApprovalDutyGate, DEFAULT_DUTY_ESTIMATE_USD_MICROS};
+pub use duty_scheduler_auto_gate::{
+    AutoApprovalDutyGate, DutyRiskResolver, DEFAULT_DUTY_ESTIMATE_USD_MICROS,
+};
 pub use escalation::{EscalationChain, EscalationStep};
 pub use handoff::{Handoff, HandoffId, HandoffStatus};
 pub use kpi_rollup::{

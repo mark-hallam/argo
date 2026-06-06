@@ -47,6 +47,12 @@ fn generous() -> AutoApprovalPolicy {
     }
 }
 
+/// Test resolver that reports a fixed `(risk, requires_approval)` for any
+/// duty, so a test can drive the DEC-041 risk tier deterministically.
+fn resolver(risk: &'static str, requires_approval: bool) -> DutyRiskResolver {
+    Arc::new(move |_vid: &str, _action: &str| Some((risk.to_string(), requires_approval)))
+}
+
 async fn count_approval_asked(store: &SessionStore, tenant: TenantId) -> i64 {
     sqlx::query("SELECT COUNT(*) AS n FROM audit_record WHERE kind = ? AND tenant_id = ?")
         .bind("approval.asked")
@@ -59,12 +65,61 @@ async fn count_approval_asked(store: &SessionStore, tenant: TenantId) -> i64 {
 }
 
 #[tokio::test]
-async fn generous_policy_auto_approves_a_real_fire() {
+async fn safe_tier_low_risk_auto_approves_under_generous_policy() {
+    // DEC-041 safe tier: low risk + manifest requires_approval=false →
+    // auto-fire under an enabled (generous) policy.
+    let store = open_store().await;
+    let worker = make_worker(&store, generous()).await;
+    let gate =
+        AutoApprovalDutyGate::new(Arc::clone(&store)).with_risk_resolver(resolver("low", false));
+    let decision = gate.evaluate(&duty_for(&worker)).await.unwrap();
+    assert_eq!(decision, FireDecision::AutoApprove);
+}
+
+#[tokio::test]
+async fn no_resolver_fails_closed_to_held() {
+    // DEC-041 fail-closed: without a resolver the duty's risk is unknown →
+    // treated as high + approval-required → held, even under a generous policy.
     let store = open_store().await;
     let worker = make_worker(&store, generous()).await;
     let gate = AutoApprovalDutyGate::new(Arc::clone(&store));
     let decision = gate.evaluate(&duty_for(&worker)).await.unwrap();
-    assert_eq!(decision, FireDecision::AutoApprove);
+    assert_eq!(decision, FireDecision::DeniedGate);
+}
+
+#[tokio::test]
+async fn high_risk_is_held_even_under_generous_policy() {
+    let store = open_store().await;
+    let worker = make_worker(&store, generous()).await;
+    let gate =
+        AutoApprovalDutyGate::new(Arc::clone(&store)).with_risk_resolver(resolver("high", false));
+    let decision = gate.evaluate(&duty_for(&worker)).await.unwrap();
+    assert_eq!(decision, FireDecision::DeniedGate);
+}
+
+#[tokio::test]
+async fn medium_risk_is_held_even_under_generous_policy() {
+    // The DEC-041 nuance: `medium` ("public surface but reversible") is NOT
+    // in the act-by-default safe tier (DEC-028 no-autonomous-public-posting),
+    // so it stays held even though the shared evaluator would otherwise
+    // auto-approve a medium action within caps.
+    let store = open_store().await;
+    let worker = make_worker(&store, generous()).await;
+    let gate = AutoApprovalDutyGate::new(Arc::clone(&store))
+        .with_risk_resolver(resolver("medium", false));
+    let decision = gate.evaluate(&duty_for(&worker)).await.unwrap();
+    assert_eq!(decision, FireDecision::DeniedGate);
+}
+
+#[tokio::test]
+async fn low_risk_but_manifest_requires_approval_is_held() {
+    // Even low risk is held when the manifest declares requires_approval=true.
+    let store = open_store().await;
+    let worker = make_worker(&store, generous()).await;
+    let gate =
+        AutoApprovalDutyGate::new(Arc::clone(&store)).with_risk_resolver(resolver("low", true));
+    let decision = gate.evaluate(&duty_for(&worker)).await.unwrap();
+    assert_eq!(decision, FireDecision::DeniedGate);
 }
 
 #[tokio::test]

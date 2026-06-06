@@ -222,6 +222,59 @@ fn parse_autofire_flag(raw: Option<&str>) -> bool {
         .unwrap_or(false)
 }
 
+/// Build the DEC-041 risk resolver the `AutoApprovalDutyGate` consults to
+/// learn a duty's real `(risk_level, requires_approval)` from its worker's
+/// vertical manifest (`argo-orchestrator` can't read manifests; the gateway
+/// can). Returns `None` — the gate then fail-closes to held — when the
+/// vertical or the `entry_action` isn't found. Loads the registry per call
+/// so a freshly-hired teammate's vertical is visible without a restart;
+/// duties fire at most once/min/duty, so the per-call load is acceptable.
+fn make_duty_risk_resolver() -> argo_orchestrator::DutyRiskResolver {
+    Arc::new(|vertical_id: &str, entry_action: &str| {
+        let dir = crate::handlers::vertical::resolve_verticals_dir();
+        let (registry, _errors) = argo_vertical::load_dir(&dir).ok()?;
+        // Explicit loop (not `find_map` as the block tail) so the borrowing
+        // iterator temporary drops before `registry` does (E0597) — and
+        // avoids the `let_and_return` clippy lint the borrow-fix would trip.
+        for (_, loaded) in registry.list() {
+            if loaded.manifest.vertical.id != vertical_id {
+                continue;
+            }
+            if let Some(decl) = loaded
+                .manifest
+                .actions
+                .as_ref()
+                .and_then(|a| a.actions.get(entry_action))
+            {
+                let risk = match decl.risk {
+                    argo_vertical::ActionRiskLevel::Low => "low",
+                    argo_vertical::ActionRiskLevel::Medium => "medium",
+                    argo_vertical::ActionRiskLevel::High => "high",
+                };
+                return Some((risk.to_string(), decl.requires_approval));
+            }
+        }
+        None
+    })
+}
+
+/// Enabled workspace-default auto-approval policy the duty gate falls back
+/// to when a worker carries no explicit policy (DEC-041). Enables the
+/// act-by-default safe tier within a CONSERVATIVE spend envelope. Only
+/// consulted when `ARGO_DUTY_AUTOFIRE` is on, so it stays dormant by
+/// default; the caps are a deliberately tight starting point, meant to be
+/// operator-tuned before the live flip.
+fn safe_tier_workspace_default() -> argo_identity::AutoApprovalPolicy {
+    argo_identity::AutoApprovalPolicy {
+        enabled: true,
+        // $0.50/action, $5/day — above the ~$0.05 per-fire estimate so a
+        // safe-tier duty CAN fire, tight enough to bound a runaway loop.
+        max_usd_micros_per_action: Some(500_000),
+        daily_budget_usd_micros: Some(5_000_000),
+        ..Default::default()
+    }
+}
+
 fn build_gateway_duty_scheduler(store: Arc<SessionStore>) -> Arc<DutyScheduler> {
     let duties = Arc::new(DutyStore::new(Arc::clone(&store)));
     let orchestrator = Arc::new(OrchestratorStore::new(Arc::clone(&store)));
@@ -236,8 +289,14 @@ fn build_gateway_duty_scheduler(store: Arc<SessionStore>) -> Arc<DutyScheduler> 
     // unset the gate stays closed — every fire is denied exactly as
     // before, so this lands dormant and reversible.
     let gate: Arc<dyn DutyGate> = if duty_autofire_enabled() {
+        // DEC-041: inject the manifest-backed risk resolver so the gate
+        // tiers on each duty's REAL risk (orchestrator can't read
+        // manifests; we can). Without it the gate fail-closes (holds).
         Arc::new(
-            AutoApprovalDutyGate::new(Arc::clone(&store)).with_audit_sink(Arc::clone(&sink)),
+            AutoApprovalDutyGate::new(Arc::clone(&store))
+                .with_audit_sink(Arc::clone(&sink))
+                .with_risk_resolver(make_duty_risk_resolver())
+                .with_workspace_default(safe_tier_workspace_default()),
         )
     } else {
         Arc::new(ClosedGate)

@@ -54,13 +54,24 @@ use std::sync::Arc;
 /// are plumbed onto `DutyRecord`.
 pub const DEFAULT_DUTY_ESTIMATE_USD_MICROS: u64 = 50_000;
 
-/// Default risk class assigned to a scheduled-duty fire. The
-/// `DutyRecord` carries no risk metadata, so the gate picks a
-/// conservative middle: `medium` auto-approves under a generous
-/// policy but lets operators force a human ask via a high-risk
-/// policy classification in a later iteration. Never `high` — that
-/// would make auto-fire impossible regardless of policy.
-const DEFAULT_DUTY_RISK_LEVEL: &str = "medium";
+/// Resolves a duty's real `(risk_level, requires_approval)` from its
+/// worker's vertical manifest. `argo-orchestrator` cannot read
+/// manifests, so the gateway (`argo-cli`, which can) injects this at
+/// construction. Called with `(vertical_id, entry_action)`; returns
+/// `None` when the action can't be resolved.
+///
+/// **Fail-closed (DEC-041):** when no resolver is injected, or it
+/// returns `None`, the gate treats the fire as `("high", true)` —
+/// high-risk + approval-required — so it is HELD, never auto-fired.
+/// A duty only enters the act-by-default safe tier when the resolver
+/// affirmatively reports the action is low-risk + `requires_approval=false`.
+pub type DutyRiskResolver = Arc<dyn Fn(&str, &str) -> Option<(String, bool)> + Send + Sync>;
+
+/// Fail-closed risk class + approval flag used when the duty's real
+/// risk cannot be resolved. `high` + `requires_approval` → the policy
+/// always asks (held), so an unresolved duty NEVER auto-fires.
+const FAILCLOSED_RISK_LEVEL: &str = "high";
+const FAILCLOSED_REQUIRES_APPROVAL: bool = true;
 
 /// [`DutyGate`] that decides a fire via the worker's resolved
 /// [`AutoApprovalPolicy`] + a fresh per-worker spend snapshot.
@@ -74,6 +85,7 @@ pub struct AutoApprovalDutyGate {
     workspace_default: AutoApprovalPolicy,
     audit_sink: Option<Arc<AuditSink>>,
     per_fire_estimate_usd_micros: u64,
+    risk_resolver: Option<DutyRiskResolver>,
 }
 
 impl AutoApprovalDutyGate {
@@ -89,7 +101,18 @@ impl AutoApprovalDutyGate {
             workspace_default: AutoApprovalPolicy::default(),
             audit_sink: None,
             per_fire_estimate_usd_micros: DEFAULT_DUTY_ESTIMATE_USD_MICROS,
+            risk_resolver: None,
         }
+    }
+
+    /// Inject the manifest-backed risk resolver (DEC-041 risk-tiering).
+    /// Without it the gate fail-closes every fire to high-risk +
+    /// approval-required (held). The gateway provides a resolver that
+    /// reads the worker's vertical manifest; orchestrator can't.
+    #[must_use]
+    pub fn with_risk_resolver(mut self, resolver: DutyRiskResolver) -> Self {
+        self.risk_resolver = Some(resolver);
+        self
     }
 
     /// Inject the workspace-default policy a worker falls back to
@@ -188,8 +211,36 @@ impl DutyGate for AutoApprovalDutyGate {
             this_month_usd_micros: today,
         };
 
+        // DEC-041 risk-tiering: resolve the duty's REAL risk + approval
+        // flag from the worker's vertical manifest (via the injected
+        // resolver, since orchestrator can't read manifests). Fail-closed
+        // to high-risk + approval-required when unresolved.
+        let (risk_level, manifest_requires_approval) = self
+            .risk_resolver
+            .as_ref()
+            .and_then(|resolve| resolve(&worker.vertical_id, &duty.entry_action))
+            .unwrap_or_else(|| {
+                (
+                    FAILCLOSED_RISK_LEVEL.to_string(),
+                    FAILCLOSED_REQUIRES_APPROVAL,
+                )
+            });
+        // The act-by-default SAFE TIER is narrow on purpose (DEC-041):
+        // ONLY `low` risk AND the manifest says no approval needed.
+        // `medium` ("public surface but reversible") and `high` STAY held
+        // — DEC-028's no-autonomous-public-posting line.
+        //
+        // We DON'T weaken the shared evaluator. Instead: the safe tier is
+        // sent at its real `low` risk so the evaluator's spend/rate caps
+        // still gate it (a $0 budget holds even a safe fire); everything
+        // else is coerced to `high` so the evaluator's existing
+        // `high_risk_always_asks` rule holds it regardless of how generous
+        // the worker's policy is. `requires_approval` stays `true` so the
+        // `!requires_approval` short-circuit never bypasses the caps.
+        let autofire_safe = risk_level == "low" && !manifest_requires_approval;
+        let eval_risk = if autofire_safe { "low" } else { "high" };
         let pending = PendingAction {
-            risk_level: DEFAULT_DUTY_RISK_LEVEL,
+            risk_level: eval_risk,
             requires_approval: true,
             estimated_usd_micros: Some(self.per_fire_estimate_usd_micros),
             action_type: duty.entry_action.as_str(),
