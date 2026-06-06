@@ -41,6 +41,46 @@ async fn promote_then_get_roundtrips() {
 }
 
 #[tokio::test]
+async fn document_grant_persists_with_null_mcp_binding() {
+    // DEC-041 A: an internal-document graduation is side-effect-free and
+    // needs NO mcp server/tool — it persists with NULL bindings.
+    let store = migrated_pool().await;
+    let grant = PromotionGrant {
+        tenant_id: "tenant-a".into(),
+        worker_id: "worker-1".into(),
+        action_type: "summarize_inbox".into(),
+        executor_kind: PROMOTABLE_KIND_DOCUMENT.into(),
+        mcp_server: None,
+        mcp_tool: None,
+        promoted_by: "principal:owner".into(),
+    };
+    let rec = promote(store.pool(), &grant)
+        .await
+        .expect("document promote succeeds without an mcp binding");
+    assert_eq!(rec.executor_kind, "document");
+    assert!(rec.mcp_server.is_none());
+    assert!(rec.mcp_tool.is_none());
+
+    let fetched = get(store.pool(), "tenant-a", "worker-1", "summarize_inbox")
+        .await
+        .expect("get")
+        .expect("row present");
+    assert_eq!(fetched, rec);
+}
+
+#[tokio::test]
+async fn unknown_executor_kind_is_rejected() {
+    // Only mcp + document are promotable; anything else fails closed.
+    let store = migrated_pool().await;
+    let mut grant = mcp_grant("tenant-a", "worker-1", "x");
+    grant.executor_kind = "browser".into();
+    assert!(
+        promote(store.pool(), &grant).await.is_err(),
+        "an un-promotable executor kind must be rejected"
+    );
+}
+
+#[tokio::test]
 async fn absent_promotion_is_none() {
     let store = migrated_pool().await;
     let none = get(store.pool(), "tenant-a", "worker-1", "send_email")
@@ -118,7 +158,7 @@ async fn non_mcp_kind_is_rejected() {
     grant.executor_kind = "computer_use".into();
     let err = promote(store.pool(), &grant).await.unwrap_err();
     assert!(
-        format!("{err}").contains("only 'mcp' is promotable"),
+        format!("{err}").contains("are promotable") && format!("{err}").contains("computer_use"),
         "non-mcp kind rejected: {err}"
     );
 }

@@ -88,8 +88,16 @@ pub struct PromotionGrant {
     pub promoted_by: String,
 }
 
-/// The only executor kind a teammate may be graduated to in v1.
+/// External-integration executor kind: graduates an action onto a live
+/// MCP server/tool. Requires `mcp_server` + `mcp_tool`.
 pub const PROMOTABLE_KIND_MCP: &str = "mcp";
+
+/// Internal-safe executor kind (DEC-041 "A"): graduates a low-risk action
+/// onto the side-effect-free `DocumentCreation` executor — the teammate
+/// produces an internal document/summary and the action self-completes.
+/// Needs NO external server/tool binding (the artifact is the deliverable),
+/// so `mcp_server`/`mcp_tool` are `None` for this kind.
+pub const PROMOTABLE_KIND_DOCUMENT: &str = "document";
 
 /// Insert or refresh a promotion row for one
 /// `(tenant_id, worker_id, action_type)`. Re-promoting the same action
@@ -111,15 +119,23 @@ pub async fn promote(pool: &Pool<Sqlite>, grant: &PromotionGrant) -> ArgoResult<
     validate_required("worker_id", &grant.worker_id)?;
     validate_required("action_type", &grant.action_type)?;
     validate_required("promoted_by", &grant.promoted_by)?;
-    if grant.executor_kind != PROMOTABLE_KIND_MCP {
-        return Err(ArgoError::Schema(format!(
-            "executor_promotion: only '{PROMOTABLE_KIND_MCP}' is promotable in v1, \
-             got '{}'",
-            grant.executor_kind
-        )));
+    match grant.executor_kind.as_str() {
+        PROMOTABLE_KIND_MCP => {
+            // External integration — needs a concrete server + tool to dispatch to.
+            require_binding("mcp_server", grant.mcp_server.as_deref())?;
+            require_binding("mcp_tool", grant.mcp_tool.as_deref())?;
+        }
+        PROMOTABLE_KIND_DOCUMENT => {
+            // Internal document executor (DEC-041 A) — side-effect-free, no
+            // external server/tool binding. Persisted with NULL mcp_server/tool.
+        }
+        other => {
+            return Err(ArgoError::Schema(format!(
+                "executor_promotion: only '{PROMOTABLE_KIND_MCP}' or \
+                 '{PROMOTABLE_KIND_DOCUMENT}' are promotable, got '{other}'"
+            )));
+        }
     }
-    let server = require_binding("mcp_server", grant.mcp_server.as_deref())?;
-    let tool = require_binding("mcp_tool", grant.mcp_tool.as_deref())?;
 
     let promoted_at = now_rfc3339();
     sqlx::query(
@@ -138,8 +154,8 @@ pub async fn promote(pool: &Pool<Sqlite>, grant: &PromotionGrant) -> ArgoResult<
     .bind(&grant.worker_id)
     .bind(&grant.action_type)
     .bind(&grant.executor_kind)
-    .bind(server)
-    .bind(tool)
+    .bind(grant.mcp_server.as_deref())
+    .bind(grant.mcp_tool.as_deref())
     .bind(&grant.promoted_by)
     .bind(&promoted_at)
     .execute(pool)

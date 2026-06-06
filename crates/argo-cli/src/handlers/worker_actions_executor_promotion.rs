@@ -33,7 +33,9 @@
 use super::worker_actions_executor::{resolve_executor, Executor};
 use super::worker_actions_executor_stubs::McpExecutor;
 use super::worker_actions_executor_timing::TimedExecutor;
-use argo_store::executor_promotion::{self, PromotionRecord, PROMOTABLE_KIND_MCP};
+use argo_store::executor_promotion::{
+    self, PromotionRecord, PROMOTABLE_KIND_DOCUMENT, PROMOTABLE_KIND_MCP,
+};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use argo_vertical::{
@@ -123,6 +125,13 @@ async fn resolve_with_graduation(
             let servers = manifest_servers(vertical);
             Ok(promoted_mcp_executor(&p, base, servers))
         }
+        // DEC-041 A: graduate to the side-effect-free internal document
+        // executor — the teammate produces an internal artifact and the
+        // action self-completes (no external blast radius). Wrapped in
+        // `TimedExecutor` so dispatch records latency like every other path.
+        Some(p) if p.executor_kind == PROMOTABLE_KIND_DOCUMENT => Ok(Box::new(
+            TimedExecutor::new(Box::new(super::worker_actions_executor_document::DocumentExecutor::new())),
+        )),
         _ => resolve_executor(vertical, action_type),
     }
 }
