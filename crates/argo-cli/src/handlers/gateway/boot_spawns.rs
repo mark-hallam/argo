@@ -13,9 +13,9 @@ use std::time::{Duration, SystemTime};
 use argo_channels::{AnomalyAlert, AnomalyDispatch, AnomalyKind, Severity};
 use argo_config::SiemConfig;
 use argo_orchestrator::{
-    spawn_duty_scheduler, spawn_kpi_rollup_scheduler, ClosedGate, DutyAgentRunner, DutyGate,
-    DutyRunContext, DutyScheduler, DutyStore, KpiRollupScheduler, OrchestratorStore,
-    WorkerSupervisor, DEFAULT_KPI_ROLLUP_INTERVAL_SECS,
+    spawn_duty_scheduler, spawn_kpi_rollup_scheduler, AutoApprovalDutyGate, ClosedGate,
+    DutyAgentRunner, DutyGate, DutyRunContext, DutyScheduler, DutyStore, KpiRollupScheduler,
+    OrchestratorStore, WorkerSupervisor, DEFAULT_KPI_ROLLUP_INTERVAL_SECS,
 };
 use argo_siem::{
     spawn_siem_dispatcher, DatadogLogsSink, ElasticSink, SiemDispatcherConfig, SiemSink,
@@ -168,9 +168,14 @@ pub(super) fn spawn_gateway_duty_scheduler(store: Arc<SessionStore>) -> AbortOnD
         .filter(|secs| *secs > 0)
         .unwrap_or(DEFAULT_DUTY_SCHEDULER_SECS);
     let scheduler = build_gateway_duty_scheduler(store);
+    let gate_label = if duty_autofire_enabled() {
+        "auto_approval"
+    } else {
+        "closed"
+    };
     eprintln!(
-        "argo gateway: duty scheduler enabled (interval={}s, gate=closed, runner=wired, sink=wired)",
-        interval_secs
+        "argo gateway: duty scheduler enabled (interval={}s, gate={}, runner=wired, sink=wired)",
+        interval_secs, gate_label
     );
     AbortOnDrop::new(spawn_duty_scheduler(
         scheduler,
@@ -199,17 +204,45 @@ pub(super) fn spawn_gateway_kpi_rollup(store: Arc<SessionStore>) -> AbortOnDrop 
     ))
 }
 
+/// True when `ARGO_DUTY_AUTOFIRE` is set to a truthy value
+/// (`1`/`true`/`yes`/`on`, case-insensitive). **Default OFF**
+/// (UF Phase-B · B2, DEC-036 / DEC-040): unset / any other value
+/// keeps wiring [`ClosedGate`], so today's deny-all behaviour is
+/// preserved. The live flip is operator-only, after the adversarial
+/// budget/risk review.
+fn duty_autofire_enabled() -> bool {
+    parse_autofire_flag(std::env::var("ARGO_DUTY_AUTOFIRE").ok().as_deref())
+}
+
+/// Pure truthiness parser for the `ARGO_DUTY_AUTOFIRE` flag — split
+/// out so the default-OFF contract is unit-testable without mutating
+/// the process environment.
+fn parse_autofire_flag(raw: Option<&str>) -> bool {
+    raw.map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .unwrap_or(false)
+}
+
 fn build_gateway_duty_scheduler(store: Arc<SessionStore>) -> Arc<DutyScheduler> {
     let duties = Arc::new(DutyStore::new(Arc::clone(&store)));
     let orchestrator = Arc::new(OrchestratorStore::new(Arc::clone(&store)));
-    // V1 fail-safe: run the autonomous duty loop but deny every
-    // fire until the live auto-approval gate is wired and verified.
-    let gate = Arc::new(ClosedGate);
-    let runner = Arc::new(GatewayDutyAgentRunner::new(Arc::clone(&store)));
     let sink = Arc::new(argo_audit::AuditSink::new_with_tenant(
-        store,
+        Arc::clone(&store),
         argo_audit::SYSTEM_AUDIT_TENANT_ID.to_string(),
     ));
+    // UF Phase-B · B2: behind `ARGO_DUTY_AUTOFIRE` (default OFF),
+    // swap the V1 fail-safe `ClosedGate` (deny-all) for the real
+    // auto-approval gate that reuses the merged H-1 evaluator over
+    // each worker's resolved policy + per-worker spend. With the flag
+    // unset the gate stays closed — every fire is denied exactly as
+    // before, so this lands dormant and reversible.
+    let gate: Arc<dyn DutyGate> = if duty_autofire_enabled() {
+        Arc::new(
+            AutoApprovalDutyGate::new(Arc::clone(&store)).with_audit_sink(Arc::clone(&sink)),
+        )
+    } else {
+        Arc::new(ClosedGate)
+    };
+    let runner = Arc::new(GatewayDutyAgentRunner::new(Arc::clone(&store)));
     build_gateway_duty_scheduler_with(duties, orchestrator, gate, runner, sink)
 }
 
@@ -396,5 +429,29 @@ pub(super) async fn finish_shutdown(
     }
     if let Some(w) = watchdog {
         w.abort();
+    }
+}
+
+#[cfg(test)]
+mod autofire_flag_tests {
+    use super::parse_autofire_flag;
+
+    #[test]
+    fn defaults_off_when_unset_or_unrecognised() {
+        // Default-OFF contract (DEC-036 / DEC-040): unset keeps the
+        // gate closed; so does any non-truthy value.
+        assert!(!parse_autofire_flag(None));
+        assert!(!parse_autofire_flag(Some("")));
+        assert!(!parse_autofire_flag(Some("0")));
+        assert!(!parse_autofire_flag(Some("false")));
+        assert!(!parse_autofire_flag(Some("off")));
+        assert!(!parse_autofire_flag(Some("maybe")));
+    }
+
+    #[test]
+    fn enables_on_truthy_values_case_insensitively() {
+        for v in ["1", "true", "TRUE", " yes ", "On"] {
+            assert!(parse_autofire_flag(Some(v)), "{v:?} should enable autofire");
+        }
     }
 }
