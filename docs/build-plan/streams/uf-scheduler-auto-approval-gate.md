@@ -2,7 +2,7 @@
 
 **Owner**: claude.
 **Depends on**: B1; A6 (per-worker spend snapshot); [[DEC-036]].
-**Authored against**: origin/main `58a35a9f9` on `2026-06-05`.
+**Authored against**: origin/main `d48aec4e1` on `2026-06-06`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh uf-scheduler-auto-approval-gate`.
 
 ## 🔒 HOLD — operator-gated (do NOT flip to TODO until released)
