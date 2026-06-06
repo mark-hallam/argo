@@ -105,3 +105,30 @@ analysis + gating before any flip. Required additional work (pre-flip):
   principle as fix (A), applied to the agent-tool path.
 
 The flip stays blocked until (A)+(B)+(C)+(D) land and this review re-runs clean.
+
+### (D) analysis result — the precise hole: non-Genesis autonomous sessions bind `owner`
+
+The agent-tool path IS capability-fenced — but only for Genesis-provenance workers.
+`turn_vertical_fence.rs::resolve_worker_profile_in`:
+- `GenesisProvenance::Genesis` → `Some(profile)` — derived least-privilege, or
+  `deny_all_profile()` fail-closed if the manifest can't resolve. **Safe.**
+- `GenesisProvenance::None` → **`None`** → `dispatch.rs::build_dispatch_ctx` then binds
+  the principal to **`owner`** (wide-open: `ToolDispatch "*"`, `MessageSend "*"`,
+  `FsWrite "**"`) + a BackgroundProcess spawn grant.
+
+So a **non-Genesis worker** (seeded/template heroes, catalog hires — provenance `None`)
+running an **autonomous duty** would execute its agent as **`owner`** and could call any
+tool, including external `mcp` (gcal/gmail). The `owner` fallback is correct for an
+*interactive human* session (the human IS the owner) but UNSAFE for an autonomous one.
+
+**Fix (flip-critical, the real (D)):** thread an "autonomous/headless session" signal
+through the run path; for an autonomous session, **never bind `owner`** — bind the
+worker's fenced profile, or `deny_all_profile()` when there's none (fail-closed). This
+is a security-critical capability-fence change → build it deliberately, with its own
+test (autonomous + non-Genesis → deny-all, NOT owner) + re-review, NOT a rushed cut.
+
+Note: the 3 "mis-tagged" manifests (prior finding #2) are actually DELIBERATE
+autonomous-safe designs (documented rationale: reversible bookings, no PHI). So (B) is
+NOT a bug fix — overriding them would be a product-design change. The architectural fence
+(this (D) + (A)) must make the flip safe regardless of any manifest's tagging; that's the
+correct defense, not editing demo content.
