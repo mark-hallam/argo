@@ -6,11 +6,22 @@ Every claim below was checked **this session in the live browser + against the l
 
 ---
 
-## Verdict (one line)
+## ✅ UPDATE 2026-06-06 (later same session) — ALL THREE BLOCKERS CLEARED + verified live
+
+The three blockers below were fixed, merged (operator-approved, DEC-040), the gateway was rebuilt to **schema 91** (`build_commit c84ec73`), the demo tenant re-seeded clean (8 workers), and each blocker **re-verified live against the running gateway this session**:
+- **Blocker 1 (tier cap → #2731 `13655b6b2`):** demo workspace tier is now **`enterprise`** (was `free`) — confirmed in the store after re-seed; Genesis hire no longer hits `tier_worker_cap`.
+- **Blocker 2 (tenant isolation → #2734 `aa2b14b1c`):** two demo-mint principals resolve to **different** tenants (`019e9b1b-e241…` vs `019e9b1b-e2cc…`), and re-minting the same email returns the **same** tenant (idempotent). The mint JWT now carries a per-principal `tnt` claim.
+- **Blocker 3 (worker management → #2732 `05c71376c`):** the worker **detail** route now returns `can_edit_duties:true` + full owner perms for a demo principal (the override the overview route already had) — "Add schedule" + management are live.
+
+**Remaining for the FULL autonomous loop:** the teammate-execution path (B1+B2+B3 of UF Phase B) is now **all merged but default-OFF/dormant** — a hired teammate still drafts only. Turning on real autonomous execution is the operator-gated live flip, pending the conductor-driven adversarial blast-radius review (operator watches) + an explicit go. So: **hire + manage + isolate now work end-to-end; autonomous execution is built, dormant, and awaiting the review + your go-live.**
+
+---
+
+## Verdict (one line) — original finding, preserved for the record (now superseded by the UPDATE above)
 
 **NO-GO** for "mint a teammate that does *autonomous useful work*" in the current live build — **but** the front half of the flow (generate a real, well-specified teammate from a plain-English role) genuinely works and is impressive. The blockers are three concrete, fixable things, not a fundamental dead end.
 
-Plain English: today the platform is a **superb teammate-*designer*** (it reads your role description and writes a real, safety-bounded job spec), but in the live demo you currently **cannot finish hiring**, **cannot manage** the teammate, and the teammate **cannot run on its own** — so the loop doesn't close end-to-end yet.
+Plain English: today the platform is a **superb teammate-*designer*** (it reads your role description and writes a real, safety-bounded job spec), but in the live demo you currently **cannot finish hiring**, **cannot manage** the teammate, and the teammate **cannot run on its own** — so the loop doesn't close end-to-end yet. *(↑ the hire/manage/isolate half is now FIXED per the UPDATE banner; only the autonomous-execution half remains, by design, behind the operator-gated flip.)*
 
 ---
 
