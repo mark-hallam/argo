@@ -41,7 +41,9 @@ The differentiator (tamper-evident audit + truth-boundary + approval-on-sensitiv
 
 1. Risk-tiered default auto-approval policy (gate side) — auto-approve `low && !requires_approval`, hold else. **+ B2 risk fidelity** (carry the action's real `risk_level` onto `DutyRecord` so the gate tiers on truth, not the flattened `"medium"`).
 2. Wire `resolve_executor_with_promotion` into live dispatch, flag-gated (dormancy preserved when off) — so a safe-tier action executes via a real executor instead of drafting.
-3. Safe-tier executor assignment at materialize / auto-graduation for the safe tier.
+3. Safe-tier auto-graduation — **direction locked "A then B" (operator, 2026-06-06).** Finding during piece-2 build: the conservative `Builtin` intent ("side-effect-free read/draft/clarify") has **no executor** — it materializes to `human` (draft), so it cannot execute. The only Genesis-proposed intent with a real executor is external `Mcp`. So the enterprise trust-ladder is built bottom-up:
+   - **(A) FIRST — internal-safe executor:** give the safe tier real reach with **zero external blast radius** — the teammate produces an internal document/summary (`DocumentCreation` executor exists) + writes its own memory, and marks the action complete (the artifact IS the deliverable; self-completing). Auto-graduated via the flag-gated grant path. This is the enterprise-adoptable foundation + generates the audit history that justifies (B).
+   - **(B) LATER — external `Mcp`, graduated:** per-action, post-probation, approval retained on anything mutating/sensitive — never an auto-default. Arrives after (A) has proven the teammate via audit history.
 4. The tight envelope (spend cap + rate limit + scope) enforced on the auto-act path.
 5. Re-run the blast-radius review against the wired path → operator live-flip → verify with a real executed-action audit row (NO THEATER).
 
