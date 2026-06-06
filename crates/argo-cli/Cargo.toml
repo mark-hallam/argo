@@ -199,3 +199,9 @@ tempfile = "3"
 # Used by `self_update` handler tests to mint ephemeral Ed25519
 # keypairs that sign/verify test fixtures (no real release key in CI).
 rand_core = { version = "0.6", features = ["getrandom"] }
+# Used by `demo_mode_mint_principal_smoke` to decode the `tnt` (tenant)
+# claim out of the minted demo session JWT and assert two demo
+# principals resolve to different tenants. Both are already non-dev
+# dependencies of the crate; integration tests need them re-declared here.
+base64 = "0.22"
+serde_json = { workspace = true }

@@ -81,6 +81,17 @@ const DEMO_PRINCIPAL_ROLE: &str = "owner";
 struct Claims<'a> {
     sub: &'a str,
     email: &'a str,
+    /// Per-principal workspace tenant id (UUID stringified). Decoded
+    /// request-side by [`super::resolve_tenant::resolve_tenant_for_request`]
+    /// via the JWT `tnt` branch, which wins over the cwd fallback — so two
+    /// demo-mint principals resolve to DIFFERENT tenants (isolated rosters)
+    /// instead of all sharing the one cwd/seeded tenant.
+    ///
+    /// `None` only when the gateway has no `SessionStore` to provision
+    /// against (not reachable in the running gateway); the resolver then
+    /// falls back to the cwd tenant exactly as before.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tnt: Option<&'a str>,
     /// Membership-equivalent role. Decoded verify-side by
     /// [`super::session_jwt`]'s `SessionClaims.role` and consumed by
     /// the role-gate. Demo principals are workspace owners — see
@@ -121,7 +132,20 @@ async fn mint_principal_response(
         return error_resp("400 Bad Request", "email is required");
     }
     let now = Utc::now().timestamp();
-    let token = match mint_demo_session(&email, now) {
+    // Give this demo principal its OWN tenant so two demo-mint logins
+    // never share a roster. Mirrors the magic-link verify path (upsert
+    // user → provision/look-up tenant → stamp `tnt`); idempotent, so a
+    // repeat mint of the same email reuses its tenant rather than minting
+    // a second one. Without a store we can't provision, so we mint a
+    // `tnt`-less token and the resolver keeps its prior cwd fallback.
+    let tenant_id = match store {
+        Some(s) => match resolve_demo_tenant(s, &email).await {
+            Ok(t) => t,
+            Err(msg) => return error_resp("500 Internal Server Error", &msg),
+        },
+        None => None,
+    };
+    let token = match mint_demo_session(&email, tenant_id.as_deref(), now) {
         Ok(t) => t,
         Err(msg) => return error_resp("500 Internal Server Error", &msg),
     };
@@ -142,13 +166,14 @@ async fn mint_principal_response(
     ("200 OK", body.to_string())
 }
 
-fn mint_demo_session(email: &str, now: i64) -> Result<String, String> {
+fn mint_demo_session(email: &str, tenant_id: Option<&str>, now: i64) -> Result<String, String> {
     let key = EncodingKey::from_secret(&jwt_secret());
     jsonwebtoken::encode(
         &Header::new(jsonwebtoken::Algorithm::HS256),
         &Claims {
             sub: email,
             email,
+            tnt: tenant_id,
             role: DEMO_PRINCIPAL_ROLE,
             iat: now,
             exp: now + JWT_TTL_SECS,
@@ -157,6 +182,72 @@ fn mint_demo_session(email: &str, now: i64) -> Result<String, String> {
         &key,
     )
     .map_err(|e| format!("jwt encode: {e}"))
+}
+
+/// Provision (or look up) this demo principal's own tenant and return
+/// its id as a string for the JWT `tnt` claim. Makes the demo principal
+/// exactly a real first-time signed-up user: a `user_account` row, an
+/// owned `tenant` + `workspace`, and a `user_tenant` owner link.
+///
+/// Mirrors `auth_magic_link_verify`'s upsert-user → provision-tenant
+/// path against the same `argo_identity` API (that module's helpers are
+/// private, so this duplicates the few lines rather than coupling to
+/// them — the same pattern `onboarding_provision` already follows).
+/// [`provision_for_user`] is idempotent on `user_id`, so a repeat mint
+/// of the same email reuses its tenant instead of minting a second one.
+async fn resolve_demo_tenant(
+    store: &Arc<SessionStore>,
+    email: &str,
+) -> Result<Option<String>, String> {
+    use argo_identity::user::UserAccount;
+    use argo_identity::user_store::{get_user_by_email, insert_user, update_last_login};
+    use argo_identity::{provision_for_user, ProvisionRequest};
+
+    let user = match get_user_by_email(store, email)
+        .await
+        .map_err(|e| format!("demo user lookup: {e}"))?
+    {
+        Some(u) => {
+            update_last_login(store, u.id, Utc::now())
+                .await
+                .map_err(|e| format!("demo user touch: {e}"))?;
+            u
+        }
+        None => {
+            let u = UserAccount::new(email.to_string());
+            insert_user(store, &u)
+                .await
+                .map_err(|e| format!("demo user insert: {e}"))?;
+            u
+        }
+    };
+
+    let workspace_name = demo_workspace_name(email);
+    let outcome = provision_for_user(
+        store,
+        ProvisionRequest {
+            user_id: user.id,
+            user_email: email,
+            workspace_name: &workspace_name,
+            company_name: None,
+        },
+    )
+    .await
+    .map_err(|e| format!("demo tenant provision: {e}"))?;
+    Ok(Some(outcome.tenant_id.to_string()))
+}
+
+/// A non-empty default workspace label from the email local-part
+/// (`alice@acme.com` → `alice's Workspace`). Only needs to be non-empty
+/// so [`provision_for_user`] accepts it; the demo user can rename it
+/// later. Mirrors `auth_magic_link_verify::default_workspace_name`.
+fn demo_workspace_name(email: &str) -> String {
+    let local = email.split('@').next().unwrap_or("").trim();
+    if local.is_empty() {
+        "My Workspace".to_string()
+    } else {
+        format!("{local}'s Workspace")
+    }
 }
 
 async fn write_demo_audit(store: &Arc<SessionStore>, email: &str) {
@@ -207,7 +298,12 @@ mod tests {
 
     #[test]
     fn mint_demo_session_round_trips() {
-        let jwt = mint_demo_session("demo@example.com", 1_700_000_000).expect("mint");
+        let jwt = mint_demo_session(
+            "demo@example.com",
+            Some("11111111-1111-1111-1111-111111111111"),
+            1_700_000_000,
+        )
+        .expect("mint");
         let key = jsonwebtoken::DecodingKey::from_secret(&jwt_secret());
         let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
         validation.validate_exp = false;
@@ -216,6 +312,7 @@ mod tests {
             email: String,
             demo: bool,
             role: String,
+            tnt: Option<String>,
         }
         let data = jsonwebtoken::decode::<Verify>(&jwt, &key, &validation).expect("decode");
         assert_eq!(data.claims.email, "demo@example.com");
@@ -224,6 +321,29 @@ mod tests {
         // role decoded `None` verify-side, fell back to `guest`, and
         // 403'd the demo "Run workflow" POST.
         assert_eq!(data.claims.role, "owner");
+        // Tenant-isolation fix: the demo JWT MUST carry a `tnt` claim so
+        // `resolve_tenant_for_request` routes the principal to its own
+        // tenant via the JWT branch instead of the shared cwd fallback.
+        assert_eq!(
+            data.claims.tnt.as_deref(),
+            Some("11111111-1111-1111-1111-111111111111"),
+        );
+    }
+
+    #[test]
+    fn mint_demo_session_omits_tnt_when_unprovisioned() {
+        // No store → no provisioning → no `tnt` claim, so the resolver
+        // keeps its prior cwd fallback (graceful degrade, not a panic).
+        let jwt = mint_demo_session("demo@example.com", None, 1_700_000_000).expect("mint");
+        let key = jsonwebtoken::DecodingKey::from_secret(&jwt_secret());
+        let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
+        validation.validate_exp = false;
+        #[derive(Debug, serde::Deserialize)]
+        struct Verify {
+            tnt: Option<String>,
+        }
+        let data = jsonwebtoken::decode::<Verify>(&jwt, &key, &validation).expect("decode");
+        assert_eq!(data.claims.tnt, None);
     }
 
     /// End-to-end of the fix: a demo-minted JWT, decoded through the
@@ -238,7 +358,12 @@ mod tests {
         use argo_types::Principal;
 
         // 1. Mint a demo session token (the demo-mode bypass path).
-        let jwt = mint_demo_session("portia@skycot.com", Utc::now().timestamp()).expect("mint");
+        let jwt = mint_demo_session(
+            "portia@skycot.com",
+            Some("22222222-2222-2222-2222-222222222222"),
+            Utc::now().timestamp(),
+        )
+        .expect("mint");
 
         // 2. Decode it through the production verify-side parser the
         //    role-gate actually uses — proves the `role` claim survives
