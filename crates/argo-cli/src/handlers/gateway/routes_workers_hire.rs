@@ -30,6 +30,7 @@ use super::role_gate::{enforce_role, Action};
 use super::routes_auth_principal::principal_id_for_audit;
 use super::routes_workers_hire_audit::emit_hire_audit;
 use super::routes_workers_hire_duty_bridge::bridge_hire_duties;
+use super::routes_workers_hire_safe_tier_graduation::auto_graduate_safe_tier;
 use argo_identity::{HireDraft, IdentityStore, WorkerId};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
@@ -175,6 +176,13 @@ pub(super) async fn hire_response(
     // stays default-closed. Non-fatal: a bridge failure is logged, not
     // surfaced, because the worker is already committed.
     bridge_hire_duties(store, tenant_id, new_id, &draft).await;
+
+    // UF Phase-B · B3 / DEC-041 "A": auto-graduate the SAFE TIER (low-risk +
+    // no-approval actions) onto the internal `document` executor. No-op unless
+    // `ARGO_EXECUTION_GRADUATION` is on (default-OFF) — so this is dormant and
+    // the hire is unchanged until the operator flips graduation live. Non-fatal:
+    // a write failure is logged inside, the worker is already committed.
+    auto_graduate_safe_tier(store, tenant_id, new_id, &draft.suggested_vertical).await;
 
     emit_hire_audit(
         store,
