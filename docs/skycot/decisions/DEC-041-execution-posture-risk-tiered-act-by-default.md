@@ -48,3 +48,36 @@ The differentiator (tamper-evident audit + truth-boundary + approval-on-sensitiv
 5. Re-run the blast-radius review against the wired path → operator live-flip → verify with a real executed-action audit row (NO THEATER).
 
 WS1 (principal-vs-cwd tenant resolution) remains a pre-live-flip dependency.
+
+## ⛔ Blast-radius re-review against the wired path — 2026-06-06 — FLIP BLOCKED
+
+Operator authorized the flip ("you can flip the switch" / "run the finish"). The
+conductor-driven re-review (operator watching) ran FIRST and **blocked it** — the
+review worked. Findings:
+
+1. **No-grant fallback returns the manifest executor (the dangerous one).** Piece-2's
+   `resolve_executor_with_promotion`, on the no-grant path, returns the *manifest*
+   executor. 3b only graduates NEW hires to the safe `document` executor — existing
+   seeded workers have no grant, so a safe-tier duty fire would resolve their actions
+   to whatever the manifest declares, **including external `mcp`**.
+2. **3 live manifests mis-tag external actions as safe-tier** (low-risk + no-approval +
+   external executor): `healthcare-intake/schedule_appointment` (gcal), `real-estate-agent/schedule_viewing`
+   (gcal), `real-estate-agent/follow_up_lead` (gmail.send). Under the flags these would
+   auto-create calendar events / send email — NOT internal documents.
+3. **Unconfirmed auto-execution reachability:** the duty runner's `run_turn` invokes
+   `argo_agent_runner::run_turn` with `MAX_TOOL_ROUNDS`, so a fired duty's agent *can*
+   call tools within the turn. Whether those tool calls auto-execute via the executor
+   path (reaching the manifest-external fallback) or only record proposals is NOT yet
+   confirmed — and that uncertainty alone blocks a safe flip.
+
+**Required before any flip (the fix):**
+- **(A) Architectural defense:** the AUTONOMOUS path (duty-fired) must require an explicit
+  grant to execute — no grant → DRAFT, never the manifest's external executor — regardless
+  of the graduation flag. (Distinguish autonomous vs manual dispatch, or force the duty
+  path through grant-required resolution.) This is the robust fix; it protects against any
+  present/future mis-tagged manifest.
+- **(B) Data:** correct the 3 mis-tagged manifests to `requires_approval = true`.
+- **(C) Confirm** whether `run_turn`'s tool calls auto-execute or only propose — trace before flip.
+
+Then re-run THIS review → clean → operator flips → verify a real internal-document
+executed-action audit row. The flip remains operator-only; nothing was flipped.
