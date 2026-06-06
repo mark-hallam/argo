@@ -1,9 +1,9 @@
 # mission-genesis-comprehension-verification-quiz-mode
 
 **Owner**: claude.
-**Authored against**: origin/main `a85963b34` on `2026-05-25`.
+**Authored against**: origin/main `644be2cb1` on `2026-06-06`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-genesis-comprehension-verification-quiz-mode`.
-**Depends on**: `mission-genesis-document-upload-and-memory-ingest` + `mission-genesis-integration-import-slack-notion-confluence` + `mission-genesis-access-controls-and-guardrails-spec-ui` MERGED.
+**Depends on**: `mission-genesis-document-upload-and-memory-ingest` MERGED (#2728). [Re-scoped 2026-06-06 per DEC-040 Phase-C subset — integration-import + access-controls-guardrails DEFERRED; the quiz verifies comprehension of the UPLOADED DOCUMENT knowledge, which doc-upload provides.]
 
 🔴 **P0 MISSION CLAIM 3 — Phase 2 Onboarding Studio — the "show me what you learned" gate before Hire.**
 
