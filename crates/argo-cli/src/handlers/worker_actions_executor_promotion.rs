@@ -22,14 +22,13 @@
 //! changes *who* executes after approval, never that approval is
 //! required.
 
-// This whole module is the dormant, operator-gated execution-graduation
-// seam. Its single public entry point (`resolve_executor_with_promotion`)
-// is intentionally NOT yet wired into the production dispatch callsite —
-// that live flip lands in a follow-up brief after the DEC-037
-// blast-radius review. Until then every item here is reachable only from
-// this module's own tests, so the non-test lib build sees it as dead;
-// the allow is deliberate, not an oversight.
-#![allow(dead_code)]
+// DEC-041 piece 2: this execution-graduation seam is now WIRED into the
+// live dispatch callsite (`worker_actions_dispatch::invoke_executor_for`),
+// gated behind `ARGO_EXECUTION_GRADUATION` (default-OFF). With the flag
+// unset the dispatch callsite calls `resolve_executor` directly, so this
+// module's promotion path stays dormant; flag-on, a graduated action
+// resolves to its real executor here. The blast-radius review must be
+// re-run against this wired path before the operator flips the flag live.
 
 use super::worker_actions_executor::{resolve_executor, Executor};
 use super::worker_actions_executor_stubs::McpExecutor;

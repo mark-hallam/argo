@@ -136,7 +136,7 @@ pub(crate) async fn execute(action_id: &str, dry_run: bool, json: bool) -> ArgoR
     // action_type) gate. No-op when [runtime.action_throttle] is
     // disabled or no policy is configured for this action_type.
     throttle_gate(&store, &rec).await;
-    let (final_rec, bundle_path) = match invoke_executor_for(&rec).await? {
+    let (final_rec, bundle_path) = match invoke_executor_for(&rec, &store).await? {
         worker_actions_executor::ActionOutcome::HumanHandoff { bundle_path } => (rec, bundle_path),
         // Auto-complete path (#A-executor-trait): the executor
         // did the work end-to-end, so write a fresh
@@ -182,6 +182,7 @@ pub(crate) async fn execute(action_id: &str, dry_run: bool, json: bool) -> ArgoR
 /// declared executor.
 async fn invoke_executor_for(
     rec: &ActionRecord,
+    store: &Arc<SessionStore>,
 ) -> ArgoResult<worker_actions_executor::ActionOutcome> {
     let dir = super::vertical::resolve_verticals_dir();
     let (registry, _errors) = argo_vertical::load_dir(&dir)?;
@@ -201,8 +202,29 @@ async fn invoke_executor_for(
                 rec.action_type
             ))
         })?;
-    let executor = worker_actions_executor::resolve_executor(manifest, &rec.action_type)?;
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    // DEC-041 piece 2: route through the per-action execution-graduation
+    // resolver — but ONLY when `ARGO_EXECUTION_GRADUATION` is on. With the
+    // flag OFF (the shipped default) this branch calls `resolve_executor`
+    // directly, byte-for-byte the prior behaviour: the promotion table is
+    // never touched and every action resolves to its manifest executor
+    // (`human` → draft). Flag ON, a graduated safe-tier action resolves to
+    // its real executor. Tenant is the cwd workspace (matches where the
+    // promote route stamps the grant).
+    let executor = if super::worker_actions_executor_promotion::execution_graduation_enabled() {
+        let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+        let (tenant, _ws) = store.ensure_workspace(name, &cwd.to_string_lossy()).await?;
+        super::worker_actions_executor_promotion::resolve_executor_with_promotion(
+            store,
+            tenant,
+            &rec.worker_id.to_string(),
+            manifest,
+            &rec.action_type,
+        )
+        .await?
+    } else {
+        worker_actions_executor::resolve_executor(manifest, &rec.action_type)?
+    };
     executor.dispatch(rec, &cwd)
 }
 
