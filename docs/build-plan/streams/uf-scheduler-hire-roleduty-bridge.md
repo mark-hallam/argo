@@ -2,7 +2,7 @@
 
 **Owner**: claude.
 **Depends on**: tenant keystone (#2676); [[DEC-036]] (autonomous scheduled execution).
-**Authored against**: origin/main `58a35a9f9` on `2026-06-05`.
+**Authored against**: origin/main `2133e4511` on `2026-06-06`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh uf-scheduler-hire-roleduty-bridge`.
 
 ## 🔒 HOLD — operator-gated (do NOT flip to TODO until released)

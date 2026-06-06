@@ -1,7 +1,7 @@
 # mission-genesis-document-upload-and-memory-ingest
 
 **Owner**: claude.
-**Authored against**: origin/main `a85963b34` on `2026-05-25`.
+**Authored against**: origin/main `2133e4511` on `2026-06-06`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-genesis-document-upload-and-memory-ingest`.
 **Depends on**: `mission-genesis-gateway-route-streaming-api` + `mission-genesis-spa-page-describe-and-watch` MERGED.
 
