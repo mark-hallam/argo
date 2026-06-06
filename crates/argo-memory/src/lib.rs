@@ -37,6 +37,7 @@ mod embedding;
 mod entry;
 mod layers;
 mod layers_indexing;
+pub mod onboarding_namespace;
 mod row;
 pub mod shared_team;
 mod skill_candidate;
@@ -53,6 +54,9 @@ pub use context::ContextPack;
 pub use embedding::{EmbeddingProvider, Voyage3EmbeddingProvider};
 pub use entry::{MemoryEntry, MemoryFile, PrincipalOverride};
 pub use layers::{LayeredMemoryEntry, MemoryLayer, ScoredMemoryEntry};
+pub use onboarding_namespace::{
+    onboarding_boot_preamble, OnboardingNamespaceKey, ONBOARDING_DOCUMENTS_NAMESPACE,
+};
 pub use shared_team::{shared_team, SharedEntry, SharedTeamNs};
 pub use skill_candidate::MemorySkillCandidate as SkillCandidate;
 pub use skill_candidate::{

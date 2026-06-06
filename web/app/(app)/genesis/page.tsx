@@ -11,6 +11,7 @@ import {
   SopUpload,
   type SopSelection,
 } from "@/components/skycot/genesis/SopUpload";
+import { DocumentUploader } from "@/components/skycot/genesis/DocumentUploader";
 import {
   CadenceExceptionsCapture,
   EMPTY_CADENCE_EXCEPTIONS,
@@ -447,6 +448,12 @@ export default function GenesisPage() {
           ) : null}
           {vertical && (status === "ready" || status === "hiring") ? (
             <>
+              {/* Phase 2 — drop SOPs / wikis / process docs so the teammate
+                  boots already knowing the material, before confirming hire. */}
+              <DocumentUploader
+                verticalId={vertical.vertical_id}
+                disabled={status === "hiring"}
+              />
               <RoleContractReview
                 ready={vertical}
                 onConfirmHire={handleHire}

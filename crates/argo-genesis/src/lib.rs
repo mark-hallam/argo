@@ -60,6 +60,7 @@ pub mod materialize;
 mod materialize_naming;
 pub mod materialize_writer;
 pub mod memory_schema;
+pub mod onboarding_documents;
 pub mod pipeline;
 pub mod pipeline_seed;
 pub mod prompt_engineer;
@@ -125,6 +126,10 @@ pub use sop::{
     SopQuestion, MIN_SOP_CHARS,
 };
 pub use sop_store::{read_sop_knowledge, write_sop_knowledge, DiskSop};
+pub use onboarding_documents::{
+    ingest_onboarding_document, onboarding_document_labels, read_onboarding_documents,
+    write_onboarding_documents, OnboardingDocument, MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES,
+};
 pub use job_description::{
     genesis_from_job_description, genesis_from_job_description_with, GenesisDraft, JobDescInput,
 };

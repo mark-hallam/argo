@@ -227,6 +227,15 @@ async fn api_v1_dispatch(
     if req.starts_with("POST /api/v1/genesis/conversation ") {
         return Some(super::routes_genesis_intake_conversation::respond(req, store).await);
     }
+    // mission-genesis-document-upload-and-memory-ingest (Phase 2) — operator
+    // drops SOPs / wikis / process docs onto the drafted teammate; each is
+    // parsed → chunked → persisted tenant-scoped so the teammate boots already
+    // knowing the material. Fail-closed cross-tenant (404 on a foreign id).
+    if req.starts_with("POST /api/v1/genesis/ingest-document ")
+        || req.starts_with("POST /api/v1/genesis/ingest-document?")
+    {
+        return Some(super::routes_genesis_ingest::ingest_response(req, store).await);
+    }
     // pitch-agent-rehearsal-ui-and-gateway — operator-facing Pitch
     // Agent endpoint. Deterministic canonical-Q&A + truth-boundary
     // evaluation; same code path the 111-case pitch-eval suite proves.
