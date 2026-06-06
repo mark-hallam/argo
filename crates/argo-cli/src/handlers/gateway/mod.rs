@@ -257,6 +257,8 @@ mod routes_worker_skills;
 mod routes_worker_skills_helpers;
 mod routes_worker_trust_grade;
 mod routes_workers_hire;
+mod routes_workers_hire_audit;
+mod routes_workers_hire_duty_bridge;
 mod routes_workers_hire_gate;
 mod routes_workflow_execute;
 mod routes_workflow_execute_runner;

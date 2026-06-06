@@ -28,7 +28,8 @@ use super::body_from_request;
 use super::boot::learning_registry;
 use super::role_gate::{enforce_role, Action};
 use super::routes_auth_principal::principal_id_for_audit;
-use argo_audit::{AuditKind, AuditSink};
+use super::routes_workers_hire_audit::emit_hire_audit;
+use super::routes_workers_hire_duty_bridge::bridge_hire_duties;
 use argo_identity::{HireDraft, IdentityStore, WorkerId};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
@@ -166,6 +167,14 @@ pub(super) async fn hire_response(
     if let Some(key) = idem_key.as_deref() {
         remember_idempotency(tenant_id, key, &body_digest, new_id);
     }
+
+    // UF Phase-B · B1 (DEC-036/040): mirror the new teammate's enabled
+    // duties into the scheduler's `role_duty` table so its cadence is
+    // visible to the autonomous scheduler. Safe plumbing only — the row
+    // is listable, not armed; B2's fire-gate (`ARGO_DUTY_AUTOFIRE`)
+    // stays default-closed. Non-fatal: a bridge failure is logged, not
+    // surfaced, because the worker is already committed.
+    bridge_hire_duties(store, tenant_id, new_id, &draft).await;
 
     emit_hire_audit(
         store,
@@ -319,117 +328,6 @@ pub(super) fn reset_idem_cache_for_tests() {
         guard.clear();
     }
 }
-
-#[allow(clippy::too_many_arguments)]
-async fn emit_hire_audit(
-    store: &std::sync::Arc<SessionStore>,
-    tenant_id: TenantId,
-    principal_id: &str,
-    worker_id: WorkerId,
-    problem: &str,
-    answers: &Value,
-    draft: &HireDraft,
-    genesis_fallback: bool,
-) {
-    let payload = json!({
-        "endpoint": "workers.hire",
-        "worker_id": worker_id.to_string(),
-        "vertical_id": draft.suggested_vertical,
-        "persona_name": draft.suggested_name,
-        "approval_policy_level": draft.approval_policy.level,
-        "duty_count": draft.duties.len(),
-        "problem": redact_text(problem),
-        "answers": redact_value(answers),
-        "draft": json!({
-            "suggested_name": draft.suggested_name,
-            "suggested_vertical": draft.suggested_vertical,
-            "charter_len": draft.charter.len(),
-            "duty_entry_actions": draft
-                .duties
-                .iter()
-                .map(|d| d.entry_action.clone())
-                .collect::<Vec<_>>(),
-        }),
-    });
-    let sink = AuditSink::new_with_tenant(std::sync::Arc::clone(store), tenant_id.to_string());
-    if let Err(e) = sink
-        .write(
-            None,
-            AuditKind::HttpRequest,
-            payload,
-            Some(principal_id.to_string()),
-        )
-        .await
-    {
-        tracing::warn!(
-            target: "gateway::workers_hire",
-            error = %e,
-            worker_id = %worker_id,
-            "hire audit write failed"
-        );
-    }
-    // Domain event (stream `web-audit-kinds-for-journey-events`):
-    // alongside the structural `HttpRequest` row above, emit a
-    // named `WorkerHired` row so audit consumers scanning for
-    // "who joined the workspace today?" see the hire directly
-    // instead of `HttpRequest + endpoint=workers.hire`.
-    let domain_payload = json!({
-        "actor": principal_id,
-        "tenant_id": tenant_id.to_string(),
-        "worker_id": worker_id.to_string(),
-        "vertical_id": draft.suggested_vertical,
-        "name": draft.suggested_name,
-        "duty_count": draft.duties.len(),
-        "hired_at": Utc::now().to_rfc3339(),
-    });
-    if let Err(e) = sink
-        .write(
-            None,
-            AuditKind::WorkerHired,
-            domain_payload,
-            Some(principal_id.to_string()),
-        )
-        .await
-    {
-        tracing::warn!(
-            target: "gateway::workers_hire",
-            error = %e,
-            worker_id = %worker_id,
-            "worker_hired audit write failed"
-        );
-    }
-    // Stream `mission-genesis-fallback-audit-kind`: when the SPA tags
-    // the hire body with `"genesis_fallback": true`, the Step 3
-    // Genesis call fell back to the local stub draft. Emit a named
-    // row so operators can see Genesis-failure events directly in
-    // `/audit` without filtering on the generic HttpRequest payload.
-    if genesis_fallback {
-        let fallback_payload = json!({
-            "actor": principal_id,
-            "tenant_id": tenant_id.to_string(),
-            "worker_id": worker_id.to_string(),
-            "vertical_id": draft.suggested_vertical,
-        });
-        if let Err(e) = sink
-            .write(
-                None,
-                AuditKind::GenesisFallbackUsed,
-                fallback_payload,
-                Some(principal_id.to_string()),
-            )
-            .await
-        {
-            tracing::warn!(
-                target: "gateway::workers_hire",
-                error = %e,
-                worker_id = %worker_id,
-                "genesis_fallback_used audit write failed"
-            );
-        }
-    }
-}
-
-use super::routes_workers_hire_gate::{redact_text, redact_value};
 
 fn ok_idempotent(worker_id: WorkerId) -> (&'static str, String) {
     // Per the Phase 3 hire-flow brief: the duplicate response carries
