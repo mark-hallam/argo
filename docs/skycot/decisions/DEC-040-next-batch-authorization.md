@@ -47,21 +47,24 @@ demonstrate hiring/managing.
 - Demo-tenant fix PRs: operator reviews before merge.
 
 
-## Clarification — adversarial review is JOINT (operator instruction 2026-06-06)
+## Clarification — adversarial review process (operator instructions 2026-06-06)
 
-The Phase-B adversarial review is **JOINT (operator + conductor), conducted
-interactively once Phase B has fully LANDED** (B1 + B2 + B3 merged) — it is the
-gate before the live flip. Refines the earlier "conductor adversarial review per
-PR" line:
+The Phase-B adversarial review is **conductor-driven, operator-observed,
+iterate-to-clean**:
 
-- The conductor **merges** each default-OFF Phase-B PR using standard verification
+- Conductor **merges** each default-OFF Phase-B PR with standard verification
   (build/test + soundness) **plus an explicit check that nothing defaults the flag
-  ON** (the code must land dormant).
-- The conductor does **NOT** perform a solo "adversarial review" and does **NOT**
-  flip any flag (`ARGO_DUTY_AUTOFIRE` / execution-graduation) live.
-- When Phase B fully lands, the conductor **pings the operator and they do the
-  adversarial review together**; only after that does the operator decide the live
-  flip.
+  ON** (lands dormant).
+- Once Phase B has fully **LANDED** (B1 + B2 + B3 merged), the conductor **kicks
+  off and runs the adversarial review end-to-end** — assembles the full
+  security/bypass analysis of the execution path (autonomous-fire gate,
+  execution-graduation, hire→`role_duty` bridge), **finds each issue + its root
+  cause, fixes it, and repeats the review→fix loop until there are NO issues left.**
+  The **operator watches**; the operator does not have to drive it.
+- The conductor does **NOT** flip any flag live (`ARGO_DUTY_AUTOFIRE` /
+  execution-graduation). After the review reaches clean, the conductor reports and
+  **confirms the live-flip go with the operator** — the irreversible enable of
+  autonomous Mac execution stays the operator's explicit call.
 
 ## Relates
 DEC-036 + DEC-037 stay the design ADRs (their live-enable is a future operator
