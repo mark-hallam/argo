@@ -89,6 +89,7 @@ mod v88;
 mod v89;
 mod v9;
 mod v90;
+mod v91;
 
 mod duplicate_slot_validator;
 mod registry;

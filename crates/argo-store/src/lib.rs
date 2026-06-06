@@ -291,6 +291,12 @@ pub mod worker_deps;
 /// (Stream `mission-pm-kill-switch-1-store-audit`). Runner, CLI,
 /// gateway, and UI consumers land in sibling slices.
 pub mod worker_freeze;
+/// Tenant-scoped per-action execution-graduation grants
+/// (UF Phase-B · B3, DEC-037). Records which `(tenant, worker,
+/// action)` actions have been promoted off the human default onto a
+/// real executor. Honouring a grant at dispatch is gated, dormant, and
+/// default-OFF in the CLI resolve path; this store only persists.
+pub mod executor_promotion;
 /// Per-worker KPI time-series store — append-only observations
 /// recorded against KPI names from the worker's charter
 /// (Stream `claude-worker-kpi-tracker`, mission claim 2).

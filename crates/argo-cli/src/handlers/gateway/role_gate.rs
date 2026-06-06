@@ -55,6 +55,13 @@ pub(super) enum Action {
     WorkerArchive,
     /// `DELETE /api/v1/workers/<id>`. Hard-delete; owner only.
     WorkerHardDelete,
+    /// `POST /api/v1/workers/<id>/actions/<action>/executor` — graduate
+    /// one action off the draft-only human default onto a real executor
+    /// (UF Phase-B · B3, DEC-037). The most sensitive worker control:
+    /// it changes *who* carries an approved action out (a tool, not a
+    /// human), so owner only — stricter than the admin-floor lifecycle
+    /// verbs.
+    WorkerExecutorPromote,
     /// `PATCH /api/v1/workers/<id>/{channels,quiet-hours,budget,autonomy}`.
     /// Anyone can flip autonomy today — gate to admin+.
     WorkerSettingsPatch,
@@ -115,6 +122,7 @@ impl Action {
             Self::WorkerLifecycle => "worker.lifecycle",
             Self::WorkerArchive => "worker.archive",
             Self::WorkerHardDelete => "worker.hard_delete",
+            Self::WorkerExecutorPromote => "worker.executor_promote",
             Self::WorkerSettingsPatch => "worker.settings_patch",
             Self::ApprovalDecide => "approval.decide",
             Self::ApprovalUndo => "approval.undo",
@@ -140,6 +148,7 @@ pub(super) fn required_role(action: Action) -> UserTenantRole {
         // owner-only: hard-delete, cross-tenant audit, data export,
         // wiki delete (destructive head removal).
         Action::WorkerHardDelete
+        | Action::WorkerExecutorPromote
         | Action::AuditCrossTenant
         | Action::DataExport
         | Action::KnowledgeDelete => UserTenantRole::Owner,

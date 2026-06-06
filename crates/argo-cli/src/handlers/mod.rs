@@ -403,6 +403,7 @@ mod worker_actions_executor_document;
 mod worker_actions_executor_document_csv;
 mod worker_actions_executor_document_gsuite;
 mod worker_actions_executor_mcp;
+mod worker_actions_executor_promotion;
 mod worker_actions_executor_render;
 mod worker_actions_executor_stubs;
 mod worker_actions_executor_stubs_filesystem;

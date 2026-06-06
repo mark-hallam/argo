@@ -54,6 +54,29 @@ pub(super) async fn dispatch_worker_lifecycle(
     }
 }
 
+/// `POST /api/v1/workers/<id>/actions/<action>/executor` — per-action
+/// execution-graduation grant (UF Phase-B · B3, DEC-037). Four path
+/// segments (`<id>/actions/<action>/executor`) distinguish it from the
+/// two-segment lifecycle verbs in [`dispatch_worker_lifecycle`].
+pub(super) async fn dispatch_worker_action_executor(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> Option<(&'static str, String)> {
+    let rest = req.strip_prefix("POST /api/v1/workers/")?;
+    let (head, _) = rest.split_once(' ')?;
+    let head_no_query = head.split('?').next().unwrap_or(head);
+    let parts: Vec<&str> = head_no_query.split('/').collect();
+    if parts.len() != 4 || parts[1] != "actions" || parts[3] != "executor" {
+        return None;
+    }
+    Some(
+        super::routes_worker_executor_promote::post_executor_promote(
+            parts[0], parts[2], req, store,
+        )
+        .await,
+    )
+}
+
 /// `/api/v1/approvals/bundles[/decide]` create + decide routes.
 pub(super) async fn dispatch_approval_bundles(
     req: &str,
