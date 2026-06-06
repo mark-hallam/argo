@@ -46,6 +46,23 @@ demonstrate hiring/managing.
   is a separate operator go-live (NOT in this authorization).
 - Demo-tenant fix PRs: operator reviews before merge.
 
+
+## Clarification — adversarial review is JOINT (operator instruction 2026-06-06)
+
+The Phase-B adversarial review is **JOINT (operator + conductor), conducted
+interactively once Phase B has fully LANDED** (B1 + B2 + B3 merged) — it is the
+gate before the live flip. Refines the earlier "conductor adversarial review per
+PR" line:
+
+- The conductor **merges** each default-OFF Phase-B PR using standard verification
+  (build/test + soundness) **plus an explicit check that nothing defaults the flag
+  ON** (the code must land dormant).
+- The conductor does **NOT** perform a solo "adversarial review" and does **NOT**
+  flip any flag (`ARGO_DUTY_AUTOFIRE` / execution-graduation) live.
+- When Phase B fully lands, the conductor **pings the operator and they do the
+  adversarial review together**; only after that does the operator decide the live
+  flip.
+
 ## Relates
 DEC-036 + DEC-037 stay the design ADRs (their live-enable is a future operator
 decision). DEC-038 (DG-3 resolved). DEC-025 #6 (draft-only-at-birth preserved).
