@@ -10,6 +10,7 @@ use argo_identity::{IdentityStore, Persona, Role, Worker};
 use argo_store::approvals::{
     create_request, decide_request, list_pending, DefaultDecision, NewApprovalRequest,
 };
+use argo_store::tenant_quota::set_workspace_tier;
 use argo_store::SessionStore;
 use argo_types::{ArgoResult, TenantId};
 use chrono::Utc;
@@ -169,6 +170,11 @@ pub async fn run_canonical_v1_seed(
         seed_approval_requests(store, opts.tenant_id, &worker_ids, &opts.actor).await?;
     report.retros_created = seed_demo_retros(store, opts.tenant_id).await?;
     report.orchestration_runs_created = seed_demo_orchestration(store, opts.tenant_id).await?;
+    // Showcase tenant → enterprise tier (unlimited) so a live Genesis hire
+    // isn't refused by `tier_worker_cap` (seed plants 9 workers, over the
+    // free cap of 1). SEEDED demo tenant ONLY — real signups stay `free`.
+    // fix-demo-tenant-enterprise-tier.
+    set_workspace_tier(store, opts.tenant_id, "enterprise", "Skycot Showcase").await?;
     report.retrain_records_seeded =
         crate::seed_worker_overlays::seed_retrain_records(store, opts.tenant_id, &worker_ids)
             .await?;

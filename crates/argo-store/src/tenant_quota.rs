@@ -11,7 +11,8 @@
 pub use crate::tenant_quota_kinds::{QuotaActionKind, QuotaError, TenantQuotaKind};
 use crate::tenant_quota_usage::{self, micros_to_usd, remaining, table_exists, u64_from_i64};
 pub use crate::tenant_quota_usage::{TenantHeadroom, TenantQuotaRemaining, TenantUsage};
-use argo_types::{ArgoError, ArgoResult};
+use crate::SessionStore;
+use argo_types::{ArgoError, ArgoResult, TenantId, WorkspaceId};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::{Row, SqlitePool};
@@ -335,6 +336,133 @@ fn quota_from_row(row: sqlx::sqlite::SqliteRow) -> ArgoResult<TenantQuota> {
 
 fn db_i64(value: u64) -> i64 {
     i64::try_from(value).unwrap_or(i64::MAX)
+}
+
+/// Set `workspace.tier` for `tenant`, materialising a minimal `workspace`
+/// row when the tenant has none yet. Returns the number of rows now
+/// carrying the tier (always `>= 1` on success).
+///
+/// This is the *upsert* variant. `argo-billing`'s
+/// [`set_workspace_tier`](../../argo_billing/tier_store/fn.set_workspace_tier.html)
+/// is deliberately UPDATE-only — a Stripe webhook for a tenant with no
+/// workspace row is a no-op there (rows_touched `0`) on purpose. The
+/// `argo-demo-seed` showcase tenant is the opposite case: it assigns
+/// workers to a fixed `tenant_id` and a workspace row only ever appears
+/// as a side effect of orchestration seeding, so a plain UPDATE can race
+/// to zero rows and leave the demo on the `"free"` default — which then
+/// refuses every demo hire with `tier_worker_cap` (the seed plants 9
+/// workers, over the free cap of 1). Inserting a fallback row makes the
+/// tier stick regardless of seed ordering. Idempotent: re-running UPDATEs
+/// the existing row(s) in place.
+///
+/// `tier` is the lowercase slug (`"free"` / `"pro"` / `"enterprise"`),
+/// matching [`crate::tenant_query::tenant_tier`]'s return shape. Scope
+/// note: callers must restrict this to the SEEDED demo tenant — a real
+/// signup must stay on `"free"` (the hire-1-then-upsell funnel).
+///
+/// # Examples
+///
+/// ```no_run
+/// # async fn demo(store: &argo_store::SessionStore) -> argo_types::ArgoResult<()> {
+/// use argo_store::tenant_quota::set_workspace_tier;
+/// let tenant = argo_types::TenantId::new();
+/// set_workspace_tier(store, tenant, "enterprise", "Skycot Showcase").await?;
+/// # Ok(()) }
+/// ```
+pub async fn set_workspace_tier(
+    store: &SessionStore,
+    tenant: TenantId,
+    tier: &str,
+    workspace_name: &str,
+) -> ArgoResult<u64> {
+    crate::tenant_query::ensure_pricing_schema(store).await?;
+    let updated = sqlx::query("UPDATE workspace SET tier = ? WHERE tenant_id = ?")
+        .bind(tier)
+        .bind(tenant.0.as_bytes().as_slice())
+        .execute(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("set_workspace_tier update: {e}")))?;
+    if updated.rows_affected() > 0 {
+        return Ok(updated.rows_affected());
+    }
+    // No workspace row yet — materialise a minimal one carrying the tier.
+    // `root_path` mirrors `argo_identity::tenant_provision`'s synthetic
+    // `tenant://{tenant}/{workspace}` form.
+    let workspace_id = WorkspaceId::new();
+    let created_at = Utc::now().timestamp();
+    let root_path = format!("tenant://{}/{}", tenant.0, workspace_id.0);
+    sqlx::query(
+        "INSERT INTO workspace (id, tenant_id, name, root_path, created_at, tier) \
+         VALUES (?, ?, ?, ?, ?, ?)",
+    )
+    .bind(workspace_id.0.as_bytes().as_slice())
+    .bind(tenant.0.as_bytes().as_slice())
+    .bind(workspace_name)
+    .bind(root_path)
+    .bind(created_at)
+    .bind(tier)
+    .execute(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("set_workspace_tier insert: {e}")))?;
+    Ok(1)
+}
+
+#[cfg(test)]
+mod tier_tests {
+    use crate::tenant_query::tenant_tier;
+    use crate::SessionStore;
+    use argo_types::TenantId;
+
+    async fn store() -> SessionStore {
+        let store = SessionStore::open(":memory:").await.unwrap();
+        store.migrate().await.unwrap();
+        store
+    }
+
+    #[tokio::test]
+    async fn set_tier_inserts_when_no_workspace_then_reads_back() {
+        let store = store().await;
+        let tenant = TenantId::new();
+        // No workspace row yet → defaults to "free".
+        assert_eq!(tenant_tier(&store, tenant).await.unwrap(), "free");
+        let rows = super::set_workspace_tier(&store, tenant, "enterprise", "Showcase")
+            .await
+            .unwrap();
+        assert_eq!(rows, 1);
+        assert_eq!(tenant_tier(&store, tenant).await.unwrap(), "enterprise");
+    }
+
+    #[tokio::test]
+    async fn set_tier_is_idempotent_and_updates_in_place() {
+        let store = store().await;
+        let tenant = TenantId::new();
+        super::set_workspace_tier(&store, tenant, "enterprise", "Showcase")
+            .await
+            .unwrap();
+        // Re-run UPDATEs the existing row, no duplicate insert.
+        super::set_workspace_tier(&store, tenant, "enterprise", "Showcase")
+            .await
+            .unwrap();
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM workspace WHERE tenant_id = ?")
+            .bind(tenant.0.as_bytes().as_slice())
+            .fetch_one(store.pool())
+            .await
+            .unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(tenant_tier(&store, tenant).await.unwrap(), "enterprise");
+    }
+
+    #[tokio::test]
+    async fn fresh_tenant_stays_free_no_regression() {
+        let store = store().await;
+        let demo = TenantId::new();
+        let signup = TenantId::new();
+        super::set_workspace_tier(&store, demo, "enterprise", "Showcase")
+            .await
+            .unwrap();
+        // A different (fresh signup) tenant is untouched → still "free".
+        assert_eq!(tenant_tier(&store, signup).await.unwrap(), "free");
+    }
 }
 
 #[cfg(test)]
