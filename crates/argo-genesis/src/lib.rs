@@ -70,6 +70,7 @@ pub mod refine;
 pub mod role_contract;
 pub mod rubric;
 pub mod safety_judge;
+pub mod sandbox_session;
 pub mod sop;
 pub mod sop_store;
 pub mod spec;
@@ -124,6 +125,9 @@ pub use rubric::{
 pub use sop::{
     build_sop_quiz, extract_sop_pdf_text, ingest_sop, SopComprehensionOutcome, SopKnowledge,
     SopQuestion, MIN_SOP_CHARS,
+};
+pub use sandbox_session::{
+    answer_quiz_question, suggested_quiz_questions, QuizAnswer, QuizCitation, NO_KNOWLEDGE_ANSWER,
 };
 pub use sop_store::{read_sop_knowledge, write_sop_knowledge, DiskSop};
 pub use onboarding_documents::{

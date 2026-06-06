@@ -140,6 +140,7 @@ mod routes_genesis_intake_conversation;
 mod routes_genesis_gate;
 mod routes_genesis_gate_judge;
 mod routes_genesis_ingest;
+mod routes_genesis_quiz;
 mod routes_genesis_rubric;
 mod routes_genesis_sop;
 mod routes_genesis_stream;

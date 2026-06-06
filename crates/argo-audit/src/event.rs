@@ -100,6 +100,7 @@ impl AuditKind {
             Self::PitchTruthBoundaryEvaluated => "pitch.truth_boundary_evaluated",
             Self::VoiceTranscriptTurn => "voice.transcript_turn",
             Self::EnterpriseInquiryReceived => "enterprise.inquiry_received",
+            Self::WorkerOnboardingQuizExchange => "worker.onboarding_quiz_exchange",
         }
     }
 
@@ -195,6 +196,7 @@ impl AuditKind {
             "pitch.truth_boundary_evaluated" => Self::PitchTruthBoundaryEvaluated,
             "voice.transcript_turn" => Self::VoiceTranscriptTurn,
             "enterprise.inquiry_received" => Self::EnterpriseInquiryReceived,
+            "worker.onboarding_quiz_exchange" => Self::WorkerOnboardingQuizExchange,
             _ => return None,
         })
     }
@@ -290,6 +292,7 @@ impl AuditKind {
             Self::PitchTruthBoundaryEvaluated,
             Self::VoiceTranscriptTurn,
             Self::EnterpriseInquiryReceived,
+            Self::WorkerOnboardingQuizExchange,
         ];
         v.sort_by_key(|k| k.label());
         v

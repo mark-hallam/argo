@@ -20,9 +20,23 @@ fn label_round_trip_for_every_kind() {
 #[test]
 fn all_kind_count_tracks_declared_variants() {
     // Includes ProbationHold (DEC-025 #2 Genesis P3 dispatch-seam gate),
-    // VoiceTranscriptTurn (live-voice transcript persistence), and
-    // EnterpriseInquiryReceived (WS6-2 enterprise EOI capture).
-    assert_eq!(AuditKind::all().len(), 86);
+    // VoiceTranscriptTurn (live-voice transcript persistence),
+    // EnterpriseInquiryReceived (WS6-2 enterprise EOI capture), and
+    // WorkerOnboardingQuizExchange (Genesis Phase 2 sandbox-quiz gate).
+    assert_eq!(AuditKind::all().len(), 87);
+}
+
+#[test]
+fn worker_onboarding_quiz_exchange_round_trips_and_listed() {
+    assert_eq!(
+        AuditKind::from_label("worker.onboarding_quiz_exchange"),
+        Some(AuditKind::WorkerOnboardingQuizExchange)
+    );
+    assert_eq!(
+        AuditKind::WorkerOnboardingQuizExchange.label(),
+        "worker.onboarding_quiz_exchange"
+    );
+    assert!(AuditKind::all().contains(&AuditKind::WorkerOnboardingQuizExchange));
 }
 
 #[test]

@@ -236,6 +236,16 @@ async fn api_v1_dispatch(
     {
         return Some(super::routes_genesis_ingest::ingest_response(req, store).await);
     }
+    // mission-genesis-comprehension-verification-quiz-mode (Phase 2) — the "show
+    // me what you learned" gate before Hire. The to-be-hired teammate runs in a
+    // sandbox and answers the operator's question by retrieving over the
+    // uploaded documents; no fabrication when nothing matches. Fail-closed
+    // cross-tenant (404 on a foreign id), tenant-scoped audit per exchange.
+    if req.starts_with("POST /api/v1/genesis/quiz ")
+        || req.starts_with("POST /api/v1/genesis/quiz?")
+    {
+        return Some(super::routes_genesis_quiz::quiz_response(req, store).await);
+    }
     // pitch-agent-rehearsal-ui-and-gateway — operator-facing Pitch
     // Agent endpoint. Deterministic canonical-Q&A + truth-boundary
     // evaluation; same code path the 111-case pitch-eval suite proves.

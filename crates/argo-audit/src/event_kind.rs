@@ -291,4 +291,14 @@ pub enum AuditKind {
     /// Written under the anonymous audit tenant — the inquiry is pre-tenant,
     /// same lane as magic-link signup + the waitlist.
     EnterpriseInquiryReceived,
+    /// One exchange in a Genesis sandbox comprehension quiz — the "show me what
+    /// you learned" gate before Hire
+    /// (`mission-genesis-comprehension-verification-quiz-mode`, Phase 2).
+    /// Emitted per question the operator asks the to-be-hired teammate.
+    /// Tenant-scoped. Payload carries `vertical_id`, `answered` (false = the
+    /// honest "no SOP covers this" path, never a fabrication), and
+    /// `citation_count`. The quiz text itself is NOT written into the chain —
+    /// only the forensic breadcrumb that a question was asked and whether the
+    /// uploaded knowledge could answer it.
+    WorkerOnboardingQuizExchange,
 }
