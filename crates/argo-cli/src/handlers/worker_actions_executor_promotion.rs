@@ -53,8 +53,17 @@ pub(crate) fn execution_graduation_enabled() -> bool {
 
 /// Pure flag parse, factored out so the gate can be unit-tested without
 /// mutating process environment (which races across parallel tests).
+///
+/// Mirrors `boot_spawns::parse_autofire_flag` (the `ARGO_DUTY_AUTOFIRE`
+/// parser): case-insensitive, whitespace-trimmed, accepting
+/// `1`/`true`/`yes`/`on`. Aligning the two highest-risk Phase-B flags
+/// removes a footgun — an operator setting `ON` or ` true ` at the
+/// live flip would otherwise leave graduation silently dormant. Still
+/// default-OFF: `None` (unset) and any non-truthy value → `false`.
 fn graduation_flag(value: Option<&str>) -> bool {
-    matches!(value, Some("1") | Some("true") | Some("TRUE") | Some("yes"))
+    value
+        .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .unwrap_or(false)
 }
 
 /// Resolve the executor for `action_type`, honouring a per-action

@@ -115,9 +115,16 @@ fn graduation_flag_parses_truthy_and_falsy() {
     assert!(graduation_flag(Some("true")));
     assert!(graduation_flag(Some("TRUE")));
     assert!(graduation_flag(Some("yes")));
+    // Aligned with parse_autofire_flag: case-insensitive, trimmed, +on.
+    assert!(graduation_flag(Some("on")));
+    assert!(graduation_flag(Some("ON")));
+    assert!(graduation_flag(Some("On")));
+    assert!(graduation_flag(Some("YES")));
+    assert!(graduation_flag(Some(" true ")), "trimmed");
     assert!(!graduation_flag(Some("0")));
     assert!(!graduation_flag(Some("off")));
     assert!(!graduation_flag(Some("")));
+    assert!(!graduation_flag(Some("enabled")), "only the canonical truthy set");
     assert!(!graduation_flag(None), "unset flag is dormant");
 }
 
