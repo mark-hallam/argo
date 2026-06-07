@@ -7,7 +7,6 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use uuid::Uuid;
 
-const HEADER_TENANT_ID: &str = "x-argo-tenant-id";
 const HEADER_CROSS_TENANT: &str = "x-argo-audit-cross-tenant";
 
 /// Resolve the tenant an IR request runs against.
@@ -34,41 +33,26 @@ pub(super) async fn resolve_tenant(
     query: &str,
     store: &Arc<SessionStore>,
 ) -> Result<TenantId, (&'static str, String)> {
-    let header_tenant = match header_value(req, HEADER_TENANT_ID).filter(|s| !s.is_empty()) {
-        Some(h) => h,
-        None => request_workspace_tenant(store).await?.to_string(),
-    };
+    // Identity-first (WS1): the caller's OWN tenant is the signed-in session-JWT
+    // tenant (then an explicit override, then cwd) — NOT the raw `X-Argo-Tenant-Id`
+    // header, so a signed-in user can't escape their tenant by spoofing it. Matches
+    // `routes_skills_list_get::request_tenant_id` so the IR endpoint and the catalog
+    // list resolve the same tenant for the same browser request. The capability-gated
+    // `?as_tenant=` cross-tenant VIEW override below is unchanged.
+    let base_tenant = super::resolve_tenant::resolve_tenant_for_request(req, store)
+        .await
+        .map_err(|e| server_error(&format!("resolve tenant: {e}")))?
+        .to_string();
     let cross_cap = header_value(req, HEADER_CROSS_TENANT)
         .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
         .unwrap_or(false);
     if let Some(override_tenant) = query_value(query, "as_tenant") {
-        if override_tenant != header_tenant && !cross_cap {
+        if override_tenant != base_tenant && !cross_cap {
             return Err(forbidden("cross-tenant access denied"));
         }
         return parse_tenant_id(&override_tenant);
     }
-    parse_tenant_id(&header_tenant)
-}
-
-/// The cwd-bound workspace tenant — the fallback identity for a
-/// header-less request. Mirrors `routes_skills_list_get`'s cwd
-/// fallback so the IR endpoint and the catalog list endpoint resolve
-/// the same tenant for the same browser request.
-async fn request_workspace_tenant(
-    store: &Arc<SessionStore>,
-) -> Result<TenantId, (&'static str, String)> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| server_error(&format!("resolve tenant cwd: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    store
-        .ensure_workspace(name, &root)
-        .await
-        .map(|(tenant, _)| tenant)
-        .map_err(|e| server_error(&format!("resolve tenant: {e}")))
+    parse_tenant_id(&base_tenant)
 }
 
 pub(super) fn parse_tenant_id(raw: &str) -> Result<TenantId, (&'static str, String)> {

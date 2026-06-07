@@ -26,7 +26,7 @@ pub(crate) async fn post_pause(
     let Some(store) = store else {
         return store_unavail();
     };
-    let (_, worker) = match preflight(worker_id_raw, store, true).await {
+    let (_, worker) = match preflight(worker_id_raw, req, store, true).await {
         Ok(p) => p,
         Err(resp) => return resp,
     };
@@ -49,7 +49,7 @@ pub(crate) async fn post_resume(
         Ok(id) => id,
         Err(resp) => return resp,
     };
-    let tenant = match resolve_tenant(store).await {
+    let tenant = match resolve_tenant(req, store).await {
         Ok(t) => t,
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -87,7 +87,7 @@ pub(crate) async fn post_archive(
     let Some(store) = store else {
         return store_unavail();
     };
-    let (tenant, worker) = match preflight(worker_id_raw, store, true).await {
+    let (tenant, worker) = match preflight(worker_id_raw, req, store, true).await {
         Ok(p) => p,
         Err(resp) => return resp,
     };
@@ -122,7 +122,7 @@ pub(crate) async fn delete_worker_endpoint(
         Ok(id) => id,
         Err(resp) => return resp,
     };
-    let tenant = match resolve_tenant(store).await {
+    let tenant = match resolve_tenant(req, store).await {
         Ok(t) => t,
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };

@@ -116,13 +116,3 @@ async fn request_tenant_id(
             )
         })
 }
-
-fn header_value(req: &str, name: &str) -> Option<String> {
-    let headers = req
-        .split_once("\r\n\r\n")
-        .map_or(req, |(headers, _body)| headers);
-    headers.lines().skip(1).find_map(|line| {
-        let (k, v) = line.split_once(':')?;
-        k.eq_ignore_ascii_case(name).then(|| v.trim().to_string())
-    })
-}

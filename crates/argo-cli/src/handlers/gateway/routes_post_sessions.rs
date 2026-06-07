@@ -44,7 +44,7 @@ pub(super) async fn create_session_response(
         Ok(id) => id,
         Err(e) => return ("400 Bad Request", format!("{{\"error\":\"{e}\"}}")),
     };
-    create_session_inner(store, model, provider, title, vertical_id, worker_id).await
+    create_session_inner(store, req, model, provider, title, vertical_id, worker_id).await
 }
 
 fn parse_worker_id(parsed: &serde_json::Value) -> Result<Option<WorkerId>, String> {
@@ -64,6 +64,7 @@ fn parse_worker_id(parsed: &serde_json::Value) -> Result<Option<WorkerId>, Strin
 /// `POST /verticals/<id>/sessions` (where it's in the path).
 pub(super) async fn create_session_inner(
     store: &Arc<SessionStore>,
+    req: &str,
     model: &str,
     provider: &str,
     title: Option<&str>,
@@ -95,26 +96,31 @@ pub(super) async fn create_session_inner(
     } else {
         None
     };
-    let cwd = match std::env::current_dir() {
-        Ok(p) => p,
+    // Identity-first (WS1): bind the new session to the signed-in user's OWN
+    // tenant + workspace, not the cwd/demo one. Previously cwd-only — a real
+    // signed-in user's session landed in the demo tenant, so their own session
+    // list (tenant-scoped) never showed it (real-mode walk cross-tenant fix, pt2).
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
+        Ok(t) => t,
         Err(e) => {
             return (
                 "500 Internal Server Error",
-                format!("{{\"error\":\"cwd: {e}\"}}"),
+                format!("{{\"error\":\"resolve tenant: {e}\"}}"),
             );
         }
     };
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, workspace) = match store.ensure_workspace(name, &root).await {
-        Ok(p) => p,
+    let workspace = match store.first_workspace_for_tenant(tenant).await {
+        Ok(Some(w)) => w,
+        Ok(None) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"no workspace for tenant {}\"}}", tenant.0),
+            );
+        }
         Err(e) => {
             return (
                 "500 Internal Server Error",
-                format!("{{\"error\":\"ensure_workspace: {e}\"}}"),
+                format!("{{\"error\":\"first_workspace_for_tenant: {e}\"}}"),
             );
         }
     };
@@ -205,5 +211,5 @@ pub(super) async fn create_session_for_vertical_response(
         Ok(id) => id,
         Err(e) => return ("400 Bad Request", format!("{{\"error\":\"{e}\"}}")),
     };
-    create_session_inner(store, model, provider, title, Some(vertical_id), worker_id).await
+    create_session_inner(store, req, model, provider, title, Some(vertical_id), worker_id).await
 }

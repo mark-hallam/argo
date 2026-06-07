@@ -347,40 +347,20 @@ pub(super) async fn request_tenant_id(
     req: &str,
     store: &SessionStore,
 ) -> Result<String, (&'static str, String)> {
-    if let Some(id) = header_value(req, "X-Argo-Tenant-Id").filter(|s| !s.is_empty()) {
-        return Ok(id);
-    }
-    let cwd = std::env::current_dir().map_err(|e| {
-        (
-            "500 Internal Server Error",
-            json!({"error": format!("cwd: {e}")}).to_string(),
-        )
-    })?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    store
-        .ensure_workspace(name, &root)
+    // Identity-first (WS1): the signed-in user's session-JWT tenant wins, then an
+    // explicit override, then the cwd fallback for CLI/fixtures. Previously read
+    // `X-Argo-Tenant-Id` then fell to cwd — leaking the demo tenant's installed
+    // skills to a real signed-in user (real-mode walk pt2). The cross-tenant
+    // marketplace route stays global; only these tenant-scoped reads change.
+    super::resolve_tenant::resolve_tenant_for_request(req, store)
         .await
-        .map(|(tenant, _)| tenant.to_string())
+        .map(|t| t.to_string())
         .map_err(|e| {
             (
                 "500 Internal Server Error",
                 json!({"error": format!("resolve tenant: {e}")}).to_string(),
             )
         })
-}
-
-fn header_value(req: &str, name: &str) -> Option<String> {
-    let headers = req
-        .split_once("\r\n\r\n")
-        .map_or(req, |(headers, _body)| headers);
-    headers.lines().skip(1).find_map(|line| {
-        let (k, v) = line.split_once(':')?;
-        k.eq_ignore_ascii_case(name).then(|| v.trim().to_string())
-    })
 }
 
 #[cfg(test)]

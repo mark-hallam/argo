@@ -77,18 +77,16 @@ pub(super) async fn vertical_run_response(
     };
 
     // Resolve workspace + create the session bound to the vertical.
-    let cwd = match std::env::current_dir() {
-        Ok(p) => p,
-        Err(e) => return server_error(&format!("cwd: {e}")),
+    // Identity-first (WS1): bind the vertical-run session to the signed-in user's
+    // OWN tenant + workspace, not the cwd/demo one (real-mode walk cross-tenant fix, pt2).
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
+        Ok(t) => t,
+        Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
-    let workspace_name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, workspace) = match store.ensure_workspace(workspace_name, &root).await {
-        Ok(p) => p,
-        Err(e) => return server_error(&format!("ensure_workspace: {e}")),
+    let workspace = match store.first_workspace_for_tenant(tenant).await {
+        Ok(Some(w)) => w,
+        Ok(None) => return server_error(&format!("no workspace for tenant {}", tenant.0)),
+        Err(e) => return server_error(&format!("first_workspace_for_tenant: {e}")),
     };
     let session_id = match store
         .create_session(tenant, workspace, model, provider, title, Some(vertical_id))

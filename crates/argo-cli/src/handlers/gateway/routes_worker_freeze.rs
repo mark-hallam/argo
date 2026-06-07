@@ -40,7 +40,7 @@ use argo_identity::user_tenant::UserTenantRole;
 use argo_identity::{IdentityStore, Worker, WorkerId};
 use argo_store::worker_freeze::{self as freeze_store, FreezeRecord};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, TenantId};
+use argo_types::{ArgoResult, TenantId};
 use serde_json::{json, Value};
 use std::sync::Arc;
 
@@ -53,7 +53,7 @@ pub(super) async fn post_freeze(
     let Some(store) = store else {
         return store_unavailable();
     };
-    let (tenant, worker) = match preflight(worker_id_raw, store).await {
+    let (tenant, worker) = match preflight(worker_id_raw, req, store).await {
         Ok(p) => p,
         Err(resp) => return resp,
     };
@@ -90,7 +90,7 @@ pub(super) async fn post_unfreeze(
     let Some(store) = store else {
         return store_unavailable();
     };
-    let (tenant, worker) = match preflight(worker_id_raw, store).await {
+    let (tenant, worker) = match preflight(worker_id_raw, req, store).await {
         Ok(p) => p,
         Err(resp) => return resp,
     };
@@ -120,10 +120,11 @@ pub(super) async fn post_unfreeze(
 
 async fn preflight(
     worker_id_raw: &str,
+    req: &str,
     store: &Arc<SessionStore>,
 ) -> Result<(TenantId, Worker), (&'static str, String)> {
     let worker_id = parse_worker_id(worker_id_raw)?;
-    let tenant = resolve_tenant(store)
+    let tenant = resolve_tenant(req, store)
         .await
         .map_err(|e| server_error(&format!("resolve tenant: {e}")))?;
     let worker = load_worker(store, tenant, worker_id).await?;
@@ -137,15 +138,11 @@ fn parse_worker_id(raw: &str) -> Result<WorkerId, (&'static str, String)> {
         .map_err(|e| bad_request(&format!("invalid worker_id '{cleaned}': {e}")))
 }
 
-async fn resolve_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
+async fn resolve_tenant(req: &str, store: &SessionStore) -> ArgoResult<TenantId> {
+    // Identity-first (WS1): the signed-in user's session-JWT tenant, then the
+    // cwd fallback. Previously cwd-only — a real user's freeze/unfreeze hit
+    // the default tenant's worker (real-mode walk cross-tenant fix, pt2).
+    super::resolve_tenant::resolve_tenant_for_request(req, store).await
 }
 
 async fn load_worker(

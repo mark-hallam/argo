@@ -24,6 +24,30 @@ impl SessionStore {
         Ok(row.map(|b| WorkspaceId(models::uuid_from_blob(&b))))
     }
 
+    /// `WorkspaceId` of the oldest workspace **belonging to `tenant`**,
+    /// or `None` when that tenant has none.
+    ///
+    /// Unlike [`Self::first_workspace`] — which is global and always
+    /// resolves to the oldest workspace overall (the demo / cwd one) —
+    /// this is tenant-scoped. The WS1 write path uses it to bind a new
+    /// session to the *signed-in* tenant's own workspace instead of the
+    /// cwd/demo workspace. `tenant_provision::provision_for_user` writes
+    /// exactly one such row per tenant, so this returns it for any
+    /// provisioned user.
+    pub async fn first_workspace_for_tenant(
+        &self,
+        tenant: TenantId,
+    ) -> StoreResult<Option<WorkspaceId>> {
+        let row: Option<Vec<u8>> = sqlx::query_scalar(
+            "SELECT id FROM workspace WHERE tenant_id = ? ORDER BY created_at ASC LIMIT 1",
+        )
+        .bind(tenant.0.as_bytes().as_slice())
+        .fetch_optional(self.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("first_workspace_for_tenant: {e}")))?;
+        Ok(row.map(|b| WorkspaceId(models::uuid_from_blob(&b))))
+    }
+
     /// `name` of the first registered workspace. Used by the
     /// TUI footer.
     pub async fn first_workspace_name(&self) -> StoreResult<Option<String>> {

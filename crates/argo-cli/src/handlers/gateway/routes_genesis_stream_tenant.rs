@@ -13,38 +13,26 @@ use std::sync::Arc;
 
 /// Resolve the tenant the generated vertical is **written under**.
 ///
-/// DEC-025 #9 (single-tenant-per-cwd): the canonical answer is the
-/// cwd-derived workspace tenant the hire-commit endpoint resolves
-/// (`SessionStore::ensure_workspace(name, cwd)`, identical to
-/// `routes_workers_hire::resolve_tenant_principal`). Writing under that tenant
-/// guarantees the hire gate finds the manifest in the SAME `.genesis/<slug>/`
-/// segment it searches — closing the header-vs-cwd mismatch that produced
-/// `422 genesis_gate_failed`.
+/// This MUST agree with the tenant `routes_workers_hire::resolve_tenant_principal`
+/// reads under, or the hire gate searches a different `.genesis/<slug>/` segment
+/// than the SSE write wrote to (`422 genesis_gate_failed`). Both now resolve
+/// IDENTITY-FIRST (WS1): the signed-in user's `__Host-session` JWT tenant wins,
+/// then an explicit tenant override, then the cwd/anonymous fallback — via the
+/// shared `resolve_tenant::resolve_tenant_for_request`. Previously both used the
+/// cwd-derived workspace tenant (DEC-025 #9, single-tenant-per-cwd for v1); the
+/// real-mode walk moved signed-in users onto their OWN tenant, and this write
+/// segment follows so it still matches the hire read (pt2).
 ///
-/// `store` `None` (test / CLI callers with no DB) → fall back to the request
-/// `X-Argo-Tenant-Id` header via [`request_tenant_id`], preserving prior
-/// behaviour for those paths. A store error (e.g. cwd unreadable) likewise
-/// degrades to the header so the stream still serves.
+/// `store` `None` (test / CLI callers with no DB), or a resolver error, → fall
+/// back to the request `X-Argo-Tenant-Id` header via [`request_tenant_id`],
+/// preserving prior behaviour for those paths.
 pub(super) async fn resolve_write_tenant(store: Option<&Arc<SessionStore>>, req: &str) -> String {
     if let Some(store) = store {
-        if let Some(tenant) = cwd_workspace_tenant(store).await {
-            return tenant;
+        if let Ok(tenant) = super::resolve_tenant::resolve_tenant_for_request(req, store).await {
+            return tenant.to_string();
         }
     }
     request_tenant_id(req)
-}
-
-/// The cwd-derived workspace tenant id, resolved through the IDENTICAL
-/// `ensure_workspace(name, cwd)` call the hire-commit endpoint uses (so the
-/// SSE-write segment and the hire-read segment agree). `None` on any failure
-/// (cwd unreadable, store insert error) so the caller can fall back to the
-/// header rather than aborting the stream.
-async fn cwd_workspace_tenant(store: &SessionStore) -> Option<String> {
-    let cwd = std::env::current_dir().ok()?;
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await.ok()?;
-    Some(tenant.to_string())
 }
 
 /// Read the operator-facing `X-Argo-Tenant-Id` header (the rate-limit helper

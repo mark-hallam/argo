@@ -41,7 +41,6 @@ use uuid::Uuid;
 /// per-tenant retro count for the foreseeable future; keeps the JSON
 /// payload bounded if the table ever grows past expectations.
 const LIST_LIMIT_MAX: i64 = 200;
-const HEADER_TENANT_ID: &str = "x-argo-tenant-id";
 
 /// `POST /api/v1/workers/<id>/retros` — create a retro covering
 /// `[window_start, window_end]`. Body keys (all optional):
@@ -403,19 +402,6 @@ fn query_param(req: &str, key: &str) -> Option<String> {
     qs.split('&').find_map(|kv| {
         let (k, v) = kv.split_once('=')?;
         (k == key).then(|| urldecode(v))
-    })
-}
-
-fn header_value(req: &str, name_lower: &str) -> Option<String> {
-    let headers = req
-        .split_once("\r\n\r\n")
-        .map_or(req, |(headers, _body)| headers);
-    headers.lines().skip(1).find_map(|line| {
-        let (name, value) = line.split_once(':')?;
-        name.trim()
-            .eq_ignore_ascii_case(name_lower)
-            .then(|| value.trim().to_string())
-            .filter(|s| !s.is_empty())
     })
 }
 

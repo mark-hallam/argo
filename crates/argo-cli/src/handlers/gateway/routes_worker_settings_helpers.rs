@@ -25,11 +25,12 @@ pub(super) fn store_unavail() -> (&'static str, String) {
 
 pub(super) async fn preflight(
     worker_id_raw: &str,
+    req: &str,
     store: &Arc<SessionStore>,
     check_archived: bool,
 ) -> Result<(TenantId, Worker), (&'static str, String)> {
     let worker_id = parse_worker_id(worker_id_raw)?;
-    let tenant = resolve_tenant(store)
+    let tenant = resolve_tenant(req, store)
         .await
         .map_err(|e| server_error(&format!("resolve tenant: {e}")))?;
     let worker = load_worker_by_id(store, tenant, worker_id).await?;
@@ -156,15 +157,12 @@ pub(super) async fn emit_audit(
     }
 }
 
-pub(super) async fn resolve_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
+pub(super) async fn resolve_tenant(req: &str, store: &SessionStore) -> ArgoResult<TenantId> {
+    // Identity-first (WS1): the signed-in user's session-JWT tenant wins, then an
+    // explicit override, then the cwd fallback for CLI. Previously cwd-only — a real
+    // signed-in user's settings read/patch + pause/resume/archive/delete hit the
+    // default tenant's worker (real-mode walk cross-tenant fix, pt2).
+    super::super::resolve_tenant::resolve_tenant_for_request(req, store).await
 }
 
 async fn exists_in_other_tenant(

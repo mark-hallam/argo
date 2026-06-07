@@ -29,7 +29,7 @@ pub(crate) async fn get_settings(
         Ok(id) => id,
         Err(resp) => return resp,
     };
-    let tenant = match resolve_tenant(store).await {
+    let tenant = match resolve_tenant(req, store).await {
         Ok(t) => t,
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -57,7 +57,7 @@ pub(crate) async fn patch_channels(
     let Some(store) = store else {
         return store_unavail();
     };
-    let (_, worker) = match preflight(worker_id_raw, store, true).await {
+    let (_, worker) = match preflight(worker_id_raw, req, store, true).await {
         Ok(p) => p,
         Err(resp) => return resp,
     };
@@ -106,7 +106,7 @@ pub(crate) async fn patch_quiet_hours(
     let Some(store) = store else {
         return store_unavail();
     };
-    let (_, worker) = match preflight(worker_id_raw, store, true).await {
+    let (_, worker) = match preflight(worker_id_raw, req, store, true).await {
         Ok(p) => p,
         Err(resp) => return resp,
     };
@@ -146,7 +146,7 @@ pub(crate) async fn patch_budget(
     let Some(store) = store else {
         return store_unavail();
     };
-    let (_, worker) = match preflight(worker_id_raw, store, true).await {
+    let (_, worker) = match preflight(worker_id_raw, req, store, true).await {
         Ok(p) => p,
         Err(resp) => return resp,
     };
@@ -194,7 +194,7 @@ pub(crate) async fn patch_autonomy(
     let Some(store) = store else {
         return store_unavail();
     };
-    let (_, worker) = match preflight(worker_id_raw, store, true).await {
+    let (_, worker) = match preflight(worker_id_raw, req, store, true).await {
         Ok(p) => p,
         Err(resp) => return resp,
     };

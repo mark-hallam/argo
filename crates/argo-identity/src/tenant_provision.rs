@@ -126,7 +126,7 @@ async fn first_link_for_user(
     if get_tenant(store, link.tenant_id).await?.is_none() {
         return Ok(None);
     }
-    let Some(workspace_id) = first_workspace_for_tenant(store, link.tenant_id).await? else {
+    let Some(workspace_id) = store.first_workspace_for_tenant(link.tenant_id).await? else {
         return Ok(None);
     };
     Ok(Some(ProvisionOutcome {
@@ -157,25 +157,6 @@ async fn insert_workspace_for_tenant(
     .await
     .map_err(|e| ArgoError::Provider(format!("provision insert workspace: {e}")))?;
     Ok(workspace_id)
-}
-
-async fn first_workspace_for_tenant(
-    store: &SessionStore,
-    tenant_id: TenantId,
-) -> ArgoResult<Option<WorkspaceId>> {
-    let row: Option<Vec<u8>> = sqlx::query_scalar(
-        "SELECT id FROM workspace WHERE tenant_id = ? ORDER BY created_at ASC LIMIT 1",
-    )
-    .bind(tenant_id.0.as_bytes().as_slice())
-    .fetch_optional(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("provision lookup workspace: {e}")))?;
-    row.map(|b| {
-        uuid::Uuid::from_slice(&b)
-            .map(WorkspaceId)
-            .map_err(|e| ArgoError::Provider(format!("workspace id decode: {e}")))
-    })
-    .transpose()
 }
 
 #[cfg(test)]

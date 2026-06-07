@@ -69,7 +69,7 @@ pub(super) async fn record_response(
         _ => return bad_request("`related_action_id` must be a hex string or null"),
     };
     let principal = principal_id_for_audit(req);
-    let tenant = resolve_tenant(store)
+    let tenant = resolve_tenant(req, store)
         .await
         .unwrap_or_else(|| DEFAULT_AUDIT_TENANT_ID.to_string());
     let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant);
@@ -118,15 +118,14 @@ fn validate_action_id(s: &str) -> Result<(), String> {
     }
 }
 
-async fn resolve_tenant(store: &Arc<SessionStore>) -> Option<String> {
-    let cwd = std::env::current_dir().ok()?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await.ok()?;
-    Some(tenant.0.to_string())
+async fn resolve_tenant(req: &str, store: &Arc<SessionStore>) -> Option<String> {
+    // Identity-first (WS1): stamp the annotation with the signed-in user's
+    // session-JWT tenant (then explicit override, then cwd). Previously cwd-only —
+    // a real user's annotation landed under the default tenant (real-mode walk pt2).
+    super::resolve_tenant::resolve_tenant_for_request(req, store)
+        .await
+        .ok()
+        .map(|t| t.0.to_string())
 }
 
 fn bad_request(message: &str) -> (&'static str, String) {

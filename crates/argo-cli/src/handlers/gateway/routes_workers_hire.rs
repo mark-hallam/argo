@@ -225,13 +225,11 @@ async fn resolve_tenant_principal(
     store: &SessionStore,
     req: &str,
 ) -> ArgoResult<(TenantId, String)> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
+    // Identity-first (WS1): the signed-in user's session-JWT tenant wins, then an
+    // explicit override, then the cwd fallback for CLI. Previously cwd-only — a real
+    // stranger's hire created the worker under the default/demo tenant (real-mode walk
+    // cross-tenant fix, pt2). Worker rows are tenant-scoped (no workspace needed here).
+    let tenant = super::resolve_tenant::resolve_tenant_for_request(req, store).await?;
     let principal_id =
         principal_id_for_audit(req).unwrap_or_else(|| "system:hire-endpoint".to_string());
     Ok((tenant, principal_id))
