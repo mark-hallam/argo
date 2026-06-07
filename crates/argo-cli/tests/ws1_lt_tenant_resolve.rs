@@ -123,6 +123,9 @@ fn migrated_long_tail_routes_use_canonical_resolver() {
     let must_call = [
         // Tranche 1 — flip-relevant (duty tenant-stamping).
         "src/handlers/gateway/routes_duties_helpers.rs",
+        // Tranche 2 — agent-draft routes (Grant GTM, Marcus/Nori marketing).
+        "src/handlers/gateway/routes_gtm_draft_followup.rs",
+        "src/handlers/gateway/routes_marketing_draft_response.rs",
     ];
     for rel in must_call {
         let src = read_src(rel);

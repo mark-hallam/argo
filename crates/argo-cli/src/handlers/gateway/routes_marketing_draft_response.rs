@@ -37,7 +37,7 @@ use argo_audit::{AuditKind, AuditSink};
 use argo_provider::{ProviderRequest, ProviderResponse, Sampling};
 use argo_store::approvals::{create_request, DefaultDecision, NewApprovalRequest};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, TenantId};
+use argo_types::ArgoResult;
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
@@ -229,7 +229,7 @@ pub(super) async fn draft_response(
     // with no approval id rather than a 500.
     let (approval_id, tenant_label) = match store {
         Some(store) => {
-            match write_to_approvals(store, mode, channel, &final_draft, disposition).await {
+            match write_to_approvals(store, req, mode, channel, &final_draft, disposition).await {
                 Ok((id, tenant)) => (Some(id), Some(tenant)),
                 Err(e) => {
                     tracing::warn!(target: "gateway::marketing", error = %e, "marketing approval write failed");
@@ -286,12 +286,13 @@ fn finalize_draft(draft: &str) -> (String, &'static str) {
 /// variant-count contract untouched), exactly as Grant's route does.
 async fn write_to_approvals(
     store: &Arc<SessionStore>,
+    req: &str,
     mode: Mode,
     channel: Channel,
     draft: &str,
     disposition: &str,
 ) -> ArgoResult<(String, String)> {
-    let tenant = resolve_workspace_tenant(store).await?;
+    let tenant = super::resolve_tenant::resolve_tenant_for_request(req, store).await?;
     let action_id = Uuid::now_v7().as_bytes().to_vec();
     let summary = format!(
         "Marcus drafted a {} {} post ({disposition}) — review before you post it.",
@@ -332,17 +333,6 @@ async fn write_to_approvals(
     sink.flush_pending().await?;
 
     Ok((approval_id, tenant.to_string()))
-}
-
-/// Resolve the deterministic, cwd-derived workspace tenant — the same
-/// one `/team` and `/approvals` read — so Marcus's draft lands where the
-/// operator will see it.
-async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
 }
 
 /// The user-turn prompt: the concrete thing Marcus is reacting to (the
