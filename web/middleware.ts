@@ -34,7 +34,14 @@ function readSessionCookie(req: NextRequest): string | undefined {
 
 /**
  * Auth gate. Unauth users hitting any non-`/auth/*` route are
- * redirected to `/auth/signin?from=<original-path>`.
+ * redirected to `/auth/signin?returnTo=<original-path>`.
+ *
+ * The param key MUST stay `returnTo` — that is the single key the
+ * signin page (`app/auth/signin/page.tsx`) and `parseReturnTo`
+ * (`lib/auth/return-to.ts`) read. A prior version emitted `?from=`,
+ * which `parseReturnTo` ignored, so the deep-link destination was
+ * silently dropped and every post-login landed on `/`. Pinned by
+ * `middleware-returnto-param.test.ts`.
  *
  * Dev bypass: setting `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` short-
  * circuits the redirect for local/demo runs. Hard-disabled in
@@ -119,7 +126,7 @@ export function middleware(req: NextRequest) {
 
   const signinUrl = req.nextUrl.clone();
   signinUrl.pathname = "/auth/signin";
-  signinUrl.search = `?from=${encodeURIComponent(pathname + search)}`;
+  signinUrl.search = `?returnTo=${encodeURIComponent(pathname + search)}`;
   return withSessionMarker(NextResponse.redirect(signinUrl), false);
 }
 

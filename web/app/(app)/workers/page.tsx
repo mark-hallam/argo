@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo, type SVGProps } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { BrandLoudHero } from "@/components/skycot/BrandLoudHero";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { HireStarterPrompts } from "@/components/empty-state/HireStarterPrompts";
 import { TeammateCard } from "@/components/skycot/TeammateCard";
 import { TeammateGrid } from "@/components/skycot/TeammateGrid";
@@ -14,10 +15,14 @@ import type { FetchTeamResult } from "@/lib/api/team";
 
 /**
  * `/workers` — nav-bar entrypoint for the worker roster. When the
- * tenant has zero workers, render the shared `<HireStarterPrompts>`
- * empty state (the same 5 starter-prompt grid the `/team` page uses).
- * When workers exist, redirect to `/team`, the canonical roster
- * surface — `useTeam()` is the shared data source.
+ * tenant has zero workers (a SUCCESSFUL fetch returning an empty
+ * roster), render the shared `<HireStarterPrompts>` empty state (the
+ * same 5 starter-prompt grid the `/team` page uses). When the fetch
+ * ERRORS (e.g. the gateway 500s), render an error+retry card instead —
+ * never the hire-empty grid, which would tell a customer who just hired
+ * they have no team (mirrors `/team`'s `query.isError` branch). When
+ * workers exist, redirect to `/team`, the canonical roster surface —
+ * `useTeam()` is the shared data source.
  *
  * The first-hire wizard exits to `/workers?just-hired=1&new=<id>` so
  * the operator sees the new card without an extra hop to `/team`; we
@@ -53,8 +58,9 @@ export default function WorkersPage() {
 // Suspense fallback — shown only for the brief window while
 // `useSearchParams()` resolves. Renders from the already-mounted
 // `teamQuery` (never gated behind the boundary): loader while pending,
-// otherwise the empty "hire" grid. The just-hired highlight is the only
-// thing that needs the URL, so it's deferred to the committed view.
+// an error+retry card on a failed fetch, otherwise the empty "hire"
+// grid. The just-hired highlight is the only thing that needs the URL,
+// so it's deferred to the committed view.
 function WorkersFallback({
   teamQuery,
   workers,
@@ -62,7 +68,20 @@ function WorkersFallback({
   teamQuery: UseQueryResult<FetchTeamResult>;
   workers: Worker[];
 }) {
-  const hasWorkers = !teamQuery.isPending && workers.length > 0;
+  const hasWorkers = !teamQuery.isPending && !teamQuery.isError && workers.length > 0;
+  // A failed roster fetch must NEVER fall through to the "hire your
+  // first teammate" empty state — that tells a customer who just hired
+  // they have no team. Mirror `/team`'s `query.isError` branch.
+  if (teamQuery.isError) {
+    return (
+      <>
+        <WorkersHero state="empty" />
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
+          <WorkersErrorState onRetry={() => teamQuery.refetch()} />
+        </div>
+      </>
+    );
+  }
   if (teamQuery.isPending || hasWorkers) {
     return (
       <>
@@ -84,6 +103,29 @@ function WorkersFallback({
       </div>
     </>
   );
+}
+
+// Error+retry state for a failed roster fetch. Copy + destructive
+// styling match `/team`'s `TeamErrorState` (that function is local to
+// the team page, so the shared `<EmptyState>` is reused here directly
+// rather than exported across pages). Crucially, this is rendered
+// INSTEAD of `<HireStarterPrompts>` so a 500 never masquerades as an
+// empty workforce.
+function WorkersErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <EmptyState
+      data-testid="workers-error-state"
+      illustration={WorkersErrorIllustration}
+      headline="We're having trouble loading your team"
+      body="Try again in a moment. The rest of the workspace is still available."
+      cta={{ label: "Try again", onClick: onRetry }}
+      className="max-w-xl mx-auto border-[var(--destructive)]/30 bg-[var(--destructive)]/5"
+    />
+  );
+}
+
+function WorkersErrorIllustration(props: SVGProps<SVGSVGElement>) {
+  return <AlertCircle {...props} />;
 }
 
 function WorkersHero({
@@ -132,7 +174,8 @@ function WorkersPageContent({
   const searchParams = useSearchParams();
   // `workers` is fetched by the parent and passed down — see the
   // `WorkersPage` doc-comment for why the fetch lives above this boundary.
-  const hasWorkers = !teamQuery.isPending && workers.length > 0;
+  const isError = teamQuery.isError;
+  const hasWorkers = !teamQuery.isPending && !isError && workers.length > 0;
   const justHired = searchParams?.get("just-hired") === "1";
   const newId = searchParams?.get("new");
 
@@ -147,6 +190,19 @@ function WorkersPageContent({
 
   const showGrid = hasWorkers && justHired;
   const showLoader = teamQuery.isPending || (hasWorkers && !justHired);
+
+  // A failed roster fetch renders an error+retry card, NEVER the
+  // "hire your first teammate" empty grid. Matches `/team`.
+  if (isError) {
+    return (
+      <>
+        <WorkersHero state="empty" />
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
+          <WorkersErrorState onRetry={() => teamQuery.refetch()} />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

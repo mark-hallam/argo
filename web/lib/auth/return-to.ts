@@ -8,48 +8,67 @@
  * load-bearing security boundary: an attacker who can craft a
  * malicious `returnTo` (e.g. via a phishing-style email link to
  * `/auth/signin?returnTo=https://evil.com/`) would otherwise be able
- * to bounce the user off-site after a successful re-auth.
+ * to bounce the user off-site after a successful re-auth ("open
+ * redirect").
  *
- * The whitelist is the set of in-product route prefixes the SPA
- * actually owns. Anything outside (including marketing surfaces,
- * external URLs, and auth surfaces themselves) folds to "/".
+ * The actual security requirement is *structural*, not a list of
+ * route prefixes: a `returnTo` is safe iff it is a same-origin
+ * RELATIVE path — it stays inside this app's own origin and cannot
+ * be coerced into navigating off-site or executing a scheme. We
+ * enforce exactly that and nothing more. The previous implementation
+ * gated on a hand-maintained `INTERNAL_PATH_PREFIXES` allowlist; that
+ * list drifted behind the real routes (e.g. `/team`, `/pitch`,
+ * `/coach`, `/genesis`, `/workers`, `/billing`, …), so legitimate
+ * in-app deep-links silently folded to `/` after re-auth. Encoding
+ * the security property directly removes that whole class of drift.
  */
-export const INTERNAL_PATH_PREFIXES: readonly string[] = [
-  "/app/",
-  "/workflows/",
-  "/audit/",
-  "/cohorts/",
-  "/approvals/",
-  "/skills/",
-  "/settings/",
-  "/onboarding/",
-  "/hire/",
-];
 
+// Matches a leading URI scheme, e.g. `javascript:`, `data:`, `http:`.
+// Per RFC 3986 a scheme is ALPHA *( ALPHA / DIGIT / "+" / "-" / "." ).
 const SCHEME_RE = /^[a-z][a-z0-9+\-.]*:/i;
 
 /**
- * Returns the `returnTo` value iff it points at a whitelisted
- * in-product path; otherwise returns `'/'`. Rejects:
- *   - missing / empty / non-string values
- *   - absolute URLs (`https://...`, `http://...`, custom schemes)
- *   - `javascript:` / `data:` / other URI schemes
- *   - protocol-relative URLs (`//evil.com/...`)
- *   - paths that don't start with `/`
- *   - paths whose pathname segment is outside [INTERNAL_PATH_PREFIXES]
+ * Returns the `returnTo` value iff it is a safe same-origin relative
+ * path; otherwise returns `'/'`. A value is accepted only when ALL of
+ * the following hold:
+ *
+ *   - it is a non-empty string
+ *   - it starts with a single `/` (a root-relative path)
+ *   - it is NOT protocol-relative (`//host` → would resolve off-origin)
+ *   - it has NO URI scheme (`javascript:` / `data:` / `http:` / …)
+ *   - it contains NO backslash (`\` is normalised to `/` by browsers,
+ *     so `/\evil.com` and `\\evil.com` are off-origin escape vectors)
+ *   - its path is NOT under `/auth/` (re-entering the auth surface
+ *     after re-auth would loop the user back to signin)
+ *   - it is not the bare root `/` (nothing to return *to* — fold to
+ *     home, which IS `/`)
+ *
+ * Everything else (absolute URLs, scheme URIs, protocol-relative
+ * `//host`, paths that don't start with `/`, auth surfaces) folds to
+ * `'/'`. Query string and fragment are preserved on accepted paths.
  */
 export function safeReturnToOrHome(returnTo: string | null | undefined): string {
   if (typeof returnTo !== "string" || returnTo.length === 0) return "/";
-  if (returnTo.startsWith("//")) return "/";
-  if (SCHEME_RE.test(returnTo)) return "/";
+  // Must be root-relative. Rejects `app/x` (no leading slash) and,
+  // crucially, `//evil.com` (protocol-relative, resolves off-origin).
   if (!returnTo.startsWith("/")) return "/";
+  if (returnTo.startsWith("//")) return "/";
+  // A backslash anywhere is an off-origin escape vector — browsers
+  // treat `\` as `/`, so `/\evil.com` becomes `//evil.com`.
+  if (returnTo.includes("\\")) return "/";
+  // Any URI scheme (`javascript:`, `data:`, `http:`, …) is rejected.
+  // (A safe relative path can still legitimately contain `:` later —
+  // e.g. `/x?t=a:b` — so test the scheme only at the start.)
+  if (SCHEME_RE.test(returnTo)) return "/";
 
   const pathOnly = returnTo.split("?", 1)[0]!.split("#", 1)[0]!;
-  const matchesWhitelist = INTERNAL_PATH_PREFIXES.some((prefix) => {
-    if (pathOnly.startsWith(prefix)) return true;
-    return pathOnly === prefix.slice(0, -1);
-  });
-  return matchesWhitelist ? returnTo : "/";
+  // Re-entering the auth surface after re-auth loops the user back to
+  // signin; fold `/auth` and anything under `/auth/` to home.
+  if (pathOnly === "/auth" || pathOnly.startsWith("/auth/")) return "/";
+  // The bare root carries no destination — it already IS home.
+  if (pathOnly === "/") return "/";
+
+  return returnTo;
 }
 
 /**

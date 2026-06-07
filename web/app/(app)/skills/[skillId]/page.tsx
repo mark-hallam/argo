@@ -2,13 +2,15 @@
 import "./page.css";
 
 import Link from "next/link";
-import { use } from "react";
+import { use, type SVGProps } from "react";
+import { AlertCircle } from "lucide-react";
 import {
   useSkillTelemetry,
   useSkillUsage,
   useSkillVersions,
 } from "@/lib/hooks/use-skills";
 import { formatLearnedAgo } from "@/lib/format-learned-ago";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { TrustGradeChip } from "@/components/skycot/skills/TrustGradeChip";
 import { SkillLearningLoopCard } from "@/components/skycot/skills/SkillLearningLoopCard";
 import { SkillVersionHistoryCard } from "@/components/skycot/skills/SkillVersionHistoryCard";
@@ -41,6 +43,11 @@ export default function SkillDetailStubPage({
   const { skillId } = use(params);
   const usageQuery = useSkillUsage(skillId);
   const usage = usageQuery.data?.usage;
+  // A failed provenance fetch must NOT render the zero-defaults
+  // ("Authored by your org", "Used by 0 workers…") — that fabricates
+  // provenance the gateway never confirmed. Surface an honest
+  // error+retry card instead, matching the `/skills` list page.
+  const isError = usageQuery.isError;
   // REAL learning-loop telemetry from the gateway (retired the
   // sample-skill-telemetry.ts fixture). Resolve by the skill's
   // canonical name when usage has loaded it, else by the URL segment;
@@ -64,6 +71,22 @@ export default function SkillDetailStubPage({
           it&apos;s been picked up across the marketplace.
         </p>
 
+        {isError ? (
+          <EmptyState
+            data-testid="skill-detail-error"
+            illustration={SkillDetailErrorIllustration}
+            headline="We couldn’t load this skill"
+            body={
+              usageQuery.error instanceof Error
+                ? `We couldn’t reach the gateway: ${usageQuery.error.message}. Try again in a moment.`
+                : "We couldn’t reach the gateway. Try again in a moment."
+            }
+            cta={{ label: "Try again", onClick: () => usageQuery.refetch() }}
+            secondary={{ label: "Back to the marketplace", href: "/skills" }}
+            className="max-w-xl mx-auto border-[var(--destructive)]/30 bg-[var(--destructive)]/5"
+          />
+        ) : (
+        <>
         <section
           className="usage-card"
           aria-labelledby="usage-provenance-heading"
@@ -143,6 +166,8 @@ export default function SkillDetailStubPage({
             marketplace.
           </p>
         </section>
+        </>
+        )}
 
         <div style={{ marginTop: 24 }}>
           <Link href="/skills" className="stub-back">
@@ -152,4 +177,8 @@ export default function SkillDetailStubPage({
       </div>
     </>
   );
+}
+
+function SkillDetailErrorIllustration(props: SVGProps<SVGSVGElement>) {
+  return <AlertCircle {...props} />;
 }

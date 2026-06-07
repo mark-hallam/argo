@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { middleware } from "./middleware";
+import { parseReturnTo } from "@/lib/auth/return-to";
 
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 const ORIGINAL_BYPASS = process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
@@ -39,12 +40,30 @@ describe("middleware", () => {
     restoreEnv();
   });
 
-  it("redirects unauth requests to /auth/signin with from", () => {
+  it("redirects unauth requests to /auth/signin with returnTo", () => {
     const res = middleware(makeRequest("http://localhost:3000/team"));
     expect(res.status).toBe(307);
     const loc = res.headers.get("location") ?? "";
     expect(loc).toContain("/auth/signin");
-    expect(loc).toContain(`from=${encodeURIComponent("/team")}`);
+    expect(loc).toContain(`returnTo=${encodeURIComponent("/team")}`);
+    // The old `?from=` key (which `parseReturnTo` never read, so the
+    // destination was dropped) must NOT be emitted.
+    expect(loc).not.toContain("from=");
+  });
+
+  // Param-key parity: the key the middleware emits MUST be the exact key
+  // `parseReturnTo` reads — otherwise the deep-link destination is
+  // silently dropped and every post-login lands on `/` (the bug this
+  // fixes). We round-trip a redirect's query through `parseReturnTo` and
+  // assert it recovers the original path including its query string.
+  it("emits a returnTo key that parseReturnTo reads back (no param drift)", () => {
+    const res = middleware(
+      makeRequest("http://localhost:3000/workers/abc?tab=memory"),
+    );
+    expect(res.status).toBe(307);
+    const loc = res.headers.get("location") ?? "";
+    const search = new URL(loc, "http://localhost:3000").searchParams;
+    expect(parseReturnTo(search)).toBe("/workers/abc?tab=memory");
   });
 
   it("lets requests through when a session cookie is present", () => {

@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  INTERNAL_PATH_PREFIXES,
   buildSigninUrlWithReturnTo,
   captureCurrentLocationAsReturnTo,
   consumeReturnToPending,
@@ -9,7 +8,11 @@ import {
   storeReturnToPending,
 } from "@/lib/auth/return-to";
 
-describe("safeReturnToOrHome — whitelist enforcement (load-bearing)", () => {
+// `safeReturnToOrHome` is the open-redirect gate. Its requirement is
+// STRUCTURAL: accept a returnTo iff it is a same-origin RELATIVE path.
+// (It used to gate on a hand-maintained route allowlist that drifted
+// behind the real routes; the structural check removes that drift.)
+describe("safeReturnToOrHome — same-origin relative-path enforcement (load-bearing)", () => {
   it("returns '/' for null / undefined / empty", () => {
     expect(safeReturnToOrHome(null)).toBe("/");
     expect(safeReturnToOrHome(undefined)).toBe("/");
@@ -17,6 +20,7 @@ describe("safeReturnToOrHome — whitelist enforcement (load-bearing)", () => {
   });
 
   it("returns '/' for absolute http(s) URLs", () => {
+    expect(safeReturnToOrHome("https://x.com")).toBe("/");
     expect(safeReturnToOrHome("https://evil.com/")).toBe("/");
     expect(safeReturnToOrHome("http://evil.com/app/x")).toBe("/");
     expect(safeReturnToOrHome("HTTPS://EVIL.COM/")).toBe("/");
@@ -33,32 +37,42 @@ describe("safeReturnToOrHome — whitelist enforcement (load-bearing)", () => {
     expect(safeReturnToOrHome("//evil.com")).toBe("/");
   });
 
+  it("returns '/' for backslash off-origin escape vectors", () => {
+    // Browsers normalise `\` to `/`, so these resolve off-origin.
+    expect(safeReturnToOrHome("/\\evil.com")).toBe("/");
+    expect(safeReturnToOrHome("\\\\evil.com")).toBe("/");
+    expect(safeReturnToOrHome("/app\\..\\x")).toBe("/");
+  });
+
   it("returns '/' for paths not starting with '/'", () => {
     expect(safeReturnToOrHome("app/dashboard")).toBe("/");
     expect(safeReturnToOrHome("evil")).toBe("/");
   });
 
-  it("returns '/' for whitelisted-prefix-as-substring (not at start)", () => {
-    expect(safeReturnToOrHome("/marketing/app/x")).toBe("/");
-    expect(safeReturnToOrHome("/x/workflows/y")).toBe("/");
-  });
-
-  it("returns '/' for non-whitelisted /landing, /docs, /help, etc.", () => {
-    expect(safeReturnToOrHome("/landing")).toBe("/");
-    expect(safeReturnToOrHome("/docs/getting-started")).toBe("/");
-    expect(safeReturnToOrHome("/help")).toBe("/");
+  it("folds auth surfaces to '/' (avoids a post-reauth signin loop)", () => {
     expect(safeReturnToOrHome("/auth/signin")).toBe("/");
+    expect(safeReturnToOrHome("/auth")).toBe("/");
+    expect(safeReturnToOrHome("/auth/verify?token=abc")).toBe("/");
   });
 
   it("returns '/' for the bare root '/'", () => {
     expect(safeReturnToOrHome("/")).toBe("/");
   });
 
-  it("accepts each whitelisted prefix and round-trips query+hash", () => {
-    for (const prefix of INTERNAL_PATH_PREFIXES) {
-      const path = `${prefix}deep/page`;
-      expect(safeReturnToOrHome(path)).toBe(path);
-    }
+  // The drift fix: previously-off-allowlist live routes are now accepted
+  // because they ARE same-origin relative paths. This is the whole point.
+  it("accepts in-app deep-links that the old allowlist dropped", () => {
+    expect(safeReturnToOrHome("/team")).toBe("/team");
+    expect(safeReturnToOrHome("/workers/abc")).toBe("/workers/abc");
+    expect(safeReturnToOrHome("/pitch")).toBe("/pitch");
+    expect(safeReturnToOrHome("/coach")).toBe("/coach");
+    expect(safeReturnToOrHome("/genesis")).toBe("/genesis");
+    expect(safeReturnToOrHome("/billing")).toBe("/billing");
+    // Marketing / docs are same-origin relative too → no longer folded.
+    expect(safeReturnToOrHome("/landing")).toBe("/landing");
+  });
+
+  it("round-trips query string and fragment on accepted paths", () => {
     expect(safeReturnToOrHome("/app/workers?cohort=peta")).toBe(
       "/app/workers?cohort=peta",
     );
@@ -66,6 +80,9 @@ describe("safeReturnToOrHome — whitelist enforcement (load-bearing)", () => {
       "/workflows/skycot/build#step3",
     );
     expect(safeReturnToOrHome("/approvals")).toBe("/approvals");
+    // A `:` later in the value (in a query param) is fine — only a
+    // leading scheme is rejected.
+    expect(safeReturnToOrHome("/x?t=a:b")).toBe("/x?t=a:b");
   });
 });
 
@@ -179,10 +196,12 @@ describe("storeReturnToPending / consumeReturnToPending", () => {
     expect(consumeReturnToPending()).toBeNull();
   });
 
-  it("refuses to store a non-whitelisted path", () => {
+  it("refuses to store an unsafe (off-origin / scheme) path", () => {
     storeReturnToPending("https://evil.com/");
     expect(consumeReturnToPending()).toBeNull();
-    storeReturnToPending("/landing");
+    storeReturnToPending("//evil.com");
+    expect(consumeReturnToPending()).toBeNull();
+    storeReturnToPending("javascript:alert(1)");
     expect(consumeReturnToPending()).toBeNull();
   });
 
