@@ -39,6 +39,7 @@ pub(super) fn parse_body(req: &str) -> Result<Value, (&'static str, String)> {
 
 pub(super) async fn resolve_worker<'a>(
     worker_id_raw: &str,
+    req: &str,
     store: Option<&'a Arc<SessionStore>>,
 ) -> Result<(&'a Arc<SessionStore>, WorkerId, TenantId), (&'static str, String)> {
     let Some(store) = store else {
@@ -52,13 +53,15 @@ pub(super) async fn resolve_worker<'a>(
             &format!("invalid worker_id '{raw}': {e}"),
         )
     })?;
-    let tenant = resolve_workspace_tenant(store).await.map_err(|e| {
-        err(
-            "500 Internal Server Error",
-            "internal_error",
-            &format!("resolve tenant: {e}"),
-        )
-    })?;
+    let tenant = super::super::resolve_tenant::resolve_tenant_for_request(req, store)
+        .await
+        .map_err(|e| {
+            err(
+                "500 Internal Server Error",
+                "internal_error",
+                &format!("resolve tenant: {e}"),
+            )
+        })?;
     let identities = IdentityStore::new(store);
     // Cross-tenant existence is hidden from the HTTP response.
     // See routes_workflows.rs:13-21 for the canonical invariant.
@@ -102,16 +105,6 @@ pub(super) async fn resolve_worker<'a>(
         return Err(gone_response(worker_id, &ts));
     }
     Ok((store, worker_id, tenant))
-}
-
-async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let (tenant, _ws) = store.ensure_workspace(name, &cwd.to_string_lossy()).await?;
-    Ok(tenant)
 }
 
 async fn exists_in_other_tenant(
@@ -333,7 +326,7 @@ pub(super) async fn emit_audit(
     worker_id: &WorkerId,
     item_count: usize,
 ) {
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t,
         Err(e) => {
             tracing::warn!(target: "gateway::duties", error = %e, endpoint = %endpoint, "resolve tenant for audit failed");

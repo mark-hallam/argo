@@ -33,7 +33,7 @@ pub(super) async fn classify_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let (store, worker_id, _) = match resolve_worker(worker_id_raw, store).await {
+    let (store, worker_id, _) = match resolve_worker(worker_id_raw, req, store).await {
         Ok(t) => t,
         Err(resp) => return resp,
     };
@@ -93,7 +93,7 @@ pub(super) async fn commit_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let (store, worker_id, tenant) = match resolve_worker(worker_id_raw, store).await {
+    let (store, worker_id, tenant) = match resolve_worker(worker_id_raw, req, store).await {
         Ok(t) => t,
         Err(resp) => return resp,
     };
@@ -181,7 +181,7 @@ pub(super) async fn preview_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let (store, _, tenant) = match resolve_worker(worker_id_raw, store).await {
+    let (store, _, tenant) = match resolve_worker(worker_id_raw, req, store).await {
         Ok(t) => t,
         Err(resp) => return resp,
     };
@@ -245,7 +245,7 @@ pub(super) async fn patch_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let (store, worker_id, tenant) = match resolve_worker(worker_id_raw, store).await {
+    let (store, worker_id, tenant) = match resolve_worker(worker_id_raw, req, store).await {
         Ok(t) => t,
         Err(resp) => return resp,
     };
@@ -331,7 +331,7 @@ pub(super) async fn delete_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let (store, worker_id, tenant) = match resolve_worker(worker_id_raw, store).await {
+    let (store, worker_id, tenant) = match resolve_worker(worker_id_raw, req, store).await {
         Ok(t) => t,
         Err(resp) => return resp,
     };
