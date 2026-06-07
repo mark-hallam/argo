@@ -1,6 +1,6 @@
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
-import { isDemoLive } from "@/lib/skycot/demo-mode";
+import { hasRealSession, isDemoLive } from "@/lib/skycot/demo-mode";
 
 export type EvalDecision = "stable" | "regressed" | "no_baseline";
 export type EvalRunStatus = "passed" | "failed" | "running";
@@ -48,6 +48,11 @@ function isStrictProduction(): boolean {
 }
 
 function isAuthBypassed(): boolean {
+  // Per-user gate (sprint, 2026-06-07, mock-leak class): a REAL
+  // signed-in user (the `skycot-session=1` marker cookie is present) is
+  // NEVER served the auth-bypass mock fixtures, even in a demo-flagged
+  // deploy. The bypass short-circuit is for ANONYMOUS demo visitors only.
+  if (hasRealSession()) return false;
   // Mirrors the canonical `lib/api/skills.ts` helper exactly: a build is
   // auth-bypassed only when it is NOT a production build AND
   // `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1`. The demo-live opt-out is

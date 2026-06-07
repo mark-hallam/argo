@@ -1,5 +1,5 @@
 import { apiPost } from "@/lib/api/client";
-import { isDemoLive } from "@/lib/skycot/demo-mode";
+import { hasRealSession, isDemoLive } from "@/lib/skycot/demo-mode";
 import type { SkillGraph } from "@/lib/types/skill-ir";
 
 export interface SaveSkillIrResult {
@@ -13,6 +13,11 @@ export interface SaveSkillIrResult {
 }
 
 function isAuthBypassed(): boolean {
+  // Per-user gate (sprint, 2026-06-07, mock-leak class): a REAL
+  // signed-in user (the `skycot-session=1` marker cookie is present) is
+  // NEVER served the auth-bypass mock fixtures, even in a demo-flagged
+  // deploy. The bypass short-circuit is for ANONYMOUS demo visitors only.
+  if (hasRealSession()) return false;
   return (
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"

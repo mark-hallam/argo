@@ -25,7 +25,7 @@ import {
   type ExportPreview,
   type ExportResult,
 } from "@/lib/sample-export";
-import { isDemoLive } from "@/lib/skycot/demo-mode";
+import { hasRealSession, isDemoLive } from "@/lib/skycot/demo-mode";
 
 /**
  * Wire format the gateway's `POST /api/v1/audit/export` accepts.
@@ -76,6 +76,11 @@ function isStrictProduction(): boolean {
 }
 
 function isAuthBypassed(): boolean {
+  // Per-user gate (sprint, 2026-06-07, mock-leak class): a REAL
+  // signed-in user (the `skycot-session=1` marker cookie is present) is
+  // NEVER served the auth-bypass mock fixtures, even in a demo-flagged
+  // deploy. The bypass short-circuit is for ANONYMOUS demo visitors only.
+  if (hasRealSession()) return false;
   // Demo-live mode runs against the real gateway (which has a working
   // /audit/export/preview over real seeded audit rows), so the bypass
   // mock must not engage there — otherwise the audit-export dialog shows
