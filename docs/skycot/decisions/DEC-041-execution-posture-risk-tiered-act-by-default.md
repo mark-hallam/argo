@@ -224,3 +224,28 @@ Rebuilt `:7400` from the fix and ran the live browser test. Results (VERIFIED th
 **Bottom line: the (D) fence is shipped, proven, and live default-OFF; the demo is intact; the flip
 is architecturally clean.** Operator-only flip remains gated on **WS1** (principal-vs-cwd tenant
 resolution) before any live enablement on real systems.
+
+### WS1 long-tail COMPLETE — 2026-06-07 — all 11 user-facing routes migrated off cwd
+
+The pre-flip **WS1** gate above is now substantially closed. The keystone (`resolve_tenant_for_request`,
+#2676) + the high-sensitivity tranches (#2708/#2709/#2710, billing/approvals/governance/notifications/
+worker-policies) shipped in the 2026-06-04/05 sprint; this session hand-built + verified the remaining
+**11-file long-tail** so every user-facing gateway route now resolves the tenant from the signed-in
+JWT (→ header → cwd fallback), not the gateway working directory:
+
+- `routes_duties_helpers` (flip-relevant — stamps the tenant onto autonomously-firing schedules) ·
+  `routes_gtm_draft_followup` · `routes_marketing_draft_response` · `routes_worker_trust_grade` ·
+  `routes_trust_streaks` · `routes_retrain` · `routes_worker_memory_helpers` ·
+  `routes_worker_skills_helpers` · `routes_workspace_settings` (GET/PATCH; voice-config read kept
+  workspace-scoped by documented exception) · `routes_worker_activity` · `routes_cohorts`.
+- Commits `62627aee8` (duties) · `b0321f5ee` (drafts) · `419a276cc` (trust) · `bcaca0973` (final 6).
+- Zero local `fn resolve_workspace_tenant` remain across all 11. New `tests/ws1_lt_tenant_resolve.rs`
+  pins each (calls the canonical resolver, defines no private cwd copy) + a duties store-boundary
+  cross-tenant isolation test. **Verified:** `clippy -p argo-cli --bin argo -- -D warnings` EXIT=0;
+  full WS1 regression family (long-tail + keystone + both 1b tranches) 0 failed.
+
+Residual WS1 items (NOT this long-tail, tracked separately): the voice-IO tenant chain
+(`select_stt`/`select_tts` → `read_voice_provider`, documented exception) and any non-route
+(CLI / boot) cwd resolution. The autonomous duty-fire path itself was already tenant-correct (it
+reads the tenant from the duty record), so the flip's blast radius does not depend on this long-tail —
+it is multi-tenant-LAUNCH hardening. The flip stays operator-only.
