@@ -56,33 +56,45 @@ export function RecentDecisionsCard({
 }
 
 function DecisionRow({ decision }: { decision: RecentDecision }) {
+  // The gateway may return a decision row without an audit drill-in `href`
+  // (the type says required, but a fresh worker's payload can omit it) — and
+  // `<Link href={undefined}>` THROWS, crashing the whole worker-detail tab via
+  // the error boundary. Same failure mode as RecentActivityCard: only render
+  // the drill-in link when there is a real target, else a non-link row.
+  const inner = (
+    <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 text-sm">
+      <span className="truncate text-[var(--foreground)]">{decision.label}</span>
+      <span
+        data-testid={`decision-outcome-${decision.decisionId}`}
+        className={cn(
+          "shrink-0 rounded-full px-2 py-0.5 text-xs",
+          decision.outcome === "approved"
+            ? "bg-[var(--success)]/15 text-[var(--success-foreground)]"
+            : "bg-[var(--destructive)]/15 text-[var(--destructive-foreground)]",
+        )}
+      >
+        {decision.outcome}
+      </span>
+      <time
+        dateTime={decision.decidedAt}
+        className="shrink-0 text-xs tabular-nums text-[var(--muted-foreground)]"
+      >
+        {formatRelative(decision.decidedAt)}
+      </time>
+    </div>
+  );
   return (
     <li data-testid={`decision-row-${decision.decisionId}`} className="py-2">
-      <Link
-        href={decision.href}
-        className="block rounded-[var(--radius-sm)] -mx-1 px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] hover:bg-[var(--accent)]/40"
-      >
-        <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 text-sm">
-          <span className="truncate text-[var(--foreground)]">{decision.label}</span>
-          <span
-            data-testid={`decision-outcome-${decision.decisionId}`}
-            className={cn(
-              "shrink-0 rounded-full px-2 py-0.5 text-xs",
-              decision.outcome === "approved"
-                ? "bg-[var(--success)]/15 text-[var(--success-foreground)]"
-                : "bg-[var(--destructive)]/15 text-[var(--destructive-foreground)]",
-            )}
-          >
-            {decision.outcome}
-          </span>
-          <time
-            dateTime={decision.decidedAt}
-            className="shrink-0 text-xs tabular-nums text-[var(--muted-foreground)]"
-          >
-            {formatRelative(decision.decidedAt)}
-          </time>
-        </div>
-      </Link>
+      {decision.href ? (
+        <Link
+          href={decision.href}
+          className="block rounded-[var(--radius-sm)] -mx-1 px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] hover:bg-[var(--accent)]/40"
+        >
+          {inner}
+        </Link>
+      ) : (
+        <div className="block -mx-1 px-1">{inner}</div>
+      )}
     </li>
   );
 }

@@ -69,34 +69,46 @@ function ConversationRow({
   conversation: ActiveConversation;
   redactionPolicy?: RedactionPolicy;
 }) {
+  // The gateway may return a conversation row without an audit drill-in `href`
+  // (the type says required, but a fresh worker's payload can omit it) — and
+  // `<Link href={undefined}>` THROWS, crashing the whole worker-detail tab via
+  // the error boundary. Same failure mode as RecentActivityCard: only render
+  // the drill-in link when there is a real target, else a non-link row.
+  const inner = (
+    <div className="grid grid-cols-[1fr_auto] items-baseline gap-x-3 text-sm">
+      <div className="min-w-0">
+        <p className="truncate font-medium text-[var(--foreground)]">
+          <RedactedText policy={redactionPolicy}>
+            {conversation.counterpartyHandle}
+          </RedactedText>
+        </p>
+        <p className="truncate text-xs text-[var(--muted-foreground)]">
+          <RedactedText policy={redactionPolicy}>{conversation.topic}</RedactedText>
+        </p>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <time
+          dateTime={conversation.lastMessageAt}
+          className="text-xs tabular-nums text-[var(--muted-foreground)]"
+        >
+          {formatRelative(conversation.lastMessageAt)}
+        </time>
+        <ChevronRight className="size-3.5 text-[var(--muted-foreground)]" aria-hidden />
+      </div>
+    </div>
+  );
   return (
     <li data-testid={`conversation-row-${conversation.conversationId}`} className="py-2">
-      <Link
-        href={conversation.href}
-        className="block rounded-[var(--radius-sm)] -mx-1 px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] hover:bg-[var(--accent)]/40"
-      >
-        <div className="grid grid-cols-[1fr_auto] items-baseline gap-x-3 text-sm">
-          <div className="min-w-0">
-            <p className="truncate font-medium text-[var(--foreground)]">
-              <RedactedText policy={redactionPolicy}>
-                {conversation.counterpartyHandle}
-              </RedactedText>
-            </p>
-            <p className="truncate text-xs text-[var(--muted-foreground)]">
-              <RedactedText policy={redactionPolicy}>{conversation.topic}</RedactedText>
-            </p>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <time
-              dateTime={conversation.lastMessageAt}
-              className="text-xs tabular-nums text-[var(--muted-foreground)]"
-            >
-              {formatRelative(conversation.lastMessageAt)}
-            </time>
-            <ChevronRight className="size-3.5 text-[var(--muted-foreground)]" aria-hidden />
-          </div>
-        </div>
-      </Link>
+      {conversation.href ? (
+        <Link
+          href={conversation.href}
+          className="block rounded-[var(--radius-sm)] -mx-1 px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] hover:bg-[var(--accent)]/40"
+        >
+          {inner}
+        </Link>
+      ) : (
+        <div className="block -mx-1 px-1">{inner}</div>
+      )}
     </li>
   );
 }
