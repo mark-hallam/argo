@@ -138,3 +138,61 @@ describe("fetchWorkerOverview — gateway duty shape mapping", () => {
     expect(overview.duties).toEqual([]);
   });
 });
+
+describe("fetchWorkerOverview — recent activity normalisation", () => {
+  // The gateway returns activity rows as { id, verb, status, timestamp }
+  // with NO `href` (and `timestamp`, not `at`). RecentActivityCard renders
+  // `<Link href={row.href}>`, and Next's `<Link href={undefined}>` THROWS —
+  // crashing the entire worker-overview tab (the "500 — couldn't load this
+  // worker" page). These pin that the mapper builds a real href + `at` and
+  // never lets `href` reach the component as `undefined`.
+  it("builds the audit drill-in href + `at` from a gateway row that has neither", async () => {
+    apiGetMock.mockResolvedValueOnce({
+      charter: "",
+      duties: [],
+      kpis: [],
+      recent_activity: [
+        {
+          id: "019e9b1b-82d4-7e72-a3bb-6ed1d3ee48f1",
+          verb: "trust_grade_changed",
+          status: "succeeded",
+          timestamp: "2026-06-06T04:27:48.972878+00:00",
+        },
+      ],
+    });
+
+    const { fetchWorkerOverview } = await import("@/lib/api/worker-overview");
+    const { overview } = await fetchWorkerOverview(WORKER_ID);
+
+    expect(overview.recentActivity).toHaveLength(1);
+    const row = overview.recentActivity[0];
+    // Never `undefined` — that is exactly what crashes <Link>.
+    expect(typeof row.href).toBe("string");
+    // Dashes stripped to match the `/audit/action/<32-hex>` route.
+    expect(row.href).toBe(
+      "/audit/action/019e9b1b82d47e72a3bb6ed1d3ee48f1",
+    );
+    expect(row.at).toBe("2026-06-06T04:27:48.972878+00:00");
+    expect(row.verb).toBe("trust_grade_changed");
+    expect(row.status).toBe("succeeded");
+  });
+
+  it("leaves href as an empty string (never undefined) when a row has no id", async () => {
+    apiGetMock.mockResolvedValueOnce({
+      charter: "",
+      duties: [],
+      kpis: [],
+      recent_activity: [
+        { verb: "did a thing", status: "ok", timestamp: "2026-06-06T00:00:00Z" },
+      ],
+    });
+
+    const { fetchWorkerOverview } = await import("@/lib/api/worker-overview");
+    const { overview } = await fetchWorkerOverview(WORKER_ID);
+
+    // Empty string is falsy → the card renders a non-link row; crucially it
+    // is a string, not `undefined`, so <Link> can never receive undefined.
+    expect(overview.recentActivity[0].href).toBe("");
+    expect(typeof overview.recentActivity[0].href).toBe("string");
+  });
+});

@@ -164,6 +164,40 @@ export interface WorkerActivityRow {
   href: string;
 }
 
+/** Raw activity row as the live gateway returns it (loose / snake). */
+interface RawGatewayActivityRow {
+  id?: string;
+  verb?: string;
+  status?: string;
+  at?: string;
+  timestamp?: string;
+  href?: string;
+}
+
+/**
+ * Normalize a gateway activity row to the SPA contract. The gateway
+ * returns `{ id, verb, status, timestamp }` with NO `href` (and
+ * `timestamp`, not `at`), but `RecentActivityCard` renders
+ * `<Link href={row.href}>` — and Next's `<Link href={undefined}>`
+ * THROWS, crashing the whole worker-overview tab. Build the audit
+ * drill-in href from the row id (dashes stripped to match the
+ * `/audit/action/<32-hex>` route); leave it empty when there's no id so
+ * the card renders a non-link row rather than a throwing/broken link.
+ */
+function mapGatewayActivityRow(raw: RawGatewayActivityRow): WorkerActivityRow {
+  const id = raw.id ?? "";
+  const href =
+    raw.href ??
+    (id ? `/audit/action/${encodeURIComponent(id.replace(/-/g, ""))}` : "");
+  return {
+    id,
+    at: raw.at ?? raw.timestamp ?? "",
+    verb: raw.verb ?? "",
+    status: raw.status ?? "",
+    href,
+  };
+}
+
 export interface WorkerOverview {
   charter: string;
   duties: WorkerDuty[];
@@ -249,8 +283,8 @@ export async function fetchWorkerOverview(
       charter?: unknown;
       duties?: unknown[];
       kpis?: RawGatewayKpi[];
-      recentActivity?: WorkerActivityRow[];
-      recent_activity?: WorkerActivityRow[];
+      recentActivity?: RawGatewayActivityRow[];
+      recent_activity?: RawGatewayActivityRow[];
       genesis_plan_id?: string | null;
     }>(`/api/v1/workers/${encodeURIComponent(workerId)}/overview`);
     // Normalize the live gateway shape to the SPA contract so a sparse
@@ -274,7 +308,9 @@ export async function fetchWorkerOverview(
       charter,
       duties: (raw.duties ?? []).map(mapGatewayDuty),
       kpis: (raw.kpis ?? []).map(mapGatewayKpi),
-      recentActivity: raw.recentActivity ?? raw.recent_activity ?? [],
+      recentActivity: (raw.recentActivity ?? raw.recent_activity ?? []).map(
+        mapGatewayActivityRow,
+      ),
       genesis_plan_id: raw.genesis_plan_id ?? null,
     };
     return { overview, source: "gateway" };

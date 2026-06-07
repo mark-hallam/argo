@@ -64,28 +64,38 @@ export function RecentActivityCard({
 }
 
 function ActivityListRow({ row }: { row: WorkerActivityRow }) {
+  const inner = (
+    <span className="grid grid-cols-[auto_1fr_auto] items-baseline gap-x-3 text-sm">
+      <time
+        dateTime={row.at}
+        className="text-xs tabular-nums text-[var(--muted-foreground)]"
+      >
+        {formatTime(row.at)}
+      </time>
+      <span className="truncate text-[var(--foreground)]">{row.verb}</span>
+      <span
+        data-testid={`activity-status-${row.id}`}
+        className="shrink-0 rounded-full bg-[var(--muted)] px-2 py-0.5 text-xs text-[var(--muted-foreground)]"
+      >
+        {row.status}
+      </span>
+    </span>
+  );
   return (
     <li data-testid={`activity-row-${row.id}`} className="py-2">
-      <Link
-        href={row.href}
-        className="block rounded-[var(--radius-sm)] -mx-1 px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] hover:bg-[var(--accent)]/40"
-      >
-        <span className="grid grid-cols-[auto_1fr_auto] items-baseline gap-x-3 text-sm">
-          <time
-            dateTime={row.at}
-            className="text-xs tabular-nums text-[var(--muted-foreground)]"
-          >
-            {formatTime(row.at)}
-          </time>
-          <span className="truncate text-[var(--foreground)]">{row.verb}</span>
-          <span
-            data-testid={`activity-status-${row.id}`}
-            className="shrink-0 rounded-full bg-[var(--muted)] px-2 py-0.5 text-xs text-[var(--muted-foreground)]"
-          >
-            {row.status}
-          </span>
-        </span>
-      </Link>
+      {row.href ? (
+        // Belt-and-suspenders to the mapper: a `<Link href={undefined}>`
+        // THROWS in Next and crashes the whole overview tab, so only render
+        // the audit drill-in link when there is a real target.
+        <Link
+          href={row.href}
+          className="block rounded-[var(--radius-sm)] -mx-1 px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] hover:bg-[var(--accent)]/40"
+        >
+          {inner}
+        </Link>
+      ) : (
+        <div className="block -mx-1 px-1">{inner}</div>
+      )}
     </li>
   );
 }
