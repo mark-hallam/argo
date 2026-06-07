@@ -100,24 +100,15 @@ async fn request_tenant_id(
     req: &str,
     store: &SessionStore,
 ) -> Result<String, (&'static str, String)> {
-    if let Some(id) = header_value(req, "X-Argo-Tenant-Id").filter(|s| !s.is_empty()) {
-        return Ok(id);
-    }
-    let cwd = std::env::current_dir().map_err(|e| {
-        (
-            "500 Internal Server Error",
-            json!({"error": format!("cwd: {e}")}).to_string(),
-        )
-    })?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    store
-        .ensure_workspace(name, &root)
+    // Identity-first (WS1): the signed-in user's session-JWT tenant wins
+    // (so a signed-in user cannot escape their tenant via a header), then an
+    // explicit override, then the cwd fallback. Previously this read the
+    // X-Argo-Tenant-Id header then fell straight to cwd — so a real
+    // signed-in user (whose SPA sends no tenant header in single-workspace
+    // mode) leaked the default tenant's workflows (real-mode walk 2026-06-07).
+    super::resolve_tenant::resolve_tenant_for_request(req, store)
         .await
-        .map(|(tenant, _)| tenant.to_string())
+        .map(|tenant| tenant.to_string())
         .map_err(|e| {
             (
                 "500 Internal Server Error",

@@ -23,7 +23,7 @@ use argo_store::elevated_view_grant::{
     ElevatedViewGrantRow, ElevatedViewGrantStore, NewElevatedViewGrant,
 };
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, TenantId};
+use argo_types::{ArgoResult, TenantId};
 use chrono::Utc;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -269,13 +269,10 @@ async fn resolve_tenant_principal(
     store: &SessionStore,
     req: &str,
 ) -> ArgoResult<(TenantId, String)> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
+    // Identity-first (WS1): the signed-in user's session-JWT tenant, then the
+    // cwd fallback for CLI. Previously cwd-only — leaking the default tenant's
+    // elevated-view grants to a real signed-in user (real-mode walk 2026-06-07).
+    let tenant = super::resolve_tenant::resolve_tenant_for_request(req, store).await?;
     let principal_id =
         principal_id_for_audit(req).unwrap_or_else(|| "system:elevated-view".to_string());
     Ok((tenant, principal_id))

@@ -141,16 +141,12 @@ async fn resolve_tenant(
             .map(TenantId)
             .map_err(|e| bad(&format!("invalid tenant_id: {e}")));
     }
-    let cwd = std::env::current_dir().map_err(|e| server_owned(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    store
-        .ensure_workspace(name, &root)
+    // Identity-first (WS1): the signed-in user's session-JWT tenant, then
+    // the cwd fallback for CLI / anonymous. Previously fell straight to cwd,
+    // leaking the default tenant's orchestration runs to any signed-in user
+    // (real-mode walk 2026-06-07).
+    super::resolve_tenant::resolve_tenant_for_request(req, store)
         .await
-        .map(|(tenant, _)| tenant)
         .map_err(|e| server_owned(format!("resolve tenant: {e}")))
 }
 

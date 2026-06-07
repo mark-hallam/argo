@@ -30,7 +30,6 @@ use argo_store::SessionStore;
 use argo_types::TenantId;
 use serde_json::json;
 use std::sync::Arc;
-use uuid::Uuid;
 
 const API_KEYS_PATH: &str = "/api/v1/api-keys";
 const PROVIDER_KEYS_PATH: &str = "/api/v1/providers/keys";
@@ -111,24 +110,16 @@ async fn resolve_tenant(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> Result<TenantId, (&'static str, String)> {
-    if let Some(raw) = header_value(req, "X-Argo-Tenant-Id").filter(|s| !s.is_empty()) {
-        if let Ok(uuid) = Uuid::parse_str(&raw) {
-            return Ok(TenantId(uuid));
-        }
-    }
     let Some(store) = store else {
         return Err(super::store_unavailable());
     };
-    let cwd = std::env::current_dir().map_err(|e| internal(&format!("cwd: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    store
-        .ensure_workspace(name, &root)
+    // Identity-first (WS1): the signed-in user's session-JWT tenant wins (so a
+    // signed-in user cannot escape their tenant via a header), then an explicit
+    // override, then the cwd fallback for CLI. Previously read X-Argo-Tenant-Id
+    // then fell to cwd — leaking the default tenant's provider-key status to a
+    // real signed-in user (real-mode walk 2026-06-07).
+    super::resolve_tenant::resolve_tenant_for_request(req, &**store)
         .await
-        .map(|(t, _)| t)
         .map_err(|e| internal(&format!("resolve tenant: {e}")))
 }
 

@@ -19,7 +19,7 @@ use super::routes_auth_principal::principal_id_for_audit;
 use argo_audit::{AuditKind, AuditSink};
 use argo_store::api_key::ApiKeyRow;
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, TenantId};
+use argo_types::{ArgoResult, TenantId};
 use base64::Engine;
 use rand_core::{OsRng, RngCore};
 use serde_json::{json, Value};
@@ -205,28 +205,23 @@ fn json_array_or_empty(raw: &str) -> Value {
         .unwrap_or_else(|| Value::Array(Vec::new()))
 }
 
-/// Resolve `(tenant, principal)` for the caller. Prefers the
-/// `X-Argo-Tenant-Id` header (set by the SPA proxy after JWT verify);
-/// falls back to the cwd-bound workspace tenant for CLI / fixture
-/// callers — same shape as the sibling credential/elevated-view reads.
+/// Resolve `(tenant, principal)` for the caller, IDENTITY-FIRST (WS1):
+/// the signed-in user's `__Host-session` JWT tenant wins, then an explicit
+/// `?tenant=` / `X-Tenant-Id` / `X-Argo-Tenant-Id` override, then the
+/// cwd-bound workspace tenant for CLI / fixture callers — via the shared
+/// `resolve_tenant::resolve_tenant_for_request`.
+///
+/// Previously this read ONLY the `X-Argo-Tenant-Id` header and otherwise
+/// fell straight to cwd. The SPA sends no tenant header in single-workspace
+/// mode, so a real signed-in user leaked the cwd/default tenant's API-key
+/// metadata — a cross-tenant leak the real-mode walk caught (2026-06-07).
 pub(super) async fn resolve_tenant_principal(
     store: &SessionStore,
     req: &str,
 ) -> ArgoResult<(TenantId, String)> {
     let principal =
         principal_id_for_audit(req).unwrap_or_else(|| "system:api-keys".to_string());
-    if let Some(raw) = header_value(req, "X-Argo-Tenant-Id").filter(|s| !s.is_empty()) {
-        if let Ok(uuid) = Uuid::parse_str(&raw) {
-            return Ok((TenantId(uuid), principal));
-        }
-    }
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
+    let tenant = super::resolve_tenant::resolve_tenant_for_request(req, store).await?;
     Ok((tenant, principal))
 }
 

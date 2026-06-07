@@ -31,7 +31,7 @@ use argo_store::retro::{
     DEFAULT_WINDOW_DAYS,
 };
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, TenantId};
+use argo_types::{ArgoResult, TenantId};
 use chrono::Utc;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -338,19 +338,12 @@ async fn resolve_tenant_principal(
     req: &str,
 ) -> ArgoResult<(TenantId, String)> {
     let principal_id = principal_id_for_audit(req).unwrap_or_else(|| "system:retro".to_string());
-    if let Some(raw) = header_value(req, HEADER_TENANT_ID) {
-        let tenant = Uuid::parse_str(&raw)
-            .map(TenantId)
-            .map_err(|e| ArgoError::Schema(format!("invalid X-Argo-Tenant-Id: {e}")))?;
-        return Ok((tenant, principal_id));
-    }
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
+    // Identity-first (WS1): the signed-in user's session-JWT tenant wins,
+    // then an explicit header override, then the cwd fallback for CLI.
+    // Previously read only X-Argo-Tenant-Id then fell to cwd — leaking the
+    // default tenant's retros to a real signed-in user (real-mode walk
+    // 2026-06-07).
+    let tenant = super::resolve_tenant::resolve_tenant_for_request(req, store).await?;
     Ok((tenant, principal_id))
 }
 

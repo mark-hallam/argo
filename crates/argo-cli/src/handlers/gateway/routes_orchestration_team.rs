@@ -195,16 +195,10 @@ async fn resolve_tenant(
             .map(TenantId)
             .map_err(|e| bad(&format!("invalid tenant_id: {e}")));
     }
-    let cwd = std::env::current_dir().map_err(|e| server_msg(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    store
-        .ensure_workspace(name, &root)
+    // Identity-first (WS1): signed-in user's session-JWT tenant, cwd fallback
+    // for CLI / anonymous (real-mode walk 2026-06-07 cross-tenant fix).
+    super::resolve_tenant::resolve_tenant_for_request(req, store)
         .await
-        .map(|(tenant, _)| tenant)
         .map_err(|e| server_msg(format!("resolve tenant: {e}")))
 }
 

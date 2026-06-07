@@ -98,7 +98,7 @@ async fn handle_get(
     if let Err(resp) = check_capability(&principal, role, &workflow_read_capability()) {
         return resp;
     }
-    let tenant = match resolve_tenant(store).await {
+    let tenant = match resolve_tenant(req, store).await {
         Ok(t) => t,
         Err(resp) => return resp,
     };
@@ -132,7 +132,7 @@ async fn handle_mutate(
     if let Err(resp) = check_capability(&principal, role, &workflow_edit_capability()) {
         return resp;
     }
-    let tenant = match resolve_tenant(store).await {
+    let tenant = match resolve_tenant(req, store).await {
         Ok(t) => t,
         Err(resp) => return resp,
     };
@@ -317,17 +317,13 @@ fn principal_to_actor(principal: &Principal) -> String {
     }
 }
 
-async fn resolve_tenant(store: &SessionStore) -> Result<TenantId, (&'static str, String)> {
-    let cwd = std::env::current_dir().map_err(|e| internal(&format!("cwd: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    store
-        .ensure_workspace(name, &root)
+async fn resolve_tenant(req: &str, store: &SessionStore) -> Result<TenantId, (&'static str, String)> {
+    // Identity-first (WS1): the signed-in user's session-JWT tenant, then the
+    // cwd fallback for CLI / anonymous. Previously cwd-only — leaking the
+    // default tenant's workflows to a real signed-in user (real-mode walk
+    // 2026-06-07).
+    super::resolve_tenant::resolve_tenant_for_request(req, store)
         .await
-        .map(|(t, _)| t)
         .map_err(|e| internal(&format!("resolve tenant: {e}")))
 }
 

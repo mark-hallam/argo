@@ -59,7 +59,7 @@ pub(super) async fn dispatch_get_api(
         Some(s) => s,
         None => return Some(super::store_unavailable()),
     };
-    let tenant = match resolve_tenant(store).await {
+    let tenant = match resolve_tenant(req, store).await {
         Ok(t) => t,
         Err(resp) => return Some(resp),
     };
@@ -84,7 +84,7 @@ pub(super) async fn dispatch_post(
         Some(s) => s,
         None => return Some(super::store_unavailable()),
     };
-    let tenant = match resolve_tenant(store).await {
+    let tenant = match resolve_tenant(req, store).await {
         Ok(t) => t,
         Err(resp) => return Some(resp),
     };
@@ -109,7 +109,7 @@ pub(super) async fn dispatch_put(
         Some(s) => s,
         None => return Some(super::store_unavailable()),
     };
-    let tenant = match resolve_tenant(store).await {
+    let tenant = match resolve_tenant(req, store).await {
         Ok(t) => t,
         Err(resp) => return Some(resp),
     };
@@ -134,7 +134,7 @@ pub(super) async fn dispatch_delete(
         Some(s) => s,
         None => return Some(super::store_unavailable()),
     };
-    let tenant = match resolve_tenant(store).await {
+    let tenant = match resolve_tenant(req, store).await {
         Ok(t) => t,
         Err(resp) => return Some(resp),
     };
@@ -221,17 +221,13 @@ fn principal_actor(req: &str) -> String {
     String::new()
 }
 
-async fn resolve_tenant(store: &SessionStore) -> Result<TenantId, (&'static str, String)> {
-    let cwd = std::env::current_dir().map_err(|e| internal(&format!("cwd: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    store
-        .ensure_workspace(name, &root)
+async fn resolve_tenant(req: &str, store: &SessionStore) -> Result<TenantId, (&'static str, String)> {
+    // Identity-first (WS1): the signed-in user's session-JWT tenant, then the
+    // cwd fallback for CLI / anonymous. Previously cwd-only — leaking the
+    // default tenant's workplace-knowledge docs to a real signed-in user
+    // (real-mode walk 2026-06-07).
+    super::resolve_tenant::resolve_tenant_for_request(req, store)
         .await
-        .map(|(t, _)| t)
         .map_err(|e| internal(&format!("resolve tenant: {e}")))
 }
 
