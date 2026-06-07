@@ -132,3 +132,64 @@ autonomous-safe designs (documented rationale: reversible bookings, no PHI). So 
 NOT a bug fix — overriding them would be a product-design change. The architectural fence
 (this (D) + (A)) must make the flip safe regardless of any manifest's tagging; that's the
 correct defense, not editing demo content.
+
+### (D) BUILT + re-review CLEAN — 2026-06-07 — commit `107b4e6b1`
+
+The fix shipped: `dispatch.rs::build_dispatch_ctx` now takes `is_worker_session: bool`.
+Match logic — `Some(profile)` → fenced profile (unchanged); `None if is_worker_session`
+→ **deny-all role** (never owner); `None` (bare human) → `owner` (unchanged). Production
+wire: `turn_helpers_run.rs:182` passes `session.worker_id.is_some()`. Proof tests rewrote
+the old bug-encoding `non_genesis_session_keeps_owner_reach` into
+`non_genesis_worker_session_is_fenced_not_owner` (asserts `tool_cap("*").is_err()` +
+`tool_cap("terminal").is_err()`) + `bare_human_session_keeps_owner_reach` (`.is_ok()`).
+Verify GREEN: 7 passed / 0 failed, clippy clean.
+
+**Step-5 blast-radius re-review against the fixed path — CLEAN. Findings:**
+
+1. **Deny-all is comprehensive (not a partial fence).** `WorkerCapabilityProfile`
+   `to_capability_set()` on an empty profile emits ONLY `ToolDispatch` grants for the 4
+   `MINIMAL_TEAMMATE_TOOLS` (`clarify`, `memory`, `skill_view`, `skills_list` — documented
+   "do NOT transmit externally, charge money, or destroy data"). NO `MessageSend`, NO
+   `FsWrite`, NO `Spawn`, NO external MCP, NO emit-action tool. So the second-order
+   "agent emits an auto-executing action" route does not exist — none of the 4 tools emit
+   worker actions.
+2. **`build_dispatch_ctx` is the only worker-session owner seam.** The only `owner` bind in
+   the agent-runner is gated behind the `None` (bare-human, `!is_worker_session`) arm. The
+   one other `owner` bind in the CLI — `vertical_workflow.rs::build_local_dispatch_ctx`
+   (binds `Principal::Local{os_user}` → owner) — is a SEPARATE, pre-existing path that
+   **neither flip flag unlocks** (`ARGO_DUTY_AUTOFIRE` is read only in boot/gate/hire-bridge/
+   promotion, never in the verticals-run route). It represents the local machine operator
+   explicitly running a named vertical workflow; covered by the existing **WS1**
+   (principal-vs-cwd tenant resolution) pre-flip dependency, NOT a new flip-blocker.
+3. **Demo heroes are non-Genesis → (D) fences them in BOTH paths.** Seed heroes
+   (`argo-demo-seed`, provenance `"published:verified:argo-seed"`) resolve to
+   `GenesisProvenance::None`. So before (D) their sessions bound **owner** — meaning they
+   were over-privileged not only on the autonomous path but **also in interactive
+   text-chat** (a chat with a seed hero could reach `MessageSend *` / `ToolDispatch *`).
+   (D) closes BOTH. This is strictly more correct: **a worker is never owner, in any
+   session type.**
+
+**One empirical "nothing breaks silently" item before the operator flips:** confirm a
+seed hero's CONVERSATIONAL flow still works under deny-all. Analytically it does — the
+voice demo (`/pitch` Portia, `/coach` Cora) runs through the OpenAI realtime path
+(`routes_voice_realtime.rs`), NOT through `build_dispatch_ctx`, so it is unaffected; and
+text-chat conversation needs no tools beyond `memory`+`clarify`, both retained. The live
+confirmation requires rebuild+redeploy of `:7400` from `107b4e6b1` (default-OFF, safe,
+non-destructive) + a browser text-chat smoke-test — **operator-gated** (changing the
+running demo gateway under the operator without a heads-up is not done unilaterally).
+
+**Forward design note (not a safety issue — flagged for the post-flip NO-THEATER step):**
+the safe-tier internal-document deliverable (DEC-041 piece-3 (A)) is produced via the
+ACTION-lifecycle (`worker_actions_dispatch` → `resolve_executor` → document executor),
+NOT the agent-tool path — so the deny-all fence does NOT block it. But because the fenced
+agent has no emit-action tool, an autonomously-fired duty cannot DYNAMICALLY propose a new
+document action mid-turn; only pre-defined duty actions self-complete. If post-flip
+verification shows the teammate needs to dynamically create its own document deliverable,
+the correct fix is to add a SAFE `document_create`-style tool to `MINIMAL_TEAMMATE_TOOLS`
+(internal, no external blast radius) — **never** loosen the fence back toward `owner`.
+
+**Verdict: the autonomous duty→agent→tool chain is fenced end-to-end. The flip is
+architecturally safe (worst case under the flags: an autonomously-fired duty can only
+`clarify`/read-memory/read-skills — nothing external).** Remaining pre-flip gates:
+(i) the conversational smoke-test above, (ii) WS1 principal-vs-cwd. The flip
+(`ARGO_DUTY_AUTOFIRE` + `ARGO_EXECUTION_GRADUATION`) stays operator-only.
