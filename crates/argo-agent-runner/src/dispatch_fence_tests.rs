@@ -19,9 +19,13 @@ use argo_types::{Capability, ToolCallId, ToolCallRequest};
 use std::sync::Arc;
 
 /// Build a dispatch context for a teammate fenced to `profile`.
+/// `is_worker_session` is `true` for a session acting as a worker (the
+/// production value is `session.worker_id.is_some()`), `false` for a bare
+/// human operator session.
 async fn ctx_for_profile(
     cwd: &std::path::Path,
     profile: Option<&WorkerCapabilityProfile>,
+    is_worker_session: bool,
 ) -> (
     argo_tool::ToolRegistry,
     argo_capability::CapabilityEngine,
@@ -29,7 +33,16 @@ async fn ctx_for_profile(
 ) {
     let store = Arc::new(SessionStore::open(":memory:").await.expect("open store"));
     let orchestrator = Arc::new(argo_orchestrator::OrchestratorStore::new(store.clone()));
-    build_dispatch_ctx(cwd, None, None, orchestrator, store, profile).expect("build dispatch ctx")
+    build_dispatch_ctx(
+        cwd,
+        None,
+        None,
+        orchestrator,
+        store,
+        profile,
+        is_worker_session,
+    )
+    .expect("build dispatch ctx")
 }
 
 fn tool_cap(name: &str) -> Capability {
@@ -48,7 +61,7 @@ async fn genesis_teammate_does_not_hold_owner_star_keys() {
         Vec::<String>::new(),
         Vec::<String>::new(),
     );
-    let (_reg, engine, principal) = ctx_for_profile(tmp.path(), Some(&profile)).await;
+    let (_reg, engine, principal) = ctx_for_profile(tmp.path(), Some(&profile), true).await;
 
     // The owner role's all-access reach is GONE: the wildcard glob, the
     // broad net egress, and the all-secrets read are all denied.
@@ -92,7 +105,7 @@ async fn out_of_profile_action_is_denied_at_dispatch() {
         Vec::<String>::new(),
         Vec::<String>::new(),
     );
-    let (registry, engine, principal) = ctx_for_profile(tmp.path(), Some(&profile)).await;
+    let (registry, engine, principal) = ctx_for_profile(tmp.path(), Some(&profile), true).await;
 
     // Engine verdict: terminal denied, clarify allowed.
     assert!(
@@ -130,21 +143,37 @@ async fn out_of_profile_action_is_denied_at_dispatch() {
 }
 
 #[tokio::test]
-async fn non_genesis_session_keeps_owner_reach() {
-    // Regression guard: a session whose worker has NO Genesis provenance
-    // (a hand-authored catalog vertical the operator authored + trusts, or
-    // an ad-hoc session with no worker) resolves to `profile = None` and
-    // MUST keep the historical `owner` binding so existing work is
-    // unchanged. This is owner-by-DESIGN — distinct from the bug below.
+async fn non_genesis_worker_session_is_fenced_not_owner() {
+    // DEC-041 (D) — first-principles capability fence. A session whose worker
+    // has NO Genesis provenance resolves to `profile = None`. This USED to bind
+    // the wide-open `owner` role ("owner-by-design"), which is a
+    // privilege-escalation — a worker is NOT the human, and `owner` is the
+    // human's identity. Exploitable via ANY path (an autonomous duty fire OR a
+    // prompt-injected interactive chat), so it's fixed for ALL worker sessions,
+    // not just the autonomous one. Under the fix a WORKER session
+    // (`is_worker_session = true`) fences to DENY-ALL: owner's reach is gone.
     let tmp = tempfile::tempdir().expect("tmpdir");
-    // `None` is exactly what the provenance-keyed resolver returns for a
-    // non-Genesis worker (see
-    // `turn_vertical_fence::resolve_worker_profile_for_session` with
-    // `GenesisProvenance::None`).
-    let (_reg, engine, principal) = ctx_for_profile(tmp.path(), None).await;
+    let (_reg, engine, principal) = ctx_for_profile(tmp.path(), None, true).await;
+    assert!(
+        engine.check(&principal, &tool_cap("*")).is_err(),
+        "a non-Genesis WORKER session must NOT hold owner's ToolDispatch \"*\""
+    );
+    assert!(
+        engine.check(&principal, &tool_cap("terminal")).is_err(),
+        "deny-all fences arbitrary/external tools for a profile-less worker"
+    );
+}
+
+#[tokio::test]
+async fn bare_human_session_keeps_owner_reach() {
+    // The bare human operator session (NO worker_id → `is_worker_session =
+    // false`) legitimately IS the owner — `owner` is the human's identity. This
+    // path is unchanged by the fix; only worker sessions are fenced.
+    let tmp = tempfile::tempdir().expect("tmpdir");
+    let (_reg, engine, principal) = ctx_for_profile(tmp.path(), None, false).await;
     assert!(
         engine.check(&principal, &tool_cap("terminal")).is_ok(),
-        "non-Genesis session keeps owner's ToolDispatch \"*\" reach"
+        "a bare human session keeps owner's ToolDispatch \"*\" reach"
     );
     assert!(engine
         .check(&principal, &tool_cap("any_tool_at_all"))
@@ -176,7 +205,7 @@ fn write_catalog_vertical(root: &std::path::Path, id: &str) {
 /// gone, an undeclared tool is denied, and (via the real dispatch path) an
 /// out-of-profile call returns an error result rather than executing.
 async fn assert_principal_fully_fenced(cwd: &std::path::Path, profile: &WorkerCapabilityProfile) {
-    let (registry, engine, principal) = ctx_for_profile(cwd, Some(profile)).await;
+    let (registry, engine, principal) = ctx_for_profile(cwd, Some(profile), true).await;
     assert!(
         engine.check(&principal, &tool_cap("*")).is_err(),
         "fenced worker must NOT hold ToolDispatch \"*\""

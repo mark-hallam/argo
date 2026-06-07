@@ -176,6 +176,10 @@ pub(super) async fn build_turn_dispatch_ctx(
         Arc::clone(&orchestrator_ctx),
         Arc::clone(store),
         worker_profile.as_ref(),
+        // DEC-041 (D): fence to deny-all (never `owner`) whenever this session
+        // acts as a worker — i.e. it carries a `worker_id`. A bare human
+        // operator session (no worker_id) keeps `owner`.
+        session.worker_id.is_some(),
     )?;
     let background_processes = process_registry_for(session.tenant_id, session_id);
     // #721: hide manifest-denied tools from the model's tool list.

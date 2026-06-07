@@ -102,6 +102,15 @@ pub(crate) fn build_dispatch_ctx(
     orchestrator: Arc<OrchestratorStore>,
     session_store: Arc<SessionStore>,
     worker_profile: Option<&argo_capability::WorkerCapabilityProfile>,
+    // DEC-041 (D), first-principles capability model: true when this session
+    // acts AS A WORKER (an AI teammate), false only for a bare human operator
+    // session. `owner` is the human's identity (wide-open) and must NEVER bind
+    // to a worker session — a worker holding `owner` is privilege-escalation,
+    // exploitable via ANY path (an autonomous duty fire OR a prompt-injected
+    // interactive chat), not just the autonomous one. So: a worker session with
+    // no derived profile fences to deny-all (fail-closed); only a bare human
+    // session keeps `owner`.
+    is_worker_session: bool,
 ) -> ArgoResult<(ToolRegistry, CapabilityEngine, Principal)> {
     let mut reg = ToolRegistry::new();
     let tools = builtin_tools_with_runtime(
@@ -134,7 +143,30 @@ pub(crate) fn build_dispatch_ctx(
             })?;
             engine.bind(principal.clone(), GENESIS_WORKER_ROLE.to_string())?;
         }
+        None if is_worker_session => {
+            // DEC-041 (D): a WORKER session with no derived profile must NEVER
+            // bind `owner`. Fence it to a deny-all profile (empty allow-set →
+            // only the always-safe minimal teammate tools survive into the
+            // capability set), so the agent cannot reach external/mutating tools
+            // (mcp gmail/gcal, message send, fs-write outside its scope, etc.).
+            // Fail-closed — this closes the privilege-escalation hole for every
+            // worker session, autonomous (duty fire) and interactive alike.
+            let deny_all = argo_capability::WorkerCapabilityProfile::derive(
+                Vec::<String>::new(),
+                Vec::<String>::new(),
+                Vec::<String>::new(),
+                Vec::<String>::new(),
+            );
+            engine.add_role(argo_types::CapabilityRole {
+                name: GENESIS_WORKER_ROLE.to_string(),
+                inherits_from: None,
+                capabilities: deny_all.to_capability_set(),
+            })?;
+            engine.bind(principal.clone(), GENESIS_WORKER_ROLE.to_string())?;
+        }
         None => {
+            // Interactive human session (the operator's own CLI): the human
+            // IS the owner, so the wide-open role is correct here.
             engine.bind(principal.clone(), "owner".into())?;
             engine.grant_dynamic(
                 principal.clone(),
