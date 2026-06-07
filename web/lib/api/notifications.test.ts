@@ -6,7 +6,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const clientMock = vi.hoisted(() => ({ apiGet: vi.fn(), apiPost: vi.fn() }));
 vi.mock("@/lib/api/client", () => clientMock);
 
-const demoMock = vi.hoisted(() => ({ isDemoLive: vi.fn(() => false) }));
+const demoMock = vi.hoisted(() => ({
+  isDemoLive: vi.fn(() => false),
+  hasRealSession: vi.fn(() => false),
+}));
 vi.mock("@/lib/skycot/demo-mode", () => demoMock);
 
 import { fetchNotifications } from "./notifications";
@@ -16,6 +19,7 @@ import { SAMPLE_NOTIFICATIONS } from "@/lib/sample-notifications";
 afterEach(() => {
   vi.clearAllMocks();
   demoMock.isDemoLive.mockReturnValue(false);
+  demoMock.hasRealSession.mockReturnValue(false);
 });
 
 describe("fetchNotifications — NO-THEATER demo-live gate", () => {
@@ -29,6 +33,14 @@ describe("fetchNotifications — NO-THEATER demo-live gate", () => {
     demoMock.isDemoLive.mockReturnValue(false);
     clientMock.apiGet.mockRejectedValueOnce(new ApiError(404, "not found", "not_found"));
     await expect(fetchNotifications()).resolves.toEqual(SAMPLE_NOTIFICATIONS);
+  });
+
+  it("does NOT mock for a REAL signed-in user — propagates the error (mock-leak class)", async () => {
+    // A real user (skycot-session cookie) must never see fabricated
+    // notification rows, even outside demo-live; a 404 surfaces honestly.
+    demoMock.hasRealSession.mockReturnValue(true);
+    clientMock.apiGet.mockRejectedValueOnce(new ApiError(404, "not found", "not_found"));
+    await expect(fetchNotifications()).rejects.toThrow();
   });
 
   it("does NOT mock in demo-live — propagates the error (no fabricated rows on camera)", async () => {

@@ -22,7 +22,7 @@
 import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { SAMPLE_NOTIFICATIONS, type NotificationItem } from "@/lib/sample-notifications";
-import { isDemoLive } from "@/lib/skycot/demo-mode";
+import { hasRealSession, isDemoLive } from "@/lib/skycot/demo-mode";
 
 interface NotificationsEnvelope {
   items: NotificationItem[];
@@ -40,10 +40,11 @@ export async function fetchNotifications(): Promise<NotificationItem[]> {
     const envelope = await apiGet<NotificationsEnvelope>("/api/v1/notifications");
     return envelope.items;
   } catch (err) {
-    // In demo-live (recording mode), never substitute mock notifications for a
-    // real fetch — surface the honest error/empty rather than fabricated rows
-    // on camera (NO THEATER). The mock fallback stays for dev without a gateway.
-    if (isMissingOrUnreachable(err) && !isDemoLive()) {
+    // In demo-live (recording mode) OR for any real signed-in user, never
+    // substitute mock notifications for a real fetch — surface the honest
+    // error/empty rather than fabricated rows (NO THEATER, mock-leak class).
+    // The mock fallback stays for anonymous dev/demo without a gateway.
+    if (isMissingOrUnreachable(err) && !isDemoLive() && !hasRealSession()) {
       await new Promise((r) => setTimeout(r, 100));
       return SAMPLE_NOTIFICATIONS;
     }
