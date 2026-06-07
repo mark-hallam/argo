@@ -283,4 +283,67 @@ describe("lib/api/team", () => {
       }
     });
   });
+
+  describe("non-demo gateway hang (real-user perpetual-skeleton regression)", () => {
+    // THE bug a real stranger hit during the live signup E2E walk: a
+    // signed-in user (NOT demo mode) opens /team, the gateway accepts the
+    // TCP connection but never answers, and — because the 5s timeout used
+    // to be applied only in demo mode — the fetch promise never settled.
+    // React Query then held the query `isPending` forever and the page
+    // rendered loading tiles that never resolved. These tests pin that the
+    // fetch is now bounded in EVERY mode and settles to the honest
+    // terminal state (empty roster in dev, surfaced error in strict prod).
+
+    function installHangingGateway() {
+      globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url;
+        if (url.endsWith("/api/auth/session")) {
+          return Promise.resolve(makeResponse({ status: 200, body: {} }));
+        }
+        // Never settle — wedged gateway socket.
+        return new Promise<Response>(() => {});
+      }) as unknown as typeof fetch;
+    }
+
+    it("settles to an EMPTY roster (source='unreachable') for a real user — never a perpetual skeleton", async () => {
+      // Default beforeEach leaves all demo flags OFF → this is the real
+      // signed-in-user path. The empty roster drives the page's
+      // <TeamEmptyState/> ("hire your first teammate"), not a stuck skeleton.
+      vi.useFakeTimers();
+      try {
+        installHangingGateway();
+        const pending = fetchTeam();
+        await vi.advanceTimersByTimeAsync(5001);
+        const result = await pending;
+        expect(result.source).toBe("unreachable");
+        expect(result.workers).toEqual([]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("surfaces a GatewayTimeoutError in strict production (no false empty roster)", async () => {
+      // A real buyer must see an error state on a stalled gateway, NOT a
+      // false "you have zero teammates". Strict production re-throws.
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("NEXT_PUBLIC_ENV", "production");
+      vi.useFakeTimers();
+      try {
+        installHangingGateway();
+        const pending = fetchTeam();
+        // Attach the rejection assertion BEFORE advancing timers so the
+        // rejection is observed (avoids an unhandled-rejection warning).
+        const assertion = expect(pending).rejects.toThrow(/within 5000ms/);
+        await vi.advanceTimersByTimeAsync(5001);
+        await assertion;
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
 });

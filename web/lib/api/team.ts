@@ -20,6 +20,13 @@
  * - Demo mode (`NEXT_PUBLIC_SKYCOT_DEMO_MODE=1`): the catch path is
  *   total — ANY thrown error or a >5s hang resolves to SAMPLE_TEAM.
  *   The /team skeleton must never be perpetual during the demo MP4.
+ * - Any mode: the gateway fetch is bounded by `GATEWAY_TIMEOUT_MS`. A
+ *   wedged gateway (TCP socket accepted, no HTTP response) settles to the
+ *   empty roster (real signed-in user, dev) / SAMPLE_TEAM (demo) / a
+ *   surfaced error (strict production) — NEVER a perpetual skeleton. This
+ *   was the real-stranger-signup defect: an unbounded `await` left React
+ *   Query `isPending` forever and the page showed loading tiles that never
+ *   resolved.
  */
 
 import { apiGet } from "@/lib/api/client";
@@ -44,8 +51,20 @@ export interface FetchTeamResult {
   source: TeamDataSource;
 }
 
-/** Hard ceiling on demo-mode gateway wait before the SAMPLE_TEAM fallback wins the race. */
-export const DEMO_GATEWAY_TIMEOUT_MS = 5000;
+/**
+ * Hard ceiling on how long `fetchTeam` waits for the gateway before it
+ * settles into a terminal state — in EVERY mode, not just demo. An
+ * unbounded wait was the /team perpetual-skeleton bug: a wedged gateway
+ * socket left React Query `isPending` forever. 5s sits comfortably above a
+ * healthy gateway's sub-second answer, so it only fires on a real stall.
+ */
+export const GATEWAY_TIMEOUT_MS = 5000;
+
+/**
+ * @deprecated Back-compat alias for {@link GATEWAY_TIMEOUT_MS}. The timeout
+ * is no longer demo-only — it bounds the fetch in every mode.
+ */
+export const DEMO_GATEWAY_TIMEOUT_MS = GATEWAY_TIMEOUT_MS;
 
 class GatewayTimeoutError extends Error {
   constructor(ms: number) {
@@ -91,8 +110,17 @@ function isAuthBypassed(): boolean {
 }
 
 function isMissingOrUnreachable(err: unknown): boolean {
+  // `GatewayTimeoutError` joins 404 (endpoint not live yet) and `TypeError`
+  // (CORS / DNS / refused connection) as a "the gateway gave us no data"
+  // signal. A real signed-in user whose gateway stalls then settles to an
+  // empty roster + the "hire your first teammate" empty state (in
+  // non-strict-production) instead of a perpetual skeleton — consistent
+  // with how 404 and network TypeErrors are already routed. Strict
+  // production still re-throws (the caller guards with
+  // `!isStrictProduction()`), so a real buyer sees an error state, never a
+  // false "you have zero teammates".
   if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
+  return err instanceof TypeError || err instanceof GatewayTimeoutError;
 }
 
 function toBannerSource(source: TeamDataSource): DataSource {
@@ -183,9 +211,16 @@ async function fetchTeamInner(): Promise<FetchTeamResult> {
     const gatewayCall = apiGet<{ workers: Worker[]; total_count?: number }>(
       "/api/v1/workers",
     );
-    const response = demoMode
-      ? await withTimeout(gatewayCall, DEMO_GATEWAY_TIMEOUT_MS)
-      : await gatewayCall;
+    // Bound EVERY mode, not just demo. An unbounded `await gatewayCall` was
+    // the /team perpetual-skeleton bug: when the gateway accepted the TCP
+    // connection but never answered (a wedged socket — observed during a
+    // real stranger-signup E2E walk), the promise never settled, so React
+    // Query stayed `isPending` forever and the page rendered loading tiles
+    // that never resolved. The timeout guarantees the fetch always settles;
+    // the catch below routes the resulting GatewayTimeoutError to the right
+    // terminal state per mode (SAMPLE_TEAM in demo, empty roster for a real
+    // signed-in user, a surfaced error in strict production).
+    const response = await withTimeout(gatewayCall, GATEWAY_TIMEOUT_MS);
     if (response && !Array.isArray(response) && Array.isArray(response.workers)) {
       return { workers: response.workers, source: "gateway" };
     }
