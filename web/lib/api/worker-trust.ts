@@ -11,6 +11,7 @@ import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { findSampleWorkerTrust } from "@/lib/sample-worker-trust";
 import { hasRealSession, isDemoLive } from "@/lib/skycot/demo-mode";
+import { isMissingOrUnreachable } from "./unreachable";
 
 /** Canonical trust-grade values returned by the gateway. The names
  *  come straight from `argo_skill::TrustGrade`. */
@@ -84,11 +85,6 @@ function isAuthBypassed(): boolean {
     // gateway (matches the canonical `isAuthBypassed() && !isDemoLive()`).
     process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE !== "1"
   );
-}
-
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
 }
 
 interface GatewayCriterion {

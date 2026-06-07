@@ -21,6 +21,7 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api/client";
 import { hasRealSession, isDemoLive } from "@/lib/skycot/demo-mode";
 import { ApiError } from "@/lib/api/types";
+import { isMissingOrUnreachable } from "./unreachable";
 
 export type ChannelKind =
   | "slack"
@@ -148,11 +149,6 @@ function isAuthBypassed(): boolean {
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
-}
-
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
 }
 
 function detectTimezone(): string {

@@ -23,16 +23,12 @@ import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { SAMPLE_NOTIFICATIONS, type NotificationItem } from "@/lib/sample-notifications";
 import { hasRealSession, isDemoLive } from "@/lib/skycot/demo-mode";
+import { isMissingOrUnreachable } from "./unreachable";
 
 interface NotificationsEnvelope {
   items: NotificationItem[];
   has_more: boolean;
   cursor: number | null;
-}
-
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
 }
 
 export async function fetchNotifications(): Promise<NotificationItem[]> {

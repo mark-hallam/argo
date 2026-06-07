@@ -1,6 +1,7 @@
 import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { hasRealSession } from "@/lib/skycot/demo-mode";
+import { isMissingOrUnreachable } from "./unreachable";
 
 export type OrchestrationStatus = "queued" | "running" | "waiting" | "blocked" | "done";
 export type SlaState = "healthy" | "warning" | "breached";
@@ -384,11 +385,6 @@ function isAuthBypassed(): boolean {
   // deploy. The bypass short-circuit is for ANONYMOUS demo visitors only.
   if (hasRealSession()) return false;
   return process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1" && process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE !== "1";
-}
-
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
 }
 
 export function summarizeRuns(runs: OrchestrationRun[]): OrchestrationSummary {

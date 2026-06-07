@@ -23,6 +23,7 @@ import {
   MOCK_LEARNED_SKILL_IDS,
   SEED_AUTHOR_LABEL_BY_NAME,
 } from "./skills-seed";
+import { isMissingOrUnreachable } from "./unreachable";
 
 // Re-exported for the page components + tests that import the seed
 // catalogue from this module. The data now lives in `./skills-seed`.
@@ -82,11 +83,6 @@ function isAuthBypassed(): boolean {
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
-}
-
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
 }
 
 export async function fetchSkills(): Promise<FetchSkillsResult> {

@@ -26,6 +26,7 @@
 import { apiDelete, apiGet, apiPost, apiPut, type ApiRequestInit } from "./client";
 import { ApiError } from "./types";
 import { hasRealSession } from "@/lib/skycot/demo-mode";
+import { isMissingOrUnreachable } from "./unreachable";
 
 export const KNOWLEDGE_CATEGORIES = [
   "brand",
@@ -108,11 +109,6 @@ function isAuthBypassed(): boolean {
     // gateway (matches the canonical `isAuthBypassed() && !isDemoLive()`).
     process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE !== "1"
   );
-}
-
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
 }
 
 /** Tiny fixture used in dev when the gateway is offline. Never returned

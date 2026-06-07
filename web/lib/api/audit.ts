@@ -26,6 +26,7 @@ import {
   type AuditRangePreset,
   type AuditRow,
 } from "@/lib/types/audit";
+import { isMissingOrUnreachable } from "./unreachable";
 
 export const PAGE_SIZE = 50;
 
@@ -69,11 +70,6 @@ function isAuthBypassed(): boolean {
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
-}
-
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
 }
 
 function effectiveRange(range: AuditRange | undefined): AuditRange {

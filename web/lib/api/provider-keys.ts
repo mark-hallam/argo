@@ -20,6 +20,7 @@ import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { PROVIDER_OPTIONS, type ProviderName } from "@/lib/api/settings";
 import { hasRealSession, isDemoLive } from "@/lib/skycot/demo-mode";
+import { isMissingOrUnreachable } from "./unreachable";
 
 export interface ProviderKeyStatus {
   provider: ProviderName;
@@ -65,11 +66,6 @@ function isAuthBypassed(): boolean {
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
-}
-
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
 }
 
 const mockStore = new Map<ProviderName, ProviderKeyStatus>();

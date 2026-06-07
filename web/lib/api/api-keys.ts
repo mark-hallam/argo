@@ -28,6 +28,7 @@ import { apiDelete, apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { SAMPLE_API_KEYS } from "@/lib/sample-api-keys";
 import { hasRealSession, isDemoLive } from "@/lib/skycot/demo-mode";
+import { isMissingOrUnreachable } from "./unreachable";
 
 export type ApiKeyScope =
   | "read:workers"
@@ -96,11 +97,6 @@ function isAuthBypassed(): boolean {
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
-}
-
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
 }
 
 export async function fetchApiKeys(): Promise<FetchApiKeysResult> {

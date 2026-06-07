@@ -40,6 +40,7 @@ import {
   type DataSource as BannerDataSource,
 } from "@/lib/skycot/data-source-context";
 import { hasRealSession, isDemoLive, isDemoMode } from "@/lib/skycot/demo-mode";
+import { isMissingOrUnreachable } from "./unreachable";
 
 export type DataSource = "live" | "mock-offline" | "mock-auth-bypass";
 
@@ -93,11 +94,6 @@ export function isAuthBypassed(): boolean {
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
-}
-
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
 }
 
 function toBannerSource(source: DataSource): BannerDataSource {

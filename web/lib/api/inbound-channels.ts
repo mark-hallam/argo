@@ -11,6 +11,7 @@
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import type { InboundKind } from "@/lib/notify-channels/inbound-registry";
+import { isMissingOrUnreachable } from "./unreachable";
 
 export interface InboundChannelEvent {
   seq: number;
@@ -26,11 +27,6 @@ export interface InboundChannelEvent {
 interface InboundChannelRecentResponse {
   kind: InboundKind;
   items: InboundChannelEvent[];
-}
-
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
 }
 
 export async function fetchInboundChannelRecent(

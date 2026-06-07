@@ -20,6 +20,7 @@ import { findDemoWorkerOverview } from "@/lib/api/demo-roster-store";
 import { SAMPLE_PERSONA_IDS } from "@/lib/sample-personas";
 import { findSampleWorkerOverview } from "@/lib/sample-worker-overview";
 import { hasRealSession, isDemoLive } from "@/lib/skycot/demo-mode";
+import { isMissingOrUnreachable } from "./unreachable";
 
 export type WorkerOverviewSource = "gateway" | "mock-offline" | "mock-bypass";
 
@@ -247,11 +248,6 @@ function isAuthBypassed(): boolean {
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
-}
-
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
 }
 
 function mockResult(workerId: string): FetchWorkerOverviewResult {

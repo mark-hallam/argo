@@ -11,6 +11,7 @@ import { apiGet } from "@/lib/api/client";
 import { hasRealSession, isDemoLive } from "@/lib/skycot/demo-mode";
 import { ApiError } from "@/lib/api/types";
 import { findSampleWorkerActivity } from "@/lib/sample-worker-activity";
+import { isMissingOrUnreachable } from "./unreachable";
 
 /** Canonical audit action types surfaced in the per-worker feed. */
 export type WorkerActivityActionType =
@@ -144,11 +145,6 @@ function isAuthBypassed(): boolean {
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
-}
-
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
 }
 
 /** Lower bound for a time-range filter; rows older than this are dropped. */

@@ -17,6 +17,7 @@ import { findSampleAuditDetail } from "@/lib/sample-audit-detail";
 import { hasRealSession, isDemoLive, isDemoMode } from "@/lib/skycot/demo-mode";
 import type { AuditDetail } from "@/lib/types/audit-detail";
 import type { AuditStatus, DataClassification } from "@/lib/types/audit";
+import { isMissingOrUnreachable } from "./unreachable";
 
 /**
  * Canonical audit-API endpoint paths. The SPA API client builds every
@@ -104,11 +105,6 @@ function isAuthBypassed(): boolean {
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
-}
-
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
 }
 
 function mockDetail(actionId: string): AuditDetailWithDelegation {

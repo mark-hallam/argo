@@ -39,6 +39,33 @@ const CohortDetailDrawer = dynamic(
 const EMPTY_PREVIEW_GROUPS = groupCohortsByDepartment(SAMPLE_COHORT_SUMMARIES);
 
 /**
+ * Honest error state for a failed cohorts fetch (e.g. a gateway timeout).
+ * Must come BEFORE the `!ready` skeleton branch — the render keys on
+ * `isSuccess`, so without this an error would otherwise read as a stuck
+ * skeleton, and it must never read as "0 cohorts" (a false-empty).
+ */
+function CohortsError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] px-6 py-16 text-center">
+      <p className="text-sm font-medium text-[var(--foreground)]">
+        We couldn&rsquo;t load your cohorts.
+      </p>
+      <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+        The gateway didn&rsquo;t respond — this is a connection problem, not an
+        empty fleet.
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-4 inline-flex items-center rounded-[var(--radius-md)] border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--muted)]"
+      >
+        Retry
+      </button>
+    </div>
+  );
+}
+
+/**
  * /cohorts — locked D3 magazine-tile editorial layout.
  *
  * Replaces the previous plain `<Card>` grid with the locked design:
@@ -130,7 +157,9 @@ export default function CohortsPage() {
         className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8"
         data-testid="cohorts-page"
       >
-        {!ready ? (
+        {cohortsQuery.isError ? (
+          <CohortsError onRetry={() => cohortsQuery.refetch()} />
+        ) : !ready ? (
           <CohortMagazineSkeleton />
         ) : cohorts.length === 0 ? (
           <CohortsEmptyPreview

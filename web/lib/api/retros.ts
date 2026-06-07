@@ -23,6 +23,7 @@
 
 import { apiGet, apiPatch, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import { isMissingOrUnreachable } from "./unreachable";
 
 export type DataSource = "live" | "mock-offline" | "mock-auth-bypass";
 
@@ -108,11 +109,6 @@ function rowToRetro(row: RetroJson): Retro {
     finalizedAt: row.finalized_at,
     finalized: row.finalized,
   };
-}
-
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
 }
 
 export async function fetchRetrosForWorker(
