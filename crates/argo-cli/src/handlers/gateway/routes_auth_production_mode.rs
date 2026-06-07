@@ -27,6 +27,21 @@ pub(super) fn bearer_token_configured() -> bool {
     argo_config::cred::get_unscoped(BEARER_TOKEN_ENV).is_ok_and(|t| !t.trim().is_empty())
 }
 
+/// True when the operator has EXPLICITLY opened the perimeter for local
+/// dev / demo / tests via `ARGO_GATEWAY_AUTH_BYPASS=1` (env →
+/// `gateway.auth_bypass`).
+///
+/// This is the ONLY switch that opens the perimeter (WS5: fail-closed by
+/// identity). The default — and therefore every real deployment that does
+/// not set the flag — fails CLOSED: anonymous requests to protected routes
+/// are rejected, the RBAC role defaults to Guest, and the JWT-secret boot
+/// guard is armed. It replaces the old `!is_production_mode()` heuristic as
+/// the fail-open signal, so a loopback-behind-a-proxy deploy can no longer
+/// silently serve an open perimeter just because the heuristic didn't trip.
+pub(super) fn perimeter_open() -> bool {
+    argo_config::load().unwrap_or_default().gateway.auth_bypass
+}
+
 fn profile_is_production() -> bool {
     std::env::var(PROFILE_ENV).is_ok_and(|p| p.eq_ignore_ascii_case("production"))
 }

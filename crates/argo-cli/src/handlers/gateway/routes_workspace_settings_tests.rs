@@ -119,7 +119,11 @@ async fn patch_then_get_round_trips_a_change() {
     // A fresh GET reads the persisted value back.
     let got = parse_ok(dispatch_get(&get_req("/api/v1/workspace"), Some(&store)).await);
     assert_eq!(got["name"], "Renamed WS");
-    assert_eq!(got["billing_contact"], "owner@skycot.example");
+    // Real-mode walk 2026-06-07: the PATCH only set `name`, so the untouched
+    // `billing_contact` keeps the NEUTRAL default (blank) — the cargo-test
+    // process has no `ARGO_DEMO_MODE`, so the real (un-branded) default applies,
+    // never the demo "owner@skycot.example". (`workspace_default_for(false)`.)
+    assert_eq!(got["billing_contact"], "");
 }
 
 #[tokio::test]

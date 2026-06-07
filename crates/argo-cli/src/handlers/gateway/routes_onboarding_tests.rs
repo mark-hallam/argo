@@ -12,8 +12,8 @@ use serde_json::{json, Value};
 #[path = "routes_onboarding_test_helpers.rs"]
 mod helpers;
 use helpers::{
-    audit_payloads_for_kind, env_lock, force_safety_allow, mem_store, pre_provision, req,
-    set_test_env,
+    audit_payloads_for_kind, env_lock, force_safety_allow, grant_paid_tier, mem_store,
+    pre_provision, req, set_test_env,
 };
 
 #[tokio::test]
@@ -23,6 +23,7 @@ async fn provider_key_happy_path_returns_validated() {
     set_test_env(tmp.path());
     let store = mem_store().await;
     pre_provision(&store, "alice@acme.com").await;
+    grant_paid_tier(&store, "alice@acme.com").await;
     let plaintext = "sk-ant-XXXXXXXXXXXXXXXXXXXXXXXX1234";
     let body = json!({
         "provider": "anthropic",
@@ -65,6 +66,7 @@ async fn provider_key_persists_encrypted_value() {
     set_test_env(tmp.path());
     let store = mem_store().await;
     pre_provision(&store, "alice@acme.com").await;
+    grant_paid_tier(&store, "alice@acme.com").await;
     let plaintext = "sk-ant-PLAINTEXT_KEY_SHOULD_NOT_LEAK_2026";
     let body = json!({ "provider": "anthropic", "api_key": plaintext }).to_string();
     let r = req(
@@ -108,6 +110,7 @@ async fn provider_key_rejects_short_key() {
     set_test_env(tmp.path());
     let store = mem_store().await;
     pre_provision(&store, "alice@acme.com").await;
+    grant_paid_tier(&store, "alice@acme.com").await;
     let body = json!({ "provider": "anthropic", "api_key": "sk-ant-tiny" }).to_string();
     let r = req(
         "/api/v1/onboarding/provider-key",
@@ -362,6 +365,11 @@ async fn cross_tenant_provider_key_is_isolated() {
     let store = mem_store().await;
     pre_provision(&store, "alice@acme.com").await;
     pre_provision(&store, "bob@globex.com").await;
+    // Both tenants need a paid tier so the provider-key save clears the WS4
+    // tier gate; the isolation assertions below (2 distinct tenant rows) are
+    // what this test actually guards and are left intact.
+    grant_paid_tier(&store, "alice@acme.com").await;
+    grant_paid_tier(&store, "bob@globex.com").await;
     let alice_body = json!({
         "provider": "anthropic",
         "api_key": "sk-ant-ALICE_KEY_XXXXXXXXXXXXX"
@@ -417,6 +425,7 @@ async fn end_to_end_smoke_chain_provider_key_install_first_hire() {
     set_test_env(tmp.path());
     let store = mem_store().await;
     pre_provision(&store, "alice@acme.com").await;
+    grant_paid_tier(&store, "alice@acme.com").await;
 
     // 1. Provider key
     let (status, _) = provider_key_response(

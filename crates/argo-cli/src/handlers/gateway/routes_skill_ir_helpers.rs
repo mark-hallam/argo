@@ -7,8 +7,6 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use uuid::Uuid;
 
-const HEADER_CROSS_TENANT: &str = "x-argo-audit-cross-tenant";
-
 /// Resolve the tenant an IR request runs against.
 ///
 /// Resolution order, deliberately identical to the `/api/v1/skills`
@@ -43,9 +41,12 @@ pub(super) async fn resolve_tenant(
         .await
         .map_err(|e| server_error(&format!("resolve tenant: {e}")))?
         .to_string();
-    let cross_cap = header_value(req, HEADER_CROSS_TENANT)
-        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false);
+    // WS5 Finding 5: the cross-tenant VIEW is gated by the real
+    // `Action::AuditCrossTenant` capability (owner-only), NOT a self-asserted
+    // header. Mirrors `routes_audit_feed_scope`; the `x-argo-audit-cross-tenant`
+    // header alone no longer authorizes naming another tenant via `?as_tenant=`.
+    let cross_cap =
+        super::role_gate::enforce_role(req, super::role_gate::Action::AuditCrossTenant).is_none();
     if let Some(override_tenant) = query_value(query, "as_tenant") {
         if override_tenant != base_tenant && !cross_cap {
             return Err(forbidden("cross-tenant access denied"));
@@ -78,18 +79,6 @@ pub(super) fn query_value(query: &str, key: &str) -> Option<String> {
         } else {
             None
         }
-    })
-}
-
-pub(super) fn header_value(req: &str, name_lower: &str) -> Option<String> {
-    let headers = req
-        .split_once("\r\n\r\n")
-        .map_or(req, |(headers, _body)| headers);
-    headers.lines().skip(1).find_map(|line| {
-        let (name, value) = line.split_once(':')?;
-        name.trim()
-            .eq_ignore_ascii_case(name_lower)
-            .then(|| value.trim().to_string())
     })
 }
 

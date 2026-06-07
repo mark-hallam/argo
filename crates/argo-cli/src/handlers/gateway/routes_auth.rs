@@ -29,8 +29,9 @@ use uuid::Uuid;
 /// Workspace-default tenant id stamped on unbound bearer tokens.
 pub(super) const WORKSPACE_DEFAULT_TENANT: &str = "00000000-0000-0000-0000-000000000000";
 
+use super::middleware_session_verify::{decode_session_cookie, DecodeOutcome};
 use super::routes_auth_production_mode::{
-    bearer_token_configured, is_production_mode, BEARER_TOKEN_ENV,
+    bearer_token_configured, is_production_mode, perimeter_open, BEARER_TOKEN_ENV,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -86,6 +87,42 @@ pub(super) fn check_bearer_auth(req: &str) -> Option<(&'static str, String)> {
     }
 }
 
+/// Identity gate for PROTECTED routes (WS5: fail-closed by identity).
+///
+/// Returns `None` (allow) when the perimeter is EXPLICITLY open
+/// (`ARGO_GATEWAY_AUTH_BYPASS=1`), OR the request carries a valid
+/// `__Host-session` cookie, OR a valid operator bearer token. Otherwise
+/// `Some(401)`. Unlike [`check_bearer_auth`] alone, this does NOT fail open
+/// when no bearer token is configured: an anonymous request to a protected
+/// route is rejected. Public lanes (signup / verify / health /
+/// marketplace-GET / …) never reach here — they return earlier in
+/// `dispatch_route_inner`. A present-but-revoked cookie is already rejected
+/// upstream by the session-verify middleware, so a `Decoded` cookie here is
+/// a live session.
+///
+/// # Examples
+///
+/// ```ignore
+/// // Anonymous request, perimeter closed → rejected.
+/// assert!(require_identity("GET /api/v1/workers HTTP/1.1\r\n\r\n").is_some());
+/// ```
+pub(super) fn require_identity(req: &str) -> Option<(&'static str, String)> {
+    if perimeter_open() {
+        return None;
+    }
+    if matches!(decode_session_cookie(req), DecodeOutcome::Decoded(_)) {
+        return None;
+    }
+    match check_bearer_auth(req) {
+        Some(resp) => Some(resp),
+        None if bearer_token_configured() => None,
+        None => Some((
+            "401 Unauthorized",
+            r#"{"error":"unauthorized","reason":"authentication required"}"#.to_string(),
+        )),
+    }
+}
+
 /// True for the curated read-only allowlist that bypasses bearer auth
 /// even when `ARGO_GATEWAY_BEARER_TOKEN` is configured.
 ///
@@ -126,6 +163,16 @@ pub(super) fn is_public_get(req: &str) -> bool {
             | "/version"
             | "/routes"
             | "/openmetrics"
+            // Cross-tenant published-skill CATALOG — anonymous prospect browse
+            // (no per-tenant scoping; the marketplace response strips identifying
+            // tenant info). Conservative: ONLY the two doc-confirmed anonymous
+            // skill-catalog routes. The tenant-SCOPED skills reads
+            // (`/api/v1/skills`, `/api/v1/skills/<id>`,
+            // `/api/v1/skills/learned-this-month`) and the bearer-gated
+            // `/api/v1/packs` + `/api/v1/verticals` are deliberately NOT here —
+            // they stay behind the identity / bearer gate (WS5).
+            | "/api/v1/skills/marketplace"
+            | "/api/v1/skill-library/list"
     );
     // SCIM 2.0 endpoints (`mission-scim-provisioning`) carry their own
     // bearer credential (`ARGO_SCIM_BEARER_TOKEN`); the dedicated

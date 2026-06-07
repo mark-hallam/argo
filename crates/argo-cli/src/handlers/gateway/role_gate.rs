@@ -27,7 +27,7 @@
 //! bypass (`-H "X-Argo-Role: owner"`) returns 403 even against an
 //! otherwise valid bearer.
 
-use super::routes_auth_production_mode::is_production_mode;
+use super::routes_auth_production_mode::{is_production_mode, perimeter_open};
 use super::session_jwt::extract_session_claims;
 use argo_identity::user_tenant::UserTenantRole;
 use std::str::FromStr;
@@ -200,15 +200,13 @@ pub(super) fn role_meets(actual: UserTenantRole, floor: UserTenantRole) -> bool 
 /// True when this process trusts the `X-Argo-Role` header as the
 /// role source-of-truth.
 ///
-/// Production: false unless `ARGO_GATEWAY_TRUST_ROLE_HEADER=1`
-/// (operators set this when running the gateway behind a TLS-terminated
-/// reverse proxy that stamps the header from a verified mTLS cert).
-///
-/// Dev/test: true by default. Existing test suites stamp
-/// `X-Argo-Role: owner` etc. on requests and pre-date the session-JWT
-/// flow; flipping their meaning would mass-break tests outside this
-/// brief's may-touch list. Production deployments lose this trust
-/// path automatically — see [`is_production_mode`] for the gate.
+/// Explicit opt-ins only (WS5): `ARGO_GATEWAY_TRUST_ROLE_HEADER=1`
+/// (operators behind a TLS-terminated reverse proxy that stamps the
+/// header from a verified mTLS cert), or the perimeter-open dev/demo
+/// flag [`perimeter_open`]. `cfg!(test)` keeps the in-crate RBAC suite
+/// (which stamps `X-Argo-Role`) green. A release binary that sets
+/// neither flag does NOT trust the header — the curl bypass
+/// (`-H "X-Argo-Role: owner"`) returns 403 even against a valid bearer.
 fn role_header_trusted() -> bool {
     if matches!(
         std::env::var("ARGO_GATEWAY_TRUST_ROLE_HEADER").as_deref(),
@@ -216,7 +214,12 @@ fn role_header_trusted() -> bool {
     ) {
         return true;
     }
-    !is_production_mode()
+    // Release: only the explicit flag opens it (fail-closed). Test build: the
+    // old `!is_production_mode()` heuristic still applies, so both the dev-open
+    // and the production-closed RBAC tests keep their meaning. `&&`-order puts
+    // the cfg!(test) clause first so perimeter_open() (an env/config read) is
+    // skipped on the common non-prod test path, avoiding parallel-env flakes.
+    (cfg!(test) && !is_production_mode()) || perimeter_open()
 }
 
 /// Parse the `X-Argo-Role` header value. Only the canonical
@@ -286,12 +289,11 @@ pub(super) fn resolve_role(req: &str) -> Option<UserTenantRole> {
 /// ```
 ///
 /// When no role resolves (no session JWT, no trusted header) the gate
-/// defaults to `Guest` in production (fails closed) and `Owner` in
-/// dev (fails open). The dev default preserves existing test suites
-/// that issue requests without role headers — flipping their meaning
-/// would mass-break tests outside this brief's may-touch list.
-/// Production deployments lose the dev-open path automatically — see
-/// [`is_production_mode`].
+/// defaults to `Guest` (fails CLOSED). It returns `Owner` only under
+/// the explicit perimeter-open dev/demo flag [`perimeter_open`] (or
+/// `cfg!(test)`, which preserves the in-crate suites that issue
+/// requests without role headers). A release binary that omits the
+/// flag fails closed regardless of bind address (WS5).
 pub(super) fn enforce_role(req: &str, action: Action) -> Option<(&'static str, String)> {
     let floor = required_role(action);
     let effective = effective_role(req);
@@ -306,16 +308,14 @@ fn effective_role(req: &str) -> UserTenantRole {
     if let Some(r) = resolve_role(req) {
         return r;
     }
-    if is_production_mode() {
-        UserTenantRole::Guest
-    } else if has_role_header(req) {
-        // Dev request that names a role (even non-canonical) is
-        // expressing intent — fail-closed to Guest instead of
-        // defaulting to the dev-open Owner. Keeps tests for legacy
-        // taxonomies that signal "non-admin" failing as expected.
-        UserTenantRole::Guest
-    } else {
+    // WS5: fail CLOSED to Guest by default. Owner only when the perimeter
+    // is EXPLICITLY open (ARGO_GATEWAY_AUTH_BYPASS) or in the in-crate test
+    // build, AND the request names no role header. The release binary with
+    // the flag unset always fails closed — no `is_production_mode()` heuristic.
+    if ((cfg!(test) && !is_production_mode()) || perimeter_open()) && !has_role_header(req) {
         UserTenantRole::Owner
+    } else {
+        UserTenantRole::Guest
     }
 }
 

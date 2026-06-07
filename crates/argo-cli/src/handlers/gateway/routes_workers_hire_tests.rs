@@ -56,6 +56,32 @@ pub(super) async fn mem_store() -> Arc<SessionStore> {
     Arc::new(store)
 }
 
+/// Grant the cwd-derived workspace tenant (the one a header-less hire resolves
+/// to via `resolve_tenant_principal` → `ensure_workspace(name, cwd)`) a PAID
+/// ("enterprise") tier.
+///
+/// WS4 tier-gate context: the hire path runs `check_worker_cap_or_reject`,
+/// which caps the FREE tier at `max_workers = 1`. Idempotency tests that
+/// create more than one worker (or re-hire after the first lands) would hit
+/// that cap and get a `403 tier_worker_cap` instead of exercising idempotency.
+/// Upgrading the resolved tenant to a paid tier (enterprise = unlimited)
+/// removes the cap so idempotency itself is what's under test, not the quota.
+pub(super) async fn grant_cwd_paid_tier(store: &Arc<SessionStore>) {
+    let cwd = std::env::current_dir().expect("cwd");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, _) = store
+        .ensure_workspace(name, &root)
+        .await
+        .expect("workspace");
+    argo_store::tenant_quota::set_workspace_tier(store, tenant, "enterprise", name)
+        .await
+        .expect("set enterprise tier");
+}
+
 pub(super) fn hire_req(body: &str) -> String {
     format!(
         "POST /api/v1/workers HTTP/1.1\r\nHost: x\r\nContent-Length: {}\r\n\r\n{body}",
@@ -299,6 +325,7 @@ async fn hire_idempotency_same_key_same_body_returns_same_worker_id() {
     set_test_env(tmp.path());
     reset_idem_cache_for_tests();
     let store = mem_store().await;
+    grant_cwd_paid_tier(&store).await;
     let body = valid_body();
     let key = "key-1";
     let (status1, body1) = hire_response(&hire_req_with_idem(&body, key), Some(&store)).await;
@@ -324,6 +351,7 @@ async fn hire_idempotency_same_key_different_body_returns_409() {
     set_test_env(tmp.path());
     reset_idem_cache_for_tests();
     let store = mem_store().await;
+    grant_cwd_paid_tier(&store).await;
     let body1 = valid_body();
     let key = "key-2";
     let (status1, _) = hire_response(&hire_req_with_idem(&body1, key), Some(&store)).await;

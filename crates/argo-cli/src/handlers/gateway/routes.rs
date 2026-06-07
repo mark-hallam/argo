@@ -15,7 +15,7 @@
 //! Each handler returns a `(status_line, body)` pair the listener
 //! loop formats into a single-line HTTP/1.1 response.
 use super::rate_limit;
-use super::routes_auth::{check_bearer_auth, is_public_get};
+use super::routes_auth::{is_public_get, require_identity};
 use super::routes_dispatch_get::dispatch_get;
 use super::routes_dispatch_get_admin::dispatch_get_admin;
 use super::routes_dispatch_post::dispatch_post;
@@ -205,7 +205,7 @@ async fn dispatch_route_inner(
     // `/health[/...]`, `/version`, `/routes`) stay anonymous so liveness
     // probes + load balancers + catalog-discovery keep working.
     if req.starts_with("GET ") && !is_public_get(req) {
-        if let Some(resp) = check_bearer_auth(req) {
+        if let Some(resp) = require_identity(req) {
             return resp;
         }
     }
@@ -253,7 +253,7 @@ async fn dispatch_route_inner(
         || req.starts_with("POST /api/v1/billing/portal ")
         || req.starts_with("POST /api/v1/billing/portal?")
     {
-        if let Some(resp) = check_bearer_auth(req) {
+        if let Some(resp) = require_identity(req) {
             return resp;
         }
         if req.starts_with("POST /api/v1/billing/checkout") {

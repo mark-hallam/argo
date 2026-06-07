@@ -10,7 +10,7 @@
 //! cross-domain plumbing (sessions/verticals/skills/cron/forge/
 //! db/metrics/judge/genesis/workspace) where a single sibling
 //! grouping would not help.
-use super::routes_auth::check_bearer_auth;
+use super::routes_auth::require_identity;
 use super::routes_auth_principal::{parse_principal_header, principal_id_for_audit};
 use super::routes_post::create_session_response;
 use argo_store::tenant_quota::TenantQuotaStore;
@@ -198,7 +198,7 @@ async fn preflight_dispatch(
     if let Some(resp) = super::routes_wizard::dispatch_post(req).await {
         return Some(resp);
     }
-    if let Some(resp) = check_bearer_auth(req) {
+    if let Some(resp) = require_identity(req) {
         return Some(resp);
     }
     if parse_principal_header(req).is_err() {

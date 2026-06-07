@@ -111,21 +111,32 @@ fn parse_vertical_ready(raw: &str) -> serde_json::Value {
 /// THE REGRESSION TEST for the tenant-segment mismatch (the proven
 /// demo-blocking Genesis bug).
 ///
-/// PROVES write-segment == read-segment: a Genesis vertical the SSE writes
+/// PROVES write-segment == hire-read-segment: a Genesis vertical the SSE writes
 /// under a fresh/unique `X-Argo-Tenant-Id` HEADER (the exact shape the SPA
-/// sends, and the one that USED to write under the header slug while the hire
-/// searched the cwd slug → `422 genesis_gate_failed` /
-/// `contract_confirmation: mismatch`) is now:
+/// sends) is found by the hire gate in the SAME identity-resolved segment, so
+/// the operator's confirmed digest matches and the hire clears the contract
+/// axis instead of flipping 201 → 422.
 ///
-///   1. written under the **cwd-derived workspace tenant** (the SAME
-///      `ensure_workspace(name, cwd)` the hire-commit endpoint resolves), so
+/// Identity-first (pt2): both the SSE write tenant
+/// (`routes_genesis_stream_tenant::resolve_write_tenant`) and the hire read
+/// tenant (`routes_workers_hire::resolve_tenant_principal`) resolve
+/// IDENTITY-FIRST via the shared `resolve_tenant::resolve_tenant_for_request`
+/// — session-JWT tenant, then explicit `X-Argo-Tenant-Id` override, then cwd.
+/// With a header present and NO JWT, that resolved tenant is the HEADER tenant,
+/// so:
+///
+///   1. the vertical is written under the **header tenant** segment, and
 ///   2. the hire-gate resolver (`genesis_vertical_dir_for_tenant`) FINDS it in
-///      that cwd segment, and
+///      that SAME header segment, and
 ///   3. when the hire confirms with the EXACT `contract_digest` the SSE
 ///      surfaced, the re-derived contract MATCHES (`contract_confirmation ==
-///      "confirmed"`, NOT `"mismatch"`) — i.e. the operator's confirmation
-///      would clear the gate's contract axis, which is precisely the axis that
-///      flipped 201 → 422 before the fix.
+///      "confirmed"`, NOT `"mismatch"`) — precisely the axis that flipped
+///      201 → 422 before the fix.
+///
+/// (This SUPERSEDES the v1 single-tenant-per-cwd (DEC-025 #9) form of this
+/// test, which asserted the cwd segment; under identity-first an explicit
+/// header drives the segment for BOTH write and read, so write == read still
+/// holds — just on the header tenant, not the cwd one.)
 ///
 /// (The composed gate may still hold at `needs_review` in CI because the
 /// safety judge has no live provider and degrades fail-safe — that is the
@@ -134,7 +145,7 @@ fn parse_vertical_ready(raw: &str) -> serde_json::Value {
 /// fix changes; it does not assert a full `pass`, which would require a live
 /// provider.)
 #[tokio::test]
-async fn sse_written_vertical_is_resolved_by_hire_gate_in_same_cwd_segment() {
+async fn sse_written_vertical_is_resolved_by_hire_gate_in_same_identity_segment() {
     let tmp = TempDir::new().unwrap();
     // Force the safety judge to degrade deterministically (no live provider)
     // so the test is provider-independent; the contract axis we assert on is
@@ -152,8 +163,8 @@ async fn sse_written_vertical_is_resolved_by_hire_gate_in_same_cwd_segment() {
     })
     .to_string();
 
-    // A FRESH session header — divergent from the cwd tenant. This is the
-    // SPA-shaped request that provoked the 422 before the fix.
+    // A FRESH session header + NO JWT. This is the SPA-shaped request; under
+    // identity-first the explicit header IS the resolved tenant (write == read).
     let fresh_header = "deadbeef-0000-4000-8000-feedfacecafe";
     let raw = drive_handler(build_request(&body, Some(fresh_header)), Arc::clone(&store)).await;
     assert!(raw.starts_with("HTTP/1.1 200 OK"), "got: {raw}");
@@ -165,41 +176,44 @@ async fn sse_written_vertical_is_resolved_by_hire_gate_in_same_cwd_segment() {
         .to_string();
     assert!(!sse_digest.is_empty(), "SSE must surface a non-empty contract digest");
 
-    // Resolve the cwd-derived workspace tenant EXACTLY as the hire-commit
-    // endpoint does (`routes_workers_hire::resolve_tenant_principal`).
+    // The hire read tenant is the SAME identity-resolved tenant the SSE wrote
+    // under — the header tenant, since there is no JWT. The hire endpoint
+    // resolves it via `resolve_tenant_for_request`, which returns the explicit
+    // `X-Argo-Tenant-Id` override on the no-session path.
+    let hire_read_tenant = fresh_header;
+
+    // (1) + (2): the hire-gate resolver finds the SSE-written vertical under
+    // the identity (header) tenant segment — the SAME
+    // `genesis_vertical_dir_for_tenant` call the hire fence uses. Pre-fix the
+    // SSE wrote under the header slug while the hire searched the cwd slug → 422.
+    let genesis_dir = super::super::super::genesis_tenant::genesis_vertical_dir_for_tenant(
+        tmp.path(),
+        hire_read_tenant,
+        vertical_id,
+    )
+    .expect(
+        "hire gate MUST resolve the SSE-written vertical under the identity \
+         (header) tenant segment (write-segment == hire-read-segment)",
+    );
+    assert!(genesis_dir.join("vertical.toml").is_file());
+
+    // It must NOT be discoverable under the cwd segment — the explicit header
+    // won the identity-first resolution for BOTH the write and the read, so the
+    // cwd tenant never receives this vertical.
     let cwd = std::env::current_dir().unwrap();
     let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
     let (cwd_tenant, _ws) = store
         .ensure_workspace(name, &cwd.to_string_lossy())
         .await
         .unwrap();
-    let cwd_tenant_str = cwd_tenant.to_string();
-
-    // (1) + (2): the hire-gate resolver finds the SSE-written vertical under
-    // the cwd tenant segment — the SAME `genesis_vertical_dir_for_tenant` call
-    // the hire fence uses. Pre-fix this returned None (the manifest was under
-    // the fresh-header slug, not the cwd slug) → 422.
-    let genesis_dir = super::super::super::genesis_tenant::genesis_vertical_dir_for_tenant(
-        tmp.path(),
-        &cwd_tenant_str,
-        vertical_id,
-    )
-    .expect(
-        "hire gate MUST resolve the SSE-written vertical under the cwd tenant \
-         segment (write-segment == read-segment)",
-    );
-    assert!(genesis_dir.join("vertical.toml").is_file());
-
-    // It must NOT be discoverable under the fresh HEADER segment any more (that
-    // is the bug: the SSE used to write there, splitting write from read).
     assert!(
         super::super::super::genesis_tenant::genesis_vertical_dir_for_tenant(
             tmp.path(),
-            fresh_header,
+            &cwd_tenant.to_string(),
             vertical_id,
         )
         .is_none(),
-        "vertical must NOT be written under the request-header segment"
+        "vertical must NOT be written under the cwd segment when a header drives identity"
     );
 
     // (3): the hire fence re-runs the gate against that SAME on-disk dir and

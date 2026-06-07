@@ -143,8 +143,8 @@ async fn ir_endpoint_returns_404_on_cross_tenant_read() {
     // Cross-tenant access without capability resolves to 404 — the
     // store's tenant-scoped lookup returns None and we deliberately
     // don't leak existence across tenants. The explicit override
-    // path (`?as_tenant=...` w/o the capability header) is what
-    // produces 403.
+    // path (`?as_tenant=...` w/o the cross-tenant capability/role) is
+    // what produces 403.
     let store = mem_store().await;
     let owner = TenantId::new();
     let attacker = TenantId::new();
@@ -155,11 +155,17 @@ async fn ir_endpoint_returns_404_on_cross_tenant_read() {
     let (status, _) = dispatch(&req, Some(&store)).await.expect("dispatched");
     assert_eq!(status, "404 Not Found");
 
-    // Explicit cross-tenant override without the capability header
-    // returns 403.
+    // Explicit cross-tenant override by a caller WITHOUT the cross-tenant
+    // capability returns 403. WS5 change: the override is now gated by the
+    // real RBAC `Action::AuditCrossTenant` capability (owner-only), not a
+    // self-asserted `x-argo-audit-cross-tenant` header. The in-crate test
+    // build defaults a header-less request to Owner (which HAS the
+    // capability), so we must stamp a non-owner role (`X-Argo-Role: guest`)
+    // to exercise the deny path — guest lacks `AuditCrossTenant`, so
+    // `cross_cap=false` and the override is refused.
     let req = format!(
         "GET /api/v1/skills/{skill}/ir?version=v1&as_tenant={owner} HTTP/1.1\r\n\
-         Host: x\r\nX-Argo-Tenant-Id: {attacker}\r\n\r\n",
+         Host: x\r\nX-Argo-Tenant-Id: {attacker}\r\nX-Argo-Role: guest\r\n\r\n",
     );
     let (status, _) = dispatch(&req, Some(&store)).await.expect("dispatched");
     assert_eq!(status, "403 Forbidden");

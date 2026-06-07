@@ -132,3 +132,40 @@ fn protected_admin_paths_still_require_auth() {
     }
     reset_env();
 }
+
+#[test]
+fn catalog_routes_public_but_tenant_scoped_skills_gated() {
+    // WS5 perimeter boundary: the cross-tenant / global CATALOG routes stay
+    // anonymous (prospect browse before signup), while the tenant-SCOPED skills
+    // reads require auth. Pins the exact line so a future allowlist edit cannot
+    // silently expose tenant data OR re-close the public signup funnel.
+    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    reset_env();
+    std::env::set_var(TOKEN_KEY, "xyz");
+    // Public published-skill catalog (no per-tenant scoping) — pass even with a
+    // WRONG token. Query strings on an allowlist member don't change the verdict.
+    for path in [
+        "/api/v1/skills/marketplace",
+        "/api/v1/skill-library/list",
+        "/api/v1/skills/marketplace?q=billing",
+    ] {
+        assert!(
+            gate(&get_req(path, Some("Bearer nope"))).is_none(),
+            "catalog route {path} must be anonymous (public prospect browse)"
+        );
+    }
+    // Gated: the tenant-SCOPED skills reads AND the bearer-gated packs/verticals
+    // routes — all must require auth (401 with a wrong token).
+    for path in [
+        "/api/v1/skills",
+        "/api/v1/skills/abc-123",
+        "/api/v1/skills/learned-this-month",
+        "/api/v1/packs",
+        "/api/v1/verticals",
+    ] {
+        let resp = gate(&get_req(path, Some("Bearer nope")))
+            .unwrap_or_else(|| panic!("expected 401 for tenant-scoped {path}"));
+        assert_eq!(resp.0, "401 Unauthorized", "tenant-scoped {path} must be gated");
+    }
+    reset_env();
+}

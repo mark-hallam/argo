@@ -10,7 +10,8 @@
 #![allow(clippy::too_many_lines)]
 
 use super::tests::{
-    count_worker_rows, env_lock, hire_req, mem_store, set_test_env, valid_body,
+    count_worker_rows, env_lock, grant_cwd_paid_tier, hire_req, mem_store, set_test_env,
+    valid_body,
 };
 use super::{hire_response, reset_idem_cache_for_tests};
 use serde_json::{json, Value};
@@ -32,6 +33,7 @@ async fn hire_body_idempotency_key_dedupes_to_single_row() {
     set_test_env(tmp.path());
     reset_idem_cache_for_tests();
     let store = mem_store().await;
+    grant_cwd_paid_tier(&store).await;
     let body = body_with_idem_key("0190f000-0000-7000-8000-000000000001");
 
     let (status1, body1) = hire_response(&hire_req(&body), Some(&store)).await;
@@ -65,6 +67,7 @@ async fn hire_distinct_idempotency_keys_create_distinct_rows() {
     set_test_env(tmp.path());
     reset_idem_cache_for_tests();
     let store = mem_store().await;
+    grant_cwd_paid_tier(&store).await;
     let body_a = body_with_idem_key("0190f000-0000-7000-8000-00000000000a");
     let body_b = body_with_idem_key("0190f000-0000-7000-8000-00000000000b");
 

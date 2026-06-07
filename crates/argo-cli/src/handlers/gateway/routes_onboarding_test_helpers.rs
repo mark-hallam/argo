@@ -86,6 +86,38 @@ pub(super) async fn pre_provision(store: &Arc<SessionStore>, email: &str) {
     );
 }
 
+/// Grant the provisioned tenant for `email` a PAID ("enterprise") tier.
+///
+/// WS4 tier-gate context: a freshly-provisioned tenant defaults to the FREE
+/// tier, which (a) lacks the `provider_real_keys` feature (so
+/// `provider_key_response` returns a `403 tier_forbidden`) and (b) caps
+/// `max_workers` at 1 (so a second hire is refused with `403 tier_worker_cap`).
+/// These tests exercise the provider-key / hire behaviour itself, NOT the tier
+/// gate, so they provision then upgrade to a paid tier first. Resolves the
+/// SAME idempotent `provision_for_user` tenant the onboarding handlers resolve
+/// (so the tier lands on the exact tenant the request runs against), then
+/// upserts the tier via `argo_store::tenant_quota::set_workspace_tier`.
+pub(super) async fn grant_paid_tier(store: &Arc<SessionStore>, email: &str) {
+    let user = argo_identity::user_store::get_user_by_email(store, email)
+        .await
+        .expect("get user")
+        .expect("user provisioned before grant_paid_tier");
+    let outcome = argo_identity::provision_for_user(
+        store,
+        argo_identity::ProvisionRequest {
+            user_id: user.id,
+            user_email: &user.email,
+            workspace_name: user.email.split('@').next().unwrap_or("workspace"),
+            company_name: None,
+        },
+    )
+    .await
+    .expect("resolve provisioned tenant");
+    argo_store::tenant_quota::set_workspace_tier(store, outcome.tenant_id, "enterprise", "Acme")
+        .await
+        .expect("set enterprise tier");
+}
+
 pub(super) async fn audit_payloads_for_kind(store: &SessionStore, kind: &str) -> Vec<String> {
     sqlx::query_scalar("SELECT payload_json FROM audit_record WHERE kind = ? ORDER BY seq ASC")
         .bind(kind)

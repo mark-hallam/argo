@@ -287,18 +287,25 @@ async fn happy_path_emits_sse_stream_with_vertical_ready() {
     }
 }
 
-/// DEC-025 #9 (single-tenant-per-cwd) write-segment contract: when a store is
-/// wired, the SSE writes the manifest under the **cwd-derived workspace
-/// tenant** (`ensure_workspace(name, cwd)`), NOT the request `X-Argo-Tenant-Id`
-/// header — so the write segment matches the segment the hire-commit endpoint
-/// (which also resolves the cwd tenant) reads under. Two requests bearing
-/// DIFFERENT headers but sharing the same store + cwd collapse onto the SAME
-/// cwd segment. (The genuine cross-tenant *security* guarantee — tenant B
-/// cannot resolve tenant A's vertical — is enforced + tested at the hire gate
-/// in `genesis_tenant_tests.rs`; that primitive is unchanged. Per-header write
-/// isolation is the DEFERRED multi-tenant-routing follow-up.)
+/// Identity-first write-segment contract (pt2): when a store is wired, the SSE
+/// write tenant is resolved IDENTITY-FIRST — the signed-in user's session-JWT
+/// tenant, then an explicit `X-Argo-Tenant-Id` override, then the cwd fallback
+/// (via the shared `resolve_tenant::resolve_tenant_for_request`) — exactly as
+/// the hire-commit endpoint (`routes_workers_hire::resolve_tenant_principal`)
+/// now resolves it. So with a header present and NO session JWT, the manifest
+/// is written under the HEADER tenant slug, and the hire-gate read segment
+/// resolves the SAME header tenant: write-segment == hire-read-segment.
+/// Two requests bearing DIFFERENT headers therefore write to DIFFERENT
+/// segments (each its own), which is what keeps each header's write findable by
+/// that same header's hire. (This SUPERSEDES the v1 single-tenant-per-cwd
+/// (DEC-025 #9) contract this test used to encode — the real-mode walk moved
+/// signed-in users, and explicit-header callers, onto their OWN tenant for both
+/// the SSE write and the hire read. The genuine cross-tenant *security*
+/// guarantee — tenant B cannot resolve tenant A's vertical — is enforced +
+/// tested at the hire gate in `genesis_tenant_tests.rs`; that primitive is
+/// unchanged.)
 #[tokio::test]
-async fn write_segment_uses_cwd_tenant_not_request_header() {
+async fn write_segment_matches_identity_resolved_hire_read_segment() {
     let tmp = TempDir::new().unwrap();
     let _env = EnvGuard::set(&[
         (PROVIDER_KEY_ENV, "test-key"),
@@ -312,58 +319,64 @@ async fn write_segment_uses_cwd_tenant_not_request_header() {
     })
     .to_string();
 
-    // A request with a fresh/unique header — the exact shape the SPA sends and
-    // the one that PROVOKED the bug (header != cwd tenant).
+    // A request with a fresh/unique header + NO session JWT — the exact shape
+    // the SPA sends. Identity-first resolution returns the HEADER tenant (the
+    // explicit override) since there is no JWT.
     let header_tenant = "11111111-1111-1111-1111-111111111111";
     let raw = drive_handler(build_request(&body, Some(header_tenant)), Arc::clone(&store)).await;
     assert!(raw.starts_with("HTTP/1.1 200 OK"), "got: {raw}");
 
-    // The header-named subdirectory must NOT be created — the write segment is
-    // the cwd-derived workspace tenant, not the header.
     let genesis_root = tmp.path().join(".genesis");
-    assert!(
-        !genesis_root.join(header_tenant).is_dir(),
-        "header tenant must NOT drive the write segment under single-tenant-per-cwd"
-    );
 
-    // The ONE segment that exists is the cwd-derived workspace tenant — the
-    // identical `ensure_workspace(name, cwd)` the hire-commit endpoint resolves.
+    // The write segment IS the header tenant slug (write == hire-read, since the
+    // hire gate also resolves identity-first → the header tenant here). It must
+    // NOT be written under the cwd tenant any more.
+    let header_dir = genesis_root.join(sanitize_tenant(header_tenant));
+    assert!(
+        header_dir.is_dir(),
+        "the identity-resolved (header) tenant must drive the write segment"
+    );
+    let (reg, errs) = argo_vertical::load_dir(&header_dir).unwrap();
+    assert!(errs.is_empty(), "header-tenant load errors: {errs:?}");
+    assert_eq!(reg.len(), 1, "exactly one generated vertical under header tenant");
+
+    // The cwd-derived workspace tenant must NOT receive a write segment — the
+    // header tenant won the identity-first resolution.
     let cwd = std::env::current_dir().unwrap();
     let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
     let (cwd_tenant, _ws) = store
         .ensure_workspace(name, &cwd.to_string_lossy())
         .await
         .unwrap();
-    let cwd_dir = genesis_root.join(sanitize_tenant(&cwd_tenant.to_string()));
-    assert!(cwd_dir.is_dir(), "cwd-tenant segment must be created");
-    let (reg, errs) = argo_vertical::load_dir(&cwd_dir).unwrap();
-    assert!(errs.is_empty(), "cwd-tenant load errors: {errs:?}");
-    assert_eq!(reg.len(), 1, "exactly one generated vertical under cwd tenant");
+    assert!(
+        !genesis_root.join(sanitize_tenant(&cwd_tenant.to_string())).is_dir(),
+        "cwd tenant must NOT drive the write segment when a header is present"
+    );
 
-    // A second request with a DIFFERENT header ALSO lands in the cwd segment
-    // (not its header segment). Under non-determinism robustness each
-    // generation gets its OWN unique `vertical_id`, so the second succeeds and
-    // adds a SECOND vertical to the SAME cwd segment rather than colliding —
-    // proving the write segment is the cwd tenant regardless of the header.
+    // A second request with a DIFFERENT header writes to its OWN header segment
+    // (write == that header's hire-read), NOT the first header's segment. Each
+    // header is its own identity-resolved tenant.
     let other_header = "22222222-2222-2222-2222-222222222222";
     let raw2 = drive_handler(build_request(&body, Some(other_header)), Arc::clone(&store)).await;
     assert!(raw2.starts_with("HTTP/1.1 200 OK"), "got: {raw2}");
     assert!(
         raw2.contains("event: vertical_ready"),
-        "second header must write a new unique vertical (no collision); got: {raw2}"
+        "second header must write its own vertical; got: {raw2}"
     );
-    // Neither header drove a write segment of its own.
-    assert!(
-        !genesis_root.join(other_header).is_dir(),
-        "the second header must NOT drive its own write segment"
-    );
-    // Both generations live in the ONE cwd segment.
-    let (reg2, errs2) = argo_vertical::load_dir(&cwd_dir).unwrap();
-    assert!(errs2.is_empty(), "cwd-tenant load errors after 2nd gen: {errs2:?}");
+    let other_dir = genesis_root.join(sanitize_tenant(other_header));
+    let (reg2, errs2) = argo_vertical::load_dir(&other_dir).unwrap();
+    assert!(errs2.is_empty(), "second-header load errors: {errs2:?}");
     assert_eq!(
         reg2.len(),
-        2,
-        "both generations (different headers) write to the SAME cwd segment"
+        1,
+        "the second header writes exactly one vertical to its OWN segment"
+    );
+    // The first header's segment is untouched by the second request (still one).
+    let (reg1_again, _) = argo_vertical::load_dir(&header_dir).unwrap();
+    assert_eq!(
+        reg1_again.len(),
+        1,
+        "the first header's segment is independent of the second header's write"
     );
 }
 
