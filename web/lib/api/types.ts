@@ -21,6 +21,43 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Thrown by the API client (`lib/api/client.ts`) when a request exceeds
+ * its timeout budget (`ApiRequestInit.timeoutMs`, or the client's
+ * per-method default).
+ *
+ * A timeout is a TRANSPORT failure — the gateway never answered — so it
+ * deliberately does NOT extend `ApiError` (which models an
+ * answered-but-non-2xx HTTP response). Fetchers that fall back on "the
+ * gateway gave us no data" group it with 404 and network `TypeError`;
+ * see each module's `isMissingOrUnreachable`.
+ *
+ * Why this type exists at all: bounding every request at the single
+ * `client.ts` chokepoint is what makes a perpetual loading skeleton
+ * STRUCTURALLY impossible. React Query can no longer sit in `isPending`
+ * forever, because the underlying promise is guaranteed to settle
+ * (resolve, or reject with this error) within the budget — even when the
+ * gateway accepts the TCP socket but never sends an HTTP response (the
+ * wedged-socket failure mode that stranded `/team` and `/audit` on
+ * loading tiles that never resolved).
+ */
+export class GatewayTimeoutError extends Error {
+  /** The timeout budget that elapsed, in milliseconds. */
+  readonly timeoutMs: number;
+  /** The request path that timed out (diagnostics only). */
+  readonly path?: string;
+
+  constructor(timeoutMs: number, path?: string) {
+    super(
+      `Gateway did not respond within ${timeoutMs}ms` +
+        (path ? ` (${path})` : ""),
+    );
+    this.name = "GatewayTimeoutError";
+    this.timeoutMs = timeoutMs;
+    this.path = path;
+  }
+}
+
 export interface ApiErrorEnvelope {
   error: {
     code: string;

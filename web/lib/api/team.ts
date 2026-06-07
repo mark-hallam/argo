@@ -30,7 +30,7 @@
  */
 
 import { apiGet } from "@/lib/api/client";
-import { ApiError } from "@/lib/api/types";
+import { ApiError, GatewayTimeoutError } from "@/lib/api/types";
 import { listDemoWorkers } from "@/lib/api/demo-roster-store";
 import { SAMPLE_TEAM } from "@/lib/sample-team";
 import {
@@ -52,11 +52,13 @@ export interface FetchTeamResult {
 }
 
 /**
- * Hard ceiling on how long `fetchTeam` waits for the gateway before it
- * settles into a terminal state — in EVERY mode, not just demo. An
- * unbounded wait was the /team perpetual-skeleton bug: a wedged gateway
- * socket left React Query `isPending` forever. 5s sits comfortably above a
- * healthy gateway's sub-second answer, so it only fires on a real stall.
+ * Snappier-than-default timeout `fetchTeam` hands the API client as a
+ * per-call override (the client's universal read backstop is 15s; /team
+ * wants to settle to its empty / mock state faster for a crisp first
+ * paint). Bounding the fetch is what makes the /team perpetual-skeleton
+ * structurally impossible — see `GatewayTimeoutError` in `lib/api/types`.
+ * 5s sits comfortably above a healthy gateway's sub-second answer, so it
+ * only fires on a real stall.
  */
 export const GATEWAY_TIMEOUT_MS = 5000;
 
@@ -65,13 +67,6 @@ export const GATEWAY_TIMEOUT_MS = 5000;
  * is no longer demo-only — it bounds the fetch in every mode.
  */
 export const DEMO_GATEWAY_TIMEOUT_MS = GATEWAY_TIMEOUT_MS;
-
-class GatewayTimeoutError extends Error {
-  constructor(ms: number) {
-    super(`gateway did not respond within ${ms}ms`);
-    this.name = "GatewayTimeoutError";
-  }
-}
 
 /**
  * Thrown when `/api/v1/workers` answers with anything other than the
@@ -164,16 +159,6 @@ export async function findWorkerByName(name: string): Promise<Worker | null> {
   }
 }
 
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new GatewayTimeoutError(ms)), ms);
-    p.then(
-      (v) => { clearTimeout(timer); resolve(v); },
-      (e) => { clearTimeout(timer); reject(e); },
-    );
-  });
-}
-
 export async function fetchTeam(): Promise<FetchTeamResult> {
   const result = await fetchTeamInner();
   publishDataSource(toBannerSource(result.source));
@@ -208,19 +193,20 @@ async function fetchTeamInner(): Promise<FetchTeamResult> {
     // surfaced as `InvalidTeamEnvelope` rather than silently accepted. A
     // malformed object (missing `workers` array) is rejected the same way so a
     // server bug doesn't silently collapse the roster to empty.
-    const gatewayCall = apiGet<{ workers: Worker[]; total_count?: number }>(
+    // Bound the fetch in EVERY mode (the universal client timeout, with
+    // /team's snappier 5s override). An unbounded request was the
+    // perpetual-skeleton bug: when the gateway accepted the TCP connection
+    // but never answered (a wedged socket — observed during a real
+    // stranger-signup E2E walk), the promise never settled, so React Query
+    // stayed `isPending` forever and the page rendered loading tiles that
+    // never resolved. The client now guarantees the fetch settles within
+    // the budget; the catch below routes the resulting GatewayTimeoutError
+    // to the right terminal state per mode (SAMPLE_TEAM in demo, empty
+    // roster for a real signed-in user, a surfaced error in strict prod).
+    const response = await apiGet<{ workers: Worker[]; total_count?: number }>(
       "/api/v1/workers",
+      { timeoutMs: GATEWAY_TIMEOUT_MS },
     );
-    // Bound EVERY mode, not just demo. An unbounded `await gatewayCall` was
-    // the /team perpetual-skeleton bug: when the gateway accepted the TCP
-    // connection but never answered (a wedged socket — observed during a
-    // real stranger-signup E2E walk), the promise never settled, so React
-    // Query stayed `isPending` forever and the page rendered loading tiles
-    // that never resolved. The timeout guarantees the fetch always settles;
-    // the catch below routes the resulting GatewayTimeoutError to the right
-    // terminal state per mode (SAMPLE_TEAM in demo, empty roster for a real
-    // signed-in user, a surfaced error in strict production).
-    const response = await withTimeout(gatewayCall, GATEWAY_TIMEOUT_MS);
     if (response && !Array.isArray(response) && Array.isArray(response.workers)) {
       return { workers: response.workers, source: "gateway" };
     }

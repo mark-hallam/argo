@@ -11,7 +11,7 @@
  * - 204 No Content returns `undefined as T`.
  */
 
-import { ApiError, type ApiErrorEnvelope } from "./types";
+import { ApiError, GatewayTimeoutError, type ApiErrorEnvelope } from "./types";
 import { resolveTenantId } from "./tenant";
 import { resolveCsrfToken } from "@/lib/auth/csrf-token";
 import {
@@ -21,6 +21,78 @@ import {
 import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
 const MUTATING_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"]);
+
+/**
+ * Default timeout budgets (milliseconds). These are the universal
+ * backstop that makes a perpetual loading skeleton structurally
+ * impossible — every read is guaranteed to settle within the budget,
+ * even against a gateway that accepts the socket but never replies.
+ *
+ * - READ (GET/HEAD): 15s. Comfortably above a healthy gateway's
+ *   sub-second answer, so it only fires on a genuine stall; tight enough
+ *   that a wedged socket can't strand a page forever. Per-call override
+ *   via `ApiRequestInit.timeoutMs` (e.g. `/team` uses a snappier 5s).
+ * - MUTATION (POST/PATCH/PUT/DELETE): 0 = UNBOUNDED by default.
+ *   Mutations can legitimately run long (Genesis generation, a workflow
+ *   execution), and they surface a button spinner, not a page skeleton —
+ *   so they are not part of the perpetual-skeleton class. Callers that
+ *   want a bound pass `timeoutMs` explicitly.
+ * - SESSION PEEK: 10s. The internal `/api/auth/session` read that every
+ *   request awaits first; if it hung, it would strand every page. On
+ *   timeout it resolves to "no session" (the existing catch), so the
+ *   request proceeds unauthenticated rather than hanging.
+ */
+const READ_TIMEOUT_MS = 15_000;
+const SESSION_PEEK_TIMEOUT_MS = 10_000;
+
+/**
+ * `fetch` bounded by a timeout, via a `Promise.race` (NOT solely an
+ * `AbortController`): the race guarantees the rejection fires even if the
+ * underlying fetch implementation — or a test mock — never honours the
+ * abort signal. The controller is still aborted on timeout to free the
+ * real socket. `timeoutMs <= 0` means unbounded (plain `fetch`).
+ *
+ * On timeout this rejects with {@link GatewayTimeoutError}; a
+ * caller-supplied `signal` is chained so an external abort still works.
+ */
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  path: string,
+): Promise<Response> {
+  if (!timeoutMs || timeoutMs <= 0) return fetch(url, init);
+
+  const controller = new AbortController();
+  const callerSignal = init.signal ?? undefined;
+  if (callerSignal) {
+    if (callerSignal.aborted) controller.abort();
+    else
+      callerSignal.addEventListener("abort", () => controller.abort(), {
+        once: true,
+      });
+  }
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new GatewayTimeoutError(timeoutMs, path));
+    }, timeoutMs);
+  });
+
+  const fetchPromise = fetch(url, { ...init, signal: controller.signal });
+  // Swallow the post-timeout AbortError on the losing race branch so a
+  // wedged socket's eventual rejection never surfaces as an unhandled
+  // rejection after the timeout has already won the race.
+  fetchPromise.catch(() => {});
+
+  try {
+    return await Promise.race([fetchPromise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 /**
  * Session-expired 401 detection. The gateway's session-cookie verify
@@ -93,6 +165,13 @@ export interface ApiRequestInit extends Omit<RequestInit, "body"> {
   token?: string;
   /** JSON body; serialised automatically. */
   json?: unknown;
+  /**
+   * Per-call timeout budget in milliseconds. Overrides the method
+   * default (15s for reads, unbounded for mutations). `0` (or negative)
+   * disables the timeout for this call. On expiry the request rejects
+   * with `GatewayTimeoutError`.
+   */
+  timeoutMs?: number;
 }
 
 interface SessionPeek {
@@ -119,7 +198,12 @@ async function readSessionPeek(): Promise<SessionPeek> {
     };
   }
   try {
-    const res = await fetch("/api/auth/session", { credentials: "same-origin" });
+    const res = await fetchWithTimeout(
+      "/api/auth/session",
+      { credentials: "same-origin" },
+      SESSION_PEEK_TIMEOUT_MS,
+      "/api/auth/session",
+    );
     if (!res.ok) return {};
     const session = (await res.json()) as SessionPeek;
     return {
@@ -165,7 +249,7 @@ async function parseError(res: Response): Promise<ApiError> {
 }
 
 async function request<T>(method: string, path: string, init: ApiRequestInit = {}): Promise<T> {
-  const { token: tokenOverride, json, headers, ...rest } = init;
+  const { token: tokenOverride, json, headers, timeoutMs, ...rest } = init;
   const peek = tokenOverride ? { gatewayToken: tokenOverride, principal: undefined } : await readSessionPeek();
   const token = peek.gatewayToken;
 
@@ -220,12 +304,22 @@ async function request<T>(method: string, path: string, init: ApiRequestInit = {
   }
 
   const url = path.startsWith("http") ? path : `${gatewayBase()}${path}`;
-  const res = await fetch(url, {
-    ...rest,
-    method,
-    headers: finalHeaders,
-    body: json !== undefined ? JSON.stringify(json) : undefined,
-  });
+  // Reads carry the universal 15s backstop (the perpetual-skeleton fix);
+  // mutations stay unbounded unless the caller opts in. A per-call
+  // `timeoutMs` overrides either default.
+  const isRead = method === "GET" || method === "HEAD";
+  const effectiveTimeoutMs = timeoutMs ?? (isRead ? READ_TIMEOUT_MS : 0);
+  const res = await fetchWithTimeout(
+    url,
+    {
+      ...rest,
+      method,
+      headers: finalHeaders,
+      body: json !== undefined ? JSON.stringify(json) : undefined,
+    },
+    effectiveTimeoutMs,
+    path,
+  );
 
   if (!res.ok) throw await parseError(res);
   if (res.status === 204) return undefined as T;

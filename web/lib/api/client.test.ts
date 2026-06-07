@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiGet, apiPost } from "./client";
-import { ApiError } from "./types";
+import { ApiError, GatewayTimeoutError } from "./types";
 
 const ORIGINAL_FETCH = globalThis.fetch;
 
@@ -368,6 +368,132 @@ describe("lib/api/client", () => {
         expect(calls).toEqual(["http://gw.test/api/v1/audit"]);
       } finally {
         vi.unstubAllGlobals();
+      }
+    });
+  });
+
+  describe("request timeout (universal perpetual-skeleton backstop)", () => {
+    // The root fix for the /team + /audit "loads forever" bug class:
+    // every read is bounded at this chokepoint, so React Query can never
+    // sit in `isPending` forever against a gateway that accepts the TCP
+    // socket but never sends an HTTP response. These tests drive a
+    // never-settling fetch with fake timers and assert the promise
+    // settles (rejects with GatewayTimeoutError) within the budget.
+
+    /**
+     * Mock where `/api/auth/session` answers instantly (so the bearer
+     * peek doesn't interfere) but the gateway call NEVER settles —
+     * simulating a wedged socket.
+     */
+    function installHangingGateway() {
+      globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url;
+        if (url.endsWith("/api/auth/session")) {
+          return Promise.resolve(makeResponse({ status: 200, body: {} }));
+        }
+        return new Promise<Response>(() => {});
+      }) as unknown as typeof fetch;
+    }
+
+    it("rejects a hung GET with GatewayTimeoutError after the 15s read default", async () => {
+      vi.useFakeTimers();
+      try {
+        installHangingGateway();
+        const pending = apiGet("/api/v1/x");
+        const assertion = expect(pending).rejects.toBeInstanceOf(
+          GatewayTimeoutError,
+        );
+        await vi.advanceTimersByTimeAsync(15_001);
+        await assertion;
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("honours a per-call timeoutMs override (snappier 5s)", async () => {
+      vi.useFakeTimers();
+      try {
+        installHangingGateway();
+        const pending = apiGet("/api/v1/x", { timeoutMs: 5_000 });
+        const assertion = expect(pending).rejects.toThrow(/within 5000ms/);
+        await vi.advanceTimersByTimeAsync(5_001);
+        await assertion;
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("treats timeoutMs:0 as UNBOUNDED (no timeout fires)", async () => {
+      vi.useFakeTimers();
+      try {
+        installHangingGateway();
+        let settled = false;
+        void apiGet("/api/v1/x", { timeoutMs: 0 }).then(
+          () => {
+            settled = true;
+          },
+          () => {
+            settled = true;
+          },
+        );
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(settled).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("leaves mutations UNBOUNDED by default (long ops like Genesis must not be aborted)", async () => {
+      vi.useFakeTimers();
+      try {
+        installHangingGateway();
+        let settled = false;
+        void apiPost("/api/v1/x", { foo: 1 }).then(
+          () => {
+            settled = true;
+          },
+          () => {
+            settled = true;
+          },
+        );
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(settled).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("a hung session-peek does NOT strand the request — it proceeds unauthenticated", async () => {
+      // readSessionPeek() is awaited before every request; if IT hung,
+      // every page would strand. The 10s session-peek bound makes it
+      // resolve to "no session" so the gateway call still goes out.
+      vi.useFakeTimers();
+      try {
+        globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+          const url =
+            typeof input === "string"
+              ? input
+              : input instanceof URL
+                ? input.toString()
+                : input.url;
+          // Session peek hangs; the gateway call answers fine.
+          if (url.endsWith("/api/auth/session")) {
+            return new Promise<Response>(() => {});
+          }
+          return Promise.resolve(makeResponse({ status: 200, body: { ok: true } }));
+        }) as unknown as typeof fetch;
+
+        const pending = apiGet<{ ok: boolean }>("/api/v1/x");
+        await vi.advanceTimersByTimeAsync(10_001);
+        const out = await pending;
+        expect(out).toEqual({ ok: true });
+      } finally {
+        vi.useRealTimers();
       }
     });
   });
