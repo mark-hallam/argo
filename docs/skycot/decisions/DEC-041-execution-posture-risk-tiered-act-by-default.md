@@ -193,3 +193,34 @@ architecturally safe (worst case under the flags: an autonomously-fired duty can
 `clarify`/read-memory/read-skills — nothing external).** Remaining pre-flip gates:
 (i) the conversational smoke-test above, (ii) WS1 principal-vs-cwd. The flip
 (`ARGO_DUTY_AUTOFIRE` + `ARGO_EXECUTION_GRADUATION`) stays operator-only.
+
+### Smoke-test executed — 2026-06-07 — demo INTACT under the fence (operator chose "rebuild + browser test")
+
+Rebuilt `:7400` from the fix and ran the live browser test. Results (VERIFIED this session):
+
+- **Gateway on the fix, flip OFF.** `/health` → `build_commit=723f5f6` (== HEAD), `schema_version=91`,
+  status ok. Process env confirmed to carry **neither** `ARGO_DUTY_AUTOFIRE` nor
+  `ARGO_EXECUTION_GRADUATION` — the rebuild deployed the fence (+ pieces 1–3b) **default-OFF**;
+  nothing was flipped.
+- **`/team` renders all 8 heroes** (Marcus/Grant/Portia/Nori/Jamal/Priya/+2) with full data,
+  each "Idle" (correctly NOT auto-firing). Nothing broke from the rebuild or the fence.
+- **Portia responds live + truth-bounded.** Asked her a question on `/pitch`; she returned a real
+  `claude-sonnet-4-6` answer (in 3 / out 69 tokens, 9.7s) badged **✓ ALLOWED** by the
+  truth-boundary. The hero works on the rebuilt gateway.
+
+**NO-THEATER scoping of what the browser DID and did NOT exercise:**
+- The browser test proves the **demo is intact** under the rebuild + fence.
+- It does **NOT** directly exercise `build_dispatch_ctx` — the `/pitch` "Ask" path is the dedicated
+  truth-bounded **pitch handler** (`routes_pitch_*`), and the demo has **no** worker-bound
+  agent-runner chat surface (SPA `web/lib/api` has no session-create; `POST /api/v1/sessions`
+  returns `not found`; worker conversation is voice via the OpenAI realtime path). So the demo
+  **structurally cannot exercise the fenced path** — which is exactly why the fence cannot silently
+  break it.
+- The **fenced path itself** (`build_dispatch_ctx(is_worker_session=true) → deny-all`) is proven by
+  the unit test `non_genesis_worker_session_is_fenced_not_owner` + the confirmed production wire
+  (`turn_helpers_run.rs:182`), NOT by the browser. The two together cover both axes:
+  unit-proof of the fence + runtime-proof the demo is unaffected.
+
+**Bottom line: the (D) fence is shipped, proven, and live default-OFF; the demo is intact; the flip
+is architecturally clean.** Operator-only flip remains gated on **WS1** (principal-vs-cwd tenant
+resolution) before any live enablement on real systems.
