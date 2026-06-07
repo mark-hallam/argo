@@ -16,8 +16,38 @@
  */
 export const DEMO_MODE_ENV_VAR = "NEXT_PUBLIC_SKYCOT_DEMO_MODE" as const;
 
+/** Readable companion-cookie name the Next middleware sets to "1" whenever
+ *  the httpOnly `__Host-session` JWT is present (and clears on sign-out). */
+export const SESSION_MARKER_COOKIE = "skycot-session" as const;
+
+/**
+ * True when a real signed-in session exists in this browser.
+ *
+ * First-principles rule (sprint, 2026-06-07): demo-mode is a fallback for
+ * ANONYMOUS visitors (the "try a demo workspace" path) — it must NEVER
+ * override a real authenticated user's own workspace. So every demo flag
+ * below is gated on the ABSENCE of a real session: a signed-in buyer trial,
+ * or a real stranger signup, in a demo-configured deployment still reads
+ * their own real workspace data + identity, not the seeded showcase.
+ *
+ * The middleware (`web/middleware.ts`) sets the readable
+ * `skycot-session=1` cookie from the server-side `__Host-session` presence;
+ * this is a client-side `document.cookie` read. Server-render falls back to
+ * the env value, so an authenticated user might see a one-paint demo banner
+ * before hydration — cosmetic only: the data fetchers run post-mount and
+ * read the real session. Returns false in any non-browser context.
+ */
+export function hasRealSession(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.cookie
+    .split("; ")
+    .some((c) => c === `${SESSION_MARKER_COOKIE}=1`);
+}
+
 export function isDemoMode(): boolean {
-  return process.env.NEXT_PUBLIC_SKYCOT_DEMO_MODE === "1";
+  return (
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_MODE === "1" && !hasRealSession()
+  );
 }
 
 /**
@@ -48,7 +78,9 @@ export function isDemoMode(): boolean {
 export const DEMO_LIVE_ENV_VAR = "NEXT_PUBLIC_SKYCOT_DEMO_LIVE" as const;
 
 export function isDemoLive(): boolean {
-  return process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE === "1";
+  return (
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE === "1" && !hasRealSession()
+  );
 }
 
 /**

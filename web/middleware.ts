@@ -1,4 +1,28 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { SESSION_MARKER_COOKIE } from "@/lib/skycot/demo-mode";
+
+/**
+ * Stamp a readable `skycot-session=1` companion cookie reflecting whether
+ * the httpOnly `__Host-session` JWT is present, so the client-side
+ * `hasRealSession()` (lib/skycot/demo-mode) can gate demo-mode OFF for a
+ * real signed-in user. Anonymous demo visitors get no marker → the demo
+ * showcase stays on for them; cleared on sign-out / no session.
+ */
+function withSessionMarker(
+  res: NextResponse,
+  hasSession: boolean,
+): NextResponse {
+  if (hasSession) {
+    res.cookies.set(SESSION_MARKER_COOKIE, "1", {
+      path: "/",
+      sameSite: "lax",
+      httpOnly: false,
+    });
+  } else {
+    res.cookies.set(SESSION_MARKER_COOKIE, "", { path: "/", maxAge: 0 });
+  }
+  return res;
+}
 
 function readSessionCookie(req: NextRequest): string | undefined {
   return (
@@ -72,7 +96,7 @@ export function middleware(req: NextRequest) {
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   ) {
-    return NextResponse.next();
+    return withSessionMarker(NextResponse.next(), Boolean(sessionCookie));
   }
 
   if (pathname === "/" && !sessionCookie) {
@@ -88,15 +112,15 @@ export function middleware(req: NextRequest) {
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_ARGO_DEMO_MODE === "1"
   ) {
-    return NextResponse.next();
+    return withSessionMarker(NextResponse.next(), Boolean(sessionCookie));
   }
 
-  if (sessionCookie) return NextResponse.next();
+  if (sessionCookie) return withSessionMarker(NextResponse.next(), true);
 
   const signinUrl = req.nextUrl.clone();
   signinUrl.pathname = "/auth/signin";
   signinUrl.search = `?from=${encodeURIComponent(pathname + search)}`;
-  return NextResponse.redirect(signinUrl);
+  return withSessionMarker(NextResponse.redirect(signinUrl), false);
 }
 
 export const config = {

@@ -1,3 +1,5 @@
+import { hasRealSession } from "@/lib/skycot/demo-mode";
+
 /**
  * Auth-bypass detection for the hire wizard.
  *
@@ -16,9 +18,15 @@
  * to the existing wizard flow instead of redirecting to `/auth/signup`.
  * `NEXT_PUBLIC_*` env vars are inlined at build time, so this compiles
  * to a static branch in the client bundle.
+ *
+ * Per-user gating (sprint, 2026-06-07): bypass is for ANONYMOUS demo
+ * visitors only — a real signed-in user (a `skycot-session=1` marker
+ * cookie is present) is NEVER bypassed, so their hire flows write to
+ * their own real tenant even in a demo-configured deployment.
  */
 export function isHireAuthBypassed(): boolean {
   if (typeof process === "undefined") return false;
+  if (hasRealSession()) return false;
   return (
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1" ||
     process.env.NEXT_PUBLIC_ARGO_DEMO_MODE === "1" ||

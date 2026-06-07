@@ -19,13 +19,22 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  hasRealSession,
   isDemoMode,
   isDemoLive,
   isGatewayAuthBypassed,
   recordingModeReadinessWarning,
 } from "@/lib/skycot/demo-mode";
+import { isHireAuthBypassed } from "@/lib/hire/auth-bypass";
 
 const ORIGINAL_ENV = { ...process.env };
+
+function clearCookies() {
+  for (const pair of document.cookie.split("; ")) {
+    const name = pair.split("=")[0];
+    if (name) document.cookie = `${name}=; max-age=0; path=/`;
+  }
+}
 
 beforeEach(() => {
   process.env = { ...ORIGINAL_ENV, NODE_ENV: "development" };
@@ -33,10 +42,12 @@ beforeEach(() => {
   delete process.env.NEXT_PUBLIC_SKYCOT_DEMO_MODE;
   delete process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE;
   delete process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
+  clearCookies();
 });
 
 afterEach(() => {
   process.env = ORIGINAL_ENV;
+  clearCookies();
 });
 
 describe("flag readers", () => {
@@ -111,5 +122,40 @@ describe("recordingModeReadinessWarning", () => {
       NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS: "1",
     };
     expect(recordingModeReadinessWarning()).toBeNull();
+  });
+});
+
+describe("per-user demo-mode gating (real session overrides demo flags)", () => {
+  // The bug: a demo-configured deploy (showcase) put EVERY user — including a
+  // real stranger who just signed up — into demo-mode (seeded sample roster +
+  // "Demo Operator"). The fix: demo-mode is a fallback for ANONYMOUS visitors
+  // only; the middleware sets a readable `skycot-session=1` cookie from the
+  // httpOnly session, and the flag readers go false when it is present.
+  it("hasRealSession() reflects the skycot-session marker cookie", () => {
+    expect(hasRealSession()).toBe(false);
+    document.cookie = "skycot-session=1; path=/";
+    expect(hasRealSession()).toBe(true);
+  });
+
+  it("an ANONYMOUS visitor in a demo deploy still gets the showcase", () => {
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_MODE = "1";
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+    expect(isDemoMode()).toBe(true);
+    expect(isDemoLive()).toBe(true);
+  });
+
+  it("a REAL signed-in user is NEVER in demo-mode, even in a demo deploy", () => {
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_MODE = "1";
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+    document.cookie = "skycot-session=1; path=/";
+    expect(isDemoMode()).toBe(false);
+    expect(isDemoLive()).toBe(false);
+  });
+
+  it("the hire-wizard bypass is OFF for a real signed-in user", () => {
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+    expect(isHireAuthBypassed()).toBe(true); // anonymous demo → bypassed
+    document.cookie = "skycot-session=1; path=/";
+    expect(isHireAuthBypassed()).toBe(false); // real session → not bypassed
   });
 });
