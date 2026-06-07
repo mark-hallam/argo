@@ -196,7 +196,7 @@ export async function listKnowledgeDocs(
     const env = await apiGet<ListEnvelope>(buildListPath(category), init);
     return { docs: env.items, source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { docs: filterByCategory(SAMPLE_KNOWLEDGE, category), source: "mock-offline" };
     }
     throw err;
@@ -238,7 +238,7 @@ export async function createKnowledgeDoc(
       input,
     );
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockDocFrom(input);
     }
     throw err;
@@ -258,7 +258,7 @@ export async function updateKnowledgeDoc(
       input,
     );
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockUpdatedDoc(slug, input);
     }
     throw err;
@@ -292,7 +292,7 @@ export async function listKnowledgeRevisions(
     );
     return { revisions: env.items, source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { revisions: mockRevisions(slug), source: "mock-offline" };
     }
     throw err;

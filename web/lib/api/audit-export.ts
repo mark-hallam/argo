@@ -108,7 +108,7 @@ export async function previewExport(
       toGatewayRequest(params),
     );
   } catch (err) {
-    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockPreview(params);
     }
     throw err;
@@ -129,7 +129,7 @@ export async function generateExport(
     void emitAuditRow(params, result);
     return result;
   } catch (err) {
-    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return withAuditEmission(params, mockGenerate(params));
     }
     throw err;

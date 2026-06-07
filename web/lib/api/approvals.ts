@@ -277,7 +277,7 @@ export async function submitDecision({
     // now propagate the error so the optimistic mutation rolls back
     // + user sees the error toast. Dev/preview keep the mock
     // fallback so demos with no gateway still work.
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { ok: true, approvalId, decision, source: "mock-offline" };
     }
     throw err;
@@ -301,7 +301,7 @@ export async function submitUndo(approvalId: string): Promise<UndoResult> {
     }
     // Same launch-blocker fix as submitDecision — never silently
     // succeed in strict production on a gateway-unreachable error.
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { ok: true, approvalId, source: "mock-offline" };
     }
     throw err;

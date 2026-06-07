@@ -129,6 +129,11 @@ function shouldFallBackToMock(err: unknown): boolean {
   // Dev-only: gateway absent or returned 404. Anything else is a real
   // error — surface it.
   if (process.env.NODE_ENV === "production") return false;
+  // A REAL signed-in user never falls back to the sample roster — they get
+  // an honest error on a genuine gateway failure (mock-leak class). The
+  // `isDemoLive()` guard alone can't tell a real user apart from an
+  // anonymous dev visitor, since both read it as false.
+  if (hasRealSession()) return false;
   if (isDemoLive()) return false;
   return isMissingOrUnreachable(err);
 }
@@ -524,7 +529,11 @@ export async function listWorkersInVertical(verticalId: string): Promise<Worker[
     // Only the dev/bypass path renders the bundled sample roster; a
     // production (or demo-live) session gets an honest empty list so a
     // real signed-in user never sees fixtures (NO THEATER, ws3-3).
-    if (process.env.NODE_ENV !== "production" && !isDemoLive()) {
+    if (
+      process.env.NODE_ENV !== "production" &&
+      !hasRealSession() &&
+      !isDemoLive()
+    ) {
       return sampleWorkersForVertical(verticalId);
     }
     return [];

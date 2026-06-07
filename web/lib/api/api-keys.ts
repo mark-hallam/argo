@@ -111,7 +111,7 @@ export async function fetchApiKeys(): Promise<FetchApiKeysResult> {
     const keys = await apiGet<ApiKeyRow[]>("/api/v1/api-keys");
     return { keys, source: "gateway" };
   } catch (err) {
-    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { keys: SAMPLE_API_KEYS, source: "mock-offline" };
     }
     throw err;

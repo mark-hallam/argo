@@ -96,12 +96,15 @@ export async function fetchSkills(): Promise<FetchSkillsResult> {
   try {
     const envelope = await apiGet<SkillsEnvelope>("/api/v1/skills");
     const skills = envelope.skills ?? [];
-    if (skills.length === 0 && !isStrictProduction()) {
+    // Success-empty fallback is for ANONYMOUS demo visitors only — a real
+    // signed-in user with an empty catalog sees their real (empty) catalog,
+    // NOT the SEED_SKILLS demo fixtures (mock-leak class, path 3).
+    if (skills.length === 0 && !hasRealSession() && !isStrictProduction()) {
       return { skills: SEED_SKILLS, source: "mock-offline" };
     }
     return { skills, source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { skills: SEED_SKILLS, source: "mock-offline" };
     }
     throw err;
@@ -271,7 +274,7 @@ export async function fetchSkillUsage(
     );
     return { usage, source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { usage: seedUsage(skillName), source: "mock-offline" };
     }
     throw err;
@@ -517,7 +520,7 @@ export async function fetchSkillSearch(
     );
     return { response, source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { response: mockSearch(params), source: "mock-offline" };
     }
     throw err;
@@ -592,6 +595,8 @@ export async function fetchSkillVersions(
     return { versions, source: "gateway" };
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+      // versions:null is "no version history", not demo DATA — leave it as
+      // the graceful real-user fallback (not part of the mock-leak class).
       return { versions: null, source: "mock-offline" };
     }
     throw err;
@@ -703,7 +708,7 @@ export async function installSkillToWorkers(
     );
     return { skillId, workerIds: targets, source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { skillId, workerIds: targets, source: "mock-offline" };
     }
     throw err;
@@ -728,7 +733,7 @@ export async function fetchLearnedThisMonth(): Promise<FetchLearnedThisMonthResu
     );
     return { learned, source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { learned: learnedFallback, source: "mock-offline" };
     }
     throw err;

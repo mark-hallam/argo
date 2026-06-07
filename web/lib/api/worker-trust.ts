@@ -177,7 +177,7 @@ export async function fetchWorkerTrustGrade(workerId: string): Promise<FetchTrus
     const raw = await apiGet<GatewayTrustGradeBody>(path);
     return { snapshot: normalizeTrustGrade(raw, workerId), source: "gateway" };
   } catch (err) {
-    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { snapshot: findSampleWorkerTrust(workerId), source: "mock-offline" };
     }
     throw err;

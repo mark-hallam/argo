@@ -273,7 +273,7 @@ export async function replayAction(actionId: string): Promise<ReplayOutcome> {
   try {
     return adaptGatewayReplay(await apiPost<unknown>(path));
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return sampleOrFailed(actionId);
     }
     throw err;

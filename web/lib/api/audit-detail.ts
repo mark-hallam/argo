@@ -152,7 +152,7 @@ export async function fetchAuditDetail(actionId: string): Promise<AuditDetailWit
     if (err instanceof ApiError && err.status === 404) {
       throw new AuditDetailNotFoundError(actionId);
     }
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockDetail(actionId);
     }
     throw err;

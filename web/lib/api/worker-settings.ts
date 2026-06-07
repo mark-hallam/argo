@@ -226,7 +226,7 @@ export async function getSettings(workerId: string): Promise<FetchWorkerSettings
     const settings = parseGatewaySettings(raw, workerId);
     return { settings, source: "gateway" };
   } catch (err) {
-    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockResult(workerId, "mock-offline");
     }
     if (err instanceof ApiError && err.status === 404) {
@@ -363,7 +363,7 @@ async function mutate(
     }
     return "gateway";
   } catch (err) {
-    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return "mock-offline";
     }
     throw err;

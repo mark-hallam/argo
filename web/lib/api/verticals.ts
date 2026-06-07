@@ -243,12 +243,15 @@ export async function fetchVerticals(): Promise<FetchVerticalsResult> {
   try {
     const envelope = await apiGet<VerticalsEnvelope>("/api/v1/verticals");
     const verticals = envelope.verticals ?? [];
-    if (verticals.length === 0 && !isStrictProduction()) {
+    // Success-empty fallback is for ANONYMOUS demo visitors only — a real
+    // signed-in user with no verticals sees their real (empty) state, NOT
+    // the SEED_VERTICALS demo fixtures (mock-leak class, path 3).
+    if (verticals.length === 0 && !hasRealSession() && !isStrictProduction()) {
       return { verticals: SEED_VERTICALS, source: "mock-offline" };
     }
     return { verticals, source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { verticals: SEED_VERTICALS, source: "mock-offline" };
     }
     throw err;
@@ -337,7 +340,7 @@ export async function fetchVertical(id: string): Promise<FetchVerticalResult> {
     );
     return { vertical: detail, source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return { vertical: seedDetail(id), source: "mock-offline" };
     }
     throw err;

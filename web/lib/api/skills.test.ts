@@ -23,6 +23,13 @@ const mockedFetchTeam = vi.mocked(fetchTeam);
 
 const ORIGINAL_FETCH = globalThis.fetch;
 
+function clearCookies() {
+  for (const pair of document.cookie.split("; ")) {
+    const name = pair.split("=")[0];
+    if (name) document.cookie = `${name}=; max-age=0; path=/`;
+  }
+}
+
 function makeResponse({
   status = 200,
   body,
@@ -79,6 +86,52 @@ describe("lib/api/skills", () => {
     process.env = { ...originalEnv };
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+    clearCookies();
+  });
+
+  // Mock-leak class (sprint, 2026-06-07): a REAL signed-in user must never
+  // be served SEED_SKILLS demo fixtures — not via the auth-bypass
+  // short-circuit (path 1), not on a gateway 404 (path 2, catch), and NOT
+  // on a successful-but-empty catalog (path 3). A real user reads their own
+  // real catalog, empty if they have none.
+  describe("per-user gating (real session never sees SEED_SKILLS)", () => {
+    it("a REAL user with an EMPTY catalog gets [], NOT the seed (path 3)", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      document.cookie = "skycot-session=1; path=/";
+      installMock(() =>
+        makeResponse({
+          status: 200,
+          body: { risk: "medium", risk_defaulted: true, count: 0, skills: [] },
+        }),
+      );
+      const result = await fetchSkills();
+      expect(result.source).toBe("gateway");
+      expect(result.skills).toEqual([]);
+      expect(result.skills).not.toBe(SEED_SKILLS);
+    });
+
+    it("a REAL user surfaces a 404 error, NOT the seed (path 2, catch)", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      document.cookie = "skycot-session=1; path=/";
+      installMock(() =>
+        makeResponse({
+          status: 404,
+          body: { error: { code: "not_found", message: "no skills endpoint" } },
+        }),
+      );
+      await expect(fetchSkills()).rejects.toBeInstanceOf(ApiError);
+    });
+
+    it("an ANONYMOUS visitor still gets SEED_SKILLS on an empty catalog", async () => {
+      installMock(() =>
+        makeResponse({
+          status: 200,
+          body: { risk: "medium", risk_defaulted: true, count: 0, skills: [] },
+        }),
+      );
+      const result = await fetchSkills();
+      expect(result.skills).toBe(SEED_SKILLS);
+    });
   });
 
   it("unwraps the gateway envelope on 2xx happy path", async () => {

@@ -154,7 +154,7 @@ export async function getWorkerPolicies(
     );
     return fromWire(workerId, raw, "gateway");
   } catch (err) {
-    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockResult(workerId, "mock-offline");
     }
     throw err;

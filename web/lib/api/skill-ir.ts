@@ -120,7 +120,7 @@ export async function fetchSkillIr(
       source: "gateway",
     };
   } catch (err) {
-    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockResult(skillId, version, "mock-offline");
     }
     if (err instanceof ApiError && err.status === 404) {

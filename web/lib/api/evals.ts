@@ -181,7 +181,7 @@ export async function fetchWorkerEvals(workerId: string): Promise<EvalDashboardP
     }
     return { ...raw, source: "gateway" };
   } catch (err) {
-    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockEvalDashboard(workerId, "mock-offline");
     }
     throw err;

@@ -159,7 +159,7 @@ export async function draftSkillFromPrompt(prompt: string): Promise<GhostwriterD
       source: "gateway",
     };
   } catch (err) {
-    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockDraft(prompt, "mock-offline");
     }
     throw err;

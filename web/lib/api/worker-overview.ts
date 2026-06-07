@@ -320,7 +320,7 @@ export async function fetchWorkerOverview(
     };
     return { overview, source: "gateway" };
   } catch (err) {
-    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockResult(workerId);
     }
     if (err instanceof ApiError && err.status === 404) {

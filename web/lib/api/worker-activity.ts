@@ -254,7 +254,7 @@ export async function fetchWorkerActivity(
     const raw = await apiGet<RawGatewayActivityPage>(path);
     return normalizeGatewayActivityPage(raw, workerId);
   } catch (err) {
-    if (!isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!hasRealSession() && !isDemoLive() && !isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockPage(workerId, filters, cursor);
     }
     throw err;
