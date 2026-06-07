@@ -117,13 +117,39 @@ fn voice_spec() -> GroupSpec {
 // `web/lib/api/settings.ts`. Keep these in lockstep with the SPA.
 
 fn default_workspace() -> Value {
-    json!({
-        "name": "SKYCOT Demo",
-        "description": "Operator workspace for the SKYCOT demo tenant.",
-        "default_vertical": "marketing",
-        "timezone": "Australia/Melbourne",
-        "billing_contact": "owner@skycot.example",
-    })
+    workspace_default_for(super::demo_mode::is_enabled())
+}
+
+/// The bundled `/api/v1/workspace` default, served when a tenant has no
+/// saved `workspace_settings` row.
+///
+/// Real-mode walk 2026-06-07: a real signed-in stranger's GET returned
+/// "SKYCOT Demo" because this default was demo-branded — so every fresh
+/// real tenant saw "SKYCOT Demo" as their own workspace name, straight from
+/// the gateway. Real tenants now get a NEUTRAL default (blank fields the SPA
+/// shows for the user to fill in); only the demo showcase
+/// (`ARGO_DEMO_MODE=1`) keeps the "SKYCOT Demo" branding. Mirrors
+/// `NEUTRAL_WORKSPACE_SETTINGS` / `DEFAULT_WORKSPACE_SETTINGS` in
+/// `web/lib/api/settings.ts` — keep in lockstep. Pure (`demo_mode` is a
+/// parameter) so it is unit-tested without env-var manipulation.
+fn workspace_default_for(demo_mode: bool) -> Value {
+    if demo_mode {
+        json!({
+            "name": "SKYCOT Demo",
+            "description": "Operator workspace for the SKYCOT demo tenant.",
+            "default_vertical": "marketing",
+            "timezone": "Australia/Melbourne",
+            "billing_contact": "owner@skycot.example",
+        })
+    } else {
+        json!({
+            "name": "",
+            "description": "",
+            "default_vertical": "marketing",
+            "timezone": "Australia/Melbourne",
+            "billing_contact": "",
+        })
+    }
 }
 
 fn default_providers() -> Value {

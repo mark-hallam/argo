@@ -9,7 +9,7 @@
 
 #![allow(clippy::too_many_lines)]
 
-use super::{dispatch_get, dispatch_patch, read_voice_provider};
+use super::{dispatch_get, dispatch_patch, read_voice_provider, workspace_default_for};
 use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -49,17 +49,35 @@ fn parse_ok(resp: Option<(&'static str, String)>) -> Value {
 }
 
 #[tokio::test]
-async fn get_workspace_returns_defaults_when_unseeded() {
+async fn get_workspace_returns_neutral_default_when_unseeded() {
     let _g = env_lock().await;
     let store = mem_store().await;
     let resp = dispatch_get(&get_req("/api/v1/workspace"), Some(&store)).await;
     let v = parse_ok(resp);
-    // Full default shape, mirroring DEFAULT_WORKSPACE_SETTINGS.
-    assert_eq!(v["name"], "SKYCOT Demo");
+    // Real-mode walk 2026-06-07: a real tenant with no saved row gets the
+    // NEUTRAL default (blank name + billing) — never "SKYCOT Demo". The
+    // demo-mode branding is covered by the pure branch test below. (The
+    // cargo-test process has no `ARGO_DEMO_MODE`, so this exercises the real
+    // path.)
+    assert_eq!(v["name"], "");
+    assert_eq!(v["billing_contact"], "");
     assert_eq!(v["default_vertical"], "marketing");
     assert_eq!(v["timezone"], "Australia/Melbourne");
-    assert_eq!(v["billing_contact"], "owner@skycot.example");
     assert!(v.get("description").is_some());
+}
+
+#[test]
+fn workspace_default_is_neutral_for_real_tenants_branded_for_demo() {
+    // Pure branch test — no env-var manipulation, no race. A real tenant
+    // never sees "SKYCOT Demo"; the demo showcase keeps its branding.
+    let real = workspace_default_for(false);
+    assert_eq!(real["name"], "");
+    assert_eq!(real["billing_contact"], "");
+    assert_ne!(real["name"], "SKYCOT Demo");
+
+    let demo = workspace_default_for(true);
+    assert_eq!(demo["name"], "SKYCOT Demo");
+    assert_eq!(demo["billing_contact"], "owner@skycot.example");
 }
 
 #[tokio::test]
