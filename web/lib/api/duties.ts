@@ -11,7 +11,29 @@
 
 import { apiPatch, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import { hasRealSession } from "@/lib/skycot/demo-mode";
 import type { WorkerDuty } from "@/lib/api/worker-overview";
+
+/**
+ * The deterministic mock fallback (on a gateway 404 or a malformed body)
+ * is for ANONYMOUS dev/demo only. A REAL signed-in user (the
+ * `skycot-session` cookie is present) NEVER sees a fabricated
+ * schedule/proposal — they get an honest error so a genuine backend
+ * failure surfaces instead of theater (mock-leak class, NO THEATER). The
+ * gateway happy path (a valid response) is unchanged for everyone.
+ */
+function mockFallbackAllowed(): boolean {
+  return !hasRealSession();
+}
+
+/** Honest error surfaced to a real user when the gateway body is malformed. */
+function malformedGatewayBody(what: string): ApiError {
+  return new ApiError(
+    502,
+    `Gateway returned a malformed ${what}`,
+    "malformed_gateway_response",
+  );
+}
 
 export type DutySource = "gateway" | "mock";
 export type DutyKind = "recurring" | "event-triggered" | "one-shot";
@@ -180,10 +202,13 @@ export async function classifyDuty(
       input: req.input,
       schedule: req.schedule,
     });
-    if (!isProposal(raw)) return { proposal: mockProposal(req), source: "mock" };
-    return { proposal: raw, source: "gateway" };
+    if (isProposal(raw)) return { proposal: raw, source: "gateway" };
+    if (!mockFallbackAllowed()) throw malformedGatewayBody("duty proposal");
+    return { proposal: mockProposal(req), source: "mock" };
   } catch (err) {
-    if (is404(err)) return { proposal: mockProposal(req), source: "mock" };
+    if (is404(err) && mockFallbackAllowed()) {
+      return { proposal: mockProposal(req), source: "mock" };
+    }
     throw err;
   }
 }
@@ -198,8 +223,10 @@ export async function previewDuty(
     if (Array.isArray(raw)) {
       return { samples: raw as DutySample[], source: "gateway" };
     }
+    if (!mockFallbackAllowed()) throw malformedGatewayBody("duty preview");
   } catch (err) {
-    if (!is404(err)) throw err;
+    // A real user gets the honest error on a 404; anonymous falls to mock.
+    if (!is404(err) || !mockFallbackAllowed()) throw err;
   }
   return {
     samples: req.proposal.samples ?? samplesFor(req.proposal.label, req.proposal.kind),
@@ -242,9 +269,10 @@ export async function commitDuty(
         return { duty: env.duty, nextFireAt, source: "gateway" };
       }
     }
+    if (!mockFallbackAllowed()) throw malformedGatewayBody("duty commit");
     return mockCommittedDuty(req);
   } catch (err) {
-    if (is404(err)) return mockCommittedDuty(req);
+    if (is404(err) && mockFallbackAllowed()) return mockCommittedDuty(req);
     throw err;
   }
 }
@@ -320,9 +348,12 @@ export async function updateDuty(
       const parsed = workerDutyFromGatewayPatch(env.duty);
       if (parsed) return { duty: parsed, source: "gateway" };
     }
+    if (!mockFallbackAllowed()) throw malformedGatewayBody("duty update");
     return { duty: mockUpdatedDuty(req, previous), source: "mock" };
   } catch (err) {
-    if (is404(err)) return { duty: mockUpdatedDuty(req, previous), source: "mock" };
+    if (is404(err) && mockFallbackAllowed()) {
+      return { duty: mockUpdatedDuty(req, previous), source: "mock" };
+    }
     throw err;
   }
 }

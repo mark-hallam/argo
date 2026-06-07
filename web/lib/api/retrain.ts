@@ -20,6 +20,7 @@
 
 import { apiDelete, apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import { hasRealSession } from "@/lib/skycot/demo-mode";
 import { MOCK_REVERSE_CASES, mockProposal, mockRecord } from "@/lib/api/retrain-mocks";
 
 export type {
@@ -91,6 +92,27 @@ function is404(err: unknown): boolean {
   return err instanceof ApiError && err.status === 404;
 }
 
+/**
+ * The deterministic mock fallback (on a 404 or malformed body) is for
+ * ANONYMOUS dev/demo only. A REAL signed-in user (the `skycot-session`
+ * cookie is present) never sees a fabricated retrain proposal/record —
+ * they get an honest error so a genuine backend failure surfaces instead
+ * of theater (mock-leak class, NO THEATER). The gateway happy path is
+ * unchanged for everyone.
+ */
+function mockFallbackAllowed(): boolean {
+  return !hasRealSession();
+}
+
+/** Honest error surfaced to a real user when the gateway body is malformed. */
+function malformedGatewayBody(what: string): ApiError {
+  return new ApiError(
+    502,
+    `Gateway returned a malformed ${what}`,
+    "malformed_gateway_response",
+  );
+}
+
 export async function classifyRetrain(
   req: ClassifyRetrainRequest,
 ): Promise<ClassifyRetrainResult> {
@@ -99,10 +121,13 @@ export async function classifyRetrain(
       input: req.input,
       triggerContext: req.triggerContext,
     });
-    if (!isProposal(raw)) return { proposal: mockProposal(req), source: "mock" };
-    return { proposal: raw, source: "gateway" };
+    if (isProposal(raw)) return { proposal: raw, source: "gateway" };
+    if (!mockFallbackAllowed()) throw malformedGatewayBody("retrain proposal");
+    return { proposal: mockProposal(req), source: "mock" };
   } catch (err) {
-    if (is404(err)) return { proposal: mockProposal(req), source: "mock" };
+    if (is404(err) && mockFallbackAllowed()) {
+      return { proposal: mockProposal(req), source: "mock" };
+    }
     throw err;
   }
 }
@@ -115,10 +140,13 @@ export async function commitRetrain(
       proposal: req.proposal,
       acceptedCaseIds: req.acceptedCaseIds,
     });
-    if (!isRecord(raw)) return { record: mockRecord(req), source: "mock" };
-    return { record: raw, source: "gateway" };
+    if (isRecord(raw)) return { record: raw, source: "gateway" };
+    if (!mockFallbackAllowed()) throw malformedGatewayBody("retrain record");
+    return { record: mockRecord(req), source: "mock" };
   } catch (err) {
-    if (is404(err)) return { record: mockRecord(req), source: "mock" };
+    if (is404(err) && mockFallbackAllowed()) {
+      return { record: mockRecord(req), source: "mock" };
+    }
     throw err;
   }
 }
