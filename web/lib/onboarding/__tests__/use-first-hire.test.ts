@@ -32,10 +32,24 @@ vi.mock("@/lib/skycot/demo-mode", () => ({
 import {
   DEMO_SUPPORTED_VERTICAL_IDS,
   firstHire,
+  type FirstHireOutcome,
 } from "@/lib/onboarding/use-first-hire";
 
 const UUID_V7_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+/**
+ * Narrow a `firstHire` outcome to the `hired` variant. Demo mode always
+ * hires synchronously (never `needs_review`), so this asserts that and
+ * unwraps the worker fields the demo pins read.
+ */
+function assertHired(
+  outcome: FirstHireOutcome,
+): Extract<FirstHireOutcome, { kind: "hired" }> {
+  expect(outcome.kind).toBe("hired");
+  if (outcome.kind !== "hired") throw new Error("expected hired outcome");
+  return outcome;
+}
 
 describe("firstHire (demo mode)", () => {
   beforeEach(() => {
@@ -44,11 +58,13 @@ describe("firstHire (demo mode)", () => {
   });
 
   it("appends a Maya entry to the demo roster when description names her", async () => {
-    const result = await firstHire({
-      name: "Maya",
-      description: "Maya, a marketing intern who drafts blog posts",
-      verticalId: "marketing-intern",
-    });
+    const result = assertHired(
+      await firstHire({
+        name: "Maya",
+        description: "Maya, a marketing intern who drafts blog posts",
+        verticalId: "marketing-intern",
+      }),
+    );
 
     expect(result.workerName).toBe("Maya");
     expect(result.pending).toBe(false);
@@ -66,11 +82,13 @@ describe("firstHire (demo mode)", () => {
     // (SAMPLE_PRIYA_ID) regardless of the typed name. Now the typed
     // name wins and the id is fresh, so /workers/<new-id> resolves
     // to the user's hire — not the canonical sample-roster persona.
-    const result = await firstHire({
-      name: "Penny",
-      description: "Penny screens applicants and books interviews",
-      verticalId: "recruiter",
-    });
+    const result = assertHired(
+      await firstHire({
+        name: "Penny",
+        description: "Penny screens applicants and books interviews",
+        verticalId: "recruiter",
+      }),
+    );
 
     expect(result.workerName).toBe("Penny");
     expect(SAMPLE_PERSONA_IDS).not.toContain(result.workerId);
@@ -80,38 +98,46 @@ describe("firstHire (demo mode)", () => {
 
   it("stores the user's description as the worker tagline", async () => {
     const description = "Books property showings on weekdays after 4pm";
-    const result = await firstHire({
-      name: "Marcus",
-      description,
-      verticalId: "real-estate",
-    });
+    const result = assertHired(
+      await firstHire({
+        name: "Marcus",
+        description,
+        verticalId: "real-estate",
+      }),
+    );
 
     const stored = findDemoWorker(result.workerId);
     expect(stored?.role.tagline).toBe(description);
   });
 
   it("does not route unknown verticals to a sample-roster id", async () => {
-    const result = await firstHire({
-      name: "Ada",
-      description: "Whatever",
-      verticalId: "completely-bogus-vertical",
-    });
+    const result = assertHired(
+      await firstHire({
+        name: "Ada",
+        description: "Whatever",
+        verticalId: "completely-bogus-vertical",
+      }),
+    );
 
     expect(SAMPLE_PERSONA_IDS).not.toContain(result.workerId);
     expect(result.workerName).toBe("Ada");
   });
 
   it("each call mints a fresh id (no idempotency collision between hires)", async () => {
-    const first = await firstHire({
-      name: "Maya",
-      description: "Maya the marketer",
-      verticalId: "marketing-intern",
-    });
-    const second = await firstHire({
-      name: "Nora",
-      description: "Nora the recruiter",
-      verticalId: "recruiter",
-    });
+    const first = assertHired(
+      await firstHire({
+        name: "Maya",
+        description: "Maya the marketer",
+        verticalId: "marketing-intern",
+      }),
+    );
+    const second = assertHired(
+      await firstHire({
+        name: "Nora",
+        description: "Nora the recruiter",
+        verticalId: "recruiter",
+      }),
+    );
 
     expect(first.workerId).not.toBe(second.workerId);
     expect(listDemoWorkers()).toHaveLength(2);
@@ -124,11 +150,13 @@ describe("firstHire (demo mode)", () => {
     // exported set — pick-vertical still filters its cards through it.
     expect(DEMO_SUPPORTED_VERTICAL_IDS.size).toBeGreaterThanOrEqual(4);
     for (const verticalId of DEMO_SUPPORTED_VERTICAL_IDS) {
-      const result = await firstHire({
-        name: "Anyone",
-        description: `Hire for ${verticalId}`,
-        verticalId,
-      });
+      const result = assertHired(
+        await firstHire({
+          name: "Anyone",
+          description: `Hire for ${verticalId}`,
+          verticalId,
+        }),
+      );
       expect(result.workerId).toMatch(UUID_V7_PATTERN);
       expect(SAMPLE_PERSONA_IDS).not.toContain(result.workerId);
     }

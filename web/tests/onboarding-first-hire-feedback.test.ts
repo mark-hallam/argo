@@ -115,6 +115,7 @@ afterEach(() => {
 describe("first-hire feedback affordances (F14)", () => {
   it("fires the success toast before navigating on a successful hire", async () => {
     mutateAsyncMock.mockResolvedValue({
+      kind: "hired",
       workerId: "wkr_maya",
       workerName: "Maya",
     });
@@ -158,6 +159,7 @@ describe("first-hire feedback affordances (F14)", () => {
 
   it("does not show the skip-to-team link before any failure", async () => {
     mutateAsyncMock.mockResolvedValue({
+      kind: "hired",
       workerId: "wkr_maya",
       workerName: "Maya",
     });

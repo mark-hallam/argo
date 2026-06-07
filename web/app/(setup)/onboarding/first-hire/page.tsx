@@ -3,16 +3,20 @@
 import { Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import {
   FIRST_HIRE_VERIFY_FAILED_MESSAGE,
   useFirstHire,
+  useConfirmFirstHire,
+  type FirstHireOutcome,
+  type FirstHireReview,
 } from "@/lib/onboarding/use-first-hire";
 import { exampleForVertical } from "@/lib/onboarding/example-prompts";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
 import { FirstHireErrorBanner } from "@/components/skycot/onboarding/FirstHireErrorBanner";
+import { FirstHireReviewPanel } from "./FirstHireReviewPanel";
 import { Toaster } from "@/components/ui/sonner";
 import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
@@ -72,12 +76,88 @@ function FirstHireFormBody() {
     [pickedVerticalId],
   );
   const firstHire = useFirstHire();
+  const confirmHire = useConfirmFirstHire();
   const [error, setError] = useState("");
   const [showHelpLink, setShowHelpLink] = useState(false);
+  // When the gateway holds the hire in `needs_review` (HTTP 422), we stash
+  // the review payload and swap the form for the RoleContractReview screen.
+  // The confirm call only fires after the operator confirms there.
+  const [review, setReview] = useState<FirstHireReview | null>(null);
 
   useEffect(() => {
     setStep(5);
   }, [setStep]);
+
+  // Shared success path for BOTH the initial 201 (no-gate) hire AND the
+  // post-review confirm. Acknowledges, resets the draft, drops the
+  // just-hired flag, holds the toast, then redirects (demo → roster,
+  // non-demo → /onboarding/done celebration).
+  const succeedHired = useCallback(
+    async (workerId: string, workerName: string) => {
+      // Acknowledge the hire before navigating away. Without this the
+      // page swaps to the celebration/roster with no confirmation that
+      // the click landed — the buyer is left guessing whether it worked.
+      toast.success(`✓ Hired ${workerName}. Taking you to their page…`);
+      reset();
+      setReview(null);
+      // sessionStorage flag drives the one-shot "Set their schedule"
+      // callout on the worker overview page; per-tab + cleared on first
+      // read, so a reload doesn't re-surface it. Carries through both
+      // the demo-mode roster redirect and the /onboarding/done
+      // celebration's auto-advance.
+      try {
+        sessionStorage.setItem("skycot:just-hired", workerId);
+      } catch {
+        /* private mode / storage disabled — silently degrade */
+      }
+      // Hire-complete redirect:
+      // - In demo mode: land on /workers?just-hired=1&new=<id> so the
+      //   camera sees the roster grow (new card highlighted) — the
+      //   recording's own emotional beat. The /onboarding/done
+      //   celebration would land between the wizard and the roster and
+      //   blunt that punchline. URL pin in
+      //   `onboarding-demo-mode-first-hire-lands-on-worker.spec.ts`
+      //   still matches. See brief
+      //   `fix-demo-first-hire-discards-prompt-and-redirects-to-sample-worker`.
+      // - In non-demo mode: route through `/onboarding/done` so the
+      //   F1 "meet your first teammate" celebration lands before the
+      //   buyer reaches the worker profile. The done page reads
+      //   `?worker=<id>&name=<workerName>` from the URL (the draft is
+      //   reset above so the URL is the only carrier) and auto-advances
+      //   to `/workers/<id>` after 6s.
+      // Brief hold so the success toast is visible before the route
+      // change unmounts this page.
+      await new Promise((resolve) => setTimeout(resolve, SUCCESS_TOAST_HOLD_MS));
+      if (isDemoMode()) {
+        router.push(`/workers?just-hired=1&new=${encodeURIComponent(workerId)}`);
+      } else {
+        const nameParam = encodeURIComponent(workerName);
+        router.push(
+          `/onboarding/done?worker=${encodeURIComponent(workerId)}&name=${nameParam}`,
+        );
+      }
+    },
+    [reset, router],
+  );
+
+  // Translate a thrown hire/confirm error into the honest form banner copy.
+  function surfaceHireError(e: unknown) {
+    // Wave-11 fix (2026-05-21): prior copy claimed "we'll create
+    // your worker in the background — try again or skip to your
+    // team" but there's no background job and no Skip button. Be
+    // honest: the call failed; user retries.
+    if (e instanceof Error && e.message === FIRST_HIRE_VERIFY_FAILED_MESSAGE) {
+      setError(e.message);
+      setShowHelpLink(true);
+      return;
+    }
+    // Scrub internal protocol detail before it reaches the form.
+    const scrubbed = scrubOnboardingErrorMessage(e);
+    const suffix = scrubbed.wasProtocolLeak
+      ? ""
+      : " Try again, or come back once the gateway is up.";
+    setError(`${scrubbed.message}${suffix}`);
+  }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -101,76 +181,86 @@ function FirstHireFormBody() {
     setFirstHireNameInStore(trimmedName);
     setFirstHirePromptInStore(description);
     try {
-      const res = await firstHire.mutateAsync({
+      const outcome: FirstHireOutcome = await firstHire.mutateAsync({
         name: trimmedName,
         description,
         tenantId,
         verticalId,
       });
-      // Acknowledge the hire before navigating away. Without this the
-      // page swaps to the celebration/roster with no confirmation that
-      // the click landed — the buyer is left guessing whether it worked.
-      toast.success(`✓ Hired ${res.workerName}. Taking you to their page…`);
-      reset();
-      // sessionStorage flag drives the one-shot "Set their schedule"
-      // callout on the worker overview page; per-tab + cleared on first
-      // read, so a reload doesn't re-surface it. Carries through both
-      // the demo-mode roster redirect and the /onboarding/done
-      // celebration's auto-advance.
-      try {
-        sessionStorage.setItem("skycot:just-hired", res.workerId);
-      } catch {
-        /* private mode / storage disabled — silently degrade */
+      if (outcome.kind === "needs_review") {
+        // Gateway derived the truthful contract and is holding the hire for
+        // human review (DEC-025 #1). Show the review screen; KEEP the form
+        // values + draft (no reset, no redirect).
+        setReview(outcome.review);
+        return;
       }
-      // Hire-complete redirect:
-      // - In demo mode: land on /workers?just-hired=1&new=<id> so the
-      //   camera sees the roster grow (new card highlighted) — the
-      //   recording's own emotional beat. The /onboarding/done
-      //   celebration would land between the wizard and the roster and
-      //   blunt that punchline. URL pin in
-      //   `onboarding-demo-mode-first-hire-lands-on-worker.spec.ts`
-      //   still matches. See brief
-      //   `fix-demo-first-hire-discards-prompt-and-redirects-to-sample-worker`.
-      // - In non-demo mode: route through `/onboarding/done` so the
-      //   F1 "meet your first teammate" celebration lands before the
-      //   buyer reaches the worker profile. The done page reads
-      //   `?worker=<id>&name=<workerName>` from the URL (the draft is
-      //   reset above so the URL is the only carrier) and auto-advances
-      //   to `/workers/<id>` after 6s.
-      // Brief hold so the success toast is visible before the route
-      // change unmounts this page.
-      await new Promise((resolve) => setTimeout(resolve, SUCCESS_TOAST_HOLD_MS));
-      if (isDemoMode()) {
-        router.push(`/workers?just-hired=1&new=${encodeURIComponent(res.workerId)}`);
-      } else {
-        const nameParam = encodeURIComponent(res.workerName);
-        router.push(
-          `/onboarding/done?worker=${encodeURIComponent(res.workerId)}&name=${nameParam}`,
-        );
+      await succeedHired(outcome.workerId, outcome.workerName);
+    } catch (e) {
+      surfaceHireError(e);
+    }
+  }
+
+  // Fired by RoleContractReview ONLY after the operator ticks confirm +
+  // presses the button. Echoes the gateway-returned digest at the confirm
+  // call; never auto-confirms.
+  async function handleConfirm() {
+    if (!review) return;
+    setError("");
+    setShowHelpLink(false);
+    try {
+      const outcome = await confirmHire.mutateAsync(review);
+      // Confirm always resolves to `hired` (a re-hold throws), but narrow
+      // defensively so a future variant can't fall through silently.
+      if (outcome.kind === "hired") {
+        await succeedHired(outcome.workerId, outcome.workerName);
       }
     } catch (e) {
-      // Wave-11 fix (2026-05-21): prior copy claimed "we'll create
-      // your worker in the background — try again or skip to your
-      // team" but there's no background job and no Skip button. Be
-      // honest: the call failed; user retries. Real success path
-      // ships via web-gateway-endpoints-onboarding-batch.
-      if (e instanceof Error && e.message === FIRST_HIRE_VERIFY_FAILED_MESSAGE) {
-        setError(e.message);
-        setShowHelpLink(true);
-      } else {
-        // Scrub internal protocol detail before it reaches the form.
-        const scrubbed = scrubOnboardingErrorMessage(e);
-        const suffix = scrubbed.wasProtocolLeak
-          ? ""
-          : " Try again, or come back once the gateway is up.";
-        setError(`${scrubbed.message}${suffix}`);
-      }
+      surfaceHireError(e);
     }
+  }
+
+  function handleStartOver() {
+    setReview(null);
+    setError("");
+    setShowHelpLink(false);
   }
 
   const submitting = firstHire.isPending;
   const canSubmit =
     name.trim().length > 0 && prompt.trim().length > 0 && !submitting;
+
+  // Review screen takes over the wizard surface when the gateway held the
+  // hire for human review. The form values stay in the draft store so
+  // "← Start over" returns to a populated form.
+  if (review) {
+    return (
+      <OnboardingShell
+        step={5}
+        completedSteps={4}
+        stepLabel="FIRST HIRE"
+        eyebrow="STEP 05 · REVIEW & CONFIRM"
+        heroSegments={[
+          { text: "Review what " },
+          { text: `${review.name} can do.`, accent: true },
+        ]}
+        sub={
+          <>
+            This is the <strong>truthful capability contract</strong> we
+            derived — confirm it to hire {review.name}.
+          </>
+        }
+      >
+        <FirstHireReviewPanel
+          review={review}
+          onConfirm={handleConfirm}
+          onStartOver={handleStartOver}
+          isHiring={confirmHire.isPending}
+          error={error}
+        />
+        <Toaster />
+      </OnboardingShell>
+    );
+  }
 
   return (
     <OnboardingShell

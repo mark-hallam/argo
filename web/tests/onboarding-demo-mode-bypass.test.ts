@@ -96,24 +96,42 @@ describe("demo-mode short-circuit", () => {
     );
     _clearDemoRosterForTests();
 
-    const marketing = await firstHire({
-      name: "Maya",
-      description: "a marketing intern named Maya",
-      verticalId: "marketing-intern",
-      tenantId: null,
-    });
-    const recruiter = await firstHire({
-      name: "Penny",
-      description: "a recruiter named Penny",
-      verticalId: "recruiter",
-      tenantId: null,
-    });
-    const unknown = await firstHire({
-      name: "Ada",
-      description: "a brand-new role we don't have a sample for",
-      verticalId: "made-up-vertical",
-      tenantId: null,
-    });
+    // Demo mode always hires synchronously (never `needs_review`), so narrow
+    // each outcome to the `hired` variant before reading the worker fields.
+    type Hired = Extract<
+      Awaited<ReturnType<typeof firstHire>>,
+      { kind: "hired" }
+    >;
+    const assertHired = (outcome: Awaited<ReturnType<typeof firstHire>>): Hired => {
+      expect(outcome.kind).toBe("hired");
+      if (outcome.kind !== "hired") throw new Error("expected hired outcome");
+      return outcome;
+    };
+
+    const marketing = assertHired(
+      await firstHire({
+        name: "Maya",
+        description: "a marketing intern named Maya",
+        verticalId: "marketing-intern",
+        tenantId: null,
+      }),
+    );
+    const recruiter = assertHired(
+      await firstHire({
+        name: "Penny",
+        description: "a recruiter named Penny",
+        verticalId: "recruiter",
+        tenantId: null,
+      }),
+    );
+    const unknown = assertHired(
+      await firstHire({
+        name: "Ada",
+        description: "a brand-new role we don't have a sample for",
+        verticalId: "made-up-vertical",
+        tenantId: null,
+      }),
+    );
 
     expect(fetchSpy).not.toHaveBeenCalled();
     // Returned name matches the user's typed input — not the
