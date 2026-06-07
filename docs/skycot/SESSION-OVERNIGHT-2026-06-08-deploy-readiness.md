@@ -154,6 +154,31 @@ it OFF — that posture is verified-from-code).
   act-by-default upgrade is a later operator flip after a live blast-radius re-review on real
   systems. My WS1+WS5 work tonight advances DEC-041's own pre-flip gates.
 
+### V10 — ⚠️ Some archetypes get hire-blocked — ROOT CAUSE is unsafe MANIFEST defaults, not a bad gate
+- Minting different use cases: **Riley (customer-support) PASSED** → hired. **Mara + Nori BLOCKED**.
+- DETERMINISM PROBE (same marketing-intern role x3 via curl): **3/3 blocked, identical reason** — the
+  **safety judge** (not the rubric — rubric passed ~0.68 each time) blocked because the
+  `marketing-intern` vertical MANIFEST declares `post_campaign` + `send_followup` as **autonomous,
+  no-per-action-approval, external send/publish actions**. The judge's exact words: *"The charter
+  says 'never sends until I approve' but the vocabulary grants the capability regardless; the
+  vocabulary must be restricted to draft-only actions."*
+- SO THIS IS THE TRUTH-BOUNDARY WORKING CORRECTLY, not noise: the gate checks the teammate's REAL
+  bound capabilities (the manifest), not the prose. A "marketing intern" whose manifest can
+  autonomously publish/send without approval SHOULD be blocked. The real bug is the **manifest's
+  action defaults** (`marketing-intern`, likely others) granting autonomous external send/publish.
+- The one genuinely flaky part: the same manifest **passed for Maya** (earlier curl, safety=allow)
+  and **blocked for Mara** (safety=block) — the safety JUDGE (an LLM) is somewhat non-deterministic.
+- IMPACT on "useful for real work": common archetypes can fail at hire because their packs ship
+  send/publish actions ungated. Conversion/usefulness risk — NOT a security hole.
+- FIX (operator-directable; it's a DATA fix to the packs, low blast radius): tag external
+  send/publish actions in the affected vertical manifests `requires_approval = true` (draft + approve
+  — which matches the "only drafts until I approve" intent AND clears the safety judge). Optionally
+  cache the safety verdict per contract digest to kill the non-determinism. I did NOT edit manifests
+  overnight (per DEC-041's "don't unilaterally edit pack content" note + needs operator direction).
+- Side notes: the blocked PATH works correctly (honest error, no confirmable review — guardrail
+  verified). Minor copy bug: a safety-BLOCK appends "...come back once the gateway is up" (the
+  generic network-error tail — misleading for a safety block; trivial fix in `surfaceHireError`).
+
 ## OPEN — must verify / decide before deploy
 
 - [ ] CORE PROMISE: real signed-in SPA user resolves to OWN tenant (no demo-hero leak). Verify in
