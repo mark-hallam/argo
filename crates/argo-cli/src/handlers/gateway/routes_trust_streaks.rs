@@ -33,7 +33,7 @@ use argo_audit::{AuditKind, AuditSink};
 use argo_identity::{IdentityStore, WorkerId};
 use argo_store::trust_streak::{streaks_for_worker, TrustStreak};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, TenantId};
+use argo_types::TenantId;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
@@ -55,7 +55,7 @@ pub(super) async fn list_response(
         Err(e) => return bad_request(&format!("invalid worker_id '{worker_id_raw}': {e}")),
     };
     let min = parse_min(req);
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t,
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -118,17 +118,6 @@ fn query_param(req: &str, key: &str) -> Option<String> {
         }
     }
     None
-}
-
-async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
 }
 
 async fn emit_audit(

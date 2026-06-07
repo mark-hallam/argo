@@ -53,7 +53,7 @@ use argo_identity::{IdentityStore, Worker, WorkerId};
 use argo_skill::TrustGrade;
 use argo_store::SessionStore;
 use argo_trust_engine::{recompute_worker, RatchetDecision};
-use argo_types::{ArgoError, ArgoResult, TenantId};
+use argo_types::TenantId;
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -74,7 +74,7 @@ pub(super) async fn show_response(
         Ok(id) => id,
         Err(e) => return bad_request(&format!("invalid worker_id '{worker_id_raw}': {e}")),
     };
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t,
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -113,7 +113,7 @@ pub(super) async fn recompute_response(
         Ok(id) => id,
         Err(e) => return bad_request(&format!("invalid worker_id '{worker_id_raw}': {e}")),
     };
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t,
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -342,17 +342,6 @@ fn criterion(name: &str, current: &str, target: &str, met: bool) -> Value {
         "target_value": target,
         "met": met,
     })
-}
-
-async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
 }
 
 async fn emit_audit(store: &Arc<SessionStore>, req: &str, tenant: TenantId, worker_id: WorkerId) {

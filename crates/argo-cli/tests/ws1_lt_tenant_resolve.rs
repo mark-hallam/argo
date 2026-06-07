@@ -126,6 +126,9 @@ fn migrated_long_tail_routes_use_canonical_resolver() {
         // Tranche 2 — agent-draft routes (Grant GTM, Marcus/Nori marketing).
         "src/handlers/gateway/routes_gtm_draft_followup.rs",
         "src/handlers/gateway/routes_marketing_draft_response.rs",
+        // Tranche 3 — worker-detail read routes.
+        "src/handlers/gateway/routes_worker_trust_grade.rs",
+        "src/handlers/gateway/routes_trust_streaks.rs",
     ];
     for rel in must_call {
         let src = read_src(rel);
