@@ -10,6 +10,7 @@ import { isDemoMode } from "@/lib/skycot/demo-mode";
 import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
+import { ONBOARDING_MAX_LENGTHS, parseField, providerKeySchema } from "../schemas";
 
 const ANTHROPIC_CONSOLE_URL = "https://console.anthropic.com/settings/keys";
 
@@ -169,14 +170,15 @@ function ConnectProviderFormBody() {
     e.preventDefault();
     setProviderError(null);
     setSuccess(false);
-    const key = apiKey.trim();
-    if (!key.startsWith("sk-ant-")) {
-      setProviderError({
-        message: "Anthropic API keys start with sk-ant-.",
-        tone: "error",
-      });
+    // Validate shape + length through the shared schema (keeps the
+    // `sk-ant-` prefix check, adds an upper bound so a runaway paste can't
+    // reach the gateway). The schema trims, so `key` is the cleaned value.
+    const keyResult = parseField(providerKeySchema, apiKey);
+    if (!keyResult.ok) {
+      setProviderError({ message: keyResult.error, tone: "error" });
       return;
     }
+    const key = keyResult.value;
     try {
       const result = await validate.mutateAsync({ apiKey: key });
       setProvider(true, false);
@@ -244,6 +246,7 @@ function ConnectProviderFormBody() {
               autoComplete="off"
               aria-label="Anthropic API key"
               spellCheck={false}
+              maxLength={ONBOARDING_MAX_LENGTHS.providerKey}
               autoFocus
             />
             <p className="ob-field-hint">

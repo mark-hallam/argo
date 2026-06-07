@@ -10,6 +10,12 @@ import { Toaster } from "@/components/ui/sonner";
 import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
+import {
+  ONBOARDING_MAX_LENGTHS,
+  companyNameSchema,
+  parseField,
+  workspaceNameSchema,
+} from "../schemas";
 
 // Returning users (workspace already provisioned in draft) auto-advance.
 // Short enough to feel snappy, just long enough to perceive the banner.
@@ -74,12 +80,22 @@ function WorkspaceFormBody() {
       return;
     }
     setError("");
-    const wsName = workspaceName.trim();
-    const coName = companyName.trim();
-    if (wsName.length === 0 || coName.length === 0) {
-      setError("Workspace name and company name are required.");
+    // Validate both fields through the shared Zod schemas before anything
+    // reaches the gateway: bounds the length, rejects whitespace-only, and
+    // strips control / zero-width characters that would otherwise become an
+    // empty or mojibake workspace name everywhere it renders.
+    const wsResult = parseField(workspaceNameSchema, workspaceName);
+    if (!wsResult.ok) {
+      setError(wsResult.error);
       return;
     }
+    const coResult = parseField(companyNameSchema, companyName);
+    if (!coResult.ok) {
+      setError(coResult.error);
+      return;
+    }
+    const wsName = wsResult.value;
+    const coName = coResult.value;
     setWorkspace(wsName, coName);
     try {
       const res = await provision.mutateAsync({ workspaceName: wsName, companyName: coName });
@@ -145,6 +161,7 @@ function WorkspaceFormBody() {
             placeholder="Acme Growth"
             autoComplete="off"
             aria-label="Workspace name"
+            maxLength={ONBOARDING_MAX_LENGTHS.workspaceName}
             autoFocus
           />
           <p className="ob-field-hint">
@@ -163,6 +180,7 @@ function WorkspaceFormBody() {
             placeholder="Acme Inc."
             autoComplete="organization"
             aria-label="Company name"
+            maxLength={ONBOARDING_MAX_LENGTHS.companyName}
           />
         </label>
         {error ? (

@@ -89,4 +89,70 @@ describe("lib/api/worker-memory normalizer", () => {
     expect(memory.facts[0].factId).toBe("f2");
     expect(memory.facts[0].createdAt).toBe("2026-05-29T09:00:00+00:00");
   });
+
+  // FIX 4: conversation / decision items used to be cast straight to types
+  // declaring required `href: string`, but a fresh worker omits per-item
+  // `href`. The mappers now default every field — `href` is derived from the
+  // item id (or "" when absent), never `undefined`.
+  it("normalizes conversation/decision items missing per-item href (no undefined)", async () => {
+    installMock(() =>
+      makeResponse({
+        namespace_id: "ns/x",
+        facts: [],
+        active_conversations: [
+          // Snake-case id, NO href — the case that produced the lying type.
+          {
+            conversation_id: "conv-abc-123",
+            counterparty_handle: "@buyer",
+            topic: "refund",
+            last_message_at: "2026-05-30T10:00:00+00:00",
+          },
+          // No id and no href at all → href must be "" (not undefined).
+          { topic: "no id here" },
+        ],
+        recent_decisions: [
+          {
+            decision_id: "dec-xyz-9",
+            label: "Approved refund",
+            outcome: "approved",
+            decided_at: "2026-05-30T11:00:00+00:00",
+          },
+          // Unknown outcome string → narrowed to "refused"; no id → href "".
+          { label: "weird", outcome: "escalated" },
+        ],
+        voice_profile: { tone: "warm", formality: "professional" },
+      }),
+    );
+
+    const { memory, source } = await fetchMemory("w3");
+    expect(source).toBe("gateway");
+
+    expect(memory.activeConversations).toHaveLength(2);
+    const [c0, c1] = memory.activeConversations;
+    // Derived audit drill-in from the id (dashes stripped), never undefined.
+    expect(c0.conversationId).toBe("conv-abc-123");
+    expect(c0.href).toBe("/audit/action/convabc123");
+    expect(typeof c0.href).toBe("string");
+    // No id → empty-string href, and the other required fields default too.
+    expect(c1.href).toBe("");
+    expect(c1.conversationId).toBe("");
+    expect(c1.counterpartyHandle).toBe("");
+
+    expect(memory.recentDecisions).toHaveLength(2);
+    const [d0, d1] = memory.recentDecisions;
+    expect(d0.decisionId).toBe("dec-xyz-9");
+    expect(d0.href).toBe("/audit/action/decxyz9");
+    expect(d0.outcome).toBe("approved");
+    // Unknown outcome narrows to "refused"; missing id → "" href.
+    expect(d1.outcome).toBe("refused");
+    expect(d1.href).toBe("");
+
+    // The whole point: not a single undefined href across either list.
+    for (const c of memory.activeConversations) {
+      expect(c.href).not.toBeUndefined();
+    }
+    for (const d of memory.recentDecisions) {
+      expect(d.href).not.toBeUndefined();
+    }
+  });
 });

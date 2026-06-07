@@ -10,9 +10,8 @@ import {
   FIRST_HIRE_VERIFY_FAILED_MESSAGE,
   useFirstHire,
   useConfirmFirstHire,
-  type FirstHireOutcome,
-  type FirstHireReview,
 } from "@/lib/onboarding/use-first-hire";
+import { clearOnboardingIdempotencyKey } from "@/lib/onboarding/onboarding-idempotency-key";
 import { exampleForVertical } from "@/lib/onboarding/example-prompts";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
 import { FirstHireErrorBanner } from "@/components/skycot/onboarding/FirstHireErrorBanner";
@@ -21,6 +20,12 @@ import { Toaster } from "@/components/ui/sonner";
 import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
+import {
+  ONBOARDING_MAX_LENGTHS,
+  firstHireDescriptionSchema,
+  firstHireNameSchema,
+  parseField,
+} from "../schemas";
 
 // Hold the success toast on screen briefly before navigating so the
 // buyer registers the "✓ Hired" acknowledgment (F14). Long enough to
@@ -79,10 +84,19 @@ function FirstHireFormBody() {
   const confirmHire = useConfirmFirstHire();
   const [error, setError] = useState("");
   const [showHelpLink, setShowHelpLink] = useState(false);
-  // When the gateway holds the hire in `needs_review` (HTTP 422), we stash
-  // the review payload and swap the form for the RoleContractReview screen.
-  // The confirm call only fires after the operator confirms there.
-  const [review, setReview] = useState<FirstHireReview | null>(null);
+  // Derive the needs_review screen from the mutation's OWN cached data
+  // instead of a separate `useState`. Holding it in local state meant a
+  // remount during the ~10-40s rubric wait (React Strict Mode in dev, HMR,
+  // or any real future remount) lost the `setReview` from the first
+  // mutateAsync — the "needs a 2nd click" quirk. Reading `firstHire.data`
+  // makes that loss structurally impossible: React Query owns the result.
+  // The confirm path never re-holds (a second 422 throws), so a confirmed
+  // hire leaves `confirmHire.data.kind === "hired"` and this stays null.
+  const review =
+    firstHire.data?.kind === "needs_review" &&
+    confirmHire.data?.kind !== "hired"
+      ? firstHire.data.review
+      : null;
 
   useEffect(() => {
     setStep(5);
@@ -99,7 +113,9 @@ function FirstHireFormBody() {
       // the click landed — the buyer is left guessing whether it worked.
       toast.success(`✓ Hired ${workerName}. Taking you to their page…`);
       reset();
-      setReview(null);
+      // Drop the idempotency token alongside the draft reset so the NEXT
+      // first hire mints a fresh one rather than re-using this worker's.
+      clearOnboardingIdempotencyKey();
       // sessionStorage flag drives the one-shot "Set their schedule"
       // callout on the worker overview page; per-tab + cleared on first
       // read, so a reload doesn't re-surface it. Carries through both
@@ -161,18 +177,28 @@ function FirstHireFormBody() {
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Re-entry guard (FIX 2): the disabled submit button does NOT stop a
+    // native form Enter-submit, so a fast double-Enter could fire two hires
+    // before the first settled. Bail if a hire is already in flight; the
+    // same-key idempotency token is the second line of defence on the wire.
+    if (firstHire.isPending) return;
     setError("");
     setShowHelpLink(false);
-    const trimmedName = name.trim();
-    const description = prompt.trim();
-    if (trimmedName.length === 0) {
-      setError("Give them a name.");
+    // Validate name + description through the shared Zod schemas: bounds the
+    // length, rejects whitespace-only, and strips control / zero-width chars
+    // before the value becomes the worker's display name everywhere.
+    const nameResult = parseField(firstHireNameSchema, name);
+    if (!nameResult.ok) {
+      setError(nameResult.error);
       return;
     }
-    if (description.length === 0) {
-      setError("Tell us a bit about who you'd like to hire.");
+    const descResult = parseField(firstHireDescriptionSchema, prompt);
+    if (!descResult.ok) {
+      setError(descResult.error);
       return;
     }
+    const trimmedName = nameResult.value;
+    const description = descResult.value;
     const { tenantId, verticalId } = useOnboardingDraft.getState();
     if (!verticalId) {
       setError("Pick a template first.");
@@ -181,7 +207,7 @@ function FirstHireFormBody() {
     setFirstHireNameInStore(trimmedName);
     setFirstHirePromptInStore(description);
     try {
-      const outcome: FirstHireOutcome = await firstHire.mutateAsync({
+      const outcome = await firstHire.mutateAsync({
         name: trimmedName,
         description,
         tenantId,
@@ -189,9 +215,10 @@ function FirstHireFormBody() {
       });
       if (outcome.kind === "needs_review") {
         // Gateway derived the truthful contract and is holding the hire for
-        // human review (DEC-025 #1). Show the review screen; KEEP the form
-        // values + draft (no reset, no redirect).
-        setReview(outcome.review);
+        // human review (DEC-025 #1). The review screen is now DERIVED from
+        // `firstHire.data` (set by the mutation itself), so there's nothing
+        // to stash here — just stop and let the render switch to the panel.
+        // Form values + draft stay put (no reset, no redirect).
         return;
       }
       await succeedHired(outcome.workerId, outcome.workerName);
@@ -220,7 +247,12 @@ function FirstHireFormBody() {
   }
 
   function handleStartOver() {
-    setReview(null);
+    // Reset the mutation so the DERIVED `review` (read off `firstHire.data`)
+    // falls back to null and the form re-renders. `confirmHire.reset()` too,
+    // so a prior confirm error/data can't keep the panel pinned. Form values
+    // stay in the draft store, so "← Start over" returns to a populated form.
+    firstHire.reset();
+    confirmHire.reset();
     setError("");
     setShowHelpLink(false);
   }
@@ -298,6 +330,7 @@ function FirstHireFormBody() {
             placeholder={namePlaceholder}
             aria-label="First hire name"
             autoComplete="off"
+            maxLength={ONBOARDING_MAX_LENGTHS.firstHireName}
             autoFocus
             required
           />
@@ -311,6 +344,7 @@ function FirstHireFormBody() {
             onChange={(e) => setFirstHirePromptInStore(e.target.value)}
             placeholder={examplePrompt}
             aria-label="First hire description"
+            maxLength={ONBOARDING_MAX_LENGTHS.firstHireDescription}
             rows={5}
           />
           <p className="ob-field-hint">

@@ -15,9 +15,9 @@
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ReactNode } from "react";
+import { StrictMode, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import FirstHirePage from "../page";
@@ -389,5 +389,188 @@ describe("OnboardingFirstHirePage — Genesis review→confirm gate", () => {
       posts.some((p) => typeof p.confirmed_contract_digest === "string"),
     ).toBe(false);
     expect(pushMock).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FIX 3 — the needs_review screen is DERIVED from the mutation's cached data
+// (`firstHire.data`), not a separate `useState`. Driving the flow inside
+// <StrictMode> (which double-invokes renders + mount/unmount effects, the
+// exact condition behind the dev "needs a 2nd click" quirk) must still land
+// the review panel on the FIRST submit — no second click, no lost payload.
+// ---------------------------------------------------------------------------
+describe("OnboardingFirstHirePage — review is derived from query state (FIX 3)", () => {
+  it("renders the review panel on the first submit even under StrictMode double-invoke", async () => {
+    installGateFetch("needs_review");
+
+    const user = userEvent.setup();
+    useOnboardingDraft.getState().setProvision("tenant_onboarding_1", "workspace_1");
+    useOnboardingDraft.getState().setVertical("marketing-intern");
+
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, gcTime: 0 },
+        mutations: { retry: false },
+      },
+    });
+    render(
+      <StrictMode>
+        <QueryClientProvider client={client}>
+          <FirstHirePage />
+        </QueryClientProvider>
+      </StrictMode>,
+    );
+
+    await user.type(screen.getByTestId("first-hire-name"), "Maya");
+    await user.type(
+      screen.getByTestId("first-hire-prompt"),
+      "marketing intern who drafts blog posts",
+    );
+    await user.click(screen.getByTestId("onboarding-first-hire-submit"));
+
+    // The review screen appears from a single submit — proving the payload
+    // is read off `firstHire.data` and not a `setReview` that a remount could
+    // drop. The "Start over" affordance (now `firstHire.reset()`) is present.
+    await screen.findByTestId(
+      "genesis-role-contract-review",
+      {},
+      { timeout: 4_000 },
+    );
+    expect(
+      screen.getByTestId("onboarding-first-hire-review-start-over"),
+    ).toBeInTheDocument();
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FIX 1 — input validation on the first-hire form. Whitespace-only,
+// zero-width-only, and over-long inputs are blocked BEFORE any POST.
+// ---------------------------------------------------------------------------
+describe("OnboardingFirstHirePage — input validation (FIX 1)", () => {
+  function setInputs(name: string, prompt: string) {
+    const nameInput = screen.getByTestId("first-hire-name") as HTMLInputElement;
+    const promptInput = screen.getByTestId(
+      "first-hire-prompt",
+    ) as HTMLTextAreaElement;
+    // Direct change events bypass the inputs' maxLength clamp so the SCHEMA
+    // bound (the real defence) is what the over-long case exercises.
+    fireEvent.change(nameInput, { target: { value: name } });
+    fireEvent.change(promptInput, { target: { value: prompt } });
+  }
+
+  it("blocks a zero-width-only name (no POST, error shown)", async () => {
+    const postSpy = vi.fn();
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/v1/onboarding/first-hire")) postSpy();
+      return Response.json({});
+    }) as unknown as typeof fetch;
+
+    useOnboardingDraft.getState().setProvision("tenant_1", "workspace_1");
+    useOnboardingDraft.getState().setVertical("marketing-intern");
+    render(wrap(<FirstHirePage />));
+
+    setInputs("​", "a real description of the role");
+    fireEvent.submit(screen.getByTestId("onboarding-first-hire-form"));
+
+    await screen.findByTestId("onboarding-first-hire-error");
+    expect(postSpy).not.toHaveBeenCalled();
+  });
+
+  it("blocks an over-long name (> 80 chars)", async () => {
+    const postSpy = vi.fn();
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/v1/onboarding/first-hire")) postSpy();
+      return Response.json({});
+    }) as unknown as typeof fetch;
+
+    useOnboardingDraft.getState().setProvision("tenant_1", "workspace_1");
+    useOnboardingDraft.getState().setVertical("marketing-intern");
+    render(wrap(<FirstHirePage />));
+
+    setInputs("n".repeat(81), "a real description of the role");
+    fireEvent.submit(screen.getByTestId("onboarding-first-hire-form"));
+
+    await screen.findByTestId("onboarding-first-hire-error");
+    expect(postSpy).not.toHaveBeenCalled();
+  });
+
+  it("the name input + description textarea carry maxLength stops", () => {
+    useOnboardingDraft.getState().setVertical("marketing-intern");
+    render(wrap(<FirstHirePage />));
+    expect(screen.getByTestId("first-hire-name")).toHaveAttribute(
+      "maxlength",
+      "80",
+    );
+    expect(screen.getByTestId("first-hire-prompt")).toHaveAttribute(
+      "maxlength",
+      "2000",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FIX 2 — the form's native Enter-submit re-entry guard. A second submit
+// fired while the first hire is in flight must NOT produce a second POST.
+// ---------------------------------------------------------------------------
+describe("OnboardingFirstHirePage — submit re-entry guard (FIX 2)", () => {
+  it("a second form submit while the first hire is pending fires only one POST", async () => {
+    const user = userEvent.setup();
+    let resolveHire: ((value: Response) => void) | undefined;
+    const firstHirePosts: unknown[] = [];
+
+    global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url === "/api/auth/session") {
+        return Response.json({
+          gatewayToken: "t",
+          principal: "human:onboarding@example.test",
+        });
+      }
+      if (url.endsWith("/api/v1/auth/csrf")) {
+        return Response.json({ token: "csrf" });
+      }
+      if (url.endsWith("/api/v1/onboarding/first-hire") && method === "POST") {
+        firstHirePosts.push(parseBody(init));
+        // Hang the FIRST hire POST so `firstHire.isPending` stays true while we
+        // fire a second submit; the guard must drop the second one.
+        return new Promise<Response>((resolve) => {
+          resolveHire = resolve;
+        });
+      }
+      if (url.endsWith("/overview")) return Response.json({ ok: true });
+      throw new Error(`unexpected fetch ${method} ${url}`);
+    }) as unknown as typeof fetch;
+
+    useOnboardingDraft.getState().setProvision("tenant_1", "workspace_1");
+    useOnboardingDraft.getState().setVertical("marketing-intern");
+    render(wrap(<FirstHirePage />));
+
+    await user.type(screen.getByTestId("first-hire-name"), "Maya");
+    await user.type(
+      screen.getByTestId("first-hire-prompt"),
+      "marketing intern who drafts blog posts",
+    );
+
+    const form = screen.getByTestId("onboarding-first-hire-form");
+    // First submit kicks off the (hanging) POST.
+    fireEvent.submit(form);
+    await waitFor(() => expect(firstHirePosts.length).toBe(1));
+    // Native Enter-submit again while in-flight — the disabled button would
+    // not have stopped this; the `if (firstHire.isPending) return` guard must.
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+
+    // Give any errant second POST a tick to land, then assert only one fired.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(firstHirePosts.length).toBe(1);
+
+    // Release the hanging request so the test doesn't leak a pending promise.
+    resolveHire?.(
+      Response.json({ worker_id: "wkr_maya", worker_name: "Maya" }, { status: 201 }),
+    );
   });
 });

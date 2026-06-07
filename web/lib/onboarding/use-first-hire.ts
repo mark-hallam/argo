@@ -11,6 +11,7 @@ import type {
 } from "@/lib/api/genesis";
 import type { WorkerOverview } from "@/lib/api/worker-overview";
 import { uuidV7 } from "@/lib/hire/idempotency-key";
+import { getOrCreateOnboardingIdempotencyKey } from "@/lib/onboarding/onboarding-idempotency-key";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
 import type { Worker } from "@/lib/types/worker";
 
@@ -83,6 +84,16 @@ interface FirstHirePayload {
    * re-derives the digest from the bound manifest and activates on a match.
    */
   confirmed_contract_digest?: string;
+  /**
+   * Stable per-hire de-dupe token (UUID v7). The SAME value rides the initial
+   * submit AND the post-review confirm, so an Enter-key double-fire or a
+   * needs_review→confirm round-trip cannot mint two workers. GATEWAY COMPANION
+   * CHANGE: enforced only once the `/api/v1/onboarding/first-hire` handler
+   * keys on `(tenant_id, idempotency_key, created_at > now-1h)` (the shape
+   * `/hire` already honours). Until then the client re-entry guard +
+   * same-key-on-retry are load-bearing; sending the key now is harmless.
+   */
+  idempotency_key?: string;
 }
 
 interface FirstHireResponse {
@@ -152,14 +163,11 @@ async function verifyWorkerReadable(workerId: string): Promise<void> {
 }
 
 /**
- * Vertical ids the pick-vertical demo grid filters against. F10
- * (#2647) restricted the grid to verticals with a matching sample
- * persona so the camera never landed on a "Sales SDR → Mariah's
- * marketplace-lister charter" vocabulary mismatch. The
- * VERTICAL_TO_SAMPLE_WORKER map that originally derived this set is
- * gone (the demo short-circuit now synthesises a fresh worker from
- * the user's typed name + description), so the set is now a flat
- * literal. Loosening the F10 filter is out of scope for this brief.
+ * Vertical ids the pick-vertical demo grid filters against. F10 (#2647)
+ * restricted the grid to verticals with a matching sample persona so the
+ * camera never landed on a vocabulary mismatch. The VERTICAL_TO_SAMPLE_WORKER
+ * map that derived this set is gone (the demo short-circuit now synthesises a
+ * fresh worker from the typed name + description), so this is a flat literal.
  */
 export const DEMO_SUPPORTED_VERTICAL_IDS: ReadonlySet<string> = new Set([
   "marketplace-seller",
@@ -292,10 +300,9 @@ function hardBlockError(err: ApiError): ApiError {
 }
 
 /**
- * Shared post-201 path for BOTH the initial `firstHire` (the legacy
- * pre-digest 201, if the gateway still hands one back) and the
- * `confirmFirstHire` confirm call: read back the freshly-hired worker, fall
- * back to a by-name lookup on the ghost-worker 404, and surface
+ * Shared post-201 path for BOTH the initial `firstHire` (legacy pre-digest
+ * 201) and the `confirmFirstHire` confirm: read back the freshly-hired worker,
+ * fall back to a by-name lookup on the ghost-worker 404, and surface
  * `FIRST_HIRE_VERIFY_FAILED_MESSAGE` if it stays unreadable.
  */
 async function settleHiredResponse(
@@ -338,20 +345,24 @@ async function settleHiredResponse(
 }
 
 export async function firstHire(req: FirstHireRequest): Promise<FirstHireOutcome> {
-  // Demo-mode short-circuit: the first-hire endpoint requires a verified
-  // principal AND a real tenant id. Neither exists in demo mode. Skip
-  // the gateway + the post-hire readback verify and synthesize a
-  // session-local hire keyed off the user's typed name + description;
-  // `appendDemoWorker` makes the new worker resolvable from /team and
-  // /workers/<id>/overview without a live gateway.
+  // Demo-mode short-circuit: no verified principal / real tenant exists, so
+  // skip the gateway + readback verify and synthesize a session-local hire
+  // (see `buildDemoFirstHireResult`).
   if (isDemoMode()) {
     return { kind: "hired", ...buildDemoFirstHireResult(req) };
   }
   let raw: unknown;
   try {
+    // Stable de-dupe token (omitted when storage is unavailable).
+    const idempotencyKey = getOrCreateOnboardingIdempotencyKey();
     raw = await apiPost<unknown, FirstHirePayload>(
       "/api/v1/onboarding/first-hire",
-      { name: req.name, description: req.description, vertical_id: req.verticalId },
+      {
+        name: req.name,
+        description: req.description,
+        vertical_id: req.verticalId,
+        ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {}),
+      },
     );
   } catch (err) {
     // DEC-025 #1: the gateway runs Genesis, derives the truthful capability
@@ -396,11 +407,15 @@ export async function confirmFirstHire(review: FirstHireReview): Promise<FirstHi
   };
   let raw: unknown;
   try {
+    // Reuse the SAME token the initial submit persisted, so the gateway sees
+    // the confirm as the same logical hire — never a second worker.
+    const idempotencyKey = getOrCreateOnboardingIdempotencyKey();
     raw = await apiPost<unknown, FirstHirePayload>("/api/v1/onboarding/first-hire", {
       name: review.name,
       description: review.description,
       vertical_id: review.verticalId,
       confirmed_contract_digest: review.contractDigest,
+      ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {}),
     });
   } catch (err) {
     if (err instanceof ApiError && err.status === 422) {

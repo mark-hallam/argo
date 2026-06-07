@@ -150,6 +150,33 @@ interface RawGatewayFact {
   created_at?: string;
 }
 
+/** A conversation as the gateway may emit it — every field optional
+ *  (a fresh worker omits `href` and may send snake_case ids), so the type
+ *  can't lie the way casting raw items to `ActiveConversation` (required
+ *  `href: string`) did. Normalized by `mapGatewayConversation`. */
+interface RawGatewayConversation {
+  conversationId?: string;
+  conversation_id?: string;
+  counterpartyHandle?: string;
+  counterparty_handle?: string;
+  topic?: string;
+  lastMessageAt?: string;
+  last_message_at?: string;
+  href?: string;
+}
+
+/** A decision as the gateway may emit it — every field optional, both
+ *  casings tolerated. Normalized by `mapGatewayDecision`. */
+interface RawGatewayDecision {
+  decisionId?: string;
+  decision_id?: string;
+  label?: string;
+  outcome?: string;
+  decidedAt?: string;
+  decided_at?: string;
+  href?: string;
+}
+
 /** Raw memory payload — gateway snake_case, with camelCase tolerated so
  *  this normalizer is a no-op if the gateway ever switches conventions. */
 interface RawGatewayMemory {
@@ -158,10 +185,10 @@ interface RawGatewayMemory {
   tenant_scope?: string | null;
   tenantScope?: string | null;
   facts?: RawGatewayFact[];
-  active_conversations?: ActiveConversation[];
-  activeConversations?: ActiveConversation[];
-  recent_decisions?: RecentDecision[];
-  recentDecisions?: RecentDecision[];
+  active_conversations?: RawGatewayConversation[];
+  activeConversations?: RawGatewayConversation[];
+  recent_decisions?: RawGatewayDecision[];
+  recentDecisions?: RawGatewayDecision[];
   voice_profile?: RawGatewayVoiceProfile;
   voiceProfile?: RawGatewayVoiceProfile;
 }
@@ -176,6 +203,74 @@ function normalizeFact(f: RawGatewayFact): WorkerFact {
     text: f.text ?? "",
     createdAt: f.createdAt ?? f.created_at ?? "",
   };
+}
+
+/**
+ * Normalize one raw conversation to the SPA's `ActiveConversation`. Mirrors
+ * the `worker-overview.ts::mapGatewayActivityRow` gold standard: a fresh
+ * worker omits per-item `href`, so the prior code (which cast raw items
+ * straight to a type declaring required `href: string`) was lying — any
+ * consumer that did NOT guard `href` would crash. Here `href` defaults to the
+ * audit drill-in built from the conversation id (dashes stripped to match the
+ * `/audit/action/<hex>` route), or "" when there's no id — never `undefined`.
+ */
+function mapGatewayConversation(c: RawGatewayConversation): ActiveConversation {
+  const conversationId = c.conversationId ?? c.conversation_id ?? "";
+  const href =
+    c.href ??
+    (conversationId
+      ? `/audit/action/${encodeURIComponent(conversationId.replace(/-/g, ""))}`
+      : "");
+  return {
+    conversationId,
+    counterpartyHandle: c.counterpartyHandle ?? c.counterparty_handle ?? "",
+    topic: c.topic ?? "",
+    lastMessageAt: c.lastMessageAt ?? c.last_message_at ?? "",
+    href,
+  };
+}
+
+/** `RecentDecision.outcome` is the closed set `"approved" | "refused"`;
+ *  anything else from the gateway defaults to "refused" (the safe-to-show
+ *  label) rather than leaking an unexpected string into the outcome chip. */
+function normalizeDecisionOutcome(value: string | undefined): "approved" | "refused" {
+  return value === "approved" ? "approved" : "refused";
+}
+
+/**
+ * Normalize one raw decision to the SPA's `RecentDecision`. Same honesty fix
+ * as `mapGatewayConversation`: defaults every required field (incl. `href`)
+ * so the declared contract is true and no render guard is load-bearing.
+ */
+function mapGatewayDecision(d: RawGatewayDecision): RecentDecision {
+  const decisionId = d.decisionId ?? d.decision_id ?? "";
+  const href =
+    d.href ??
+    (decisionId
+      ? `/audit/action/${encodeURIComponent(decisionId.replace(/-/g, ""))}`
+      : "");
+  return {
+    decisionId,
+    label: d.label ?? "",
+    outcome: normalizeDecisionOutcome(d.outcome),
+    decidedAt: d.decidedAt ?? d.decided_at ?? "",
+    href,
+  };
+}
+
+/** Map a raw conversation list to normalized items; non-arrays → `[]` (a
+ *  sparse / absent gateway payload renders the empty state, never crashes). */
+function normalizeConversationList(
+  raw: RawGatewayConversation[] | undefined,
+): ActiveConversation[] {
+  return Array.isArray(raw) ? raw.map(mapGatewayConversation) : [];
+}
+
+/** Map a raw decision list to normalized items; non-arrays → `[]`. */
+function normalizeDecisionList(
+  raw: RawGatewayDecision[] | undefined,
+): RecentDecision[] {
+  return Array.isArray(raw) ? raw.map(mapGatewayDecision) : [];
 }
 
 const VOICE_TONES = new Set<string>(["warm", "neutral", "formal"]);
@@ -211,8 +306,12 @@ function normalizeGatewayMemory(raw: RawGatewayMemory): WorkerMemory {
     namespaceId: raw.namespaceId ?? raw.namespace_id ?? "",
     tenantScope: raw.tenantScope ?? raw.tenant_scope ?? "Current workspace",
     facts: Array.isArray(raw.facts) ? raw.facts.map(normalizeFact) : [],
-    activeConversations: raw.activeConversations ?? raw.active_conversations ?? [],
-    recentDecisions: raw.recentDecisions ?? raw.recent_decisions ?? [],
+    activeConversations: normalizeConversationList(
+      raw.activeConversations ?? raw.active_conversations,
+    ),
+    recentDecisions: normalizeDecisionList(
+      raw.recentDecisions ?? raw.recent_decisions,
+    ),
     voiceProfile: {
       tone,
       formality: mapFormality(vp.formality),

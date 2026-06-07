@@ -13,7 +13,7 @@
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -160,5 +160,77 @@ describe("workspace step — Path B manual advance", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FIX 1 — input validation (max-length / control / zero-width) on the
+// workspace step. The provision call must NOT fire for invalid input; the
+// inline error banner surfaces instead.
+// ---------------------------------------------------------------------------
+describe("workspace step — input validation (FIX 1)", () => {
+  async function fill(workspace: string, company: string) {
+    render(wrap(createElement(OnboardingWorkspacePage)));
+    const wsInput = screen.getByTestId("workspace-name") as HTMLInputElement;
+    const coInput = screen.getByTestId("company-name") as HTMLInputElement;
+    // Direct change events bypass the input's maxLength clamp, so an
+    // over-length value still reaches the SCHEMA (the real defence). Submit
+    // via the native form-submit event (not a button click) because a
+    // whitespace-only value leaves the button disabled — but a native Enter
+    // submit still fires `onSubmit`, which is exactly the path validation must
+    // catch.
+    fireEvent.change(wsInput, { target: { value: workspace } });
+    fireEvent.change(coInput, { target: { value: company } });
+    fireEvent.submit(screen.getByTestId("onboarding-workspace-form"));
+  }
+
+  it("blocks an over-long workspace name (no provision call, error shown)", async () => {
+    await fill("a".repeat(81), "Acme Inc.");
+    expect(
+      await screen.findByTestId("onboarding-workspace-error"),
+    ).toBeInTheDocument();
+    expect(provisionMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks a whitespace-only workspace name", async () => {
+    await fill("      ", "Acme Inc.");
+    expect(
+      await screen.findByTestId("onboarding-workspace-error"),
+    ).toBeInTheDocument();
+    expect(provisionMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks a zero-width-only workspace name", async () => {
+    await fill("​", "Acme Inc.");
+    expect(
+      await screen.findByTestId("onboarding-workspace-error"),
+    ).toBeInTheDocument();
+    expect(provisionMock).not.toHaveBeenCalled();
+  });
+
+  it("allows a valid name + company (provision fires with trimmed values)", async () => {
+    provisionMock.mockResolvedValueOnce({
+      tenantId: "tenant_a",
+      workspaceId: "workspace_a",
+      created: true,
+    });
+    await fill("  Acme Growth  ", "  Acme Inc.  ");
+    await waitFor(() => expect(provisionMock).toHaveBeenCalledTimes(1));
+    expect(provisionMock).toHaveBeenCalledWith({
+      workspaceName: "Acme Growth",
+      companyName: "Acme Inc.",
+    });
+  });
+
+  it("the workspace input carries a maxLength stop", () => {
+    render(wrap(createElement(OnboardingWorkspacePage)));
+    expect(screen.getByTestId("workspace-name")).toHaveAttribute(
+      "maxlength",
+      "80",
+    );
+    expect(screen.getByTestId("company-name")).toHaveAttribute(
+      "maxlength",
+      "120",
+    );
   });
 });
