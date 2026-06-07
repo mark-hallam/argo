@@ -21,7 +21,7 @@ use super::routes_auth_principal::principal_id_for_audit;
 use argo_audit::{AuditKind, AuditSink, SYSTEM_AUDIT_TENANT_ID};
 use argo_identity::{IdentityStore, Worker, WorkerId};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, TenantId};
+use argo_types::TenantId;
 use chrono::Utc;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -95,10 +95,10 @@ pub(super) async fn reverse_test_response(w: &str, r: &str, s: Option<&Arc<Sessi
 pub(super) async fn recent_response(w: &str, r: &str, s: Option<&Arc<SessionStore>>) -> Resp {
     recent_inner(w, r, s).await.unwrap_or_else(|x| x)
 }
-async fn recent_inner(wid: &str, _req: &str, store: Option<&Arc<SessionStore>>) -> RespResult {
+async fn recent_inner(wid: &str, req: &str, store: Option<&Arc<SessionStore>>) -> RespResult {
     let store = store.ok_or_else(super::store_unavailable)?;
     let worker_id = parse_worker_id(wid)?;
-    let ctx = resolve_worker_ctx(store, worker_id).await?;
+    let ctx = resolve_worker_ctx(store, req, worker_id).await?;
     let rows = recent_retrain_rows(store, &ctx, RECENT_LIMIT)
         .await
         .map_err(|e| server_error(&format!("recent retrains: {e}")))?;
@@ -288,7 +288,7 @@ async fn prepare<'s>(
     let store = store.ok_or_else(super::store_unavailable)?;
     let worker_id = parse_worker_id(wid)?;
     let parsed = parse_body(req)?;
-    let ctx = resolve_worker_ctx(store, worker_id).await?;
+    let ctx = resolve_worker_ctx(store, req, worker_id).await?;
     Ok((store, ctx, parsed))
 }
 async fn prepare_with_input<'s>(
@@ -333,9 +333,10 @@ fn parse_body(req: &str) -> Result<Value, Resp> {
 
 async fn resolve_worker_ctx(
     store: &Arc<SessionStore>,
+    req: &str,
     worker_id: WorkerId,
 ) -> Result<WorkerCtx, Resp> {
-    let tenant = resolve_workspace_tenant(store)
+    let tenant = super::resolve_tenant::resolve_tenant_for_request(req, store)
         .await
         .map_err(|e| server_error(&format!("resolve tenant: {e}")))?;
     match IdentityStore::new(store)
@@ -348,16 +349,6 @@ async fn resolve_worker_ctx(
     }
 }
 
-async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
-}
 async fn emit_audit(store: &Arc<SessionStore>, req: &str, payload: Value) {
     let tenant_id = payload
         .get("tenant_id")

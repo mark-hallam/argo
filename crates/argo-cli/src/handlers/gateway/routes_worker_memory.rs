@@ -55,7 +55,7 @@ pub(super) async fn list_response(
         Ok(id) => id,
         Err(r) => return r,
     };
-    let ctx = match resolve_worker_ctx(store, worker_id).await {
+    let ctx = match resolve_worker_ctx(store, req, worker_id).await {
         Ok(c) => c,
         Err(r) => return r,
     };
@@ -226,7 +226,7 @@ pub(super) async fn fact_delete_response(
         Ok(id) => id,
         Err(r) => return r,
     };
-    let ctx = match resolve_worker_ctx(store, worker_id).await {
+    let ctx = match resolve_worker_ctx(store, req, worker_id).await {
         Ok(c) => c,
         Err(r) => return r,
     };
@@ -268,7 +268,7 @@ async fn prepare_with_text<'s>(
     let store = store.ok_or_else(super::store_unavailable)?;
     let worker_id = parse_worker_id(worker_id_raw)?;
     let text = parse_text_body(req)?;
-    let ctx = resolve_worker_ctx(store, worker_id).await?;
+    let ctx = resolve_worker_ctx(store, req, worker_id).await?;
     Ok((store, ctx, text))
 }
 
@@ -283,7 +283,7 @@ async fn prepare_with_existing_fact<'s>(
     let worker_id = parse_worker_id(worker_id_raw)?;
     let fact_id = parse_fact_id(fact_id_raw)?;
     let text = parse_text_body(req)?;
-    let ctx = resolve_worker_ctx(store, worker_id).await?;
+    let ctx = resolve_worker_ctx(store, req, worker_id).await?;
     let existing = match fetch_owned_active_fact(store, &ctx, fact_id).await {
         Ok(Some(e)) => e,
         Ok(None) => return Err(not_found(&format!("fact {fact_id} not found"))),

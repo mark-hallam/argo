@@ -129,6 +129,17 @@ fn migrated_long_tail_routes_use_canonical_resolver() {
         // Tranche 3 — worker-detail read routes.
         "src/handlers/gateway/routes_worker_trust_grade.rs",
         "src/handlers/gateway/routes_trust_streaks.rs",
+        // Tranche 3b — worker-detail helper routes (resolve_worker_ctx).
+        "src/handlers/gateway/routes_retrain.rs",
+        "src/handlers/gateway/routes_worker_memory_helpers.rs",
+        "src/handlers/gateway/routes_worker_skills_helpers.rs",
+        // Tranche 3c — workspace settings (GET/PATCH migrated; voice-config
+        // read stays workspace-scoped by documented exception).
+        "src/handlers/gateway/routes_workspace_settings.rs",
+        // Tranche 4 — worker activity + cohorts (removing the local cwd fn
+        // kept both under the 500-LOC ceiling, so no split-prep needed).
+        "src/handlers/gateway/routes_worker_activity.rs",
+        "src/handlers/gateway/routes_cohorts.rs",
     ];
     for rel in must_call {
         let src = read_src(rel);

@@ -82,7 +82,7 @@ pub(super) async fn list_response(
         Ok(id) => id,
         Err(r) => return r,
     };
-    let ctx = match helpers::resolve_worker_ctx(store, worker_id).await {
+    let ctx = match helpers::resolve_worker_ctx(store, req, worker_id).await {
         Ok(c) => c,
         Err(r) => return r,
     };

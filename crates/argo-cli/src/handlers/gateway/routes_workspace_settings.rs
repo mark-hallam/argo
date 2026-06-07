@@ -21,7 +21,7 @@
 //! `routes_notifications` does, so every read/write is tenant-scoped.
 
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, TenantId};
+use argo_types::ArgoResult;
 use serde_json::{json, Map, Value};
 use std::sync::Arc;
 
@@ -157,7 +157,7 @@ pub(super) async fn dispatch_get(
     store: Option<&Arc<SessionStore>>,
 ) -> Option<(&'static str, String)> {
     let spec = match_path(req, "GET")?;
-    Some(get_response(store, &spec).await)
+    Some(get_response(req, store, &spec).await)
 }
 
 /// PATCH match arm — fanned out from
@@ -190,13 +190,14 @@ fn match_path(req: &str, verb: &str) -> Option<GroupSpec> {
 }
 
 async fn get_response(
+    req: &str,
     store: Option<&Arc<SessionStore>>,
     spec: &GroupSpec,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return super::store_unavailable();
     };
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t.to_string(),
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -215,7 +216,7 @@ async fn patch_response(
     let Some(store) = store else {
         return super::store_unavailable();
     };
-    let tenant = match resolve_workspace_tenant(store).await {
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
         Ok(t) => t.to_string(),
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
@@ -314,19 +315,6 @@ fn parse_patch_body(req: &str) -> Result<Map<String, Value>, (&'static str, Stri
     }
 }
 
-/// Resolve the workspace tenant from cwd — identical convention to
-/// `routes_notifications::resolve_workspace_tenant`.
-async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
-}
-
 /// The tenant's chosen voice `provider` ("mock" | "openai"), read for the
 /// gateway voice routes' provider selector. Reuses the same tenant
 /// resolution + `voice` group read as the GET/PATCH handlers.
@@ -335,7 +323,23 @@ async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> 
 /// the tenant cannot be resolved, the group is unset, or the stored value is
 /// not a string — i.e. a settings hiccup never hard-fails a voice request.
 pub(super) async fn read_voice_provider(store: &SessionStore) -> Option<String> {
-    let tenant = resolve_workspace_tenant(store).await.ok()?.to_string();
+    // VOICE-CONFIG EXCEPTION (WS1): this is the *workspace-level* voice
+    // provider, resolved from the gateway working dir — NOT a per-request JWT
+    // tenant. Its callers (routes_voice_io: select_stt / select_tts ->
+    // resolve_for_tenant) carry no HTTP request to resolve from, so unlike the
+    // GET/PATCH settings handlers above it can't use resolve_tenant_for_request.
+    // Threading the request tenant through the voice-IO chain is a separate
+    // follow-up; until then voice config stays workspace-scoped.
+    let cwd = std::env::current_dir().ok()?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let (tenant, _) = store
+        .ensure_workspace(name, &cwd.to_string_lossy())
+        .await
+        .ok()?;
+    let tenant = tenant.to_string();
     let stored =
         argo_store::workspace_settings::get_group(store.pool(), &tenant, GROUP_VOICE)
             .await

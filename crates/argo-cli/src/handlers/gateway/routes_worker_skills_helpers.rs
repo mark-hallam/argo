@@ -39,9 +39,10 @@ pub(super) fn parse_skill_id(raw: &str) -> Result<SkillId, (&'static str, String
 /// Cross-tenant / unknown both surface as 404 — never leak existence.
 pub(super) async fn resolve_worker_ctx(
     store: &Arc<SessionStore>,
+    req: &str,
     worker_id: WorkerId,
 ) -> Result<WorkerCtx, (&'static str, String)> {
-    let tenant = resolve_workspace_tenant(store)
+    let tenant = super::resolve_tenant::resolve_tenant_for_request(req, store)
         .await
         .map_err(|e| server_error(&format!("resolve tenant: {e}")))?;
     match IdentityStore::new(store).get_worker(tenant, worker_id).await {
@@ -49,17 +50,6 @@ pub(super) async fn resolve_worker_ctx(
         Ok(None) => Err(not_found(&format!("worker {worker_id} not found"))),
         Err(e) => Err(server_error(&format!("get worker: {e}"))),
     }
-}
-
-async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
 }
 
 /// Read the JSON `{ "skill_id": "<uuid>", ... }` body and pull the id.
