@@ -7,6 +7,7 @@ import { JsonLd, organizationSchema } from "@/components/seo/JsonLd";
 import { AuthProvider } from "@/components/skycot/AuthProvider";
 import { CommandPaletteProvider } from "@/components/skycot/CommandPaletteProvider";
 import { QueryProvider } from "@/components/skycot/QueryProvider";
+import { TenantCacheGuard } from "@/components/skycot/TenantCacheGuard";
 import { ThemeProvider } from "@/components/skycot/ThemeProvider";
 import { TooltipProvider } from "@/components/ui/Tooltip";
 import { ErrorReportingInit } from "@/lib/error-reporting/init";
@@ -123,6 +124,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <TooltipProvider delayDuration={250} skipDelayDuration={100}>
                 <CommandPaletteProvider>
                   <ErrorReportingInit />
+                  <TenantCacheGuard />
                   <ServiceWorkerRegister />
                   {children}
                   <InstallPrompt />

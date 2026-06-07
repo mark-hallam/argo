@@ -1,12 +1,14 @@
 "use client";
 
 import * as Popover from "@radix-ui/react-popover";
+import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signOut as nextAuthSignOut } from "next-auth/react";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { signOut as gatewaySignOut } from "@/lib/api/auth";
+import { purgeClientTenantState } from "@/lib/auth/purge-client-state";
 import { useSkycotSession } from "@/lib/skycot/use-session";
 import { useToast } from "@/lib/ui/use-toast";
 
@@ -27,6 +29,7 @@ export function UserPill() {
   const [tenantCopied, setTenantCopied] = useState(false);
   const router = useRouter();
   const toast = useToast();
+  const queryClient = useQueryClient();
 
   async function copyTenantId() {
     if (!session.tenantId) return;
@@ -50,8 +53,13 @@ export function UserPill() {
       return;
     }
     // Gateway has cleared `__Host-session` via Set-Cookie and recorded
-    // the JWT's jti in `revoked_tokens`. Drop the NextAuth session
-    // client-side; `redirect: false` keeps router state consistent.
+    // the JWT's jti in `revoked_tokens`. Purge ALL client-side tenant
+    // state (React Query cache + namespaced storage) BEFORE dropping the
+    // NextAuth session, so the next user on this browser can never observe
+    // this tenant's cached data (workers, approvals, audit, PII grants).
+    purgeClientTenantState(queryClient);
+    // Drop the NextAuth session client-side; `redirect: false` keeps
+    // router state consistent.
     await nextAuthSignOut({ redirect: false });
     toast.success("Signed out");
     router.replace("/auth/signin");

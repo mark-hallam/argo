@@ -162,7 +162,12 @@ const config: NextConfig = {
       "img-src 'self' data: blob: https:",
       "font-src 'self' https://fonts.gstatic.com data:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // 'unsafe-eval' dropped (QA SEC-3): zero eval/new Function usage in
+      // the codebase, so it only widened XSS surface. 'unsafe-inline' stays
+      // until the nonce-based CSP lands (follow-up) — Next.js needs
+      // per-request nonce plumbing to drop it without breaking its own
+      // inline framework scripts.
+      "script-src 'self' 'unsafe-inline'",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
