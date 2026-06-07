@@ -22,7 +22,7 @@
 
 import { apiGet, apiPatch } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
-import { isDemoLive } from "@/lib/skycot/demo-mode";
+import { hasRealSession, isDemoLive } from "@/lib/skycot/demo-mode";
 
 export interface WorkspaceSettings {
   name: string;
@@ -56,6 +56,22 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   default_vertical: "marketing",
   timezone: "Australia/Melbourne",
   billing_contact: "owner@skycot.example",
+};
+
+/**
+ * Neutral fallback for a REAL signed-in user when `/api/v1/workspace`
+ * has no row yet (e.g. a fresh signup before the workspace settings are
+ * persisted). It must NOT carry the "SKYCOT Demo" branding — a real user
+ * filling in their Settings should see blank fields to complete, not a
+ * fabricated demo workspace name. The demo seed (`DEFAULT_WORKSPACE_SETTINGS`)
+ * is reserved for anonymous demo visitors.
+ */
+export const NEUTRAL_WORKSPACE_SETTINGS: WorkspaceSettings = {
+  name: "",
+  description: "",
+  default_vertical: "marketing",
+  timezone: "Australia/Melbourne",
+  billing_contact: "",
 };
 
 export type ProviderName = "anthropic" | "openai" | "google" | "azure" | "bedrock";
@@ -116,6 +132,16 @@ function isStrictProduction(): boolean {
 }
 
 function isAuthBypassed(): boolean {
+  // Per-user gate (sprint, 2026-06-07): the auth-bypass mock short-circuit
+  // is for ANONYMOUS demo visitors only. A REAL signed-in user (the
+  // `skycot-session=1` marker cookie is present) is NEVER bypassed — even
+  // in a demo-configured deployment that sets
+  // `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` — so their Settings read their
+  // own real, persisted workspace instead of the "SKYCOT Demo" seed. This
+  // was the stranger-signup defect: a real user saw "SKYCOT Demo" as their
+  // workspace name. Mirrors the per-user gate added to `isDemoMode()` /
+  // `isHireAuthBypassed()`.
+  if (hasRealSession()) return false;
   // Mirrors the canonical `lib/api/skills.ts` helper exactly: a build is
   // auth-bypassed only when it is NOT a production build AND
   // `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1`. The demo-live opt-out is
@@ -169,7 +195,13 @@ async function patchOrFallback<T>(
 }
 
 export async function fetchWorkspaceSettings() {
-  return fetchOrFallback<WorkspaceSettings>("/api/v1/workspace", DEFAULT_WORKSPACE_SETTINGS);
+  // A real signed-in user falls back to BLANK fields (not the "SKYCOT
+  // Demo" seed) if the gateway has no workspace row yet; anonymous demo
+  // visitors keep the seeded showcase workspace.
+  const fallback = hasRealSession()
+    ? NEUTRAL_WORKSPACE_SETTINGS
+    : DEFAULT_WORKSPACE_SETTINGS;
+  return fetchOrFallback<WorkspaceSettings>("/api/v1/workspace", fallback);
 }
 
 export async function updateWorkspaceSettings(

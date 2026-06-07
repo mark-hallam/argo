@@ -11,6 +11,13 @@ import { SAMPLE_WORKFLOW_SPECS, SAMPLE_WORKFLOW_SUMMARIES } from "@/lib/sample-w
 
 const ORIGINAL_FETCH = globalThis.fetch;
 
+function clearCookies() {
+  for (const pair of document.cookie.split("; ")) {
+    const name = pair.split("=")[0];
+    if (name) document.cookie = `${name}=; max-age=0; path=/`;
+  }
+}
+
 function makeResponse({
   status = 200,
   body,
@@ -94,6 +101,7 @@ describe("lib/api/workflows", () => {
     process.env = { ...originalEnv };
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+    clearCookies();
   });
 
   describe("fetchAllWorkflows", () => {
@@ -227,6 +235,61 @@ describe("lib/api/workflows", () => {
       expect(result.source).toBe("mock-bypass");
       expect(result.workflows).toBe(SAMPLE_WORKFLOW_SUMMARIES);
       expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    // Per-user gating (sprint, 2026-06-07): a REAL signed-in user must read
+    // the top-level /api/v1/workflows endpoint (the per-vertical /verticals/*
+    // fan-out is CORS-broken for signed-in browser calls) and must NEVER be
+    // served SAMPLE_WORKFLOW_SUMMARIES — those are demo personas, and showing
+    // them in a real workspace was the stranger-signup defect.
+    it("a REAL signed-in user reads the top-level endpoint, NOT the per-vertical fan-out", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      document.cookie = "skycot-session=1; path=/";
+      const fetchMock = installMock((req) => {
+        if (req.url.endsWith("/api/v1/workflows")) {
+          return makeResponse({
+            status: 200,
+            body: {
+              workflows: [
+                makeItem(),
+                makeItem({ vertical_id: "support", name: "triage_ticket" }),
+              ],
+            },
+          });
+        }
+        return makeResponse({ status: 500, body: "should not be called", contentType: "text/plain" });
+      });
+      const result = await fetchAllWorkflows();
+      expect(result.source).toBe("gateway");
+      expect(result.workflows).toHaveLength(2);
+      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(urls.some((u) => u.endsWith("/api/v1/workflows"))).toBe(true);
+      expect(urls.some((u) => u.includes("/api/v1/verticals/"))).toBe(false);
+    });
+
+    it("a REAL user with no workflows gets an EMPTY catalog (not demo personas)", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      document.cookie = "skycot-session=1; path=/";
+      installMock((req) => {
+        if (req.url.endsWith("/api/v1/workflows")) {
+          return makeResponse({ status: 200, body: { workflows: [] } });
+        }
+        return makeResponse({ status: 404, body: { error: { code: "x" } } });
+      });
+      const result = await fetchAllWorkflows();
+      expect(result.workflows).toEqual([]);
+      expect(result.workflows).not.toBe(SAMPLE_WORKFLOW_SUMMARIES);
+    });
+
+    it("a REAL user gets an EMPTY catalog on gateway 404 (not demo personas)", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      document.cookie = "skycot-session=1; path=/";
+      installMock(() =>
+        makeResponse({ status: 404, body: { error: { code: "not_found", message: "x" } } }),
+      );
+      const result = await fetchAllWorkflows();
+      expect(result.workflows).toEqual([]);
+      expect(result.workflows).not.toBe(SAMPLE_WORKFLOW_SUMMARIES);
     });
 
     it("never hits the legacy /verticals discovery endpoint", async () => {

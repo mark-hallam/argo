@@ -3,6 +3,7 @@ import {
   DEFAULT_NOTIFICATION_SETTINGS,
   DEFAULT_PROVIDER_SETTINGS,
   DEFAULT_WORKSPACE_SETTINGS,
+  NEUTRAL_WORKSPACE_SETTINGS,
   fetchNotificationSettings,
   fetchProviderSettings,
   fetchWorkspaceSettings,
@@ -13,6 +14,13 @@ import {
 import { ApiError } from "./types";
 
 const ORIGINAL_FETCH = globalThis.fetch;
+
+function clearCookies() {
+  for (const pair of document.cookie.split("; ")) {
+    const name = pair.split("=")[0];
+    if (name) document.cookie = `${name}=; max-age=0; path=/`;
+  }
+}
 
 function makeResponse({
   status = 200,
@@ -60,6 +68,7 @@ describe("lib/api/settings", () => {
     process.env = { ...originalEnv };
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+    clearCookies();
   });
 
   describe("workspace", () => {
@@ -113,6 +122,48 @@ describe("lib/api/settings", () => {
         String(url).includes("/api/v1/workspace"),
       );
       expect(hitWorkspace).toBe(true);
+    });
+
+    // Per-user gating (sprint, 2026-06-07): a REAL signed-in user (the
+    // `skycot-session=1` marker cookie is present) must NEVER be served the
+    // "SKYCOT Demo" seed — even in a deploy that sets auth-bypass. This was
+    // the stranger-signup defect: a real user's Settings read "SKYCOT Demo"
+    // as their workspace name. The auth-bypass mock short-circuit is for
+    // ANONYMOUS demo visitors only.
+    it("a REAL signed-in user is NOT auth-bypassed — hits the gateway even with auth-bypass set", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      document.cookie = "skycot-session=1; path=/";
+      const payload = { ...DEFAULT_WORKSPACE_SETTINGS, name: "Real Tenant" };
+      const fetchMock = installMock(() => makeResponse({ status: 200, body: payload }));
+      const result = await fetchWorkspaceSettings();
+      expect(result.source).toBe("gateway");
+      expect(result.value.name).toBe("Real Tenant");
+      const hitWorkspace = fetchMock.mock.calls.some(([url]) =>
+        String(url).includes("/api/v1/workspace"),
+      );
+      expect(hitWorkspace).toBe(true);
+    });
+
+    it("a REAL user falls back to BLANK fields (not 'SKYCOT Demo') on gateway 404", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      document.cookie = "skycot-session=1; path=/";
+      installMock(() =>
+        makeResponse({ status: 404, body: { error: { code: "x", message: "x" } } }),
+      );
+      const result = await fetchWorkspaceSettings();
+      expect(result.value).toEqual(NEUTRAL_WORKSPACE_SETTINGS);
+      expect(result.value.name).toBe("");
+      expect(result.value.name).not.toBe("SKYCOT Demo");
+    });
+
+    it("an ANONYMOUS visitor still gets the demo seed under auth-bypass", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      // no skycot-session cookie → anonymous demo visitor
+      const fetchMock = installMock(() => makeResponse({ status: 200, body: {} }));
+      const result = await fetchWorkspaceSettings();
+      expect(result.source).toBe("mock-bypass");
+      expect(result.value).toEqual(DEFAULT_WORKSPACE_SETTINGS);
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it("propagates 5xx as ApiError", async () => {

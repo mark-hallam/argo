@@ -45,7 +45,7 @@
  */
 import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
-import { isDemoLive } from "@/lib/skycot/demo-mode";
+import { hasRealSession, isDemoLive } from "@/lib/skycot/demo-mode";
 import {
   SAMPLE_WORKFLOW_SPECS,
   SAMPLE_WORKFLOW_SUMMARIES,
@@ -153,7 +153,17 @@ export async function fetchAllWorkflows(): Promise<FetchAllWorkflowsResult> {
   // my teammates run") is literally true — and verticals like
   // `marketplace` not in the local sample fan-out list still
   // surface in one round-trip.
-  if (isDemoLive()) {
+  // A REAL signed-in user AND demo-live both read the top-level
+  // `/api/v1/workflows` endpoint. Two reasons a real user MUST take this
+  // path: (1) the per-vertical `/verticals/*` fan-out below is CORS-broken
+  // for signed-in browser calls (see the module header), and (2) a real
+  // user must NEVER fall back to `SAMPLE_WORKFLOW_SUMMARIES` — those are
+  // demo personas, and showing them in a real workspace was the
+  // stranger-signup defect. Demo-live keeps the seeded SAMPLE fallback so
+  // the recording stays camera-safe; a real user falls back to an EMPTY
+  // catalog (their genuine "no workflows yet" state) instead.
+  const realSession = hasRealSession();
+  if (isDemoLive() || realSession) {
     try {
       const list = await apiGet<TopLevelWorkflowListEnvelope>("/api/v1/workflows");
       const items = list.workflows ?? [];
@@ -163,14 +173,19 @@ export async function fetchAllWorkflows(): Promise<FetchAllWorkflowsResult> {
           source: "gateway",
         };
       }
-      return { workflows: SAMPLE_WORKFLOW_SUMMARIES, source: "mock-offline" };
+      return realSession
+        ? { workflows: [], source: "gateway" }
+        : { workflows: SAMPLE_WORKFLOW_SUMMARIES, source: "mock-offline" };
     } catch (err) {
       if (!isStrictProduction() && isRecoverable(err)) {
-        return { workflows: SAMPLE_WORKFLOW_SUMMARIES, source: "mock-offline" };
+        return realSession
+          ? { workflows: [], source: "gateway" }
+          : { workflows: SAMPLE_WORKFLOW_SUMMARIES, source: "mock-offline" };
       }
       throw err;
     }
   }
+  // Anonymous auth-bypass dev/demo (no real session) shows the seeded deck.
   if (isAuthBypassed()) {
     return { workflows: SAMPLE_WORKFLOW_SUMMARIES, source: "mock-bypass" };
   }
