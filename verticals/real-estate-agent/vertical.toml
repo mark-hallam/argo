@@ -3,7 +3,7 @@ schema_version = "1"
 [vertical]
 id          = "real-estate-agent"
 name        = "Real Estate — Agent Assistant"
-description = "Executive assistant for a licensed real-estate agent. Schedules property viewings, sends listing packets to qualified leads, drafts offer documents, flags inspection findings for human review, and runs templated post-viewing follow-up. Mixed-trust: schedule_viewing + follow_up_lead are autonomous; send_listing_packet, draft_offer, and flag_inspection_finding route to operator approval."
+description = "Executive assistant for a licensed real-estate agent. Schedules property viewings, sends listing packets to qualified leads, drafts offer documents, flags inspection findings for human review, and runs templated post-viewing follow-up. Mixed-trust: schedule_viewing (own-diary booking) is autonomous; every action that touches an external inbox — send_listing_packet, follow_up_lead — plus draft_offer and flag_inspection_finding route to operator approval."
 version     = "0.1.0"
 authors     = ["Mark Hallam"]
 tags        = ["real-estate", "sales", "calendar", "gmail", "documents", "demo"]
@@ -45,8 +45,11 @@ overlay_label = "Real Estate"
 
 # Persona is "Jamie" — see prompts/persona.md. Allowed executors are
 # the four named in the brief (gcal, email/gmail, document_creation,
-# human_approval). Auto-approval gates schedule_viewing +
-# follow_up_lead; the other three actions surface to the operator.
+# human_approval). Auto-approval covers only schedule_viewing (a
+# booking on the agent's own diary, never an external invite); every
+# action that touches an external inbox — send_listing_packet,
+# follow_up_lead — plus draft_offer and flag_inspection_finding is
+# approval-gated and surfaces to the operator.
 
 [actions]
 
@@ -130,19 +133,21 @@ Hand the finding to the agent with the inspection report attached. Never draft a
 """
 
 [actions.follow_up_lead]
-risk              = "low"
-requires_approval = false
-description       = "Send a templated post-viewing follow-up to a warm lead, using merge fields against `inventory/follow_up_templates.md`. Auto-approval safe because the body is a fixed template — no novel content is generated."
+risk              = "medium"
+requires_approval = true
+description       = "Email a templated post-viewing follow-up to a warm lead via the gmail connector, using merge fields against `inventory/follow_up_templates.md`. Approval-gated — this hits the lead's real inbox via `gmail.send`, so the operator approves the recipient + rendered body before send even when the body is a fixed template."
 executor          = { kind = "mcp", server = "gmail", tool = "gmail.send", budget_usd = 0.02 }
 platforms         = ["gmail"]
 instruction_template = """
 # Templated follow-up to `{{ payload.lead_name }}`
 
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
 Lead:     `{{ payload.lead_id }}`
 Listing:  `{{ payload.listing_id }}` — viewed `{{ payload.viewed_at_iso }}`
 Template: `{{ payload.template_id }}` (`post_viewing_24h` / `post_viewing_72h` / `cold_lead_revive`)
 
-Render the named template from `inventory/follow_up_templates.md`. Substitute `lead_name`, `listing_address`, and `agent_name` exactly. Send via `gmail.send`. Never deviate from the template body — the auto-approval safety case rests on the body being template-only; custom messages go through `send_listing_packet` (approval-gated). Append the send to the `follow_ups` memory entry.
+Render the named template from `inventory/follow_up_templates.md`. Substitute `lead_name`, `listing_address`, and `agent_name` exactly. Send via `gmail.send` only after operator approval — emailing the lead is an external mutation that cannot be undone. Never deviate from the template body; custom-content outreach goes through `send_listing_packet` (also approval-gated). Append the send to the `follow_ups` memory entry.
 """
 
 [actions.send_listing_packet.retry]
