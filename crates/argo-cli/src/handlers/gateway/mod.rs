@@ -130,6 +130,7 @@ mod routes_dispatch_rollups_groups;
 mod routes_duties;
 mod routes_elevated_view;
 mod routes_evals;
+mod routes_worker_evals_replay;
 mod routes_forge;
 mod routes_forge_promote;
 mod routes_forge_rollups;

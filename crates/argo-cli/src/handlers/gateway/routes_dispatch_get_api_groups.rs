@@ -232,6 +232,11 @@ async fn dispatch_worker_subpath(
             super::routes_worker_trust_grade::show_response(id_with_suffix, req, store).await,
         );
     }
+    if tail.starts_with("evals/replay ") || tail.starts_with("evals/replay?") {
+        return Some(
+            super::routes_worker_evals_replay::replay_response(id_with_suffix, req, store).await,
+        );
+    }
     if tail.starts_with("evals ") || tail.starts_with("evals?") {
         return Some(super::routes_evals::list_response(id_with_suffix, req, store).await);
     }
