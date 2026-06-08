@@ -14,6 +14,13 @@ import {
   type IngestPhase,
   type OnboardingDocInput,
 } from "@/lib/api/genesis-ingest";
+import { ImageCaptionStage, type ImageCaptionStageHandle } from "./ImageCaptionStage";
+
+/** Whether a picked file is an image (mirrors `readFileForIngest`). Images
+ *  route through the caption-staging row first — a captionless image is rejected. */
+function isImageFile(file: File): boolean {
+  return file.type.startsWith("image/") || /\.(png|jpe?g|gif|webp)$/i.test(file.name);
+}
 
 /**
  * Genesis onboarding document drop-zone (Phase 2 — document upload; memory
@@ -64,6 +71,7 @@ export function DocumentUploader({
   onIngested,
 }: DocumentUploaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const stageRef = useRef<ImageCaptionStageHandle | null>(null);
   const [files, setFiles] = useState<FileState[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -136,10 +144,25 @@ export function DocumentUploader({
         setError(`"${oversize.name}" is over 50 MB — please attach a smaller file.`);
         return;
       }
-      const docs = await Promise.all(picked.map((f) => readFileForIngest(f)));
+      // Images need an operator caption (the gradeable text — no fake OCR), so
+      // they route through the staging rows; text / PDF / DOCX ingest directly.
+      const images = picked.filter(isImageFile);
+      if (images.length > 0) stageRef.current?.addImages(images);
+      const rest = picked.filter((f) => !isImageFile(f));
+      if (rest.length === 0) return;
+      const docs = await Promise.all(rest.map((f) => readFileForIngest(f)));
       await submitDocs(docs);
     },
     [verticalId, submitDocs],
+  );
+
+  // A staged image confirmed with a caption: read it WITH the caption, then submit.
+  const ingestImage = useCallback(
+    async (file: File, caption: string) => {
+      setError(null);
+      await submitDocs([await readFileForIngest(file, caption)]);
+    },
+    [submitDocs],
   );
 
   const ingestUrl = useCallback(async () => {
@@ -412,6 +435,12 @@ export function DocumentUploader({
           Add link
         </button>
       </div>
+
+      <ImageCaptionStage
+        ref={stageRef}
+        disabled={blocked}
+        onIngest={(file, caption) => void ingestImage(file, caption)}
+      />
 
       {files.length > 0 ? (
         <ul className="doc-list" data-testid="genesis-document-list">
