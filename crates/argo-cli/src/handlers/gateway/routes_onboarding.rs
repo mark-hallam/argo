@@ -32,20 +32,21 @@
 use super::body_from_request;
 use super::routes_auth_principal::principal_id_for_audit;
 use super::routes_onboarding_genesis::{
-    charter_hash, derive_duties, enforce_first_hire_gate, invoke_genesis, synthesise_charter,
+    build_first_hire_draft, charter_hash, enforce_first_hire_gate, invoke_genesis,
 };
 use super::routes_onboarding_helpers::{
     bad_request, count_approval_gates, count_skill_files, count_workflow_files, emit_audit,
     infer_provider, is_workspace_root_key_error, load_vertical, map_workspace_error,
     mask_key, memory_schema_attached, micros_to_usd, name_from_description, not_found,
     principal_email, provider_key_storage_error, provider_validation_unconfigured,
-    resolve_workspace, server_error, unauthorized, validate_key_shape,
-    voice_preamble_from_description, wrap_secret, HUMAN_PRINCIPAL_PREFIX,
+    resolve_workspace, server_error, unauthorized, validate_key_shape, wrap_secret,
+    HUMAN_PRINCIPAL_PREFIX,
 };
+use super::routes_onboarding_idempotency;
 use super::routes_onboarding_live_key::LiveKeyOutcome;
 use super::store_unavailable;
 use argo_audit::{AuditKind, AuditSink};
-use argo_identity::{ApprovalPolicyChoice, HireDraft, IdentityStore, VoiceProfile};
+use argo_identity::IdentityStore;
 use argo_store::workspace_keys::{
     ensure_schema as ensure_workspace_keys_schema, record_vertical_install, upsert_provider_key,
     ProviderKeyRecord,
@@ -373,48 +374,40 @@ pub(super) async fn first_hire_response(
         return server_error("first-hire gate passed without a Genesis plan");
     };
 
-    let charter = synthesise_charter(&description, Some(plan));
-    let duties = derive_duties(Some(plan), &picked);
-    let duty_count = duties.len();
-    // Carry the operator's freeform brief into the persisted persona so the
-    // worker-profile "About" section reads as the operator wrote it.
-    // `HireDraft.tagline` lands on `persona.bio`
-    // (see `argo_identity::store_hire::assemble_worker_from_draft`); the
-    // companion `voice_profile` override replaces the 35-char templated
-    // preamble with one that names the worker and quotes the brief.
-    let voice_preamble = voice_preamble_from_description(&worker_name, &description);
-    let genesis_plan_id = Some(plan.vertical_id.clone());
-    let draft = HireDraft {
-        suggested_name: worker_name.clone(),
-        charter: charter.clone(),
-        suggested_vertical: vertical_id.clone(),
-        approval_policy: ApprovalPolicyChoice {
-            level: "balanced".into(),
-        },
-        duties,
-        voice_profile: Some(VoiceProfile {
-            preamble: voice_preamble,
-            ..Default::default()
-        }),
-        tagline: Some(description.clone()),
-        // Forward the Genesis plan id (e.g. `marketing-intern-maya`)
-        // onto the persisted persona's `provenance_chain` so the
-        // `/workers/{id}/overview` read-side can surface the
-        // "Plan provenance" chip that backs the charter line
-        // `Genesis plan id: <id>`. Pre-Genesis fallback path stays
-        // `None` (no chip renders, charter still includes the
-        // operator-brief preamble).
-        genesis_plan_id: genesis_plan_id.clone(),
-    };
+    // Assemble the draft (charter + duties + persona overrides) in the
+    // genesis sibling so this handler stays under the 500-LOC budget. The
+    // returned `charter` + `duty_count` feed the audit row below.
+    let assembled = build_first_hire_draft(plan, &picked, &description, &worker_name, &vertical_id);
+    let draft = &assembled.draft;
+    let charter = assembled.charter.as_str();
+    let duty_count = assembled.duty_count;
+    // DEFENSE-IN-DEPTH IDEMPOTENCY (mirrors `POST /api/v1/workers`, shares
+    // its cache). Only the CONFIRM POST reaches here — the needs_review POST
+    // returned 422 from `enforce_first_hire_gate` above and created no worker,
+    // so we never record a 422 (which would wrongly short-circuit the later
+    // confirm). The SPA carries the SAME `idempotency_key` on both submit and
+    // confirm, so two tabs / a double-fired confirm collapse to one teammate.
+    let idem = routes_onboarding_idempotency::IdemTicket::open(
+        &parsed,
+        &worker_name,
+        &description,
+        &vertical_id,
+        confirmed_digest.as_deref(),
+    );
+    if let Some(short_circuit) = idem.guard(tenant, &worker_name, &vertical_id) {
+        return short_circuit;
+    }
+
     let identities = IdentityStore::new(store);
     let new_id = match identities
-        .create_worker_from_draft(&draft, tenant, &principal_id)
+        .create_worker_from_draft(draft, tenant, &principal_id)
         .await
     {
         Ok(id) => id,
         Err(ArgoError::Schema(msg)) => return bad_request(&msg),
         Err(e) => return server_error(&format!("create_worker: {e}")),
     };
+    idem.record(tenant, new_id);
     // The fallback (`plan()`-fail) path returned `422` above before reaching
     // here, so a worker is only ever committed on the gate-cleared Genesis
     // path — `genesis_invoked` is unconditionally `true` and there is no
@@ -433,7 +426,7 @@ pub(super) async fn first_hire_response(
             "genesis_fallback": false,
             "plan_id": plan.vertical_id,
             "archetype": plan.archetype.slug(),
-            "charter_hash": charter_hash(&charter),
+            "charter_hash": charter_hash(charter),
             "duty_count": duty_count,
         }),
     )
@@ -494,6 +487,10 @@ mod first_hire_contract_tests;
 #[cfg(test)]
 #[path = "routes_onboarding_first_hire_second_call_tests.rs"]
 mod first_hire_second_call_tests;
+
+#[cfg(test)]
+#[path = "routes_onboarding_first_hire_idem_tests.rs"]
+mod first_hire_idem_tests;
 
 #[cfg(test)]
 #[path = "routes_onboarding_install_vertical_receipt_tests.rs"]

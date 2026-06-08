@@ -17,9 +17,11 @@
 //! Lives in its own sibling so `routes_onboarding.rs` stays under the
 //! 500-LOC per-file budget — same pattern as `routes_onboarding_helpers.rs`.
 
-use super::routes_onboarding_helpers::emit_audit;
+use super::routes_onboarding_helpers::{emit_audit, voice_preamble_from_description};
 use argo_genesis::{plan as genesis_plan, GenesisError, GenesisPlan};
-use argo_identity::HireDutyDraft;
+use argo_identity::{
+    ApprovalPolicyChoice, HireDraft, HireDutyDraft, VoiceProfile,
+};
 use argo_store::SessionStore;
 use argo_types::TenantId;
 use argo_vertical::{ActionDeclaration, ActionRiskLevel, LoadedVertical};
@@ -347,6 +349,56 @@ fn default_check_in_duty() -> HireDutyDraft {
 pub(super) fn charter_hash(charter: &str) -> String {
     let digest = Sha256::digest(charter.as_bytes());
     hex::encode(digest)
+}
+
+/// The assembled first-hire draft plus the two derived values the caller
+/// still needs for the audit row (`charter` for [`charter_hash`], and the
+/// duty count). Extracted from `first_hire_response` so that handler stays
+/// under the 500-LOC per-file budget.
+pub(super) struct FirstHireDraft {
+    pub(super) draft: HireDraft,
+    pub(super) charter: String,
+    pub(super) duty_count: usize,
+}
+
+/// Assemble the [`HireDraft`] the gate-cleared first hire commits. The
+/// operator's freeform brief is carried into the persisted persona so the
+/// worker-profile "About" reads as written: `HireDraft.tagline` lands on
+/// `persona.bio` (see `argo_identity::store_hire::assemble_worker_from_draft`)
+/// and the companion `voice_profile` override replaces the 35-char templated
+/// preamble with one that names the worker and quotes the brief. The Genesis
+/// plan id is forwarded onto the persona's `provenance_chain` so the
+/// `/workers/{id}/overview` read-side can surface the "Plan provenance" chip.
+pub(super) fn build_first_hire_draft(
+    plan: &GenesisPlan,
+    picked: &LoadedVertical,
+    description: &str,
+    worker_name: &str,
+    vertical_id: &str,
+) -> FirstHireDraft {
+    let charter = synthesise_charter(description, Some(plan));
+    let duties = derive_duties(Some(plan), picked);
+    let duty_count = duties.len();
+    let draft = HireDraft {
+        suggested_name: worker_name.to_string(),
+        charter: charter.clone(),
+        suggested_vertical: vertical_id.to_string(),
+        approval_policy: ApprovalPolicyChoice {
+            level: "balanced".into(),
+        },
+        duties,
+        voice_profile: Some(VoiceProfile {
+            preamble: voice_preamble_from_description(worker_name, description),
+            ..Default::default()
+        }),
+        tagline: Some(description.to_string()),
+        genesis_plan_id: Some(plan.vertical_id.clone()),
+    };
+    FirstHireDraft {
+        draft,
+        charter,
+        duty_count,
+    }
 }
 
 #[cfg(test)]

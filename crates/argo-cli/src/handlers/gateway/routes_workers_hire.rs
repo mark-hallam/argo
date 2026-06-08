@@ -42,7 +42,10 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
 const IDEMPOTENCY_HEADER: &str = "Idempotency-Key";
-const IDEMPOTENCY_BODY_FIELD: &str = "idempotency_key";
+/// Body field the SPA sends the de-dupe token in. Shared with the
+/// onboarding first-hire seam (`routes_onboarding`) so both endpoints
+/// parse the identical field name.
+pub(super) const IDEMPOTENCY_BODY_FIELD: &str = "idempotency_key";
 const IDEMPOTENCY_WINDOW_ENV: &str = "ARGO_HIRE_IDEMPOTENCY_WINDOW_SECS";
 const IDEMPOTENCY_DEFAULT_WINDOW_SECS: i64 = 60 * 60;
 
@@ -262,7 +265,10 @@ fn idempotency_key(req: &str) -> Option<String> {
     })
 }
 
-fn body_idempotency_key(parsed: &Value) -> Option<String> {
+/// Pull the body-level `idempotency_key` out of a parsed request body.
+/// `pub(super)` so the onboarding first-hire seam parses the field the
+/// same way (same field name, same trim/empty-filter semantics).
+pub(super) fn body_idempotency_key(parsed: &Value) -> Option<String> {
     parsed
         .get(IDEMPOTENCY_BODY_FIELD)
         .and_then(Value::as_str)
@@ -271,14 +277,18 @@ fn body_idempotency_key(parsed: &Value) -> Option<String> {
         .map(str::to_string)
 }
 
-fn digest_body(body: &str) -> String {
+/// SHA-256 hex of an arbitrary request-body digest input. `pub(super)`
+/// so the onboarding sibling can hash its own meaningful-field
+/// projection through the IDENTICAL hasher (`/hire` digests the whole
+/// body; onboarding digests name+description+vertical+confirmed-digest).
+pub(super) fn digest_body(body: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(body.as_bytes());
     format!("{:x}", hasher.finalize())
 }
 
 #[derive(Debug)]
-enum IdempotencyHit {
+pub(super) enum IdempotencyHit {
     Match(WorkerId),
     Conflict,
     None,
@@ -295,7 +305,11 @@ fn idem_cache() -> &'static Mutex<HashMap<(TenantId, String), IdemEntry>> {
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn check_idempotency(tenant: TenantId, key: &str, body_digest: &str) -> IdempotencyHit {
+/// Probe the SHARED process-global `(tenant, key)` idempotency cache.
+/// `pub(super)` so the onboarding first-hire seam reuses the EXACT same
+/// store — there is one cache for both the `/hire` and the
+/// `/onboarding/first-hire` worker-creation paths, never a parallel one.
+pub(super) fn check_idempotency(tenant: TenantId, key: &str, body_digest: &str) -> IdempotencyHit {
     let Ok(mut guard) = idem_cache().lock() else {
         return IdempotencyHit::None;
     };
@@ -307,7 +321,9 @@ fn check_idempotency(tenant: TenantId, key: &str, body_digest: &str) -> Idempote
     }
 }
 
-fn remember_idempotency(tenant: TenantId, key: &str, body_digest: &str, worker_id: WorkerId) {
+/// Record a freshly-committed worker in the SHARED idempotency cache.
+/// `pub(super)` for the onboarding sibling (see [`check_idempotency`]).
+pub(super) fn remember_idempotency(tenant: TenantId, key: &str, body_digest: &str, worker_id: WorkerId) {
     let Ok(mut guard) = idem_cache().lock() else {
         return;
     };
@@ -361,7 +377,10 @@ fn bad_request(message: &str) -> (&'static str, String) {
     error_envelope("400 Bad Request", "bad_request", message)
 }
 
-fn conflict_response(key: &str) -> (&'static str, String) {
+/// `409 idempotency_conflict` — same key, different body. `pub(super)`
+/// so the onboarding first-hire seam returns the byte-identical conflict
+/// envelope as the `/hire` path.
+pub(super) fn conflict_response(key: &str) -> (&'static str, String) {
     error_envelope(
         "409 Conflict",
         "idempotency_conflict",
