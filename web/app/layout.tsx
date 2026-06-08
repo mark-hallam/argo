@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Audiowide, Inter, JetBrains_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import { SkipToContent } from "@/components/a11y/SkipToContent";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
@@ -109,6 +110,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const colorMode = await readColorModeCookie();
   const modeClass = colorMode === "dark" ? "dark" : "";
 
+  // Per-request CSP nonce, set by `web/middleware.ts` on the forwarded
+  // request headers. Passed to next-themes so its inline flash-prevention
+  // script carries the matching nonce under the nonce-based `script-src`
+  // CSP. `headers()` is request-scoped, so reading it here opts the root
+  // layout into dynamic rendering — acceptable; every route already
+  // renders dynamically (ƒ) under the auth middleware.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html
       lang="en"
@@ -120,7 +129,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <SkipToContent />
         <AuthProvider>
           <QueryProvider>
-            <ThemeProvider>
+            <ThemeProvider nonce={nonce}>
               <TooltipProvider delayDuration={250} skipDelayDuration={100}>
                 <CommandPaletteProvider>
                   <ErrorReportingInit />

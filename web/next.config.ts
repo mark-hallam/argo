@@ -136,42 +136,16 @@ const config: NextConfig = {
   //   (/pitch "Go Live", /coach). Without microphone=(self) the browser blocks
   //   getUserMedia with a Permissions-Policy violation before any user prompt.
   //   Computer-use is gateway-side, not browser-side.
-  // CSP — kept minimal-but-real: 'self' default, gateway URL allowed
-  //   for fetch (connect-src), Google Fonts allowed for the Audiowide
-  //   wordmark + JetBrains Mono. 'unsafe-inline' on style-src is
-  //   required by Next.js styled-jsx + Tailwind preflight; revisit
-  //   once we move to CSS-modules or nonces.
+  // CSP — moved to `web/middleware.ts` (2026-06-08). It is now a
+  //   PER-REQUEST policy carrying a fresh nonce so `script-src` can drop
+  //   'unsafe-inline' (nonce + 'strict-dynamic' instead). A static header
+  //   here cannot mint a per-request nonce, and Next.js only nonces its
+  //   own framework scripts when it reads the nonce off the REQUEST CSP
+  //   header — which only middleware can set. The other (static) security
+  //   headers below stay here; only CSP relocated. NB: do NOT re-add a
+  //   `Content-Security-Policy` key here — two CSP headers would both be
+  //   enforced and the static one (no nonce) would block the framework.
   async headers() {
-    const gatewayConnect = gatewayUrl.replace(/\/$/, "");
-    // CSP `connect-src` governs WebSocket handshakes as well as fetch(),
-    // and treats `http(s):` and `ws(s):` as distinct schemes. The live
-    // approvals inbox (`web/lib/hooks/use-approvals-live.ts`) connects to
-    // `${gateway}/inbox/ws` over `ws://` (or `wss://` in prod), so the
-    // ws-scheme origin must be whitelisted explicitly or the browser
-    // silently refuses the handshake and the feature degrades to a static
-    // snapshot with only a console line as evidence. Derive the ws origin
-    // from the gateway URL and also pin the prod `wss://api.skycot.com`.
-    const gatewayWsConnect = gatewayConnect.replace(/^http(s?):/, "ws$1:");
-    const csp = [
-      "default-src 'self'",
-      // `https://api.openai.com` is required by the live-voice WebRTC handshake
-      // (/pitch "Go Live", /coach): the browser POSTs its SDP offer to
-      // `https://api.openai.com/v1/realtime/calls` with the server-minted
-      // ephemeral key. Without it CSP refuses the connection ("Failed to fetch").
-      `connect-src 'self' ${gatewayConnect} ${gatewayWsConnect} https://api.openai.com https://api.skycot.com wss://api.skycot.com`,
-      "img-src 'self' data: blob: https:",
-      "font-src 'self' https://fonts.gstatic.com data:",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      // 'unsafe-eval' dropped (QA SEC-3): zero eval/new Function usage in
-      // the codebase, so it only widened XSS surface. 'unsafe-inline' stays
-      // until the nonce-based CSP lands (follow-up) — Next.js needs
-      // per-request nonce plumbing to drop it without breaking its own
-      // inline framework scripts.
-      "script-src 'self' 'unsafe-inline'",
-      "frame-ancestors 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join("; ");
     const baseHeaders = [
       {
         source: "/:path*",
@@ -181,7 +155,6 @@ const config: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" },
-          { key: "Content-Security-Policy", value: csp },
         ],
       },
     ];

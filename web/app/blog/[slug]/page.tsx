@@ -4,16 +4,21 @@ import Link from "next/link";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { Markdown } from "@/app/_content/markdown";
-import { listPosts, loadPost } from "@/app/_content/posts";
+import { loadPost } from "@/app/_content/posts";
 
 interface Params {
   slug: string;
 }
 
-export async function generateStaticParams(): Promise<Params[]> {
-  const posts = await listPosts();
-  return posts.map((p) => ({ slug: p.slug }));
-}
+// Server-rendered per request. Was SSG via `generateStaticParams`, but the
+// per-request nonce CSP (web/middleware.ts) cannot be baked into a
+// prerendered post: its inline scripts would ship `nonce=""` and the
+// runtime `'strict-dynamic'` policy would block every script on the page.
+// `force-dynamic` lets each post pick up the request nonce so its scripts
+// carry the matching value. (`generateStaticParams` removed: under
+// force-dynamic it does not prevent prerendering reliably, and `loadPost`
+// already 404s unknown slugs via notFound().)
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,

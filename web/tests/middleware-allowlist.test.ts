@@ -55,7 +55,7 @@ describe("middleware public-paths allowlist — marketing footer legal links", (
 
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toBe(
-      "http://localhost:3000/auth/signin?from=%2Fdashboard",
+      "http://localhost:3000/auth/signin?returnTo=%2Fdashboard",
     );
   });
 });
@@ -87,7 +87,7 @@ describe("middleware auth gate — internal /marketing console is cookie-gated",
 
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toBe(
-      "http://localhost:3000/auth/signin?from=%2Fmarketing",
+      "http://localhost:3000/auth/signin?returnTo=%2Fmarketing",
     );
   });
 

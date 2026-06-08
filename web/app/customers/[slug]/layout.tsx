@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import { getCustomerStory, SEED_CUSTOMERS } from "@/lib/content/customers";
+import { getCustomerStory } from "@/lib/content/customers";
 
 interface LayoutParams {
   params: Promise<{ slug: string }>;
@@ -48,9 +48,15 @@ export async function generateMetadata({ params }: LayoutParams): Promise<Metada
   };
 }
 
-export function generateStaticParams() {
-  return SEED_CUSTOMERS.map((c) => ({ slug: c.slug }));
-}
+// Server-rendered per request (was SSG via generateStaticParams). The
+// per-request nonce CSP (web/middleware.ts) cannot be baked into a
+// prerendered page: its inline scripts ship `nonce=""` and the runtime
+// `'strict-dynamic'` policy then blocks them. `force-dynamic` on the
+// layout opts the whole `/customers/[slug]` segment into dynamic render
+// so each story picks up the request nonce. SEED_CUSTOMERS detail pages
+// are `robots: noindex` anyway (see generateMetadata above), so losing
+// SSG here has no SEO cost.
+export const dynamic = "force-dynamic";
 
 export default function CustomerStoryLayout({ children }: { children: ReactNode }) {
   return <>{children}</>;

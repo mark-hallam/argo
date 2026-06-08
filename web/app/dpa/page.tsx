@@ -4,8 +4,13 @@ import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { Markdown } from "@/app/_content/markdown";
 
-// Statically generated at build time from the co-located template.
-export const dynamic = "force-static";
+// Server-rendered per request. Was `force-static`, but the per-request
+// nonce-based CSP (web/middleware.ts) cannot be baked into static HTML:
+// a prerendered page ships `nonce=""` on its inline scripts, which the
+// runtime `'strict-dynamic'` policy then blocks. Dynamic rendering lets
+// the page pick up the request nonce. The DPA copy still edge-caches via
+// the marketing Cache-Control headers in next.config.ts.
+export const dynamic = "force-dynamic";
 
 const EFFECTIVE_DATE = "2026-05-17";
 

@@ -26,10 +26,18 @@ interface ThemeProviderProps {
   initialThemeId?: string;
   /** Additional tenant-registered themes shipped at runtime. */
   registeredThemes?: ThemePair[];
+  /**
+   * Per-request CSP nonce (read from the `x-nonce` request header in the
+   * server layout). next-themes stamps this on the inline flash-prevention
+   * `<script>` it injects into the document head; without it, the
+   * nonce-based `script-src` CSP (see `web/middleware.ts`) blocks that
+   * script and the first paint flashes the wrong color mode.
+   */
+  nonce?: string;
   children: ReactNode;
 }
 
-export function ThemeProvider({ initialThemeId, registeredThemes = [], children }: ThemeProviderProps) {
+export function ThemeProvider({ initialThemeId, registeredThemes = [], nonce, children }: ThemeProviderProps) {
   // Auth surfaces (`/auth/*`) are a locked light-only design. Force
   // next-themes to "light" on those routes so it never applies the
   // `dark` class there. This replaces the old `app/auth/layout.tsx`
@@ -91,6 +99,7 @@ export function ThemeProvider({ initialThemeId, registeredThemes = [], children 
         themes={["light", "dark"]}
         disableTransitionOnChange={false}
         forcedTheme={forcedTheme}
+        nonce={nonce}
       >
         <DataThemeBridge theme={activeTheme}>{children}</DataThemeBridge>
       </NextThemesProvider>

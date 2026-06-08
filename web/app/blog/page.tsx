@@ -3,8 +3,14 @@ import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { listPosts, type PostMeta } from "@/app/_content/posts";
 
-// Statically generated at build time from the co-located markdown.
-export const dynamic = "force-static";
+// Server-rendered per request. Was `force-static`, but the per-request
+// nonce-based CSP (web/middleware.ts) cannot be baked into static HTML:
+// a prerendered page ships `nonce=""` on its inline scripts, which the
+// runtime `'strict-dynamic'` policy then blocks (the page would render
+// scriptless with console CSP errors). Dynamic rendering lets the page
+// pick up the request nonce so its scripts carry the matching value.
+// Content still edge-caches via the marketing Cache-Control headers.
+export const dynamic = "force-dynamic";
 
 function PostCard({ post }: { post: PostMeta }) {
   const dateLabel = new Date(post.date).toLocaleDateString("en-US", {
