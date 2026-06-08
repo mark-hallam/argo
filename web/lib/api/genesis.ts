@@ -17,6 +17,7 @@
 
 import { apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import { readChunkWithIdleTimeout } from "@/lib/api/stream-idle-timeout";
 import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 import { STUB_QUESTIONS, stubWorkerDraft } from "@/lib/hire/genesis-stub";
 import {
@@ -503,11 +504,22 @@ export async function streamGenesis(
       ? { success_criteria: req.successCriteria }
       : {}),
   });
+  // Internal controller is what the idle-timeout aborts on a stall (so a
+  // wedged socket is torn down). It's chained to the caller's `signal` so
+  // an external abort (unmount / "Try again") still cancels the stream.
+  const controller = new AbortController();
+  if (req.signal) {
+    if (req.signal.aborted) controller.abort();
+    else
+      req.signal.addEventListener("abort", () => controller.abort(), {
+        once: true,
+      });
+  }
   const res = await fetch(url, {
     method: "POST",
     headers,
     body,
-    signal: req.signal,
+    signal: controller.signal,
     cache: "no-store",
   });
   if (!res.ok || !res.body) {
@@ -522,8 +534,16 @@ export async function streamGenesis(
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  // Idle-timeout the read loop: if the gateway accepts the POST then goes
+  // silent (no byte within the budget), abort the socket and throw
+  // GatewayTimeoutError so the page's `.catch` shows its error + retry
+  // instead of the progress strip hanging forever. Resets per chunk, so a
+  // long-but-healthy generation streaming progress events is never cut.
   while (true) {
-    const { value, done } = await reader.read();
+    const { value, done } = await readChunkWithIdleTimeout(reader, {
+      controller,
+      path: "/api/v1/genesis",
+    });
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
     let sepIdx: number;

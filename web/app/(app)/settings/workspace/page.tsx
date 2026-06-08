@@ -8,6 +8,7 @@ import {
   DEFAULT_WORKSPACE_SETTINGS,
   TIMEZONE_OPTIONS,
   VERTICAL_OPTIONS,
+  diffSettings,
   fetchWorkspaceSettings,
   updateWorkspaceSettings,
   type WorkspaceSettings,
@@ -63,13 +64,20 @@ export default function WorkspaceSettingsPage() {
 
   async function save() {
     setSaving(true);
-    const next = draft;
-    setPersisted(next);
+    // Send ONLY the changed keys (not the whole draft) so a one-field
+    // edit can't clobber a concurrently-edited field — last-writer-wins.
+    const patch = diffSettings(persisted, draft);
     try {
-      await updateWorkspaceSettings(persisted, next);
+      // Reconcile from the gateway's canonical row (the returned `value`),
+      // NOT the local draft — if the gateway normalises a field, the UI
+      // must show the normalised value, not the un-normalised local one
+      // that would silently change on next reload. Mirrors the memory-fact
+      // mutation's onSuccess reconcile (use-worker-memory.ts).
+      const { value } = await updateWorkspaceSettings(persisted, patch);
+      setPersisted(value);
+      setDraft(value);
       success("Workspace saved", { description: "Operators will see the new values on next reload." });
     } catch (err) {
-      setPersisted(persisted);
       toastError("Couldn't save workspace", {
         description: err instanceof Error ? err.message : "Unknown error",
       });

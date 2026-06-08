@@ -159,6 +159,25 @@ function isAuthBypassed(): boolean {
   );
 }
 
+/**
+ * Compute the minimal `Partial<T>` patch of `next` vs `previous` — only
+ * the keys whose value actually changed. Used by the Settings panels so a
+ * one-field edit PATCHes one field, not the whole object: sending the
+ * whole object is a last-writer-wins clobber that overwrites concurrent
+ * edits to fields the operator never touched. Shallow strict-equality is
+ * correct here — every settings field is a primitive (string / number /
+ * boolean).
+ */
+export function diffSettings<T extends object>(previous: T, next: T): Partial<T> {
+  const patch: Partial<T> = {};
+  for (const key of Object.keys(next) as (keyof T)[]) {
+    if (next[key] !== previous[key]) {
+      patch[key] = next[key];
+    }
+  }
+  return patch;
+}
+
 async function fetchOrFallback<T>(path: string, fallback: T): Promise<{ value: T; source: SettingsSource }> {
   if (isAuthBypassed() && !isDemoLive()) return { value: fallback, source: "mock-bypass" };
   try {

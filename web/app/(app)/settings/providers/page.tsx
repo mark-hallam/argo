@@ -7,6 +7,7 @@ import {
   DEFAULT_PROVIDER_SETTINGS,
   FALLBACK_OPTIONS,
   PROVIDER_OPTIONS,
+  diffSettings,
   fetchProviderSettings,
   updateProviderSettings,
   type ProviderSettings,
@@ -70,15 +71,18 @@ export default function ProvidersSettingsPage() {
 
   async function save() {
     setSaving(true);
-    const next = draft;
-    setPersisted(next);
+    // Send ONLY the changed keys (last-writer-wins guard); reconcile from
+    // the gateway's returned canonical row so normalised values surface
+    // immediately instead of silently changing on next reload.
+    const patch = diffSettings(persisted, draft);
     try {
-      await updateProviderSettings(persisted, next);
+      const { value } = await updateProviderSettings(persisted, patch);
+      setPersisted(value);
+      setDraft(value);
       success("Provider policy saved", {
         description: "Workers will pick up the new routing on next turn.",
       });
     } catch (err) {
-      setPersisted(persisted);
       toastError("Couldn't save provider policy", {
         description: err instanceof Error ? err.message : "Unknown error",
       });

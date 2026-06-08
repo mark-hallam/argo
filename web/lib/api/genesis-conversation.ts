@@ -16,6 +16,7 @@
  */
 
 import { apiPost } from "@/lib/api/client";
+import { DEFAULT_STREAM_IDLE_MS } from "@/lib/api/stream-idle-timeout";
 import type { SuccessCriterion } from "@/lib/api/genesis";
 
 /** Turn status the engine reports: still gathering, ready to confirm, or
@@ -168,9 +169,14 @@ export async function postConversationTurn(
   const body: Record<string, unknown> = { conversation_id: req.conversationId };
   if (req.message !== undefined && req.message.length > 0) body.message = req.message;
   if (req.confirm) body.confirm = true;
+  // This unary mutation GATES the whole chat step — an unbounded `apiPost`
+  // (mutations default to no timeout in `client.ts`) would hang the
+  // conversation forever if the gateway stalls. Bound it at the same
+  // budget the streaming reads use so the UI can surface a retry.
   const raw = await apiPost<unknown>("/api/v1/genesis/conversation", body, {
     headers: { "X-Argo-Tenant-Id": req.tenantId },
     signal: req.signal,
+    timeoutMs: DEFAULT_STREAM_IDLE_MS,
   });
   return normalizeConversationResponse(raw, req.conversationId);
 }

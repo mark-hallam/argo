@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchApprovals,
+  newIdempotencyKey,
   submitDecision,
   submitUndo,
   type ApprovalDecisionRequest,
@@ -121,8 +122,16 @@ export function useBatchSubmitDecisions() {
         failed: 0,
         outcomes: [],
       });
+      // Stamp a stable idempotency key per decision (unless the caller
+      // already supplied one) so the gateway can dedupe a
+      // double-submitted batch — the parallel path was the one with no
+      // double-record guard.
+      const keyed = requests.map((req) => ({
+        ...req,
+        idempotencyKey: req.idempotencyKey ?? newIdempotencyKey(),
+      }));
       const settled = await Promise.all(
-        requests.map(async (req): Promise<BatchOutcome> => {
+        keyed.map(async (req): Promise<BatchOutcome> => {
           try {
             await submitOne.mutateAsync(req);
             completed += 1;

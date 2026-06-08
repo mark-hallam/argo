@@ -146,6 +146,51 @@ describe("POST /api/auth/demo-mint — needs_onboarding derivation", () => {
     expect(body.error?.code).toBe("missing_email");
   });
 
+  // Defense-in-depth: a production build refuses demo-mint unless the
+  // explicit `NEXT_PUBLIC_ALLOW_DEMO_MINT=1` opt-in is set. 404 so the
+  // route is indistinguishable from "doesn't exist" in prod, and no
+  // gateway fetch is made.
+  it("returns 404 in production without the explicit allow flag (no gateway call)", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    delete process.env.NEXT_PUBLIC_ALLOW_DEMO_MINT;
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => {
+        throw new Error("demo-mint must not call fetch when prod-guarded");
+      });
+    try {
+      const res = await POST(makeRequest({ email: "demo@skycot.com" }));
+      expect(res.status).toBe(404);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("allows demo-mint in production when NEXT_PUBLIC_ALLOW_DEMO_MINT=1", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_ALLOW_DEMO_MINT", "1");
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.endsWith("/api/v1/demo/mint-principal")) return mintOkResponse();
+      if (url.endsWith("/api/v1/team")) {
+        return jsonResponse({ workers: [{ id: "w-1" }], total_count: 1 });
+      }
+      if (url.endsWith("/api/v1/verticals")) {
+        return jsonResponse({ verticals: [{ id: "gtm-engineer" }] });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    try {
+      const res = await POST(makeRequest({ email: "demo@skycot.com" }));
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as RouteBody;
+      expect(body.ok).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("surfaces gateway errors when mint-principal fails", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = typeof input === "string" ? input : input.toString();

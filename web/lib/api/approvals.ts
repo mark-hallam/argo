@@ -52,7 +52,28 @@ export type ApprovalsResult = {
 export type ApprovalDecisionRequest = {
   approvalId: string;
   decision: "approve" | "refuse";
+  /**
+   * Per-attempt idempotency key. The batch "Approve all" path fires N
+   * parallel decisions; a retry / double-click could otherwise
+   * double-RECORD the same decision in the audit chain. Threading a
+   * stable key (one per `approvalId` per batch) lets the gateway dedupe.
+   * Optional so the single-card path (already guarded) is unchanged.
+   */
+  idempotencyKey?: string;
 };
+
+/**
+ * Generate an idempotency key for a decision attempt. `crypto.randomUUID`
+ * everywhere it's available (browsers + Node 18+); a timestamp+random
+ * fallback keeps older / locked-down contexts working. Matches the guard
+ * pattern used across the SPA (`lib/api/workers.ts`, `genesis/page.tsx`).
+ */
+export function newIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `idem_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
 
 export type DecisionResult = {
   ok: true;
@@ -237,17 +258,24 @@ async function fetchApprovalsInner(): Promise<ApprovalsResult> {
 export async function submitDecision({
   approvalId,
   decision,
+  idempotencyKey,
 }: ApprovalDecisionRequest): Promise<DecisionResult> {
   // Recording-mode opt-out — see `fetchApprovals` above.
   if (isAuthBypassed() && !isDemoLive()) {
     return { ok: true, approvalId, decision, source: "mock-auth-bypass" };
   }
   try {
+    // `idempotency_key` (when present) lets the gateway dedupe a
+    // double-submitted decision (batch retry / double-click) so the audit
+    // chain records the decision exactly once.
+    const decideBody: { decision: "approve" | "refuse"; idempotency_key?: string } =
+      { decision };
+    if (idempotencyKey) decideBody.idempotency_key = idempotencyKey;
     const res = await apiPost<{
       ok: true;
       approval_id: string;
       decision: "approve" | "refuse";
-    }>(`/api/v1/approvals/${approvalId}/decide`, { decision });
+    }>(`/api/v1/approvals/${approvalId}/decide`, decideBody);
     return {
       ok: true,
       approvalId: res.approval_id ?? approvalId,

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   fetchApprovals,
+  newIdempotencyKey,
   submitDecision,
   submitUndo,
 } from "./approvals";
@@ -312,5 +313,60 @@ describe("lib/api/approvals", () => {
     expect(hitGateway("/api/v1/approvals")).toBe(true);
     expect(hitGateway("/api/v1/approvals/ap_seeded_1/decide")).toBe(true);
     expect(hitGateway("/api/v1/approvals/ap_seeded_1/undo")).toBe(true);
+  });
+
+  // Batch "Approve all" idempotency: threading a per-attempt key lets the
+  // gateway dedupe a double-submitted decision so the audit chain records
+  // it exactly once.
+  it("forwards idempotency_key in the /decide body when supplied", async () => {
+    let capturedBody: Record<string, unknown> | null = null;
+    installMock(async (req) => {
+      if (req.url.endsWith("/decide")) {
+        capturedBody = req.body ? JSON.parse(await req.text()) : null;
+        return makeResponse({
+          status: 200,
+          body: { ok: true, approval_id: "ap_idem", decision: "approve" },
+        });
+      }
+      return makeResponse({ status: 500 });
+    });
+
+    await submitDecision({
+      approvalId: "ap_idem",
+      decision: "approve",
+      idempotencyKey: "idem-key-123",
+    });
+    expect(capturedBody).toEqual({
+      decision: "approve",
+      idempotency_key: "idem-key-123",
+    });
+  });
+
+  it("omits idempotency_key from the /decide body on the single-card path (none supplied)", async () => {
+    let capturedBody: Record<string, unknown> | null = null;
+    installMock(async (req) => {
+      if (req.url.endsWith("/decide")) {
+        capturedBody = req.body ? JSON.parse(await req.text()) : null;
+        return makeResponse({
+          status: 200,
+          body: { ok: true, approval_id: "ap_solo", decision: "refuse" },
+        });
+      }
+      return makeResponse({ status: 500 });
+    });
+
+    await submitDecision({ approvalId: "ap_solo", decision: "refuse" });
+    expect(capturedBody).toEqual({ decision: "refuse" });
+    expect(capturedBody).not.toHaveProperty("idempotency_key");
+  });
+});
+
+describe("newIdempotencyKey", () => {
+  it("returns a non-empty, unique-per-call string", () => {
+    const a = newIdempotencyKey();
+    const b = newIdempotencyKey();
+    expect(typeof a).toBe("string");
+    expect(a.length).toBeGreaterThan(0);
+    expect(a).not.toBe(b);
   });
 });

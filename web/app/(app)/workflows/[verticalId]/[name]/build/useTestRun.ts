@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { readChunkWithIdleTimeout } from "@/lib/api/stream-idle-timeout";
+
 export interface CompletedTestRun {
   startedAt: number;
   endedAt: number;
@@ -272,7 +274,13 @@ export function useTestRun(
           const decoder = new TextDecoder();
           let buffer = "";
           while (true) {
-            const { done, value } = await reader.read();
+            // Idle-timeout the NDJSON read: a gateway that opens the
+            // stream then stalls now surfaces a transport error (→ the
+            // overlay's failed state) instead of hanging "running" forever.
+            const { done, value } = await readChunkWithIdleTimeout(reader, {
+              controller,
+              path: "/api/workflows/test-run",
+            });
             if (done) break;
             buffer += decoder.decode(value, { stream: true });
             let newlineIdx = buffer.indexOf("\n");

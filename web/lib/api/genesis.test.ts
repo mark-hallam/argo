@@ -10,7 +10,7 @@ import {
   type GenesisStreamCallbacks,
   type GenesisVerticalReadyEvent,
 } from "./genesis";
-import { ApiError } from "./types";
+import { ApiError, GatewayTimeoutError } from "./types";
 import { STUB_QUESTIONS } from "@/lib/hire/genesis-stub";
 
 const ORIGINAL_FETCH = globalThis.fetch;
@@ -470,6 +470,42 @@ describe("streamGenesis", () => {
         },
       ),
     ).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it("rejects with GatewayTimeoutError when the stream opens but never emits a byte (idle-timeout)", async () => {
+    // The /genesis demo-blocker class: the gateway accepts the POST,
+    // returns 200, then goes silent forever. Without the idle timeout the
+    // read loop hangs and the page sits on its progress strip permanently.
+    // A ReadableStream whose source never enqueues nor closes models the
+    // wedged socket; the idle timer must win and reject.
+    vi.useFakeTimers();
+    try {
+      const stream = new ReadableStream<Uint8Array>({
+        start() {
+          /* never enqueue, never close */
+        },
+      });
+      globalThis.fetch = vi.fn(() =>
+        Promise.resolve(
+          new Response(stream, {
+            status: 200,
+            headers: { "content-type": "text/event-stream" },
+          }),
+        ),
+      ) as unknown as typeof fetch;
+
+      const promise = streamGenesis(
+        { roleDescription: "x", tenantId: "op" },
+        { onProgress: () => {}, onVerticalReady: () => {}, onError: () => {} },
+      );
+      const caught = promise.catch((e) => e as Error);
+      // Default idle budget is 45s; advance past it.
+      await vi.advanceTimersByTimeAsync(45_000);
+      const err = await caught;
+      expect(err).toBeInstanceOf(GatewayTimeoutError);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("fetches the SAME-ORIGIN /api/v1 path in the browser (no cross-origin SSE → no CORS block)", async () => {

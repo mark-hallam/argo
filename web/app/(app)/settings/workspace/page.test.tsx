@@ -89,7 +89,7 @@ describe("settings workspace page", () => {
     expect(screen.getByTestId("settings-workspace-save-bar")).toBeInTheDocument();
   });
 
-  it("calls updateWorkspaceSettings when Save is clicked", async () => {
+  it("calls updateWorkspaceSettings when Save is clicked, sending a ONE-KEY patch", async () => {
     render(<WorkspaceSettingsPage />);
     const nameInput = await screen.findByTestId("settings-workspace-name");
     fireEvent.change(nameInput, { target: { value: "Renamed Tenant" } });
@@ -102,11 +102,44 @@ describe("settings workspace page", () => {
     expect(settingsApi.updateWorkspaceSettings).toHaveBeenCalledTimes(1);
     const [prev, patch] = settingsApi.updateWorkspaceSettings.mock.calls[0];
     expect(prev).toEqual(DEFAULT_WORKSPACE_SETTINGS);
-    expect(patch.name).toBe("Renamed Tenant");
+    // A one-field edit must send only that field (last-writer-wins guard),
+    // not the whole draft object.
+    expect(patch).toEqual({ name: "Renamed Tenant" });
+    expect(Object.keys(patch)).toHaveLength(1);
     expect(toastApi.success).toHaveBeenCalledWith(
       "Workspace saved",
       expect.objectContaining({ description: expect.any(String) }),
     );
+  });
+
+  it("reconciles inputs from the gateway's returned value, not the local draft", async () => {
+    // The gateway normalises `name` (trims + title-cases here). The UI must
+    // adopt the server's canonical value, not keep showing the raw local
+    // draft that would silently change on next reload.
+    settingsApi.updateWorkspaceSettings.mockResolvedValue({
+      value: { ...DEFAULT_WORKSPACE_SETTINGS, name: "Normalised Name" },
+      source: "gateway",
+    });
+
+    render(<WorkspaceSettingsPage />);
+    const nameInput = await screen.findByTestId("settings-workspace-name");
+    fireEvent.change(nameInput, { target: { value: "  messy name  " } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("settings-workspace-save"));
+    });
+
+    // Input now shows the SERVER value, not the messy local draft.
+    await waitFor(() => {
+      expect(screen.getByTestId("settings-workspace-name")).toHaveValue(
+        "Normalised Name",
+      );
+    });
+    // And the save bar is gone — draft === persisted === server value, so
+    // the panel is no longer dirty.
+    expect(
+      screen.queryByTestId("settings-workspace-save-bar"),
+    ).not.toBeInTheDocument();
   });
 
   it("reverts persisted state and shows an error toast on mutation failure", async () => {

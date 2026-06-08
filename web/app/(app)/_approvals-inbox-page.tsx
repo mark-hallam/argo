@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useMemo, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { AlertCircle, Filter, Inbox, Loader2, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -86,6 +86,13 @@ function ApprovalsInboxShell() {
   const [query, setQuery] = useState("");
   const [batchUi, setBatchUi] = useState<Record<string, BatchUiState>>({});
   const [approvedByGroup, setApprovedByGroup] = useState<Record<string, string[]>>({});
+  // Synchronous per-group in-flight latch. A double-click fires two
+  // handleApproveAll calls before React commits the `batchUi` "loading"
+  // state, so a state-derived guard would let both reach
+  // batchSubmit.submit and double-record. This ref is checked-and-set
+  // synchronously at the top of the handler — the load-bearing
+  // re-entrancy guard, independent of render timing.
+  const inFlightGroupsRef = useRef<Set<string>>(new Set());
 
   const router = useRouter();
   const pathname = usePathname();
@@ -175,29 +182,38 @@ function ApprovalsInboxShell() {
 
   const handleApproveAll = useCallback(
     async (group: ApprovalGroup, idsOverride?: string[]) => {
+      // Re-entrancy guard: bail the instant a batch for THIS group is
+      // already in flight, so a double-click can't launch a second
+      // parallel submit (which would double-record decisions).
+      if (inFlightGroupsRef.current.has(group.key)) return;
       const ids = idsOverride ?? group.items.filter((it) => it.decision == null).map((it) => it.id);
       if (ids.length === 0) return;
+      inFlightGroupsRef.current.add(group.key);
       setBatchUi((s) => ({
         ...s,
         [group.key]: { ...IDLE_BATCH_UI, phase: "loading" },
       }));
-      const outcomes = await batchSubmit.submit(
-        ids.map((approvalId) => ({ approvalId, decision: "approve" as const })),
-      );
-      const failed = outcomes.filter((o) => !o.ok);
-      const completed = outcomes.length - failed.length;
-      const approvedIds = outcomes.filter((o) => o.ok).map((o) => o.approvalId);
-      setBatchUi((s) => ({
-        ...s,
-        [group.key]: {
-          ...IDLE_BATCH_UI,
-          phase: "settled",
-          completed,
-          failed: failed.length,
-          failedIds: failed.map((o) => o.approvalId),
-        },
-      }));
-      setApprovedByGroup((m) => ({ ...m, [group.key]: approvedIds }));
+      try {
+        const outcomes = await batchSubmit.submit(
+          ids.map((approvalId) => ({ approvalId, decision: "approve" as const })),
+        );
+        const failed = outcomes.filter((o) => !o.ok);
+        const completed = outcomes.length - failed.length;
+        const approvedIds = outcomes.filter((o) => o.ok).map((o) => o.approvalId);
+        setBatchUi((s) => ({
+          ...s,
+          [group.key]: {
+            ...IDLE_BATCH_UI,
+            phase: "settled",
+            completed,
+            failed: failed.length,
+            failedIds: failed.map((o) => o.approvalId),
+          },
+        }));
+        setApprovedByGroup((m) => ({ ...m, [group.key]: approvedIds }));
+      } finally {
+        inFlightGroupsRef.current.delete(group.key);
+      }
     },
     [batchSubmit],
   );

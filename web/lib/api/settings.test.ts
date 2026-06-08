@@ -4,6 +4,7 @@ import {
   DEFAULT_PROVIDER_SETTINGS,
   DEFAULT_WORKSPACE_SETTINGS,
   NEUTRAL_WORKSPACE_SETTINGS,
+  diffSettings,
   fetchNotificationSettings,
   fetchProviderSettings,
   fetchWorkspaceSettings,
@@ -245,6 +246,45 @@ describe("lib/api/settings", () => {
       expect(result.source).toBe("mock-offline");
       expect(result.value.primary_provider).toBe("openai");
       expect(result.value.allow_worker_overrides).toBe(false);
+    });
+  });
+
+  describe("diffSettings", () => {
+    it("returns only the keys that changed (one-field edit → one-key patch)", () => {
+      const patch = diffSettings(DEFAULT_WORKSPACE_SETTINGS, {
+        ...DEFAULT_WORKSPACE_SETTINGS,
+        name: "Renamed",
+      });
+      expect(patch).toEqual({ name: "Renamed" });
+      expect(Object.keys(patch)).toHaveLength(1);
+    });
+
+    it("returns an empty patch when nothing changed", () => {
+      expect(
+        diffSettings(DEFAULT_PROVIDER_SETTINGS, { ...DEFAULT_PROVIDER_SETTINGS }),
+      ).toEqual({});
+    });
+
+    it("captures multiple changed keys (and only those)", () => {
+      const patch = diffSettings(DEFAULT_PROVIDER_SETTINGS, {
+        ...DEFAULT_PROVIDER_SETTINGS,
+        primary_provider: "openai",
+        allow_worker_overrides: false,
+      });
+      expect(patch).toEqual({
+        primary_provider: "openai",
+        allow_worker_overrides: false,
+      });
+      expect(patch.fallback_behavior).toBeUndefined();
+    });
+
+    it("includes a boolean key flipped to false (falsy values are not dropped)", () => {
+      const patch = diffSettings(DEFAULT_PROVIDER_SETTINGS, {
+        ...DEFAULT_PROVIDER_SETTINGS,
+        allow_worker_overrides: false,
+      });
+      expect(patch).toEqual({ allow_worker_overrides: false });
+      expect("allow_worker_overrides" in patch).toBe(true);
     });
   });
 

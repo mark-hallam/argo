@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { iterateWithIdleTimeout } from "@/lib/api/stream-idle-timeout";
+
 import { diffSteps, parseProposalToml, type ProposalDiff } from "./propose-toml";
 import type { WorkflowStep } from "./types";
 
@@ -33,12 +35,16 @@ type Status =
 
 async function* readChunks(
   body: ReadableStream<Uint8Array>,
+  controller?: AbortController,
 ): AsyncGenerator<string, void, unknown> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) return;
+  // Idle-timeout the read so a gateway that accepts the POST then stalls
+  // surfaces an error (→ "Try again") instead of a forever "Streaming…".
+  for await (const value of iterateWithIdleTimeout(reader, {
+    controller,
+    path: "/api/workflows/propose",
+  })) {
     yield decoder.decode(value, { stream: true });
   }
 }
@@ -84,7 +90,7 @@ export function BuilderAiProposal({
         return;
       }
       let acc = "";
-      for await (const chunk of readChunks(res.body)) {
+      for await (const chunk of readChunks(res.body, controller)) {
         if (controller.signal.aborted) return;
         acc += chunk;
         setStreamedToml(acc);

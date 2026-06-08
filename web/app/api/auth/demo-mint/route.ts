@@ -123,10 +123,6 @@ async function deriveNeedsOnboarding(sessionToken: string): Promise<boolean> {
   }
 }
 
-function isProd(): boolean {
-  return process.env.NODE_ENV === "production";
-}
-
 /**
  * `__Host-` cookie attributes per the spec: Path=/ exact, no Domain,
  * Secure required. Browsers honour `Secure` cookies on `localhost`
@@ -146,6 +142,18 @@ function csrfCookieAttrs(): string {
 }
 
 export async function POST(req: NextRequest) {
+  // Defense-in-depth: refuse the demo-mint path in a production build
+  // unless explicitly opted in. The gateway already refuses to boot
+  // `ARGO_DEMO_MODE=1` outside auth-bypass, but this in-handler guard
+  // closes the door at the SPA edge too — a misconfigured prod deploy
+  // can't mint anonymous demo principals. 404 (not 403) so the route is
+  // indistinguishable from "doesn't exist" in prod.
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.NEXT_PUBLIC_ALLOW_DEMO_MINT !== "1"
+  ) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
   let body: MintBody;
   try {
     body = (await req.json()) as MintBody;
@@ -275,11 +283,5 @@ export async function POST(req: NextRequest) {
     "set-cookie",
     `__Host-csrf=${csrfValue}; ${csrfCookieAttrs()}`,
   );
-  // No-op in prod (the safety rail) — the gateway refuses to start
-  // with `ARGO_DEMO_MODE=1` outside of `ARGO_GATEWAY_AUTH_BYPASS=1`,
-  // so this route can only succeed in non-prod environments anyway.
-  // Keep the variable referenced so a future linter rule can spot
-  // misuse without warning today.
-  void isProd;
   return res;
 }
