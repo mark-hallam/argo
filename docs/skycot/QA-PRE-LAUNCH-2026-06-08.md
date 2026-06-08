@@ -80,9 +80,33 @@ Browser (me): (6) auth journey · (7) onboarding 5-step · (8) hire/Genesis incl
 - 🟢 **Wave-2a a11y structural** (PUSHED 29eb3f5de): A11Y-2 useFocusTrap on 10 modals · A11Y-5/6 clickable-role→overlay-link · A11Y-7 /team h1 · A11Y-8 th scope · reveal-on-focus · A11Y-P3 (orphan label, redundant aria, auth aria-busy) · FORM-4 api-keys expiry · FORM-5 SAML JSON.
 - 🟢 **Wave-2b + button** PUSHED (f6e8160b9 button, 28388d667 resilience, 29eb3f5de a11y). Render-verified live: /team (TeammateCard overlay link) + /audit render clean, no new console errors.
 
+### PRODUCTION BUILD PASS (2026-06-08) — GREEN
+- `next build` exit 0, ZERO warnings/errors, healthy bundle (103 kB shared first-load). The
+  strict prod type-check + lint (which dev skips) both pass.
+- App uses `output: standalone` (correct for containerised AWS deploy) → the deploy must run
+  `node .next/standalone/server.js` (NOT `next start`). Verified the standalone artifact serves:
+  root 307, a CSS chunk 200 (assets staged), Ready 144ms.
+- Browser-tested the prod build live: /team renders perfectly (styling, gradient hero, Riley's
+  card, the a11y overlay-link, the button text-shadow) — no prod-runtime/hydration errors.
+- DEPLOY NOTE for the readiness doc: confirm the Dockerfile copies `.next/static` + `public` into
+  `.next/standalone/` and runs `server.js` (standard standalone pattern).
+
 ### CAMPAIGN RESULT (2026-06-08): 6 commits pushed, ~24/25 findings fixed + verified
 Wave-1: 98ff4f7c1 (SEC-1/2/3) · ccd4d1318 (STATE-1/2, RES-2/3/5) · bcfbb31b2 (FORM-1/2, STATE-3/4).
 Wave-2: f6e8160b9 (A11Y-4 button) · 28388d667 (RES-1/4, FORM-3, STATE-5, SEC-4) · 29eb3f5de (A11Y-2/5/6/7/8, FORM-4/5).
-tsc 0 errors throughout; ~300 web tests across the touched suites green.
+Wave-3: 9b6ad539d (STATE-4 gateway companion — onboarding first-hire shares the /hire idempotency
+cache; cargo check 0, 3/3 idem tests, 47/47 regression, clippy clean). NOTE: committed+pushed, live
+on the next gateway rebuild (running dev gateway is still 88fa18c) — curl-verify post-rebuild.
+tsc 0 errors throughout; ~300 web tests across the touched suites green. Production build GREEN.
+
+## REMAINING (operator decision / post-launch hardening — launch-blockers all CLOSED)
+- ⏸️ **Status-badge contrast** — operator visual decision pending (comparison HTML sent).
+- 📋 Post-launch hardening backlog (defense-in-depth; NOT launch-blockers — the purge/guards already
+  close the live leak): tenant-scoped React Query keys (forward-looking for an in-session workspace
+  switcher), nonce-based CSP (unsafe-eval already dropped), SEC-2 grant principal-binding (storage
+  purge already clears it on identity change), full Radix-modal migration (focus-trap hook already
+  applied), marketing-page button text-shadows, auth-error/caption text-contrast (held with badges).
+- 🚀 Deploy note: standalone build → AWS container runs `node .next/standalone/server.js` + stages
+  `.next/static`+`public` (verified serves). Gateway idempotency change ships in the deploy build.
 - ⚪ **HELD for operator visual judgment** (under the brand lock): A11Y-1 StatusPill text contrast (warning 2.32:1) + A11Y-3 auth-error-text + A11Y-P2-4 caption-ink contrast — status-badge side-by-side comparison to be prepared next.
 - FOLLOW-UPS (noted, not this pass): SEC-2 grant principal-binding (defense-in-depth; storage-purge already closes the leak), SEC-4 demo-mint prod-guard (gateway already refuses demo in prod), tenant-scoped query keys, nonce-based CSP, RES-1/4 SSE idle-timeout, FORM-3 settings reconcile, A11Y-1..9 (next wave).
