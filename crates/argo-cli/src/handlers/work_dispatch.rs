@@ -20,7 +20,7 @@ use std::sync::Arc;
 // would just push the same arity into the struct definition
 // without removing the coupling.
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn process_job(
+pub(crate) async fn process_job(
     store: &Arc<SessionStore>,
     memory: &MemoryStore,
     tenant: TenantId,

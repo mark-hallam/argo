@@ -1,7 +1,8 @@
 //! `POST /api/v1/workers/<id>/run` — manual "Run now" trigger for the
 //! demo runbook's Scene 2 ("click Mariah → Run now → audit row lands
-//! in /audit within 5s"). Authored under
-//! `fix-worker-detail-run-now-action-and-endpoint`.
+//! in /audit within 5s"). Originally authored under
+//! `fix-worker-detail-run-now-action-and-endpoint`; the real-run wire
+//! lives in the sibling [`routes_worker_run_exec`].
 //!
 //! Pipeline:
 //! 1. Parse + validate the path worker id.
@@ -12,36 +13,42 @@
 //!    "`permissions.can_pause_resume` is a reasonable proxy" guidance.
 //! 4. Parse body (`{ note?: string, trigger_source?: string }`, both
 //!    optional).
-//! 5. Stamp a fresh `trigger_id` (UUIDv7) into the audit payload and
-//!    emit a `worker.run` HTTP-request audit row via [`AuditSink`].
-//! 6. Look up the audit row's primary key by `trigger_id` and return
-//!    `{ action_id, audit_id, trigger_id, queued_at }`. `action_id` and
-//!    `audit_id` carry the same lower-hex 32-char audit row id so the
-//!    SPA toast can deep-link to `/audit/action/<action_id>` without
-//!    guessing which field to read.
+//! 5. **Run a REAL turn** via [`routes_worker_run_exec::run_worker_now`]
+//!    — validate-before-claim (worker has a loadable vertical + a
+//!    provider key is present, else an honest `409 Conflict`), then run
+//!    one turn through the proven
+//!    [`crate::handlers::work_dispatch::process_job`] engine. No
+//!    theater: the run is awaited and the response reports the TRUE
+//!    outcome.
+//! 6. Stamp a fresh `trigger_id` (UUIDv7) into an audit payload that
+//!    carries the REAL outcome (`status`, `session_id`, `chars`) and
+//!    emit a `worker.run` audit row via [`AuditSink`].
+//! 7. Look up the audit row's primary key by `trigger_id` and return
+//!    `{ action_id, audit_id, trigger_id, session_id, status, chars,
+//!    queued_at }`. `action_id` and `audit_id` carry the same lower-hex
+//!    32-char audit row id so the SPA toast can deep-link to
+//!    `/audit/action/<action_id>` without guessing which field to read.
+//!    The original `action_id` / `audit_id` / `trigger_id` fields are
+//!    preserved for backward compatibility.
 //!
-//! ## v1 posture (sensible deviations from the brief)
+//! ## Truth-bounded (NO THEATER)
 //!
-//! - The brief asked for an `argo-agent-runner::triggers::manual`
-//!   module that enqueues a one-off turn against the worker's default
-//!   duty. v1 mirrors the existing pause/resume/archive shape (also
-//!   audit-row-only — see `routes_worker_settings_danger.rs`): emit
-//!   the audit row, return shape. The actual runner trigger is left
-//!   for a follow-up brief (`fix-worker-run-runner-trigger-wire`).
-//!   Scene 2 of the demo runbook is satisfied: click → toast →
-//!   `/audit/action/<id>` lands on a real, queryable audit row.
-//! - The brief named `routes_dispatch_post_api.rs` as the mount point;
-//!   the actual file is `routes_dispatch_post_paths.rs` (the worker-
-//!   lifecycle path-dispatcher where pause/resume/archive/freeze
-//!   already live). The new `"run"` arm goes there for pattern
-//!   consistency.
+//! The earlier version of this handler wrote a `worker.run` marker row
+//! and returned `queued` WITHOUT running anything — its own docs
+//! admitted "the 'queued turn' isn't actually queued." That theater is
+//! gone: a run is only claimed when a turn genuinely starts, and the
+//! reported `status` is sourced from the engine's `completed_jobs`
+//! record (`completed`) or its absence (`failed`) — never asserted
+//! optimistically. See [`routes_worker_run_exec`] for the design note
+//! (synchronous await, validate-before-claim, honest 409).
+//!
+//! ## Posture notes (carried from the original brief)
+//!
 //! - No new `Action::WorkerRun` variant; reusing `WorkerLifecycle`
 //!   matches the brief's permissions-proxy guidance and avoids a
 //!   workspace-wide enum match churn.
-//! - The brief mentioned a 3-second undo affordance. The SPA toast
-//!   skips it for v1: without the runner wire-up, the "queued turn"
-//!   isn't actually queued, so a real undo would be theater. The
-//!   audit-link is the load-bearing affordance.
+//! - The `"run"` path dispatch lives in `routes_dispatch_post_paths.rs`
+//!   (the worker-lifecycle path-dispatcher) for pattern consistency.
 
 use super::role_gate::{enforce_role, Action};
 use super::routes_auth_principal::principal_id_for_audit;
@@ -83,14 +90,44 @@ pub(super) async fn post_run(
         .and_then(Value::as_str)
         .unwrap_or("manual_run_now")
         .to_string();
+    // Run a REAL turn (validate-before-claim inside). A blocked
+    // precondition returns an honest 409 — no turn, no marker.
+    let prompt = run_prompt(&worker, note.as_deref());
+    let outcome = match routes_worker_run_exec::run_worker_now(store, &worker, &prompt).await {
+        Ok(Ok(o)) => o,
+        Ok(Err(blocked)) => return conflict(blocked.code(), blocked.message()),
+        Err(e) => return server_error(&format!("run worker: {e}")),
+    };
+    finish_run(store, req, &tenant, &worker, &trigger_source, note.as_deref(), &outcome).await
+}
+
+/// Emit the truthful `worker.run` audit row, resolve its id, and shape
+/// the response. Split out of [`post_run`] to keep both fns < 80 LOC.
+async fn finish_run(
+    store: &Arc<SessionStore>,
+    req: &str,
+    tenant: &TenantId,
+    worker: &Worker,
+    trigger_source: &str,
+    note: Option<&str>,
+    outcome: &routes_worker_run_exec::RunOutcome,
+) -> (&'static str, String) {
     let actor = principal_id_for_audit(req).unwrap_or_else(|| "anonymous".to_string());
     let trigger_id = Uuid::now_v7().to_string();
     let queued_at = Utc::now();
-    let payload = build_payload(&worker, &trigger_id, &trigger_source, note.as_deref(), &actor, queued_at);
-    if let Err(e) = write_audit(store, req, &worker, payload).await {
+    let payload = build_payload(
+        worker,
+        &trigger_id,
+        trigger_source,
+        note,
+        &actor,
+        queued_at,
+        outcome,
+    );
+    if let Err(e) = write_audit(store, req, worker, payload).await {
         return server_error(&format!("audit write: {e}"));
     }
-    let audit_hex = match lookup_audit_id(store, &tenant, &trigger_id).await {
+    let audit_hex = match lookup_audit_id(store, tenant, &trigger_id).await {
         Ok(Some(id)) => id,
         Ok(None) => {
             tracing::warn!(
@@ -106,9 +143,23 @@ pub(super) async fn post_run(
         "action_id": audit_hex,
         "audit_id": audit_hex,
         "trigger_id": trigger_id,
+        "session_id": outcome.session_id,
+        "status": outcome.status,
+        "chars": outcome.chars,
         "queued_at": queued_at.to_rfc3339(),
     });
     ("200 OK", body.to_string())
+}
+
+/// The turn prompt: the operator's `note` when it carries text, else a
+/// generic standing-task nudge derived from nothing worker-specific
+/// (we never fabricate task specifics — the worker's own role + memory
+/// supply the substance once the turn runs).
+fn run_prompt(_worker: &Worker, note: Option<&str>) -> String {
+    match note.map(str::trim) {
+        Some(n) if !n.is_empty() => n.to_string(),
+        _ => "Do your next standing task now and report what you did.".to_string(),
+    }
 }
 
 async fn preflight(
@@ -184,6 +235,7 @@ fn parse_body(req: &str) -> Result<Value, (&'static str, String)> {
     serde_json::from_str::<Value>(body).map_err(|e| bad_request(&format!("invalid JSON body: {e}")))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_payload(
     worker: &Worker,
     trigger_id: &str,
@@ -191,11 +243,17 @@ fn build_payload(
     note: Option<&str>,
     actor: &str,
     queued_at: DateTime<Utc>,
+    outcome: &routes_worker_run_exec::RunOutcome,
 ) -> Value {
+    // The audit row reflects the REAL outcome: a "run completed" /
+    // "run failed" breadcrumb, not a generic "queued" marker.
     let mut decision = json!({
-        "step": "manual_trigger",
+        "step": "manual_run",
         "actor": actor,
         "trigger_source": trigger_source,
+        "status": outcome.status,
+        "session_id": outcome.session_id,
+        "chars": outcome.chars,
         "ts": queued_at.to_rfc3339(),
     });
     if let Some(n) = note {
@@ -210,6 +268,9 @@ fn build_payload(
         "trigger_id": trigger_id,
         "trigger_source": trigger_source,
         "note": note.unwrap_or(""),
+        "status": outcome.status,
+        "session_id": outcome.session_id,
+        "chars": outcome.chars,
         "queued_at": queued_at.to_rfc3339(),
         "decision_chain": [decision],
     })
@@ -258,6 +319,13 @@ fn not_found(message: &str) -> (&'static str, String) {
     error_envelope("404 Not Found", "not_found", message)
 }
 
+/// Honest "can't run yet" response — the worker has no loadable role,
+/// or no model provider is configured. A real precondition the
+/// operator must fix, NOT a fabricated success (truth-bounded).
+fn conflict(code: &str, message: &str) -> (&'static str, String) {
+    error_envelope("409 Conflict", code, message)
+}
+
 fn server_error(message: &str) -> (&'static str, String) {
     error_envelope("500 Internal Server Error", "internal_error", message)
 }
@@ -285,6 +353,21 @@ fn error_envelope(
         json!({ "error": { "code": code, "message": message } }).to_string(),
     )
 }
+
+/// Real-run execution path (validate-before-claim + `process_job`).
+/// Mounted as a child module from the sibling file so the new
+/// turn-running logic stays out of this file's LOC budget while the
+/// HTTP plumbing remains here.
+#[path = "routes_worker_run_exec.rs"]
+mod routes_worker_run_exec;
+
+/// Process-wide serialization lock SHARED by BOTH test suites
+/// (`tests` here + `routes_worker_run_exec::tests`). Both mutate the
+/// same global env vars + process cwd, so they MUST serialize on the
+/// same mutex — a per-file mutex would let the two suites run
+/// concurrently and stomp each other's `set_var`/`set_current_dir`.
+#[cfg(test)]
+pub(crate) static TEST_ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[cfg(test)]
 #[path = "routes_worker_run_tests.rs"]

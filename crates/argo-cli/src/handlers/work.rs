@@ -93,6 +93,44 @@ async fn add(vertical_id: &str, prompt: &str, json_out: bool) -> ArgoResult<()> 
     let store_arc = Arc::new(store);
     let memory = MemoryStore::new(store_arc.clone());
 
+    let (entry, now) = append_pending_job(&memory, workspace, vertical_id, prompt).await?;
+
+    if json_out {
+        let out = json!({
+            "ok": true,
+            "job_id": entry.id.to_string(),
+            "vertical_id": vertical_id,
+            "status": "pending",
+            "created_at": now,
+        });
+        println!("{}", serde_json::to_string(&out).unwrap_or_default());
+    } else {
+        println!("queued job {} for vertical {vertical_id}", entry.id);
+    }
+    Ok(())
+}
+
+/// Append a single `pending_jobs` memory row for `vertical_id` and
+/// return the created entry plus its RFC-3339 `created_at` stamp.
+///
+/// Shared by `argo work add` (the CLI queue path) and the gateway
+/// "Run now" handler so both produce a byte-identical job shape that
+/// [`super::work_dispatch::process_job`] can consume. The entry's
+/// UUID is the canonical `job_id`.
+///
+/// Example (crate-internal, so shown rather than doc-tested):
+///
+/// ```text
+/// let (entry, created_at) =
+///     append_pending_job(&memory, ws, "support", "Do your next task.").await?;
+/// // created_at is RFC-3339; entry.body is the `pending_jobs` JSON.
+/// ```
+pub(crate) async fn append_pending_job(
+    memory: &MemoryStore,
+    workspace: argo_types::WorkspaceId,
+    vertical_id: &str,
+    prompt: &str,
+) -> ArgoResult<(MemoryEntry, String)> {
     // The memory entry's UUID is the canonical job_id.
     let now = Utc::now().to_rfc3339();
     let body = json!({
@@ -112,20 +150,7 @@ async fn add(vertical_id: &str, prompt: &str, json_out: bool) -> ArgoResult<()> 
             vertical_id,
         )
         .await?;
-
-    if json_out {
-        let out = json!({
-            "ok": true,
-            "job_id": entry.id.to_string(),
-            "vertical_id": vertical_id,
-            "status": "pending",
-            "created_at": now,
-        });
-        println!("{}", serde_json::to_string(&out).unwrap_or_default());
-    } else {
-        println!("queued job {} for vertical {vertical_id}", entry.id);
-    }
-    Ok(())
+    Ok((entry, now))
 }
 
 // ──────────────────────────────────────────────────────── serve

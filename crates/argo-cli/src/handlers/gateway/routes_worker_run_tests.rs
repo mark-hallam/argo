@@ -14,11 +14,23 @@ use argo_types::TenantId;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::MutexGuard;
+
+/// Env vars this suite mutates — snapshotted + restored by the test
+/// guards so a panic can't leak state into the next test.
+const TOUCHED_ENV: &[&str] = &[
+    "ARGO_HOME",
+    "ARGO_VERTICALS_DIR",
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "ARGO_WORKER_RUN_PROVIDER",
+];
 
 async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
+    // SHARED with the sibling `routes_worker_run_exec::tests` suite —
+    // both mutate process-global env + cwd, so they serialize on ONE
+    // mutex (a per-file mutex would let them stomp each other).
+    super::TEST_ENV_LOCK.lock().await
 }
 
 fn workspace_root() -> PathBuf {
@@ -29,11 +41,42 @@ fn workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
+/// Snapshot every env var in [`TOUCHED_ENV`] for later restore.
+fn snapshot_env() -> Vec<(&'static str, Option<String>)> {
+    TOUCHED_ENV
+        .iter()
+        .map(|&k| (k, std::env::var(k).ok()))
+        .collect()
+}
+
+/// Restore env to a prior snapshot.
+fn restore_env(saved: &[(&'static str, Option<String>)]) {
+    for (k, v) in saved {
+        match v {
+            Some(val) => std::env::set_var(k, val),
+            None => std::env::remove_var(k),
+        }
+    }
+}
+
+/// A stable, always-present directory to restore cwd to (NEVER a
+/// possibly-deleted tempdir captured from `current_dir()`).
+fn stable_cwd() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+}
+
 fn set_test_env(tmp: &std::path::Path) {
     std::env::set_var("ARGO_HOME", tmp.join("home"));
     std::fs::create_dir_all(tmp.join("home")).expect("home dir");
     std::env::set_var("ARGO_VERTICALS_DIR", workspace_root().join("verticals"));
 }
+
+/// A real, loadable vertical from the workspace `verticals/` dir, so a
+/// worker created with it passes the run handler's
+/// validate-before-claim vertical check. `"support"` (the old draft
+/// default) does NOT exist on disk, so the runnable-path tests must use
+/// this id.
+const RUNNABLE_VERTICAL: &str = "customer-support";
 
 async fn mem_store() -> Arc<SessionStore> {
     let store = SessionStore::open(":memory:").await.expect("open mem db");
@@ -55,7 +98,7 @@ async fn workspace_tenant(store: &Arc<SessionStore>) -> TenantId {
 async fn add_worker(store: &Arc<SessionStore>, tenant: TenantId, name: &str) -> Worker {
     let worker = Worker::draft(
         tenant,
-        "support",
+        RUNNABLE_VERTICAL,
         Persona::named(name, "human:mark"),
         Role::new("Resolve customer questions."),
     );
@@ -66,17 +109,43 @@ async fn add_worker(store: &Arc<SessionStore>, tenant: TenantId, name: &str) -> 
     worker
 }
 
+/// Test environment for the run handler. Holds the shared env mutex +
+/// tempdir, snapshots [`TOUCHED_ENV`], and on drop restores cwd to a
+/// STABLE path + every touched env var to its pre-test value.
+///
+/// The handler now runs a REAL turn, so `setup_with_worker` arms the
+/// preconditions hermetically: it `chdir`s into the tempdir FIRST (so
+/// the cwd-tenant the handler resolves matches the tenant the worker is
+/// created under, AND any `process_job` artifact writes land in the
+/// tempdir), sets a present provider key, and pins the run to the
+/// deterministic `mock` provider via the `ARGO_WORKER_RUN_PROVIDER`
+/// seam — no network LLM call.
 struct Env {
     _guard: MutexGuard<'static, ()>,
     _tmp: TempDir,
     store: Arc<SessionStore>,
     tenant: TenantId,
+    saved_env: Vec<(&'static str, Option<String>)>,
+}
+
+impl Drop for Env {
+    fn drop(&mut self) {
+        // Restore cwd to a stable, always-present dir (never the
+        // tempdir that is about to be removed), then restore env.
+        let _ = std::env::set_current_dir(stable_cwd());
+        restore_env(&self.saved_env);
+    }
 }
 
 async fn setup_with_worker(name: &str) -> (Env, Worker) {
     let guard = env_lock().await;
+    let saved_env = snapshot_env();
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
+    // Arm a runnable, hermetic environment (see `Env` docs).
+    std::env::set_current_dir(tmp.path()).expect("chdir tmp");
+    std::env::set_var("ANTHROPIC_API_KEY", "test-key-present");
+    std::env::set_var("ARGO_WORKER_RUN_PROVIDER", "mock");
     let store = mem_store().await;
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, name).await;
@@ -86,6 +155,7 @@ async fn setup_with_worker(name: &str) -> (Env, Worker) {
             _tmp: tmp,
             store,
             tenant,
+            saved_env,
         },
         worker,
     )
@@ -113,12 +183,23 @@ async fn run_with_capability_returns_200_with_action_id() {
     let (status, resp) = post_run(&worker.id.to_string(), &req, Some(&env.store)).await;
     assert_eq!(status, "200 OK", "body: {resp}");
     let v = parse(&resp);
+    // Backward-compatible fields the SPA toast deep-links on.
     let action_id = v["action_id"].as_str().expect("action_id present");
     assert_eq!(action_id.len(), 32, "action_id should be 32-char hex");
     assert!(action_id.chars().all(|c| c.is_ascii_hexdigit()));
     assert_eq!(v["audit_id"], v["action_id"], "audit_id mirrors action_id");
     assert!(v["trigger_id"].is_string());
     assert!(v["queued_at"].is_string());
+    // New truthful fields: a REAL turn ran to completion.
+    assert_eq!(v["status"], "completed", "a real turn completed");
+    assert!(
+        v["session_id"].as_str().is_some_and(|s| !s.is_empty()),
+        "a real session id is reported"
+    );
+    assert!(
+        v["chars"].as_u64().is_some_and(|c| c > 0),
+        "the assistant reply has non-zero length"
+    );
 }
 
 #[tokio::test]
@@ -165,7 +246,8 @@ async fn run_without_capability_returns_403() {
 
 #[tokio::test]
 async fn run_unknown_worker_returns_404() {
-    let env_guard = env_lock().await;
+    let _guard = env_lock().await;
+    let saved = snapshot_env();
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -174,7 +256,7 @@ async fn run_unknown_worker_returns_404() {
     let req = run_req(&ghost, Some("owner"), "{}");
     let (status, resp) = post_run(&ghost.to_string(), &req, Some(&store)).await;
     assert_eq!(status, "404 Not Found", "body: {resp}");
-    drop(env_guard);
+    restore_env(&saved);
 }
 
 #[tokio::test]
@@ -200,21 +282,26 @@ async fn run_invalid_body_returns_400() {
 
 #[tokio::test]
 async fn run_empty_body_treated_as_default_trigger_source() {
+    // Empty body → the handler derives the default standing-task prompt
+    // and still runs a real turn to completion.
     let (env, worker) = setup_with_worker("Mariah").await;
     let req = run_req(&worker.id, Some("owner"), "");
     let (status, resp) = post_run(&worker.id.to_string(), &req, Some(&env.store)).await;
     assert_eq!(status, "200 OK", "body: {resp}");
     let v = parse(&resp);
     assert!(v["action_id"].is_string());
+    assert_eq!(v["status"], "completed");
 }
 
 #[tokio::test]
 async fn run_no_store_returns_503() {
     let _g = env_lock().await;
+    let saved = snapshot_env();
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let id = WorkerId::new();
     let req = run_req(&id, Some("owner"), "{}");
     let (status, body) = post_run(&id.to_string(), &req, None).await;
     assert_eq!(status, "503 Service Unavailable", "body: {body}");
+    restore_env(&saved);
 }
