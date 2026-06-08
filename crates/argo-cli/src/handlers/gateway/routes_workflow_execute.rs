@@ -28,15 +28,19 @@
 //! 2. **Crate location.** The brief named `crates/argo-gateway/`; no
 //!    such crate exists. Gateway code lives under
 //!    `crates/argo-cli/src/handlers/gateway/`.
-//! 3. **Runner choice (v1).** The brief calls for `WorkerSessionRunner`.
-//!    That runner needs production trait impls of `ToolDispatcher` /
-//!    `WorkflowAuditEmitter` / `WorkflowCapabilityChecker` adapting
-//!    `argo_mcp` / `argo_audit` / `argo_capability`. Those adapter
-//!    impls aren't on `origin/main` yet. v1 ships `MockRunner::echo`
-//!    (same runner the CLI handler at `argo-cli/handlers/workflow.rs`
-//!    uses) so the audit chain + workflow_run persistence land
-//!    correctly for the demo. A follow-up brief swaps in
-//!    `WorkerSessionRunner` once the adapters land.
+//! 3. **Runner choice — real adapters, MockRunner as fallback only.**
+//!    The route assembles a per-step `HybridWorkflowRunner` (see
+//!    `routes_workflow_execute_runner.rs`) over the three production
+//!    `argo_agent_runner::workflow_adapters` impls (`McpToolDispatcher` /
+//!    `AuditWorkflowEmitter` / `CapabilityWorkflowChecker`). A
+//!    `tool_call` step naming a known MCP server dispatches for real
+//!    (per-tenant MCP call + step-level audit + capability-before-
+//!    dispatch gating); prompt/skill steps and unresolvable servers
+//!    degrade to `MockRunner::echo`. NO_THEATER ([DEC-007]/[DEC-029]):
+//!    the deterministic MockRunner is a fallback only — never a silent
+//!    happy-path echo over a real tool. If the real runner cannot be
+//!    assembled at all, the whole run degrades to MockRunner so the SPA
+//!    button still gets a shape-compatible 200 (graceful degrade).
 //!
 //! ## Authorization model
 //!
@@ -215,22 +219,33 @@ async fn run_workflow_against_definition(
     tenant: TenantId,
     started_at: chrono::DateTime<Utc>,
 ) -> Result<RunReport, String> {
-    use super::routes_workflow_execute_runner::{build_real_runner, real_runner_enabled};
+    use super::routes_workflow_execute_runner::build_hybrid_runner;
     let dag = vertical_workflow_to_dag(parsed);
-    let request = ExecutionRequest::new(dag).with_auth(principal.clone(), tenant);
-    // Flag-gated: default path keeps the deterministic MockRunner so the
-    // demo surface is unchanged; the opt-in path dispatches real tools.
-    let exec_report = if real_runner_enabled() {
-        let runner = build_real_runner(store, principal, tenant)?;
-        Executor::new(runner)
-            .execute(request)
-            .await
-            .map_err(|e| format!("execute: {e}"))?
-    } else {
-        Executor::new(MockRunner::echo())
-            .execute(request)
-            .await
-            .map_err(|e| format!("execute: {e}"))?
+    // NO_THEATER: dispatch real per-tenant MCP steps on the happy path.
+    // The deterministic MockRunner is engaged per-step ONLY for steps
+    // that name no dispatchable MCP tool (prompt / skill_invoke), and
+    // wholesale as a graceful degrade if the real runner cannot even be
+    // assembled — never as a silent happy-path echo over a real tool.
+    let exec_report = match build_hybrid_runner(store, principal, tenant) {
+        Ok(runner) => {
+            let request = ExecutionRequest::new(dag).with_auth(principal.clone(), tenant);
+            Executor::new(runner)
+                .execute(request)
+                .await
+                .map_err(|e| format!("execute: {e}"))?
+        }
+        Err(reason) => {
+            tracing::warn!(
+                target: "gateway::routes_workflow_execute",
+                %reason,
+                "real workflow runner unavailable; degrading to deterministic MockRunner",
+            );
+            let request = ExecutionRequest::new(dag).with_auth(principal.clone(), tenant);
+            Executor::new(MockRunner::echo())
+                .execute(request)
+                .await
+                .map_err(|e| format!("execute: {e}"))?
+        }
     };
     let finished_at = Utc::now();
     persist_workflow_run(store, head, &exec_report, started_at, finished_at).await?;
