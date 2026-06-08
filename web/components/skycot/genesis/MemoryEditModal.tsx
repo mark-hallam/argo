@@ -103,7 +103,7 @@ export function MemoryEditModal({ verticalId, onClose, onSaved }: MemoryEditModa
           background: none;
           border: none;
           cursor: pointer;
-          color: #71717a;
+          color: #52525b;
           padding: 4px;
         }
         .gen-mem-field {

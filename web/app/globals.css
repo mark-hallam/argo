@@ -32,10 +32,16 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-success-text: var(--success-text);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-warning-text: var(--warning-text);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  --color-info-text: var(--info-text);
+  /* `--error-text` is the on-tint label colour for the StatusPill `error`
+     tone (whose tint/border use --destructive). Bridged for utility use. */
+  --color-error-text: var(--error-text);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -115,6 +121,10 @@
   --brand-purple-deep:        #6d28d9;
   --brand-pink:               #ec4899;
   --brand-coral:              #ff6b6b;
+  /* On-light TEXT sibling of --brand-coral (A11Y-3). The decorative coral
+     #ff6b6b is ~2.67:1 on the #fafaff auth page — too low for error TEXT.
+     This darker red hits >=4.5:1; --brand-coral stays for accent/decoration. */
+  --brand-coral-text:         #c81e1e;
   --brand-teal:               #14b8a6;
   --brand-yellow:             #fcd34d;
   --brand-ink:                #1e1b4b;
@@ -169,6 +179,17 @@
 
   --info:                  oklch(0.62 0.17 230);
   --info-foreground:       oklch(0.99 0.005 230);
+
+  /* On-light TEXT tokens for status labels (WCAG AA 1.4.3, A11Y-1).
+     The tint-bg + dot keep the SATURATED --success/--warning/--info/
+     --destructive above; these darker siblings are for the LABEL TEXT
+     only (small badges measured ~2.3:1 before). Operator-approved OKLCH
+     values — see web/__tests__/a11y-contrast.test.ts for the >=4.5:1 proof
+     against the badge tint background. */
+  --success-text:          oklch(0.45 0.14 145);
+  --warning-text:          oklch(0.47 0.12 75);
+  --error-text:            oklch(0.47 0.20 25);
+  --info-text:             oklch(0.47 0.16 230);
 
   /* Workflow risk-pill tokens. Default values preserve the original
      amber + teal palette; per-tenant themes may override either. */
@@ -229,6 +250,15 @@
 
   --info:                  oklch(0.72 0.17 230);
   --info-foreground:       oklch(0.16 0.020 230);
+
+  /* On-dark TEXT tokens for status labels (A11Y-1). Lightened (raised L)
+     siblings of the on-light tokens — they must read >=4.5:1 against the
+     dark --card oklch(0.205 ...). The saturated --success/--warning/etc.
+     above stay the dot + tint colour. Verified in the contrast test. */
+  --success-text:          oklch(0.82 0.16 145);
+  --warning-text:          oklch(0.86 0.15 75);
+  --error-text:            oklch(0.74 0.18 25);
+  --info-text:             oklch(0.80 0.13 230);
 
   /* Risk pills retain the same chroma in dark theme — both read OK on
      the dark card. Per-tenant themes can override. */

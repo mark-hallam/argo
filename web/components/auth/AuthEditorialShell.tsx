@@ -372,7 +372,9 @@ export function AuthEditorialShell({
         }
         .form-error {
           font-size: 13px;
-          color: var(--coral);
+          /* A11Y-3: error TEXT uses the darker --brand-coral-text (>=4.5:1 on
+             the #fafaff page); decorative --coral (#ff6b6b) stays elsewhere. */
+          color: var(--brand-coral-text);
           margin: -8px 0 8px;
         }
         .cta {
@@ -442,7 +444,9 @@ export function AuthEditorialShell({
           justify-content: center;
           font-family: var(--font-mono);
           font-size: 11px;
-          color: var(--ink-4);
+          /* A11Y-P2-4: trust-strip caption TEXT routed from --ink-4 (#a1a1aa,
+             ~2.46:1) to --ink-3 (#52525b, 7.43:1). --ink-4 stays for hairlines. */
+          color: var(--ink-3);
           letter-spacing: 0.06em;
           text-transform: uppercase;
           font-weight: 600;

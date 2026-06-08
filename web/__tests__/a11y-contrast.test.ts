@@ -44,6 +44,50 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
 }
 
+/**
+ * Composite `fg` at `alpha` over opaque `bg` (sRGB linear-ish approximation
+ * matching the browser's alpha blend at the byte level). Used to model the
+ * StatusPill tint background `bg-[var(--tone)]/10` sitting over the card/page.
+ */
+function over(
+  fg: [number, number, number],
+  bg: [number, number, number],
+  alpha: number,
+): [number, number, number] {
+  return [
+    Math.round(fg[0] * alpha + bg[0] * (1 - alpha)),
+    Math.round(fg[1] * alpha + bg[1] * (1 - alpha)),
+    Math.round(fg[2] * alpha + bg[2] * (1 - alpha)),
+  ];
+}
+
+/** Parse an `oklch(L C h)` token value from a CSS block into an RGB triple. */
+function oklchTokenRgb(block: string, token: string): [number, number, number] {
+  const m = block.match(new RegExp(`${token}:\\s*oklch\\(([^)]+)\\)`));
+  if (!m) throw new Error(`token ${token} (oklch) missing from CSS block`);
+  const [L, C, h] = m[1].trim().split(/\s+/).map(Number);
+  return oklchToRgb(L, C, h);
+}
+
+/** Parse a `#rrggbb` hex token value from a CSS block into an RGB triple. */
+function hexTokenRgb(block: string, token: string): [number, number, number] {
+  const m = block.match(new RegExp(`${token}:\\s*(#[0-9a-fA-F]{6})\\b`));
+  if (!m) throw new Error(`token ${token} (hex) missing from CSS block`);
+  return hexToRgb(m[1]);
+}
+
+function lightBlockOf(css: string): string {
+  const b = css.match(/:root,\s*\[data-theme="skycot-light"\]\s*\{([\s\S]+?)\n\}/);
+  if (!b) throw new Error("skycot-light theme block missing from globals.css");
+  return b[1];
+}
+
+function darkBlockOf(css: string): string {
+  const b = css.match(/\.dark,\s*\[data-theme="skycot-dark"\]\s*\{([\s\S]+?)\n\}/);
+  if (!b) throw new Error("skycot-dark theme block missing from globals.css");
+  return b[1];
+}
+
 function oklchToRgb(L: number, C: number, hDeg: number): [number, number, number] {
   const h = (hDeg * Math.PI) / 180;
   const a = C * Math.cos(h);
@@ -124,5 +168,96 @@ describe("a11y color contrast (WCAG 2.1 AA, 1.4.3)", () => {
       offenders,
       "Hex #71717a (~4.4:1 on #fafaff) fails WCAG AA. Use #52525b (slate-600, 7.0:1) or var(--muted-foreground).",
     ).toEqual([]);
+  });
+});
+
+/* --------------------------------------------------------------------------
+   A11Y-1 / A11Y-3 / A11Y-P2-4 — darker on-light TEXT tokens.
+
+   These guard the readability fix: small status labels, the auth error line,
+   and the trust-strip caption were measured ~2.3–2.7:1 before. The fix adds
+   darker TEXT-ONLY tokens (the saturated fill/tint/dot colours are unchanged).
+   Each label TEXT is checked >=4.5:1 against the surface it actually sits on.
+   -------------------------------------------------------------------------- */
+const PAGE = hexToRgb("#fafaff"); // --brand-bg (auth + most light surfaces)
+const WHITE: [number, number, number] = [255, 255, 255]; // --card
+
+// StatusPill tint background = base status colour at /10 alpha. The badge can
+// sit on either the white card or the warm page; we assert against BOTH (and
+// against plain white, the worst realistic case where the tint is invisible).
+// `error` tone draws its tint/border from --destructive, so that's its base.
+const TONES: ReadonlyArray<{ text: string; base: string; tone: string }> = [
+  { tone: "success", text: "--success-text", base: "--success" },
+  { tone: "warning", text: "--warning-text", base: "--warning" },
+  { tone: "error", text: "--error-text", base: "--destructive" },
+  { tone: "info", text: "--info-text", base: "--info" },
+];
+
+describe("a11y status-label TEXT contrast (StatusPill, A11Y-1)", () => {
+  it("each light status-text token meets 4.5:1 over its tint bg (white card + warm page)", () => {
+    const css = readFileSync(GLOBALS_CSS, "utf8");
+    const block = lightBlockOf(css);
+    for (const { tone, text, base } of TONES) {
+      const textRgb = oklchTokenRgb(block, text);
+      const baseRgb = oklchTokenRgb(block, base);
+      const tintOverWhite = over(baseRgb, WHITE, 0.1);
+      const tintOverPage = over(baseRgb, PAGE, 0.1);
+      const rWhite = contrastRatio(textRgb, tintOverWhite);
+      const rPage = contrastRatio(textRgb, tintOverPage);
+      const rPlainWhite = contrastRatio(textRgb, WHITE);
+      expect(rWhite, `${tone}: ${text} vs tint-over-white-card`).toBeGreaterThanOrEqual(4.5);
+      expect(rPage, `${tone}: ${text} vs tint-over-warm-page`).toBeGreaterThanOrEqual(4.5);
+      expect(rPlainWhite, `${tone}: ${text} vs plain white (tint-invisible worst case)`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("each dark status-text token meets 4.5:1 against the dark --card and --background", () => {
+    const css = readFileSync(GLOBALS_CSS, "utf8");
+    const block = darkBlockOf(css);
+    const cardRgb = oklchTokenRgb(block, "--card");
+    const bgRgb = oklchTokenRgb(block, "--background");
+    for (const { tone, text } of TONES) {
+      const textRgb = oklchTokenRgb(block, text);
+      expect(contrastRatio(textRgb, cardRgb), `${tone}: ${text} vs dark --card`).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(textRgb, bgRgb), `${tone}: ${text} vs dark --background`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("the saturated tint/dot tokens are UNCHANGED (brand lock — fill colours not repurposed)", () => {
+    const css = readFileSync(GLOBALS_CSS, "utf8");
+    const block = lightBlockOf(css);
+    // These are the dot + tint + border colours and MUST stay as-is.
+    expect(block).toMatch(/--success:\s*oklch\(0\.62 0\.16 145\)/);
+    expect(block).toMatch(/--warning:\s*oklch\(0\.72 0\.16 75\)/);
+    expect(block).toMatch(/--info:\s*oklch\(0\.62 0\.17 230\)/);
+    expect(block).toMatch(/--destructive:\s*oklch\(0\.58 0\.21 25\)/);
+  });
+});
+
+describe("a11y auth funnel TEXT contrast (A11Y-3 / A11Y-P2-4)", () => {
+  it("--brand-coral-text meets 4.5:1 on the #fafaff auth page (error text)", () => {
+    const css = readFileSync(GLOBALS_CSS, "utf8");
+    const block = lightBlockOf(css);
+    const coralText = hexTokenRgb(block, "--brand-coral-text");
+    expect(contrastRatio(coralText, PAGE)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("decorative --brand-coral is UNCHANGED (#ff6b6b) — only the text sibling is new", () => {
+    const css = readFileSync(GLOBALS_CSS, "utf8");
+    const block = lightBlockOf(css);
+    expect(block).toMatch(/--brand-coral:\s*#ff6b6b\b/);
+  });
+
+  it("--brand-ink-3 (trust-strip caption text) meets 4.5:1 on the #fafaff page", () => {
+    const css = readFileSync(GLOBALS_CSS, "utf8");
+    const block = lightBlockOf(css);
+    const ink3 = hexTokenRgb(block, "--brand-ink-3");
+    expect(contrastRatio(ink3, PAGE)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("--brand-ink-4 hairline token is UNCHANGED (#a1a1aa) — text was rerouted, not the token", () => {
+    const css = readFileSync(GLOBALS_CSS, "utf8");
+    const block = lightBlockOf(css);
+    expect(block).toMatch(/--brand-ink-4:\s*#a1a1aa\b/);
   });
 });

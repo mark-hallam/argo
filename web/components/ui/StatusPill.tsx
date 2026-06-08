@@ -6,15 +6,19 @@ const pillVariants = cva(
   "inline-flex items-center gap-1 font-medium border whitespace-nowrap",
   {
     variants: {
+      // A11Y-1: label TEXT uses the darker `*-text` token (WCAG AA 4.5:1).
+      // The tint background + border keep the saturated status colour, and
+      // the dot is forced back to the saturated colour below so the badge
+      // still reads as its status hue.
       tone: {
         success:
-          "border-[var(--success)]/30 bg-[var(--success)]/10 text-[var(--success)]",
+          "border-[var(--success)]/30 bg-[var(--success)]/10 text-[var(--success-text)]",
         warning:
-          "border-[var(--warning)]/40 bg-[var(--warning)]/10 text-[var(--warning)]",
+          "border-[var(--warning)]/40 bg-[var(--warning)]/10 text-[var(--warning-text)]",
         error:
-          "border-[var(--destructive)]/30 bg-[var(--destructive)]/10 text-[var(--destructive)]",
+          "border-[var(--destructive)]/30 bg-[var(--destructive)]/10 text-[var(--error-text)]",
         info:
-          "border-[var(--info)]/30 bg-[var(--info)]/10 text-[var(--info)]",
+          "border-[var(--info)]/30 bg-[var(--info)]/10 text-[var(--info-text)]",
         muted:
           "border-[var(--border)] bg-[var(--muted)] text-[var(--muted-foreground)]",
       },
@@ -34,13 +38,29 @@ export interface StatusPillProps
   dot?: boolean;
 }
 
+/**
+ * Dot colour per tone. The label TEXT is now the darker `*-text` token for
+ * contrast (A11Y-1), but the dot stays the SATURATED status colour so the
+ * badge still reads as its status hue. `muted` keeps `currentColor`.
+ */
+const dotToneClass: Record<NonNullable<StatusPillProps["tone"]>, string> = {
+  success: "bg-[var(--success)]",
+  warning: "bg-[var(--warning)]",
+  error: "bg-[var(--destructive)]",
+  info: "bg-[var(--info)]",
+  muted: "bg-current",
+};
+
 export const StatusPill = forwardRef<HTMLSpanElement, StatusPillProps>(
   ({ className, tone, size, dot = true, children, ...props }, ref) => (
     <span ref={ref} className={cn(pillVariants({ tone, size }), className)} {...props}>
       {dot ? (
         <span
           aria-hidden
-          className="inline-block size-1.5 rounded-full bg-current"
+          className={cn(
+            "inline-block size-1.5 rounded-full",
+            dotToneClass[tone ?? "muted"],
+          )}
         />
       ) : null}
       {children}
