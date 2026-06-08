@@ -54,6 +54,9 @@ pub(super) async fn dispatch_patch(
             super::routes_worker_policies::update_response(worker_id, action_type, req, store)
                 .await,
         ),
+        [_, "escalations"] => {
+            Some(super::routes_worker_escalations::update_response(worker_id, req, store).await)
+        }
         _ => None,
     }
 }
