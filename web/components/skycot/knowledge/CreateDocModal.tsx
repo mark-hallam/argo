@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type {
   CreateKnowledgeDocRequest,
   KnowledgeCategory,
 } from "@/lib/api/workplace-knowledge";
 import { CATEGORY_META } from "./category-meta";
+import { useFocusTrap } from "@/lib/a11y/use-focus-trap";
 
 interface Props {
   isSubmitting: boolean;
@@ -27,6 +28,8 @@ export function CreateDocModal({
   const [slugDirty, setSlugDirty] = useState(false);
   const [category, setCategory] = useState<KnowledgeCategory>("brand");
   const [body, setBody] = useState("");
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, onCancel);
 
   const derivedSlug = slugDirty ? slug : slugify(title);
   const ready =
@@ -39,12 +42,18 @@ export function CreateDocModal({
   return (
     <div
       className="knowledge-modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="knowledge-modal-title"
+      role="presentation"
       onClick={onCancel}
     >
-      <div className="knowledge-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className="knowledge-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="knowledge-modal-title"
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 id="knowledge-modal-title">New workplace doc</h2>
 
         <div className="knowledge-form-field">

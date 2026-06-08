@@ -56,7 +56,6 @@ export function ApprovalRowActions({
         className={cn(approveTint)}
         disabled={disabled}
         data-testid={`approve-${approvalId}`}
-        aria-label="Approve"
         onClick={(e) => {
           stop(e);
           onApprove(approvalId);
@@ -70,7 +69,6 @@ export function ApprovalRowActions({
         size="sm"
         disabled={disabled}
         data-testid={`refuse-${approvalId}`}
-        aria-label="Refuse"
         onClick={(e) => {
           stop(e);
           onRefuse(approvalId);

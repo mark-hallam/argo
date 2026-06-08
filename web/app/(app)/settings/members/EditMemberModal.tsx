@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CohortScopePicker } from "./CohortScopePicker";
+import { useFocusTrap } from "@/lib/a11y/use-focus-trap";
 import { ROLE_META, type MemberRole, type SeedMember } from "./members-data";
 import {
   EXPIRY_PRESETS,
@@ -31,6 +32,11 @@ interface EditMemberModalProps {
  * the actual PATCH + toast and updates local state in the interim.
  */
 export function EditMemberModal({ member, onClose, onSave }: EditMemberModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // `member === null` early-returns below; gate the trap on it so the
+  // hook runs unconditionally (rules-of-hooks) but only activates when
+  // the dialog is actually mounted.
+  useFocusTrap(dialogRef, onClose, { active: member !== null });
   const [role, setRole] = useState<MemberRole>("user");
   const [cohortScope, setCohortScope] = useState<string[] | null>(null);
   const [expiryPreset, setExpiryPreset] = useState<ExpiryPreset>("never");
@@ -66,18 +72,27 @@ export function EditMemberModal({ member, onClose, onSave }: EditMemberModalProp
       }}
     >
       <div
+        ref={dialogRef}
         className="invite-modal"
         role="dialog"
+        aria-modal="true"
         aria-labelledby="edit-member-h2"
         data-testid="edit-member-modal"
+        tabIndex={-1}
       >
         <h2 id="edit-member-h2">Edit access for {member.name}</h2>
         <p>
           {member.email} · joined {member.joinedAt}
         </p>
 
-        <label className="invite-label">Role</label>
-        <div className="invite-role-grid">
+        <div className="invite-label" id="edit-member-role-label">
+          Role
+        </div>
+        <div
+          className="invite-role-grid"
+          role="group"
+          aria-labelledby="edit-member-role-label"
+        >
           {(Object.keys(ROLE_META) as MemberRole[]).map((r) => (
             <button
               key={r}

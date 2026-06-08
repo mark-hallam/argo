@@ -22,12 +22,12 @@ export function QueueTable({
       <table className="w-full min-w-[760px] text-left text-sm" data-testid="orchestration-table">
         <thead className="bg-[var(--muted)] text-xs uppercase text-[var(--muted-foreground)]">
           <tr>
-            <th className="px-4 py-3 font-semibold">Run</th>
-            <th className="px-4 py-3 font-semibold">Worker</th>
-            <th className="px-4 py-3 font-semibold">Skill</th>
-            <th className="px-4 py-3 font-semibold">SLA</th>
-            <th className="px-4 py-3 font-semibold">Retry</th>
-            <th className="px-4 py-3 text-right font-semibold">Actions</th>
+            <th scope="col" className="px-4 py-3 font-semibold">Run</th>
+            <th scope="col" className="px-4 py-3 font-semibold">Worker</th>
+            <th scope="col" className="px-4 py-3 font-semibold">Skill</th>
+            <th scope="col" className="px-4 py-3 font-semibold">SLA</th>
+            <th scope="col" className="px-4 py-3 font-semibold">Retry</th>
+            <th scope="col" className="px-4 py-3 text-right font-semibold">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--border)] bg-[var(--background)]">

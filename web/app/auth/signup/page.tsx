@@ -298,6 +298,7 @@ function SignupInner() {
           type="submit"
           className="cta"
           disabled={pending || email.trim().length === 0}
+          aria-busy={pending}
           data-testid="signup-submit"
         >
           {buttonLabel}

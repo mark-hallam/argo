@@ -2,7 +2,7 @@
 
 import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useRef, useState } from "react";
 import { AlertDialog } from "@/components/ui/AlertDialog";
 import { buttonVariants } from "@/components/ui/Button";
 import { StatusPill, type StatusPillProps } from "@/components/ui/StatusPill";
@@ -117,20 +117,6 @@ export function TeammateCard({
     router.push(profileHref);
   }, [router, profileHref]);
 
-  const onCardClick = useCallback(() => {
-    openProfile();
-  }, [openProfile]);
-
-  const onCardKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLDivElement>) => {
-      if (e.key !== "Enter" && e.key !== " ") return;
-      if (e.target !== e.currentTarget) return;
-      e.preventDefault();
-      openProfile();
-    },
-    [openProfile],
-  );
-
   const onContextMenu = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       e.preventDefault();
@@ -184,12 +170,7 @@ export function TeammateCard({
       <TeammateCardStyles />
 
       <div
-        role="group"
-        aria-label={`${worker.name} — ${statusLabel}`}
-        tabIndex={0}
         data-testid={cardTestId}
-        onClick={onCardClick}
-        onKeyDown={onCardKeyDown}
         onContextMenu={onContextMenu}
         onPointerDown={(e) => {
           if (e.pointerType === "touch") startLongPress();
@@ -199,6 +180,24 @@ export function TeammateCard({
         onPointerLeave={cancelLongPress}
         className={cn("holo-card", className)}
       >
+        {/*
+          Overlay link: a single absolutely-positioned anchor spans the
+          whole card so the entire surface navigates to the profile, while
+          the real interactive children (context menu, "Open profile") sit
+          above it via z-index and keep working. Replaces the prior
+          role="group" + tabIndex + onClick div, which was a non-semantic
+          clickable container nesting interactive elements.
+        */}
+        <a
+          href={profileHref}
+          aria-label={`Open ${worker.name}'s profile — ${statusLabel}`}
+          data-testid={`teammate-card-overlay-${worker.id}`}
+          onClick={(e) => {
+            e.preventDefault();
+            openProfile();
+          }}
+          className="holo-card-overlay-link"
+        />
         <div className="holo-banner">
           <span className="holo-shine" aria-hidden />
           <div className="holo-banner-row">

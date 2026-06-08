@@ -78,30 +78,30 @@ export default function SlaPage() {
       >
         <thead>
           <tr style={{ background: "#f3f0ff", textAlign: "left" }}>
-            <th style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>Tier</th>
-            <th style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+            <th scope="col" style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>Tier</th>
+            <th scope="col" style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
               First response
             </th>
-            <th style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>Coverage</th>
+            <th scope="col" style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>Coverage</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", fontWeight: 600 }}>
+            <th scope="row" style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", fontWeight: 600, textAlign: "left" }}>
               Free
-            </td>
+            </th>
             <td style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>48 hours</td>
             <td style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>Business hours.</td>
           </tr>
           <tr>
-            <td style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", fontWeight: 600 }}>
+            <th scope="row" style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", fontWeight: 600, textAlign: "left" }}>
               Pro
-            </td>
+            </th>
             <td style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>24 hours</td>
             <td style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>Business hours.</td>
           </tr>
           <tr>
-            <td style={{ padding: "12px 16px", fontWeight: 600 }}>Enterprise</td>
+            <th scope="row" style={{ padding: "12px 16px", fontWeight: 600, textAlign: "left" }}>Enterprise</th>
             <td style={{ padding: "12px 16px" }}>4 hours</td>
             <td style={{ padding: "12px 16px" }}>
               24/7 for severity 1 + 2 incidents.

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { ExternalLink, KeyRound, Loader2, X } from "lucide-react";
 import type { ConnectorEntry } from "./connector-catalog";
 import {
   buildTenantConnectUrl,
   saveTenantConnectorCredential,
 } from "@/lib/api/connectors";
+import { useFocusTrap } from "@/lib/a11y/use-focus-trap";
 
 interface ConnectModalProps {
   connector: ConnectorEntry;
@@ -31,13 +32,9 @@ export function ConnectModal({ connector, onClose, onConnected }: ConnectModalPr
   const isOAuth = connector.authType === "oauth";
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // Replaces the bespoke Escape listener with a full trap: first-focus,
+  // Tab cycling, Escape-to-close, and focus restoration on unmount.
+  useFocusTrap(dialogRef, onClose);
 
   return (
     <div

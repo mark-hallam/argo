@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CircleCheck, Copy, ShieldAlert } from "lucide-react";
 import type { ApiKeyRow, CreateApiKeyResponse } from "@/lib/api/api-keys";
+import { useFocusTrap } from "@/lib/a11y/use-focus-trap";
 
 /** Reveal-once panel + confirm dialog for revoke. */
 
@@ -22,6 +23,10 @@ export function RevealPanel({
   onConfirmClose,
 }: RevealPanelProps) {
   const [copied, setCopied] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // Escape / focus-restore route through the non-destructive "request
+  // close" path so a stray keypress can't silently burn the one-time token.
+  useFocusTrap(dialogRef, onRequestClose);
 
   async function copy() {
     try {
@@ -37,7 +42,14 @@ export function RevealPanel({
 
   return (
     <div className="ak-overlay">
-      <div className="ak-modal" role="dialog" aria-labelledby="ak-reveal-h2">
+      <div
+        ref={dialogRef}
+        className="ak-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ak-reveal-h2"
+        tabIndex={-1}
+      >
         <h2 id="ak-reveal-h2">Your new API key</h2>
         <p className="ak-modal-blurb">
           Save this token in your secret manager. We don&apos;t store the plaintext server-side —
@@ -106,6 +118,8 @@ export interface RevokeDialogProps {
 }
 
 export function RevokeDialog({ row, isPending, onCancel, onConfirm }: RevokeDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, onCancel);
   return (
     <div
       className="ak-overlay"
@@ -113,7 +127,14 @@ export function RevokeDialog({ row, isPending, onCancel, onConfirm }: RevokeDial
         if (e.target === e.currentTarget) onCancel();
       }}
     >
-      <div className="ak-modal ak-modal-small" role="dialog" aria-labelledby="ak-revoke-h2">
+      <div
+        ref={dialogRef}
+        className="ak-modal ak-modal-small"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ak-revoke-h2"
+        tabIndex={-1}
+      >
         <h2 id="ak-revoke-h2">Revoke &ldquo;{row.name}&rdquo;?</h2>
         <p className="ak-modal-blurb">
           Any system using this key will stop working immediately. This action cannot be undone.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import {
   saveSamlConfig,
@@ -8,6 +8,7 @@ import {
   type SamlConfig,
   type SamlTestResult,
 } from "@/lib/api/sso";
+import { useFocusTrap } from "@/lib/a11y/use-focus-trap";
 
 interface ModalProps {
   initial: SamlConfig;
@@ -47,7 +48,14 @@ export default function SamlConfigModal({ initial, onCancel, onSaved }: ModalPro
     setBusy("saving");
     setSaveError(null);
     try {
-      const saved = await saveSamlConfig(draft);
+      // Persist trimmed identifiers so stray whitespace never reaches the
+      // IdP comparison; the attribute mapping is validated below before
+      // Save is enabled, so it is safe to send as typed.
+      const saved = await saveSamlConfig({
+        ...draft,
+        idpEntityId: draft.idpEntityId.trim(),
+        ssoUrl: draft.ssoUrl.trim(),
+      });
       onSaved(saved);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Save failed.");
@@ -57,9 +65,26 @@ export default function SamlConfigModal({ initial, onCancel, onSaved }: ModalPro
 
   const disabled = busy !== "idle";
 
-  useEffect(() => {
-    dialogRef.current?.focus();
-  }, []);
+  // The optional attribute mapping must be valid JSON (an object) before
+  // Save is enabled; empty / whitespace counts as "no mapping" and is OK.
+  const attrRaw = (draft.attributeMappingJson ?? "").trim();
+  const attributeMappingError = (() => {
+    if (attrRaw === "") return null;
+    try {
+      const parsed = JSON.parse(attrRaw);
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return "Attribute mapping must be a JSON object.";
+      }
+      return null;
+    } catch {
+      return "Attribute mapping is not valid JSON.";
+    }
+  })();
+
+  const entityFilled = draft.idpEntityId.trim().length > 0;
+  const ssoFilled = draft.ssoUrl.trim().length > 0;
+
+  useFocusTrap(dialogRef, onCancel, { active: !disabled });
 
   return (
     <div className="saml-modal-backdrop">
@@ -142,9 +167,6 @@ export default function SamlConfigModal({ initial, onCancel, onSaved }: ModalPro
         data-testid="saml-modal"
         ref={dialogRef}
         tabIndex={-1}
-        onKeyDown={(event) => {
-          if (event.key === "Escape" && !disabled) onCancel();
-        }}
       >
         <h2 id="saml-modal-title">Configure SAML SSO</h2>
         <p id="saml-modal-description" className="saml-sr-only">
@@ -217,7 +239,13 @@ export default function SamlConfigModal({ initial, onCancel, onSaved }: ModalPro
             onChange={(e) => update("attributeMappingJson", e.target.value)}
             placeholder='{"role": "https://schemas.skycot/role", "cohort": "department"}'
             disabled={disabled}
+            aria-invalid={attributeMappingError !== null}
           />
+          {attributeMappingError ? (
+            <p className="saml-save-error" role="alert" data-testid="saml-attr-error">
+              {attributeMappingError}
+            </p>
+          ) : null}
         </div>
 
         <div className="saml-toggle">
@@ -272,7 +300,7 @@ export default function SamlConfigModal({ initial, onCancel, onSaved }: ModalPro
             type="button"
             className="saml-btn"
             onClick={onTest}
-            disabled={disabled || draft.idpEntityId.length === 0 || draft.ssoUrl.length === 0}
+            disabled={disabled || !entityFilled || !ssoFilled}
             data-testid="saml-test"
           >
             {busy === "testing" ? "Testing…" : "Test connection"}
@@ -283,9 +311,10 @@ export default function SamlConfigModal({ initial, onCancel, onSaved }: ModalPro
             onClick={onSave}
             disabled={
               disabled ||
-              draft.idpEntityId.length === 0 ||
-              draft.ssoUrl.length === 0 ||
-              draft.certificate.length === 0
+              !entityFilled ||
+              !ssoFilled ||
+              draft.certificate.trim().length === 0 ||
+              attributeMappingError !== null
             }
             data-testid="saml-save"
           >

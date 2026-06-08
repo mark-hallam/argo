@@ -243,11 +243,31 @@ describe("TeammateCard", () => {
     });
   });
 
-  it("clicking the card body routes to /workers/<id>/overview", async () => {
+  it("clicking the full-card overlay link routes to /workers/<id>/overview", async () => {
+    // Post-FIX-B: the whole-card navigation is a spanning overlay <a>
+    // (not a role-less clickable div), so clicking it routes.
     const user = userEvent.setup();
     wrap(<TeammateCard worker={makeWorker()} />);
-    await user.click(screen.getByTestId("teammate-wkr_test"));
+    await user.click(screen.getByTestId("teammate-card-overlay-wkr_test"));
     expect(pushMock).toHaveBeenCalledWith("/workers/wkr_test/overview");
+  });
+
+  it("the overlay link is a real anchor with the profile href + accessible name", () => {
+    wrap(<TeammateCard worker={makeWorker()} />);
+    const overlay = screen.getByTestId("teammate-card-overlay-wkr_test");
+    expect(overlay.tagName).toBe("A");
+    expect(overlay).toHaveAttribute("href", "/workers/wkr_test/overview");
+    expect(overlay).toHaveAccessibleName(/Open Mariah's profile/);
+  });
+
+  it("the card container is no longer a role-less clickable element", () => {
+    // Regression pin for the FIX-B accessibility finding: the outer card
+    // must NOT be a focusable/clickable div with role=group nesting
+    // interactive children.
+    wrap(<TeammateCard worker={makeWorker()} />);
+    const card = screen.getByTestId("teammate-wkr_test");
+    expect(card).not.toHaveAttribute("tabindex");
+    expect(card).not.toHaveAttribute("role", "group");
   });
 
   it("clicking the Open profile button routes to /workers/<id>/overview once", async () => {
@@ -258,10 +278,12 @@ describe("TeammateCard", () => {
     expect(pushMock).toHaveBeenCalledTimes(1);
   });
 
-  it("focused card routes on Enter", async () => {
+  it("focused overlay link routes on Enter", async () => {
+    // A native <a href> activates on Enter, so the keyboard path no
+    // longer depends on a hand-rolled onKeyDown on a div.
     wrap(<TeammateCard worker={makeWorker()} />);
-    const card = screen.getByTestId("teammate-wkr_test");
-    act(() => card.focus());
+    const overlay = screen.getByTestId("teammate-card-overlay-wkr_test");
+    act(() => overlay.focus());
     await userEvent.keyboard("{Enter}");
     expect(pushMock).toHaveBeenCalledWith("/workers/wkr_test/overview");
   });

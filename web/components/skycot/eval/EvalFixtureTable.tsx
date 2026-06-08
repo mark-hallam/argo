@@ -13,10 +13,10 @@ export function EvalFixtureTable({ fixtures }: { fixtures: EvalFixtureResult[] }
           <table className="min-w-full text-sm">
             <thead className="text-left text-xs text-[var(--muted-foreground)]">
               <tr className="border-b border-[var(--border)]">
-                <th className="py-2 pr-4 font-medium">Fixture</th>
-                <th className="py-2 pr-4 font-medium">Result</th>
-                <th className="py-2 pr-4 font-medium">Score</th>
-                <th className="py-2 pr-4 font-medium">Diff</th>
+                <th scope="col" className="py-2 pr-4 font-medium">Fixture</th>
+                <th scope="col" className="py-2 pr-4 font-medium">Result</th>
+                <th scope="col" className="py-2 pr-4 font-medium">Score</th>
+                <th scope="col" className="py-2 pr-4 font-medium">Diff</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]/60">

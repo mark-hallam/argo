@@ -2,9 +2,10 @@
 
 import "./page.css";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, ExternalLink, Inbox } from "lucide-react";
 
+import { useFocusTrap } from "@/lib/a11y/use-focus-trap";
 import {
   INBOUND_CHANNELS,
   type InboundChannelEntry,
@@ -212,6 +213,8 @@ function TestModal({
   entry: InboundChannelEntry;
   onClose: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, onClose);
   return (
     <div
       className="inbound-modal-backdrop"
@@ -220,9 +223,12 @@ function TestModal({
       data-testid="inbound-test-modal"
     >
       <div
+        ref={dialogRef}
         className="inbound-modal"
         role="dialog"
+        aria-modal="true"
         aria-labelledby="inbound-test-modal-title"
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="inbound-test-modal-title">Send a test to {entry.name}</h2>

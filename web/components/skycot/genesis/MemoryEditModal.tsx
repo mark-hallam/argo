@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Loader2, Save, X } from "lucide-react";
 import { ingestOnboardingDocuments } from "@/lib/api/genesis-ingest";
+import { useFocusTrap } from "@/lib/a11y/use-focus-trap";
 
 /**
  * Inline memory-edit modal for the quiz refinement loop (Phase 2; memory
@@ -31,6 +32,8 @@ export function MemoryEditModal({ verticalId, onClose, onSaved }: MemoryEditModa
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, onClose);
 
   const save = async () => {
     const trimmed = content.trim();
@@ -185,10 +188,12 @@ export function MemoryEditModal({ verticalId, onClose, onSaved }: MemoryEditModa
         data-testid="genesis-memory-edit-overlay"
       >
         <div
+          ref={dialogRef}
           className="gen-mem-modal"
           role="dialog"
           aria-modal="true"
           aria-label="Edit teammate memory"
+          tabIndex={-1}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="gen-mem-head">

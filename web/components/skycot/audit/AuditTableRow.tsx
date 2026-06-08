@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, type KeyboardEvent } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ArrowRight, Check, Copy } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { ChannelBadge } from "@/components/ui/ChannelBadge";
@@ -29,9 +28,13 @@ import type { ChannelKind } from "@/lib/types/channels";
  * worker activity), so the audit feed has its own table-shaped
  * primitive here.
  *
- * Whole-row click / Enter / Space navigates to `/audit/action/<id>`.
- * The action-id cell also embeds a real `<Link>` so right-click
- * "open in new tab" still works for keyboard + mouse users.
+ * Whole-row navigation is a single spanning overlay `<a>` rendered in
+ * the first cell (the `<tr>` is the positioning context). The row
+ * itself is NOT a clickable/role-less element — keyboard users tab to
+ * the real overlay anchor, which a native `<a href>` activates on
+ * Enter, and right-click "open in new tab" works. The inner action-id,
+ * copy, hash, and delegated-by controls are lifted above the overlay so
+ * they remain independently operable.
  */
 
 type DelegatedBy = { workerId: string; workerName: string };
@@ -58,18 +61,10 @@ export function AuditTableRow({
   workerId,
   channel,
 }: AuditTableRowProps) {
-  const router = useRouter();
   const href = `/audit/action/${encodeURIComponent(activity.id)}`;
   const relative = relativeTime(activity.timestamp);
   const tone = STATUS_TONE[activity.status];
   const delegatedBy = normalizedDelegatedBy(activity);
-
-  function onRowKey(e: KeyboardEvent<HTMLTableRowElement>) {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      router.push(href);
-    }
-  }
 
   return (
     <tr
@@ -77,18 +72,28 @@ export function AuditTableRow({
       data-status={status ?? activity.status}
       data-action-type={actionType}
       data-worker-id={workerId}
-      tabIndex={0}
-      onClick={() => router.push(href)}
-      onKeyDown={onRowKey}
-      aria-label={`Open audit detail for ${activity.workerName} — ${activity.verb}`}
       className={cn(
-        "group cursor-pointer border-b border-[var(--border)] bg-[var(--card)] text-sm",
+        "group relative border-b border-[var(--border)] bg-[var(--card)] text-sm",
         "transition-colors duration-[var(--duration-fast)]",
         "hover:border-[var(--primary)]/40 hover:bg-[var(--accent)]/30",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--background)]",
+        "focus-within:border-[var(--primary)]/40 focus-within:bg-[var(--accent)]/30",
       )}
     >
-      <td className="whitespace-nowrap px-3 py-2.5 align-middle text-xs text-[var(--muted-foreground)]">
+      <td className="relative whitespace-nowrap px-3 py-2.5 align-middle text-xs text-[var(--muted-foreground)]">
+        {/*
+          Single spanning overlay anchor: positioned against the <tr>
+          (its `relative` context) so the whole row is one real link.
+          Replaces the prior tabIndex+onClick+onKeyDown <tr>, which was a
+          role-less clickable container nesting interactive cells. Inner
+          controls (action-id link, copy, hash, delegated-by) sit above it.
+        */}
+        <Link
+          href={href}
+          prefetch={false}
+          data-testid={`audit-row-overlay-${activity.id}`}
+          aria-label={`Open audit detail for ${activity.workerName} — ${activity.verb}`}
+          className="absolute inset-0 z-0 rounded-[var(--radius-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-inset"
+        />
         <time
           dateTime={activity.timestamp}
           title={activity.timestamp}
@@ -125,7 +130,9 @@ export function AuditTableRow({
       </td>
 
       <td className="px-3 py-2.5 align-middle">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+        {/* Lifted above the spanning overlay anchor so the action-id
+            link, copy, hash, and delegated-by controls stay clickable. */}
+        <div className="relative z-10 flex min-w-0 flex-wrap items-center gap-2">
           <ActionIdLink actionId={activity.id} href={href} />
           {delegatedBy ? (
             <DelegatedByChip actionId={activity.id} delegatedBy={delegatedBy} />
@@ -220,12 +227,14 @@ function ActionIdLink({ actionId, href }: { actionId: string; href: string }) {
             window.setTimeout(() => setCopied(false), 1500);
           });
         }}
-        className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+        className="group/copy text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
       >
         {copied ? (
           <Check className="size-3" />
         ) : (
-          <Copy className="size-3 opacity-0 group-hover:opacity-100" />
+          // Reveal on row hover OR when the button itself is keyboard-focused
+          // (was opacity-0 + group-hover only — invisible to keyboard users).
+          <Copy className="size-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible/copy:opacity-100" />
         )}
       </button>
     </span>
@@ -312,13 +321,14 @@ function HashCell({ hash, kind, actionId }: HashCellProps) {
           window.setTimeout(() => setCopied(false), 1500);
         });
       }}
-      className="inline-flex items-center gap-1 font-mono text-[11px] tabular-nums text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+      className="group/hash inline-flex items-center gap-1 font-mono text-[11px] tabular-nums text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
     >
       <span>{display}</span>
       {copied ? (
         <Check className="size-3 text-[var(--success-foreground,var(--foreground))]" />
       ) : (
-        <Copy className="size-3 opacity-0 transition-opacity group-hover:opacity-100" />
+        // Reveal on row hover OR when this hash button is keyboard-focused.
+        <Copy className="size-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible/hash:opacity-100" />
       )}
     </button>
   );

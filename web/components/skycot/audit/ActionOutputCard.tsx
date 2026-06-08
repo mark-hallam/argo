@@ -1,9 +1,10 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ImageIcon, X } from "lucide-react";
 
+import { useFocusTrap } from "@/lib/a11y/use-focus-trap";
 import { RedactedText } from "@/components/skycot/RedactedText";
 import { CrossSystemLink } from "@/components/skycot/audit/CrossSystemLink";
 import { detect, segmentText } from "@/lib/cross-system/detect";
@@ -261,11 +262,16 @@ function ScreenshotTrace({ frames }: { frames: ScreenshotFrame[] }) {
 }
 
 function Lightbox({ frame, onClose }: { frame: ScreenshotFrame; onClose: () => void }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, onClose);
   return (
     <div
+      ref={dialogRef}
       data-testid="audit-output-lightbox"
       role="dialog"
+      aria-modal="true"
       aria-label="Screenshot lightbox"
+      tabIndex={-1}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
       onClick={onClose}
     >

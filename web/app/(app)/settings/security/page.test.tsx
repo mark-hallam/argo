@@ -80,7 +80,10 @@ describe("settings security SAML panel", () => {
     const dialog = screen.getByRole("dialog", { name: "Configure SAML SSO" });
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveAttribute("aria-describedby", "saml-modal-description");
-    expect(dialog).toHaveFocus();
+    // The focus trap moves focus to the first focusable control inside the
+    // dialog (the IdP <select>) rather than the dialog container itself —
+    // assert focus is trapped WITHIN the dialog.
+    expect(dialog.contains(document.activeElement)).toBe(true);
 
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "Configure SAML SSO" })).not.toBeInTheDocument();

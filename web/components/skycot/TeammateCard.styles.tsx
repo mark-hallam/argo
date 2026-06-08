@@ -24,12 +24,26 @@ export function TeammateCardStyles() {
         display: flex;
         flex-direction: column;
       }
-      .holo-card:focus-visible {
+      .holo-card:focus-visible,
+      .holo-card:has(.holo-card-overlay-link:focus-visible) {
         box-shadow:
           0 1px 2px rgba(0, 0, 0, 0.06),
           0 32px 60px -16px color-mix(in oklch, var(--brand-primary) 30%, transparent),
           inset 0 0 0 2px color-mix(in oklch, var(--brand-primary) 12%, transparent),
           0 0 0 3px var(--ring);
+      }
+      /* Full-card navigation overlay (replaces the old clickable div).
+         Spans the whole card ABOVE the non-interactive display content so
+         a click anywhere navigates, and BELOW the genuinely-interactive
+         children — the context menu (.holo-menu-slot) and the foot "Open
+         profile" link, which are lifted above it. The focus ring is
+         mirrored onto .holo-card via :has() above using the exact same
+         token + value as the prior card focus state. */
+      .holo-card-overlay-link {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        outline: none;
       }
       .holo-card:hover {
         transform: translateY(-8px) rotate(-1deg) scale(1.015);
@@ -125,7 +139,9 @@ export function TeammateCardStyles() {
         position: absolute;
         top: 14px;
         right: 14px;
-        z-index: 3;
+        /* Lifted above the full-card overlay link (z-index 5) so the
+           context-menu trigger stays clickable. */
+        z-index: 6;
         display: inline-flex;
       }
       .holo-portrait {
@@ -246,6 +262,10 @@ export function TeammateCardStyles() {
       .holo-foot {
         margin-top: auto;
         padding: 18px 24px 18px;
+        /* Above the full-card overlay link (z-index 5) so the explicit
+           "Open profile" link remains independently clickable. */
+        position: relative;
+        z-index: 6;
       }
     `}</style>
   );

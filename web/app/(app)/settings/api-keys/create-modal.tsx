@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { ApiKeyExpiry, ApiKeyScope, CreateApiKeyRequest } from "@/lib/api/api-keys";
 import { SAMPLE_COHORT_SUMMARIES } from "@/lib/sample-cohorts";
+import { useFocusTrap } from "@/lib/a11y/use-focus-trap";
 
 /** Multi-section "Create API key" dialog. */
 
@@ -51,7 +52,25 @@ export interface CreateModalProps {
   submitError: string | null;
 }
 
+/**
+ * A "Custom" expiry is only valid when the operator has typed a
+ * parseable date strictly in the future. An empty string (the initial
+ * Custom state) or a past/today date is rejected so the request never
+ * ships `{ custom: "" }` — which the gateway would treat as "no expiry".
+ */
+function customExpiryIsValid(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (trimmed === "") return false;
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return parsed.getTime() > today.getTime();
+}
+
 export function CreateModal({ onCancel, onSubmit, isSubmitting, submitError }: CreateModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, onCancel);
   const [form, setForm] = useState<CreateForm>({
     name: "",
     scopes: new Set<ApiKeyScope>(["read:workers", "read:workflows"]),
@@ -70,7 +89,10 @@ export function CreateModal({ onCancel, onSubmit, isSubmitting, submitError }: C
     return out;
   }, []);
 
-  const canSubmit = form.name.trim().length > 0 && form.scopes.size > 0;
+  const canSubmit =
+    form.name.trim().length > 0 &&
+    form.scopes.size > 0 &&
+    (typeof form.expiry !== "object" || customExpiryIsValid(form.customExpiry));
 
   function toggleScope(id: ApiKeyScope) {
     setForm((f) => {
@@ -115,7 +137,14 @@ export function CreateModal({ onCancel, onSubmit, isSubmitting, submitError }: C
         if (e.target === e.currentTarget) onCancel();
       }}
     >
-      <div className="ak-modal" role="dialog" aria-labelledby="ak-create-h2">
+      <div
+        ref={dialogRef}
+        className="ak-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ak-create-h2"
+        tabIndex={-1}
+      >
         <button type="button" className="ak-modal-close" aria-label="Close dialog" onClick={onCancel}>
           <X size={16} />
         </button>
@@ -134,6 +163,7 @@ export function CreateModal({ onCancel, onSubmit, isSubmitting, submitError }: C
           placeholder="CI pipeline, Data warehouse sync, …"
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
+          maxLength={120}
           autoFocus
         />
 
@@ -215,14 +245,23 @@ export function CreateModal({ onCancel, onSubmit, isSubmitting, submitError }: C
           </label>
         </div>
         {typeof form.expiry === "object" ? (
-          <input
-            type="date"
-            className="ak-input"
-            value={form.customExpiry}
-            onChange={(e) =>
-              setForm({ ...form, customExpiry: e.target.value, expiry: { custom: e.target.value } })
-            }
-          />
+          <>
+            <input
+              type="date"
+              className="ak-input"
+              value={form.customExpiry}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) =>
+                setForm({ ...form, customExpiry: e.target.value, expiry: { custom: e.target.value } })
+              }
+              data-testid="ak-custom-expiry"
+            />
+            {form.customExpiry !== "" && !customExpiryIsValid(form.customExpiry) ? (
+              <p className="ak-error" data-testid="ak-custom-expiry-error">
+                Pick a date in the future.
+              </p>
+            ) : null}
+          </>
         ) : null}
 
         {submitError ? <p className="ak-error">{submitError}</p> : null}

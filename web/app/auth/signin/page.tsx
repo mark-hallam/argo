@@ -200,6 +200,7 @@ function SignInInner() {
             type="submit"
             className="cta"
             disabled={pending || email.trim().length === 0}
+            aria-busy={pending}
             data-testid="signin-submit"
           >
             {pending ? "Checking…" : "Continue"}

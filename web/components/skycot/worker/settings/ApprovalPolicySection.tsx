@@ -78,9 +78,9 @@ export function ApprovalPolicySection({
           >
             <thead className="text-left text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
               <tr>
-                <th className="py-2 font-medium">Action</th>
-                <th className="py-2 font-medium">Current policy</th>
-                <th className="py-2 font-medium">Inferred trust grade</th>
+                <th scope="col" className="py-2 font-medium">Action</th>
+                <th scope="col" className="py-2 font-medium">Current policy</th>
+                <th scope="col" className="py-2 font-medium">Inferred trust grade</th>
                 <th />
               </tr>
             </thead>

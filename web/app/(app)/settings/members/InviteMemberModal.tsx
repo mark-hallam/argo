@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Controller } from "react-hook-form";
 import { Mail } from "lucide-react";
 import { CohortScopePicker } from "./CohortScopePicker";
+import { useFocusTrap } from "@/lib/a11y/use-focus-trap";
 import { ROLE_META, type MemberRole } from "./members-data";
 import { inviteMemberSchema } from "./schemas";
 import { useZodForm } from "@/lib/forms/use-zod-form";
@@ -49,8 +50,7 @@ export function InviteMemberModal({ open, onClose, onSend }: InviteMemberModalPr
   const role = watch("role");
   const [expiryPreset, setExpiryPreset] = useState<ExpiryPreset>("never");
   const [customDate, setCustomDate] = useState<string>(defaultCustomDate());
-
-  if (!open) return null;
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const resetAll = () => {
     reset({ email: "", role: "user", cohortScope: null });
@@ -62,6 +62,11 @@ export function InviteMemberModal({ open, onClose, onSend }: InviteMemberModalPr
     resetAll();
     onClose();
   };
+
+  // Called unconditionally (rules-of-hooks); activates only while open.
+  useFocusTrap(dialogRef, handleClose, { active: open });
+
+  if (!open) return null;
 
   const submit = handleSubmit(async (values) => {
     try {
@@ -94,10 +99,13 @@ export function InviteMemberModal({ open, onClose, onSend }: InviteMemberModalPr
       }}
     >
       <div
+        ref={dialogRef}
         className="invite-modal"
         role="dialog"
+        aria-modal="true"
         aria-labelledby="invite-h2"
         data-testid="invite-member-modal"
+        tabIndex={-1}
       >
         <h2 id="invite-h2">Invite a teammate</h2>
         <p>They&apos;ll get a magic-link email and land directly on your workspace.</p>
