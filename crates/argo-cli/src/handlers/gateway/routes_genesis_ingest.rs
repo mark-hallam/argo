@@ -20,6 +20,23 @@
 //! }
 //! ```
 //!
+//! ## Phase-2 multi-modal intake (additive `format` values)
+//!
+//! The same batch endpoint accepts three more modalities, each persisted into
+//! the SAME tenant-scoped onboarding namespace and gradeable by the quiz:
+//!
+//! - `"voice"` / `"voice_base64"` — a voice-narrated role intake. Supply either
+//!   a `"transcript"` (the SPA's live `/voice/stt` already transcribed it, the
+//!   production path) or base64 audio in `"content"` (transcribed via the
+//!   `argo_voice_io` STT seam). See [`super::routes_genesis_ingest_voice`].
+//! - `"image"` / `"image_base64"` — a screenshot. `"content"` is base64 image
+//!   bytes; `"caption"` is the operator's description (the gradeable text, plus
+//!   a SHA-256 provenance descriptor — no fake OCR). See
+//!   [`super::routes_genesis_ingest_image`].
+//! - `"wiki_url"` / `"url"` — a wiki/docs page. `"content"` is the URL, fetched
+//!   via the **SSRF-safe** [`argo_genesis::safe_fetch_text`]. See
+//!   [`super::routes_genesis_ingest_url`].
+//!
 //! ## Per-file lifecycle (mirrors the SPA's 4-phase progress bar)
 //!
 //! `uploaded → parsed → chunked → embedded`. A file that fails any phase
@@ -37,8 +54,8 @@
 use super::body_from_request;
 use argo_audit::{AuditKind, AuditSink};
 use argo_genesis::{
-    extract_sop_pdf_text, ingest_onboarding_document, write_onboarding_documents,
-    OnboardingDocument, MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES,
+    extract_sop_pdf_text, ingest_onboarding_document_with_kind, write_onboarding_documents,
+    OnboardingDocument, SourceKind, MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES,
 };
 use argo_memory::OnboardingNamespaceKey;
 use argo_store::SessionStore;
@@ -134,39 +151,7 @@ pub(super) async fn ingest_response(
         ));
     };
 
-    let mut results: Vec<FileResult> = Vec::with_capacity(docs_json.len());
-    let mut ingested: Vec<OnboardingDocument> = Vec::new();
-    let mut total_bytes: usize = 0;
-
-    for doc in docs_json {
-        let filename = doc
-            .get("filename")
-            .and_then(|v| v.as_str())
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .unwrap_or("uploaded-document")
-            .to_string();
-        let format = doc.get("format").and_then(|v| v.as_str()).unwrap_or("text");
-        let content = doc.get("content").and_then(|v| v.as_str()).unwrap_or("");
-
-        match decode_one(content, format, total_bytes) {
-            Ok((text, bytes)) => {
-                total_bytes += bytes;
-                match ingest_onboarding_document(&text, &filename) {
-                    Ok(d) => {
-                        let chunks = d.chunk_count();
-                        ingested.push(d);
-                        results.push(FileResult::ingested(filename, chunks));
-                    }
-                    Err(e) => results.push(FileResult::rejected(
-                        filename,
-                        format!("Couldn't parse — skipped ({e})"),
-                    )),
-                }
-            }
-            Err(reason) => results.push(FileResult::rejected(filename, reason)),
-        }
-    }
+    let (results, ingested) = ingest_documents(docs_json).await;
 
     // Persist the successfully-ingested batch tenant-scoped on disk.
     if !ingested.is_empty() {
@@ -193,6 +178,86 @@ pub(super) async fn ingest_response(
         "200 OK",
         serde_json::to_string(&resp).unwrap_or_else(|_| "{}".to_string()),
     )
+}
+
+/// Extract + ingest each document in the batch, returning the per-file
+/// results and the successfully-parsed [`OnboardingDocument`]s. Each file is
+/// charged in order against a running session-byte cap (`extract_for_format`
+/// enforces the per-file and cumulative limits).
+async fn ingest_documents(
+    docs_json: &[serde_json::Value],
+) -> (Vec<FileResult>, Vec<OnboardingDocument>) {
+    let mut results: Vec<FileResult> = Vec::with_capacity(docs_json.len());
+    let mut ingested: Vec<OnboardingDocument> = Vec::new();
+    let mut total_bytes: usize = 0;
+
+    for doc in docs_json {
+        let filename = doc
+            .get("filename")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or("uploaded-document")
+            .to_string();
+        let format = doc.get("format").and_then(|v| v.as_str()).unwrap_or("text");
+
+        match extract_for_format(doc, format, &filename, total_bytes).await {
+            Ok((text, bytes, kind)) => {
+                total_bytes += bytes;
+                match ingest_onboarding_document_with_kind(&text, &filename, kind) {
+                    Ok(d) => {
+                        let chunks = d.chunk_count();
+                        ingested.push(d);
+                        results.push(FileResult::ingested(filename, chunks));
+                    }
+                    Err(e) => results.push(FileResult::rejected(
+                        filename,
+                        format!("Couldn't parse — skipped ({e})"),
+                    )),
+                }
+            }
+            Err(reason) => results.push(FileResult::rejected(filename, reason)),
+        }
+    }
+    (results, ingested)
+}
+
+/// Dispatch one document to its modality extractor, returning the gradeable
+/// text, the bytes charged against the session cap, and the [`SourceKind`]
+/// provenance tag. The text/PDF path stays inline ([`decode_one`]); the
+/// Phase-2 multi-modal paths live in sibling modules:
+///
+/// - `voice_base64` / `audio` → transcript (via the voice STT seam), `Voice`.
+/// - `image_base64` / `image` → caption + provenance descriptor, `Image`.
+/// - `wiki_url` / `url` → SSRF-safe fetched page text, `WikiUrl`.
+async fn extract_for_format(
+    doc: &serde_json::Value,
+    format: &str,
+    filename: &str,
+    total_so_far: usize,
+) -> Result<(String, usize, SourceKind), String> {
+    let content = doc.get("content").and_then(|v| v.as_str()).unwrap_or("");
+    match format {
+        "voice_base64" | "audio_base64" | "voice" | "audio" => {
+            super::routes_genesis_ingest_voice::transcribe_voice(doc, total_so_far)
+                .await
+                .map(|(t, b)| (t, b, SourceKind::Voice))
+        }
+        "image_base64" | "image" => {
+            let caption = doc.get("caption").and_then(|v| v.as_str()).unwrap_or("");
+            super::routes_genesis_ingest_image::describe_image(
+                content,
+                caption,
+                filename,
+                total_so_far,
+            )
+            .map(|(t, b)| (t, b, SourceKind::Image))
+        }
+        "wiki_url" | "url" => super::routes_genesis_ingest_url::fetch_wiki(content, total_so_far)
+            .await
+            .map(|(t, b)| (t, b, SourceKind::WikiUrl)),
+        _ => decode_one(content, format, total_so_far).map(|(t, b)| (t, b, SourceKind::Document)),
+    }
 }
 
 /// Decode one document's `content` per `format`, enforcing the per-file +

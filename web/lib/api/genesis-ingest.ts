@@ -28,12 +28,27 @@ export const ONBOARDING_MAX_FILES = 50;
 export const INGEST_PHASES = ["uploaded", "parsed", "chunked", "embedded"] as const;
 export type IngestPhase = (typeof INGEST_PHASES)[number];
 
-/** One document in an ingest request. */
+/** One document in an ingest request.
+ *
+ * Phase-2 adds three modalities alongside `text` / `pdf_base64`:
+ * - `image_base64` — `content` is base64 image bytes; `caption` is the
+ *   operator's description (the gradeable text — no fake OCR).
+ * - `voice` — `transcript` carries text the live `/voice/stt` loop produced.
+ * - `wiki_url` — `content` is a URL, fetched server-side via the SSRF-safe
+ *   fetcher.
+ */
 export interface OnboardingDocInput {
   filename: string;
-  format: "text" | "pdf_base64";
+  format: "text" | "pdf_base64" | "image_base64" | "voice" | "wiki_url";
   content: string;
+  /** Operator description for an `image_base64` document. */
+  caption?: string;
+  /** Pre-transcribed text for a `voice` document (from `/voice/stt`). */
+  transcript?: string;
 }
+
+/** Accepted image extensions for screenshot / diagram onboarding. */
+export const ONBOARDING_IMAGE_ACCEPT = ".png,.jpg,.jpeg,.gif,.webp";
 
 /** Per-file ingest outcome returned by the gateway. */
 export interface IngestFileResult {
@@ -70,17 +85,44 @@ export async function ingestOnboardingDocuments(
 }
 
 /**
- * Read a `File` into the shape the gateway expects — PDF → base64, everything
- * else → UTF-8 text. DOCX is sent as text too (the gateway extracts what text
- * it can; a binary-only DOCX is reported `rejected` and skipped).
+ * Read a `File` into the shape the gateway expects — PDF → base64, image →
+ * `image_base64` (with an operator `caption`), everything else → UTF-8 text.
+ * DOCX is sent as text too (the gateway extracts what text it can; a binary-only
+ * DOCX is reported `rejected` and skipped).
+ *
+ * @param caption optional description, used only for image uploads (the
+ *   gradeable text — the gateway skips a captionless image rather than guessing).
  */
-export async function readFileForIngest(file: File): Promise<OnboardingDocInput> {
-  const isPdf =
-    file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+export async function readFileForIngest(
+  file: File,
+  caption?: string,
+): Promise<OnboardingDocInput> {
+  const name = file.name.toLowerCase();
+  const isPdf = file.type === "application/pdf" || name.endsWith(".pdf");
   if (isPdf) {
     return { filename: file.name, format: "pdf_base64", content: await readAsBase64(file) };
   }
+  const isImage =
+    file.type.startsWith("image/") ||
+    /\.(png|jpe?g|gif|webp)$/.test(name);
+  if (isImage) {
+    return {
+      filename: file.name,
+      format: "image_base64",
+      content: await readAsBase64(file),
+      caption: caption?.trim() || "",
+    };
+  }
   return { filename: file.name, format: "text", content: await file.text() };
+}
+
+/**
+ * Build a wiki / docs URL ingest document. The gateway fetches it server-side
+ * through the SSRF-safe fetcher and ingests the page text.
+ */
+export function wikiUrlDoc(url: string): OnboardingDocInput {
+  const trimmed = url.trim();
+  return { filename: trimmed, format: "wiki_url", content: trimmed };
 }
 
 /** Read a File as base64 (strips any data-URL prefix). Mirrors `SopUpload`. */

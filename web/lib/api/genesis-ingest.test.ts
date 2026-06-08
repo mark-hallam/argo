@@ -7,6 +7,8 @@ vi.mock("./client", () => ({
 
 import {
   ingestOnboardingDocuments,
+  readFileForIngest,
+  wikiUrlDoc,
   INGEST_PHASES,
   ONBOARDING_MAX_FILES,
   type IngestResponse,
@@ -44,5 +46,37 @@ describe("ingestOnboardingDocuments", () => {
   it("exposes the canonical 4-phase order + file cap", () => {
     expect(INGEST_PHASES).toEqual(["uploaded", "parsed", "chunked", "embedded"]);
     expect(ONBOARDING_MAX_FILES).toBe(50);
+  });
+});
+
+describe("wikiUrlDoc", () => {
+  it("builds a trimmed wiki_url document", () => {
+    const doc = wikiUrlDoc("  https://wiki.example.com/refunds  ");
+    expect(doc).toEqual({
+      filename: "https://wiki.example.com/refunds",
+      format: "wiki_url",
+      content: "https://wiki.example.com/refunds",
+    });
+  });
+});
+
+describe("readFileForIngest", () => {
+  it("reads a text file as text", async () => {
+    const file = new File(["the escalation matrix routes billing disputes"], "sop.md", {
+      type: "text/markdown",
+    });
+    const doc = await readFileForIngest(file);
+    expect(doc.format).toBe("text");
+    expect(doc.content).toContain("escalation matrix");
+  });
+
+  it("reads an image file as image_base64 with the operator caption", async () => {
+    const file = new File([new Uint8Array([1, 2, 3, 4])], "board.png", {
+      type: "image/png",
+    });
+    const doc = await readFileForIngest(file, "  escalation board screenshot  ");
+    expect(doc.format).toBe("image_base64");
+    expect(doc.caption).toBe("escalation board screenshot");
+    expect(doc.content.length).toBeGreaterThan(0);
   });
 });

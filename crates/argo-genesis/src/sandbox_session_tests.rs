@@ -33,6 +33,69 @@ fn answers_from_uploaded_document_with_citation() {
 }
 
 #[test]
+fn quiz_grades_over_multimodal_material_through_disk() {
+    // Phase-2 acceptance: voice / image / wiki-URL intake each reach the same
+    // tenant onboarding namespace, and a quiz question is gradeable over the
+    // ADDED material after the full disk round-trip (write → read → grade).
+    use crate::{
+        ingest_onboarding_document_with_kind, read_onboarding_documents,
+        write_onboarding_documents, SourceKind,
+    };
+
+    let mut vdir = std::env::temp_dir();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    vdir.push(format!("argo-mm-quiz-{nanos}/.genesis/acme/genesis-multi"));
+
+    let docs = vec![
+        ingest_onboarding_document_with_kind(
+            "The front desk greets every visitor by name and notifies the host within \
+             two minutes of check-in. Offer water or coffee while the guest waits.",
+            "intro.wav",
+            SourceKind::Voice,
+        )
+        .expect("voice"),
+        ingest_onboarding_document_with_kind(
+            "Image onboarding reference: board.png. Operator description: the red lane \
+             is for Sev-1 outages paged to the on-call engineer within five minutes.",
+            "board.png",
+            SourceKind::Image,
+        )
+        .expect("image"),
+        ingest_onboarding_document_with_kind(
+            "From the internal wiki: refunds above five hundred dollars require regional \
+             manager approval, and every chargeback is filed with finance within a day.",
+            "https://wiki.example.com/refunds",
+            SourceKind::WikiUrl,
+        )
+        .expect("wiki"),
+    ];
+    write_onboarding_documents(&vdir, &docs).expect("write");
+
+    // Read back from disk (what the live quiz route does) and grade.
+    let read = read_onboarding_documents(&vdir);
+    assert_eq!(read.len(), 3);
+
+    let voice_ans = answer_quiz_question("How quickly is the host notified at check-in?", &read);
+    assert!(voice_ans.answered, "voice material must be gradeable");
+    assert!(voice_ans.answer.to_lowercase().contains("two minutes"));
+
+    let image_ans = answer_quiz_question("Who handles a Sev-1 outage?", &read);
+    assert!(image_ans.answered, "image material must be gradeable");
+    assert!(image_ans.answer.to_lowercase().contains("on-call engineer"));
+
+    let wiki_ans = answer_quiz_question("Who approves a refund over $500?", &read);
+    assert!(wiki_ans.answered, "wiki material must be gradeable");
+    assert!(wiki_ans.answer.to_lowercase().contains("regional manager"));
+
+    if let Some(root) = vdir.ancestors().nth(3) {
+        std::fs::remove_dir_all(root).ok();
+    }
+}
+
+#[test]
 fn empty_memory_refuses_instead_of_fabricating() {
     // No theater: with nothing ingested the teammate says it doesn't know.
     let ans = answer_quiz_question("What is our refund policy?", &[]);

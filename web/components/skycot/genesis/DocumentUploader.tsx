@@ -1,25 +1,29 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { CheckCircle2, FileText, Loader2, UploadCloud, XCircle } from "lucide-react";
+import { CheckCircle2, FileText, Link2, Loader2, UploadCloud, XCircle } from "lucide-react";
 import {
   ingestOnboardingDocuments,
   readFileForIngest,
+  wikiUrlDoc,
   INGEST_PHASES,
   ONBOARDING_ACCEPT,
+  ONBOARDING_IMAGE_ACCEPT,
   ONBOARDING_MAX_FILE_BYTES,
   ONBOARDING_MAX_FILES,
   type IngestPhase,
+  type OnboardingDocInput,
 } from "@/lib/api/genesis-ingest";
 
 /**
  * Genesis onboarding document drop-zone (Phase 2 — document upload; memory
  * `genesis-is-ai-teammate-onboarding-studio`).
  *
- * Drop SOPs / wikis / process docs (PDF / Markdown / DOCX / TXT) onto the
- * drafted teammate; each file shows a 4-phase progress bar (uploaded → parsed →
- * chunked → embedded into memory) and is ingested tenant-scoped so the teammate
- * boots already knowing the material. Real backend only — no fixture fallback
+ * Drop SOPs / wikis / process docs (PDF / Markdown / DOCX / TXT / screenshots)
+ * onto the drafted teammate, or paste a wiki / docs URL (fetched server-side via
+ * the SSRF-safe fetcher). Each item shows a 4-phase progress bar (uploaded →
+ * parsed → chunked → embedded into memory) and is ingested tenant-scoped so the
+ * teammate boots already knowing the material. Real backend only — no fixture fallback
  * (operator memory `no-theater-in-demo`): the documents the camera sees uploaded
  * ARE the ones the teammate drills into.
  *
@@ -64,35 +68,21 @@ export function DocumentUploader({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [url, setUrl] = useState("");
 
   const blocked = disabled || busy || !verticalId;
 
-  const ingest = useCallback(
-    async (picked: File[]) => {
-      setError(null);
-      if (!verticalId) {
-        setError("Describe the role first — then drop your documents here.");
-        return;
-      }
-      if (picked.length === 0) return;
-      if (picked.length > ONBOARDING_MAX_FILES) {
-        setError(`Up to ${ONBOARDING_MAX_FILES} files per session.`);
-        return;
-      }
-      const oversize = picked.find((f) => f.size > ONBOARDING_MAX_FILE_BYTES);
-      if (oversize) {
-        setError(`"${oversize.name}" is over 50 MB — please attach a smaller file.`);
-        return;
-      }
-
-      // Show every file as "queued/uploaded" immediately for the camera.
+  // Shared submit path: show each doc as in-flight, POST the batch, then
+  // reconcile per-file results (used by both file uploads and URL intake).
+  const submitDocs = useCallback(
+    async (docs: OnboardingDocInput[]) => {
+      if (!verticalId || docs.length === 0) return;
       setFiles((prev) => [
         ...prev,
-        ...picked.map((f) => ({ filename: f.name, phase: "uploaded" as const })),
+        ...docs.map((d) => ({ filename: d.filename, phase: "uploaded" as const })),
       ]);
       setBusy(true);
       try {
-        const docs = await Promise.all(picked.map(readFileForIngest));
         const res = await ingestOnboardingDocuments(verticalId, docs);
         setFiles((prev) => {
           const next = [...prev];
@@ -128,6 +118,45 @@ export function DocumentUploader({
     },
     [verticalId, onIngested],
   );
+
+  const ingest = useCallback(
+    async (picked: File[]) => {
+      setError(null);
+      if (!verticalId) {
+        setError("Describe the role first — then drop your documents here.");
+        return;
+      }
+      if (picked.length === 0) return;
+      if (picked.length > ONBOARDING_MAX_FILES) {
+        setError(`Up to ${ONBOARDING_MAX_FILES} files per session.`);
+        return;
+      }
+      const oversize = picked.find((f) => f.size > ONBOARDING_MAX_FILE_BYTES);
+      if (oversize) {
+        setError(`"${oversize.name}" is over 50 MB — please attach a smaller file.`);
+        return;
+      }
+      const docs = await Promise.all(picked.map((f) => readFileForIngest(f)));
+      await submitDocs(docs);
+    },
+    [verticalId, submitDocs],
+  );
+
+  const ingestUrl = useCallback(async () => {
+    setError(null);
+    if (!verticalId) {
+      setError("Describe the role first — then add a wiki link.");
+      return;
+    }
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    if (!/^https?:\/\//i.test(trimmed)) {
+      setError("Enter a full http(s) link to a wiki or docs page.");
+      return;
+    }
+    setUrl("");
+    await submitDocs([wikiUrlDoc(trimmed)]);
+  }, [verticalId, url, submitDocs]);
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -255,6 +284,50 @@ export function DocumentUploader({
           font-size: 12.5px;
           font-weight: 600;
         }
+        .doc-url {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 12px;
+        }
+        .doc-url-input {
+          flex: 1;
+          padding: 9px 12px 9px 34px;
+          border-radius: 12px;
+          border: 1px solid color-mix(in srgb, var(--brand-ink) 14%, transparent);
+          font-size: 13px;
+          font-family: var(--font-sans);
+          color: var(--brand-ink);
+          background:
+            no-repeat 11px center;
+        }
+        .doc-url-wrap {
+          position: relative;
+          flex: 1;
+          display: flex;
+          align-items: center;
+        }
+        .doc-url-icon {
+          position: absolute;
+          left: 10px;
+          color: var(--brand-primary);
+          pointer-events: none;
+        }
+        .doc-url-btn {
+          padding: 9px 16px;
+          border-radius: 12px;
+          border: none;
+          font-size: 13px;
+          font-weight: 700;
+          color: #fff;
+          cursor: pointer;
+          background: linear-gradient(90deg, var(--brand-primary), var(--brand-pink));
+          transition: opacity 0.15s ease;
+        }
+        .doc-url-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
         .spin {
           animation: doc-spin 0.9s linear infinite;
         }
@@ -268,7 +341,7 @@ export function DocumentUploader({
       <input
         ref={inputRef}
         type="file"
-        accept={ONBOARDING_ACCEPT}
+        accept={`${ONBOARDING_ACCEPT},${ONBOARDING_IMAGE_ACCEPT}`}
         multiple
         hidden
         data-testid="genesis-document-input"
@@ -303,9 +376,41 @@ export function DocumentUploader({
         </span>
         <span className="doc-sub">
           {verticalId
-            ? "Your teammate will read them — PDF, Markdown, DOCX, or text. They boot already knowing your return policy, escalation matrix, and compliance constraints."
+            ? "Your teammate will read them — PDF, Markdown, DOCX, text, or screenshots. They boot already knowing your return policy, escalation matrix, and compliance constraints."
             : "Describe the role first, then drop your documents here."}
         </span>
+      </div>
+
+      <div className="doc-url" data-testid="genesis-url-intake">
+        <span className="doc-url-wrap">
+          <Link2 size={15} className="doc-url-icon" aria-hidden />
+          <input
+            className="doc-url-input"
+            type="url"
+            inputMode="url"
+            placeholder="…or paste a wiki / docs URL"
+            aria-label="Wiki or docs URL"
+            data-testid="genesis-url-input"
+            value={url}
+            disabled={blocked}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void ingestUrl();
+              }
+            }}
+          />
+        </span>
+        <button
+          type="button"
+          className="doc-url-btn"
+          data-testid="genesis-url-add"
+          disabled={blocked || url.trim().length === 0}
+          onClick={() => void ingestUrl()}
+        >
+          Add link
+        </button>
       </div>
 
       {files.length > 0 ? (

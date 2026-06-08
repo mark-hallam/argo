@@ -69,6 +69,7 @@ pub mod quality;
 pub mod refine;
 pub mod role_contract;
 pub mod rubric;
+pub mod safe_fetch;
 pub mod safety_judge;
 pub mod sandbox_session;
 pub mod sop;
@@ -131,9 +132,11 @@ pub use sandbox_session::{
 };
 pub use sop_store::{read_sop_knowledge, write_sop_knowledge, DiskSop};
 pub use onboarding_documents::{
-    ingest_onboarding_document, onboarding_document_labels, read_onboarding_documents,
-    write_onboarding_documents, OnboardingDocument, MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES,
+    ingest_onboarding_document, ingest_onboarding_document_with_kind, onboarding_document_labels,
+    read_onboarding_documents, write_onboarding_documents, OnboardingDocument, SourceKind,
+    MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES,
 };
+pub use safe_fetch::{safe_fetch_text, SAFE_FETCH_BODY_CAP_BYTES};
 pub use job_description::{
     genesis_from_job_description, genesis_from_job_description_with, GenesisDraft, JobDescInput,
 };
