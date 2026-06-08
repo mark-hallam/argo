@@ -164,7 +164,7 @@ fn error_envelope(code: &str, message: &str) -> String {
 /// text itself is NOT written into the chain (only the forensic breadcrumb that
 /// a question was asked and whether the uploaded knowledge could answer it). An
 /// audit hiccup never fails the quiz response.
-async fn emit_audit(
+pub(super) async fn emit_audit(
     store: Option<&Arc<SessionStore>>,
     req: &str,
     vertical_id: &str,
@@ -179,7 +179,11 @@ async fn emit_audit(
         "citation_count": citation_count,
     });
     let principal_id = super::routes_auth_principal::principal_id_for_audit(req);
-    let sink = AuditSink::new_with_tenant(Arc::clone(store), super::rate_limit::extract_tenant(req));
+    // Round-trip with the audit feed (canonical session/header/cwd
+    // resolver), not the rate-limit config/anonymous tail. See
+    // `resolve_tenant::resolve_audit_write_tenant`.
+    let tenant = super::resolve_tenant::resolve_audit_write_tenant(req, store).await;
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant);
     if let Err(e) = sink
         .write(
             None,

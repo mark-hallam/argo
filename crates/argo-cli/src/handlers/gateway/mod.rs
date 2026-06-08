@@ -299,6 +299,8 @@ mod sweepers;
 mod tenant_header;
 #[cfg(test)]
 mod routes_session_tenant_bind_tests;
+#[cfg(test)]
+mod audit_roundtrip_tests;
 mod tier_capability_filter;
 mod tier_gate;
 mod ws_inbox_events;

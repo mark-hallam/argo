@@ -15,7 +15,7 @@
 //! gateway event.
 
 use super::routes_pitch_ask_llm::{ask_with_llm, CompanyFacts, LlmAskOutcome};
-use super::{rate_limit, routes_auth_principal};
+use super::routes_auth_principal;
 use argo_audit::{AuditKind, AuditSink};
 use argo_capability::{
     evaluate_claim, load_policy, ChannelKind, ClaimCandidate, ClaimDisposition, TruthBoundaryPolicy,
@@ -482,7 +482,12 @@ async fn emit_audit(
 ) {
     let Some(store) = store else { return };
     let principal_id = routes_auth_principal::principal_id_for_audit(req);
-    let sink = AuditSink::new_with_tenant(Arc::clone(store), rate_limit::extract_tenant(req));
+    // Round-trip with the audit feed: stamp the same tenant the feed's
+    // default scope reads back (canonical session/header/cwd resolver),
+    // not the rate-limit `extract_tenant` config/anonymous tail. See
+    // `resolve_tenant::resolve_audit_write_tenant`.
+    let tenant = super::resolve_tenant::resolve_audit_write_tenant(req, store).await;
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant);
     if let Err(e) = sink.write(None, kind, payload, principal_id).await {
         tracing::warn!(
             target: "gateway::pitch",

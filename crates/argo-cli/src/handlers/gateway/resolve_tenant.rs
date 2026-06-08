@@ -64,6 +64,34 @@ pub(super) async fn resolve_tenant_for_request(
     cwd_tenant(store).await
 }
 
+/// Resolve the tenant a **work-path audit write** must be stamped under
+/// so the row round-trips into `GET /api/v1/audit`.
+///
+/// The feed's default scope resolves through
+/// [`resolve_tenant_for_request`] (via
+/// `super::audit_query::resolve_workspace_default`). A writer that
+/// instead resolved its tenant through `super::rate_limit::extract_tenant`
+/// stamped rows under the config-default / `"anonymous"` tenant for a
+/// signed-in caller, so the feed — scoped to that caller's
+/// `__Host-session` JWT tenant — never read them back (the work-path
+/// audit round-trip gap). This helper makes writers agree with the feed:
+/// identical JWT → explicit header / `?tenant=` → cwd precedence. It
+/// falls back to [`super::rate_limit::extract_tenant`] only when the
+/// canonical resolver itself errors (e.g. `current_dir` failure on the
+/// cwd branch), so an audit row is never silently dropped to an empty
+/// tenant.
+///
+/// All work-path audit writers that previously inlined
+/// `extract_tenant(req)` (pitch ask + the three genesis routes) call
+/// this; the GTM-draft and marketing-draft writers already route their
+/// tenant through [`resolve_tenant_for_request`] directly.
+pub(super) async fn resolve_audit_write_tenant(req: &str, store: &SessionStore) -> String {
+    match resolve_tenant_for_request(req, store).await {
+        Ok(tenant) => tenant.to_string(),
+        Err(_) => super::rate_limit::extract_tenant(req),
+    }
+}
+
 /// The tenant id carried in a valid `__Host-session` cookie JWT, if
 /// present. Uses [`decode_session_cookie`] (signature + `exp`), not the
 /// revocation-aware verify: the session-verify middleware already

@@ -277,7 +277,11 @@ async fn emit_audit(
         "documents_rejected": rejected,
     });
     let principal_id = super::routes_auth_principal::principal_id_for_audit(req);
-    let sink = AuditSink::new_with_tenant(Arc::clone(store), super::rate_limit::extract_tenant(req));
+    // Round-trip with the audit feed (canonical session/header/cwd
+    // resolver), not the rate-limit config/anonymous tail. See
+    // `resolve_tenant::resolve_audit_write_tenant`.
+    let tenant = super::resolve_tenant::resolve_audit_write_tenant(req, store).await;
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant);
     if let Err(e) = sink
         .write(None, AuditKind::HttpRequest, payload, principal_id)
         .await
