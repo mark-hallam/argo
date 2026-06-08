@@ -36,7 +36,24 @@ export const ACME_THEME: ThemePair = {
   dark: "acme-dark",
 };
 
-export const BUILTIN_THEMES: ThemePair[] = [SKYCOT_THEME, ACME_THEME];
+/**
+ * The slot a tenant's persisted white-label accent occupies. Its
+ * `data-theme` ids match `TENANT_THEME_ID` in `tenant-theme.ts`, so the
+ * CSS synthesized from `GET /api/v1/tenant/theme` (and injected by
+ * `TenantThemeStyle`) applies when this theme is active. Registering it
+ * here is what lets `ThemeProvider.setThemeById("tenant")` resolve the
+ * pair (otherwise it falls back to SKYCOT). It is only ever activated
+ * when the gateway reports `is_override: true`, so the locked SKYCOT
+ * default is unaffected for non-white-label tenants.
+ */
+export const TENANT_OVERRIDE_THEME: ThemePair = {
+  id: "tenant",
+  label: "Workspace brand",
+  light: "tenant-light",
+  dark: "tenant-dark",
+};
+
+export const BUILTIN_THEMES: ThemePair[] = [SKYCOT_THEME, ACME_THEME, TENANT_OVERRIDE_THEME];
 
 export function getThemeById(id: string | null | undefined): ThemePair {
   if (!id) return SKYCOT_THEME;

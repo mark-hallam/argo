@@ -109,6 +109,11 @@ pub(super) async fn dispatch_scim_and_team(
     if let Some(resp) = super::routes_workspace_settings::dispatch_get(req, store).await {
         return Some(resp);
     }
+    // Per-tenant white-label theme override (reuses the workspace_settings
+    // `theme` group). Returns the locked SKYCOT default when unset.
+    if let Some(resp) = super::routes_tenant_theme::dispatch_get(req, store).await {
+        return Some(resp);
+    }
     // Gap #1 move A — audit-readiness / governance report. Read-only
     // assembly over the audit chain + capability roles + truth boundary
     // + approval coverage for one tenant.

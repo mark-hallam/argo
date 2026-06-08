@@ -111,6 +111,7 @@ mod routes_dispatch_get_admin;
 mod routes_dispatch_get_api;
 mod routes_dispatch_get_api_groups;
 mod routes_tenant_costs;
+mod routes_tenant_theme;
 mod usage_endpoint;
 mod routes_dispatch_get_catalog;
 mod routes_dispatch_get_catalog_groups;

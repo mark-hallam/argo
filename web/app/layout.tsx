@@ -10,6 +10,7 @@ import { CommandPaletteProvider } from "@/components/skycot/CommandPaletteProvid
 import { QueryProvider } from "@/components/skycot/QueryProvider";
 import { TenantCacheGuard } from "@/components/skycot/TenantCacheGuard";
 import { ThemeProvider } from "@/components/skycot/ThemeProvider";
+import { TenantThemeStyle } from "@/lib/theme/TenantThemeStyle";
 import { TooltipProvider } from "@/components/ui/Tooltip";
 import { ErrorReportingInit } from "@/lib/error-reporting/init";
 import { SKYCOT_TITLE_DEFAULT } from "@/lib/marketing-copy";
@@ -130,6 +131,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <AuthProvider>
           <QueryProvider>
             <ThemeProvider nonce={nonce}>
+              <TenantThemeStyle />
               <TooltipProvider delayDuration={250} skipDelayDuration={100}>
                 <CommandPaletteProvider>
                   <ErrorReportingInit />
