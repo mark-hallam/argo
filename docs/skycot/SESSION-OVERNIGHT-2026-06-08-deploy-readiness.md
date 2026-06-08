@@ -179,13 +179,26 @@ it OFF — that posture is verified-from-code).
   verified). Minor copy bug: a safety-BLOCK appends "...come back once the gateway is up" (the
   generic network-error tail — misleading for a safety block; trivial fix in `surfaceHireError`).
 
-## OPEN — must verify / decide before deploy
+## #159 — VERIFIED 2026-06-08 (conductor, live bypass-OFF battery)
 
-- [ ] CORE PROMISE: real signed-in SPA user resolves to OWN tenant (no demo-hero leak). Verify in
-      browser; the decisive config is bypass-OFF + real magic-link session cookie carrying tnt.
-- [ ] #159: SPA session-JWT (bearer) into `require_identity` — with bypass OFF a real SPA user
-      currently may 401 (bearer != static ARGO_GATEWAY_BEARER_TOKEN) unless the `__Host-session`
-      cookie is accepted. Auth gate AND tenant both hinge on the cookie reaching the gateway.
+**Outcome: VERIFY, not fix — the perimeter was already built (WS5) + correctly minted + test-covered; now live-confirmed fail-closed with bypass OFF.** Method: a throwaway gateway on :7401 with `ARGO_GATEWAY_AUTH_BYPASS` unset + an isolated `ARGO_HOME` (own pid/DB, same JWT secret), leaving dev :7400 + the swarm untouched.
+
+| Probe (bypass OFF) | Result | |
+|---|---|---|
+| protected route, no auth | **401** | fail-closed |
+| validly-signed `__Host-session` cookie | **200** | real SPA users authenticate |
+| → resolves to | **own tenant (0 workers)** | tenant isolation, no demo-hero leak |
+| tampered (bad-sig) cookie | **401** | |
+| expired cookie (>60s jwt leeway) | **401** | expiry enforced |
+| anon + `X-Tenant-Id` header | **401** | red-team header-leak hole stays closed |
+| `ARGO_DEMO_MODE=1` + bypass OFF | **refuses to boot** | demo backdoor can't coexist with a closed perimeter |
+
+**Why the auth half was already done:** `require_identity` (`routes_auth.rs`) allows a `Decoded` `__Host-session` cookie, else requires a valid bearer, else 401. The SPA mints a correct `Secure; HttpOnly; SameSite; Path=/` (no Domain) `__Host-` cookie (`auth_magic_link.rs`), sends it (`credentials: "same-origin"`), the Next proxy forwards `/api/v1/*` to the gateway (cookie passes through), and `resolve_tenant` reads the cookie's `tnt`. Existing coverage: `routes_auth_tests` (no/wrong bearer → 401), `middleware_session_verify_tests` (decode: valid/expired/revoked), `cross_tenant_isolation_jwt_routes`, `gateway_fail_closed_prod_smoke`.
+
+**Residual (deploy-time, not a code gap):** a real-browser HTTPS signup→/team pass with bypass OFF. The `__Host-` cookie is `Secure` (HTTPS-only), so the full browser cookie-set+send can only be exercised on the live HTTPS URL — which is the first AWS deploy's own final smoke. Belt-and-suspenders: a consolidated bypass-OFF integration test is queued (`fix-perimeter-bypass-off-cookie-regression-test`).
+
+- [x] CORE PROMISE: signed-in user → OWN tenant, no demo-hero leak — verified live (cookie → own tenant, 0 workers).
+- [x] #159: SPA session-JWT (`__Host-session` cookie) into `require_identity` — verified live: cookie authenticates with bypass OFF, fail-closed otherwise.
 - [ ] Onboarding-hire review→confirm fix (subagent) — review diff, tsc+vitest, browser-verify.
 - [ ] Free tier = mock provider — intended for trial, or surface "connect a real key" upsell?
 - [ ] worker-detail `<Link href=undefined>` console bug (seen pre-compaction).
