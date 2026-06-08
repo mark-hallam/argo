@@ -65,10 +65,31 @@ pub(super) async fn bridge_hire_duties(
     let duty_store = DutyStore::new(Arc::clone(store));
     let mut written = 0;
     for duty in draft.duties.iter().filter(|d| d.default_enabled) {
+        // Normalize the cron through the SAME canonical converter the HTTP
+        // duties writer uses (5-field wire → 6-field stored). Writing a raw
+        // 5-field cron verbatim (the prior behaviour) makes the scheduler's
+        // 6-field parser reject it, and `should_fire`'s `Err` then aborts the
+        // WHOLE `duty_scheduler` tick (multi-tenant blast radius). Skip+warn a
+        // bad cron rather than commit a poison row.
+        let stored_cron =
+            match super::routes_duties::normalize_stored_cron(&duty.cron) {
+                Ok(c) => c,
+                Err(e) => {
+                    tracing::warn!(
+                        target: "gateway::workers_hire",
+                        error = %e,
+                        worker_id = %worker_id,
+                        cron = %duty.cron,
+                        entry_action = %duty.entry_action,
+                        "hire→scheduler duty skipped: invalid cron (would poison scheduler tick)"
+                    );
+                    continue;
+                }
+            };
         let record = DutyRecord::new(
             tenant_id,
             worker_id,
-            duty.cron.clone(),
+            stored_cron,
             duty.entry_action.clone(),
             duty.description.clone(),
         );

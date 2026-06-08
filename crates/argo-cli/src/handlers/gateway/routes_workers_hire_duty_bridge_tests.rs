@@ -68,9 +68,59 @@ async fn bridge_writes_only_enabled_duties_listable_by_scheduler() {
     let row = &listed[0];
     assert_eq!(row.worker_id, worker, "duty bound to the hired worker");
     assert_eq!(row.tenant_id, tenant, "duty bound to the hiring tenant");
-    assert_eq!(row.cron, "0 9 * * 1-5");
+    // The 5-field wire cron "0 9 * * 1-5" is normalized to the 6-field STORED
+    // form the scheduler's `cron` crate parses (prior bug: stored verbatim,
+    // which poisoned the duty_scheduler tick). Was: "0 9 * * 1-5".
+    assert_eq!(row.cron, "0 0 9 * * 1-5");
     assert_eq!(row.entry_action, "follow_up");
     assert!(row.enabled, "bridged duty lands enabled (listable)");
+}
+
+#[tokio::test]
+async fn bridge_normalizes_every_cron_to_scheduler_parseable_form() {
+    use cron::Schedule;
+    use std::str::FromStr;
+    let store = mem_store().await;
+    let tenant = TenantId::new();
+    let draft = draft_with_enabled_and_disabled();
+    bridge_hire_duties(&store, tenant, WorkerId::new(), &draft).await;
+    let listed = DutyStore::new(Arc::clone(&store))
+        .list_for_tenant(tenant)
+        .await
+        .expect("list role_duty");
+    assert!(!listed.is_empty(), "at least one duty bridged");
+    for row in &listed {
+        // The exact parse the scheduler's `should_fire` does; a non-parseable
+        // stored cron would abort the whole tick (the bug this guards).
+        Schedule::from_str(&row.cron)
+            .unwrap_or_else(|e| panic!("stored cron '{}' must parse: {e}", row.cron));
+    }
+}
+
+#[tokio::test]
+async fn bridge_skips_invalid_cron_but_still_writes_valid_ones() {
+    let store = mem_store().await;
+    let tenant = TenantId::new();
+    let draft: HireDraft = serde_json::from_value(json!({
+        "suggestedName": "Maya",
+        "charter": "Own outbound marketplace follow-up.",
+        "suggestedVertical": "gtm-engineer",
+        "approvalPolicy": {"level": "balanced"},
+        "duties": [
+            {"cron": "0 9 * * 1-5", "entryAction": "follow_up", "description": "valid", "defaultEnabled": true},
+            {"cron": "not a cron at all", "entryAction": "broken", "description": "invalid → skip", "defaultEnabled": true},
+        ],
+        "tagline": "x",
+    }))
+    .expect("draft parses");
+    let written = bridge_hire_duties(&store, tenant, WorkerId::new(), &draft).await;
+    assert_eq!(written, 1, "the invalid-cron duty is skipped, the valid one is written");
+    let listed = DutyStore::new(Arc::clone(&store))
+        .list_for_tenant(tenant)
+        .await
+        .expect("list role_duty");
+    assert_eq!(listed.len(), 1, "no poison row committed");
+    assert_eq!(listed[0].entry_action, "follow_up");
 }
 
 #[tokio::test]

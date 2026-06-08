@@ -156,6 +156,15 @@ pub(super) async fn draft_worker_response(
     let (charter, persona, plan_result) =
         match tokio::time::timeout(GENESIS_CALL_TIMEOUT, work).await {
             Ok(Ok(triple)) => triple,
+            // Client-input conditions (the user described a role we can't place,
+            // an empty charter, or a bad persona) are a 4xx, NOT a 500 — a 500
+            // mis-signals a server fault for normal input and pages on-call.
+            // Genuine internal failures (safety/load/io/json/toml) stay 500.
+            Ok(Err(
+                e @ (argo_genesis::GenesisError::UnknownArchetype { .. }
+                | argo_genesis::GenesisError::EmptyCharter
+                | argo_genesis::GenesisError::InvalidPersona(_)),
+            )) => return bad_request(&format!("genesis plan: {e}")),
             Ok(Err(e)) => return server_error(&format!("genesis plan: {e}")),
             Err(_) => return timeout_response(),
         };

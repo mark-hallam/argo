@@ -11,6 +11,11 @@
 #[path = "routes_duties_helpers.rs"]
 mod helpers;
 
+// Re-export the canonical cron normalizer at the gateway level so the
+// hire→duty bridge writes through the SAME validation (no parallel cron
+// logic — a bad stored cron poisons the whole duty_scheduler tick).
+pub(super) use helpers::normalize_stored_cron;
+
 use argo_genesis::{classify_charter, Archetype};
 use argo_orchestrator::{DutyRecord, DutyStore};
 use argo_store::SessionStore;

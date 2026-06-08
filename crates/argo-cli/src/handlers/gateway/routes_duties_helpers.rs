@@ -152,6 +152,29 @@ pub(super) fn validate_5_field_cron(input: &str) -> Result<String, String> {
     Ok(six)
 }
 
+/// Normalize a duty cron to the 6-field **stored** form the scheduler's `cron`
+/// crate parses. Accepts a 5-field wire cron (converted via
+/// [`validate_5_field_cron`]) OR an already-6-field cron (validated as-is).
+///
+/// Shared by the HTTP duties writer and the hire→duty bridge so NEITHER path
+/// can commit an unparseable cron: a bad stored cron makes `should_fire`'s
+/// parse `Err` abort the whole `duty_scheduler` tick (multi-tenant blast
+/// radius), so the only safe states are "valid 6-field stored" or "rejected".
+///
+/// # Errors
+/// Returns `Err(msg)` when the cron is not 5 or 6 whitespace fields, or when
+/// the resulting expression does not parse.
+pub(crate) fn normalize_stored_cron(input: &str) -> Result<String, String> {
+    match input.split_whitespace().count() {
+        5 => validate_5_field_cron(input),
+        6 => {
+            Schedule::from_str(input).map_err(|e| format!("invalid cron: {e}"))?;
+            Ok(input.to_string())
+        }
+        other => Err(format!("cron must be 5 or 6 fields, got {other}")),
+    }
+}
+
 pub(super) fn validate_label(input: &str) -> Result<String, String> {
     let trimmed = input.trim();
     if !(MIN_LABEL_LEN..=MAX_LABEL_LEN).contains(&trimmed.len()) {
