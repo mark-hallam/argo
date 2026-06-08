@@ -200,7 +200,7 @@ pub(super) async fn dispatch_workers_family(
     None
 }
 
-/// `/api/v1/workers/<id>/{retros,policies,escalations}` — exact
+/// `/api/v1/workers/<id>/{retros,policies,duties,escalations}` — exact
 /// two-segment paths. Pinned first so the more-specific match wins.
 async fn dispatch_worker_two_segment(
     rest: &str,
@@ -219,6 +219,7 @@ async fn dispatch_worker_two_segment(
         "policies" => {
             Some(super::routes_worker_policies::list_response(parts[0], req, store).await)
         }
+        "duties" => Some(super::routes_duties::list_response(parts[0], req, store).await),
         "escalations" => {
             Some(super::routes_worker_escalations::list_response(parts[0], req, store).await)
         }

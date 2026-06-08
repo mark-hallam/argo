@@ -373,6 +373,47 @@ pub(super) async fn delete_response(
     ("204 No Content", String::new())
 }
 
+/// `GET /api/v1/workers/<id>/duties` — list the persisted `role_duty`
+/// rows for one worker, tenant-scoped. Reads real rows (no fixtures) so
+/// the SPA Schedules panel can show committed duties. Cross-tenant /
+/// unknown / archived workers get the SAME 404/410 the mutations return
+/// (the existence-leak invariant lives in [`resolve_worker`]).
+///
+/// `DutyStore` has no `list_for_worker` helper and lives in
+/// `argo-orchestrator` (outside this brief's scope), so the tenant-wide
+/// `list_for_tenant` read is post-filtered by `worker_id` here — the
+/// same pattern [`helpers::collect_conflicts`] uses against `list_active`.
+pub(super) async fn list_response(
+    worker_id_raw: &str,
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let (store, worker_id, tenant) = match resolve_worker(worker_id_raw, req, store).await {
+        Ok(t) => t,
+        Err(resp) => return resp,
+    };
+    let duty_store = DutyStore::new(Arc::clone(store));
+    let duties = match duty_store.list_for_tenant(tenant).await {
+        Ok(rows) => rows,
+        Err(e) => {
+            return err(
+                "500 Internal Server Error",
+                "internal_error",
+                &format!("list duties: {e}"),
+            )
+        }
+    };
+    let items: Vec<Value> = duties
+        .iter()
+        .filter(|d| d.worker_id == worker_id)
+        .map(duty_to_json)
+        .collect();
+    let count = items.len();
+    let body = json!({ "worker_id": worker_id.to_string(), "duties": items });
+    emit_audit(store, req, "duty.list", &worker_id, count).await;
+    ("200 OK", body.to_string())
+}
+
 #[cfg(test)]
 #[path = "routes_duties_tests.rs"]
 mod tests;

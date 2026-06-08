@@ -9,7 +9,7 @@
  * the 404-fallback contract of `retrain.ts`.
  */
 
-import { apiPatch, apiPost } from "@/lib/api/client";
+import { apiGet, apiPatch, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { hasRealSession } from "@/lib/skycot/demo-mode";
 import type { WorkerDuty } from "@/lib/api/worker-overview";
@@ -373,4 +373,80 @@ export function toggleDuty(
     { workerId: req.workerId, dutyId: req.dutyId, enabled: req.enabled },
     previous,
   );
+}
+
+export interface ListDutiesResult {
+  duties: WorkerDuty[];
+  source: DutySource;
+}
+
+/**
+ * Map one persisted `role_duty` row (the gateway `duty_to_json` shape:
+ * `{ id, label, cron, enabled, ... }`) to the SPA {@link WorkerDuty}.
+ * `duty_to_json` emits `cron` (a 6-field string); the SPA renders a
+ * plain-string `schedule` chip, so the cron is wrapped `cron: <expr>`.
+ * Tolerates a future server build that already sends a string
+ * `schedule`. Returns `null` for a row missing the load-bearing fields.
+ */
+function workerDutyFromGatewayRow(value: unknown): WorkerDuty | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  const id = typeof v.id === "string" ? v.id : null;
+  const label =
+    typeof v.label === "string"
+      ? v.label
+      : typeof v.description === "string"
+        ? v.description
+        : null;
+  if (!id || !label) return null;
+  const enabled = typeof v.enabled === "boolean" ? v.enabled : true;
+  const schedule =
+    typeof v.schedule === "string"
+      ? v.schedule
+      : typeof v.cron === "string"
+        ? `cron: ${v.cron}`
+        : "cron: (unknown)";
+  return { id, label, schedule, enabled };
+}
+
+/**
+ * GET `/api/v1/workers/<id>/duties` — list the worker's persisted
+ * duties (real `role_duty` rows, not fixtures) for the Schedules panel.
+ *
+ * Mirrors the NO-THEATER contract of the mutations above: a REAL
+ * signed-in user (the `skycot-session` cookie is present) NEVER sees
+ * fabricated schedules — a 404 / malformed body surfaces an honest
+ * error. ANONYMOUS dev/demo falls back to the caller-supplied persona
+ * `fallback()` (the bundled sample duties) so the panel still renders
+ * with the gateway offline. The happy path is unchanged for everyone.
+ *
+ * The caller passes `fallback` (e.g. the persona sample duties) rather
+ * than this client reaching into the fixture store, keeping the fixture
+ * source-of-truth where the panel already owns it.
+ */
+export async function listDuties(
+  workerId: string,
+  fallback?: () => WorkerDuty[],
+): Promise<ListDutiesResult> {
+  try {
+    const raw = await apiGet<unknown>(workerPath(workerId, "/duties"));
+    const rows = Array.isArray(raw)
+      ? raw
+      : raw && typeof raw === "object" && Array.isArray((raw as { duties?: unknown }).duties)
+        ? (raw as { duties: unknown[] }).duties
+        : null;
+    if (rows) {
+      const duties = rows
+        .map(workerDutyFromGatewayRow)
+        .filter((d): d is WorkerDuty => d !== null);
+      return { duties, source: "gateway" };
+    }
+    if (!mockFallbackAllowed()) throw malformedGatewayBody("duties list");
+    return { duties: fallback?.() ?? [], source: "mock" };
+  } catch (err) {
+    if (is404(err) && mockFallbackAllowed()) {
+      return { duties: fallback?.() ?? [], source: "mock" };
+    }
+    throw err;
+  }
 }

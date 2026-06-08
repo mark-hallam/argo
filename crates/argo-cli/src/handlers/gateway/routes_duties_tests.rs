@@ -9,7 +9,8 @@
 #![allow(clippy::too_many_lines)]
 
 use super::{
-    classify_response, commit_response, delete_response, patch_response, preview_response,
+    classify_response, commit_response, delete_response, list_response, patch_response,
+    preview_response,
 };
 use argo_identity::{IdentityStore, Persona, Role, Worker, WorkerId};
 use argo_store::SessionStore;
@@ -87,6 +88,10 @@ fn patch_request(path: &str, body: &str) -> String {
 
 fn delete_req(path: &str) -> String {
     format!("DELETE {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Principal: human:mark@example.com\r\n\r\n")
+}
+
+fn get_req(path: &str) -> String {
+    format!("GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Principal: human:mark@example.com\r\n\r\n")
 }
 
 async fn commit_simple(
@@ -449,6 +454,60 @@ async fn delete_unknown_duty_returns_404() {
     )
     .await;
     assert_eq!(status, "404 Not Found");
+}
+
+#[tokio::test]
+async fn list_returns_committed_duties_scoped_to_worker() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let tenant = workspace_tenant(&store).await;
+    let worker = add_worker(&store, tenant, "Maya").await;
+    let other = add_worker(&store, tenant, "Devon").await;
+    // Commit one duty for each worker in the SAME tenant; the list for
+    // `worker` must return only `worker`'s row (real role_duty read, not
+    // a fixture), proving both persistence and worker-scoping.
+    let duty_id = commit_simple(&store, &worker.id, "0 6 * * *", "Daily summary").await;
+    let _other_id = commit_simple(&store, &other.id, "0 7 * * *", "Devon ping").await;
+    let req = get_req(&format!("/api/v1/workers/{}/duties", worker.id));
+    let (status, resp) = list_response(&worker.id.to_string(), &req, Some(&store)).await;
+    assert_eq!(status, "200 OK", "body: {resp}");
+    let v: Value = serde_json::from_str(&resp).unwrap();
+    let duties = v["duties"].as_array().expect("duties array");
+    assert_eq!(duties.len(), 1, "only this worker's duty, got: {resp}");
+    assert_eq!(duties[0]["id"], duty_id);
+    assert_eq!(duties[0]["label"], "Daily summary");
+    assert!(duties[0]["cron"].as_str().unwrap().contains("0 6"));
+}
+
+/// `mission-cross-tenant-worker-handler-no-existence-leak`: listing a
+/// tenant-B worker's duties from a tenant-A request returns the SAME
+/// byte-identical 404 an unknown worker returns (mirrors the mutation
+/// invariant).
+#[tokio::test]
+async fn list_cross_tenant_returns_same_404_as_unknown_worker() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let _ = workspace_tenant(&store).await;
+    let other = TenantId::new();
+    let alien = add_worker(&store, other, "Alien").await;
+    let req_alien = get_req(&format!("/api/v1/workers/{}/duties", alien.id));
+    let (status_alien, body_alien) =
+        list_response(&alien.id.to_string(), &req_alien, Some(&store)).await;
+    let ghost = WorkerId::new();
+    let req_ghost = get_req(&format!("/api/v1/workers/{ghost}/duties"));
+    let (status_ghost, body_ghost) =
+        list_response(&ghost.to_string(), &req_ghost, Some(&store)).await;
+    assert_eq!(status_alien, "404 Not Found", "body: {body_alien}");
+    assert_eq!(status_alien, status_ghost);
+    assert_eq!(
+        body_alien, body_ghost,
+        "cross-tenant body must be byte-identical to unknown-worker body"
+    );
+    assert!(!body_alien.contains(&alien.id.to_string()));
 }
 
 #[tokio::test]
