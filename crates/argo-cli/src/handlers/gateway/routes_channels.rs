@@ -34,6 +34,14 @@ pub(super) enum Decision {
 pub(super) struct TokenClaims {
     pub(super) approval_id: String,
     pub(super) decision: Decision,
+    /// Cryptographically-bound approver identity, when the token carries
+    /// one (5-field token). `None` for legacy single-approver tokens.
+    /// When present this is the authoritative actor at settle time — the
+    /// channel-supplied actor string is NOT trusted (it is hardcoded for
+    /// push, read from a spoofable From for email, from the payload for
+    /// slack). A replayed token therefore always resolves to the same
+    /// approver, which is what makes N-of-M distinctness real.
+    pub(super) approver: Option<String>,
 }
 
 /// True if the request is any channel webhook or web inbox route
@@ -102,6 +110,14 @@ pub(super) async fn settle(
     if !located.record.requires_approval {
         return Ok(json!({"ok":true,"already_resolved":true,"approval_id":&claims.approval_id,"state":located.record.state,"resolved_by":"autonomous-safe"}).to_string());
     }
+    // Identity binding: when the token carries a cryptographically-bound
+    // approver it is the authoritative actor — NOT the channel-supplied
+    // string (push hardcodes `push-operator`, email reads a spoofable
+    // From, slack reads the payload). A token replayed across channels
+    // therefore always resolves to the SAME approver, which is what makes
+    // the N-of-M distinct-approver count trustworthy. Legacy single-
+    // approver tokens carry no binding and fall back to the channel actor.
+    let actor = claims.approver.as_deref().unwrap_or(actor);
     // Emit `AuditKind::ApprovalReplied` BEFORE handing off to the
     // gate (audit finding P0-2). The action is still `Pending` here
     // — late replies short-circuit above. The workspace tenant id
@@ -127,6 +143,101 @@ pub(super) async fn settle(
             error = %e,
             "approval.replied audit write failed; continuing to gate",
         );
+    }
+    // N-of-M threshold approvals (Stream `n-of-m-multi-step-approval`):
+    // when the approval request declares a threshold rule on its
+    // payload, record this approver's VOTE and only finalize once the
+    // quorum of distinct approvals is met (or any reject denies).
+    // Absence of the rule = single-approver, falling through unchanged.
+    if let Some(rule) =
+        argo_identity::auto_approval::ThresholdRule::from_payload(&located.record.payload)
+    {
+        use super::routes_approvals_threshold::{self, ThresholdOutcome};
+        // N-of-M is a separation-of-duties control, so every COUNTED vote
+        // must come from a cryptographically-bound, named approver. An
+        // unbound (legacy 4-field) token cannot satisfy a threshold vote:
+        // otherwise one principal could POST the same token to several
+        // channels under different actor strings and forge a quorum (the
+        // exact #2747 exploit this brief closes).
+        if claims.approver.is_none() {
+            return Ok(json!({
+                "ok": false,
+                "approval_id": &claims.approval_id,
+                "error": "threshold approval requires an identity-bound approval token",
+            })
+            .to_string());
+        }
+        let outcome = routes_approvals_threshold::record_threshold_vote(
+            &audit,
+            store.pool(),
+            &located,
+            actor,
+            claims.decision,
+            source,
+            &rule,
+        )
+        .await?;
+        return Ok(match outcome {
+            ThresholdOutcome::Unauthorized => json!({
+                "ok": false,
+                "approval_id": &claims.approval_id,
+                "error": "approver not authorized for this threshold approval",
+            })
+            .to_string(),
+            ThresholdOutcome::Held { distinct, threshold } => json!({
+                "ok": true,
+                "held": true,
+                "approval_id": &claims.approval_id,
+                "decision": decision_str(claims.decision),
+                "approvals": distinct,
+                "threshold": threshold,
+                "state": located.record.state,
+            })
+            .to_string(),
+            ThresholdOutcome::FinalizeReject => {
+                let rec = reject_action(&memory, ws, &located, actor, note, source).await?;
+                if let Err(e) = audit
+                    .write(
+                        None,
+                        AuditKind::ApprovalDeclined,
+                        json!({
+                            "action_id": &claims.approval_id,
+                            "declined_by": actor,
+                            "via": "n_of_m_reject",
+                            "source": source,
+                        }),
+                        None,
+                    )
+                    .await
+                {
+                    tracing::warn!(approval_id = %claims.approval_id, error = %e, "approval.declined audit write failed");
+                }
+                json!({"ok":true,"approval_id":rec.action_id,"decision":"reject","state":rec.state,"resolved_by":actor,"threshold_met":false}).to_string()
+            }
+            ThresholdOutcome::FinalizeApprove => {
+                let rec =
+                    worker_actions_transitions::approve(&memory, ws, &claims.approval_id, actor, note)
+                        .await?;
+                if let Err(e) = audit
+                    .write(
+                        None,
+                        AuditKind::ApprovalGranted,
+                        json!({
+                            "action_id": &claims.approval_id,
+                            "granted_by": actor,
+                            "via": "n_of_m_threshold",
+                            "threshold": rule.threshold,
+                            "source": source,
+                        }),
+                        None,
+                    )
+                    .await
+                {
+                    tracing::warn!(approval_id = %claims.approval_id, error = %e, "approval.granted audit write failed");
+                }
+                json!({"ok":true,"approval_id":rec.action_id,"decision":"approve","state":rec.state,"resolved_by":actor,"threshold_met":true}).to_string()
+            }
+        });
     }
     let rec = match claims.decision {
         Decision::Approve => {
@@ -226,9 +337,13 @@ pub(super) fn clean_token(s: &str) -> String {
 
 pub(super) fn verify_token(token: &str, secret: &str) -> Result<TokenClaims, String> {
     let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() != 4 {
-        return Err("approval token must have 4 fields".into());
-    }
+    // 4-field = legacy single-approver token; 5-field = approver-bound
+    // (the hex-encoded approver sits in slot 3, signature shifts to 4).
+    let (approver_seg, sig) = match parts.len() {
+        4 => (None, parts[3]),
+        5 => (Some(parts[3]), parts[4]),
+        _ => return Err("approval token must have 4 or 5 fields".into()),
+    };
     let decision = match parts[1] {
         "approve" => Decision::Approve,
         "reject" => Decision::Reject,
@@ -240,16 +355,29 @@ pub(super) fn verify_token(token: &str, secret: &str) -> Result<TokenClaims, Str
     if chrono::Utc::now().timestamp() > exp {
         return Err("approval token expired".into());
     }
-    let expected = hmac_hex(
-        format!("{}|{}|{exp}", parts[0], parts[1]).as_bytes(),
-        secret.as_bytes(),
-    );
-    if !constant_time_eq(expected.as_bytes(), parts[3].as_bytes()) {
+    let approver = match approver_seg {
+        Some(seg) => {
+            let bytes =
+                hex::decode(seg).map_err(|e| format!("invalid approver segment: {e}"))?;
+            Some(String::from_utf8(bytes).map_err(|e| format!("approver segment not utf-8: {e}"))?)
+        }
+        None => None,
+    };
+    // The bound approver is folded into the signed payload so it cannot
+    // be swapped for another identity without re-minting (which needs
+    // the secret).
+    let payload = match approver.as_deref() {
+        Some(a) => format!("{}|{}|{exp}|{a}", parts[0], parts[1]),
+        None => format!("{}|{}|{exp}", parts[0], parts[1]),
+    };
+    let expected = hmac_hex(payload.as_bytes(), secret.as_bytes());
+    if !constant_time_eq(expected.as_bytes(), sig.as_bytes()) {
         return Err("approval token signature mismatch".into());
     }
     Ok(TokenClaims {
         approval_id: parts[0].to_string(),
         decision,
+        approver,
     })
 }
 

@@ -232,6 +232,131 @@ pub fn evaluate(
     }
 }
 
+/// N-of-M threshold-approval rule for a single approval request
+/// (Stream `n-of-m-multi-step-approval`, v1.1 governance).
+///
+/// The single-approver path is the default: one operator reply settles
+/// the action. When an approval *request* declares a threshold rule,
+/// the action stays HELD until `threshold` **distinct** approvers vote.
+/// The rule is carried on the action payload under an `approval` node:
+///
+/// ```json
+/// { "approval": { "threshold": 2, "approvers": ["a@x", "b@x", "c@x"] } }
+/// ```
+///
+/// Absence of the node — or a `threshold` of `0`/`1` — means
+/// single-approver (today's behaviour), so [`ThresholdRule::from_payload`]
+/// returns `None` and the caller keeps its existing settle path.
+///
+/// ```
+/// use argo_identity::auto_approval::ThresholdRule;
+/// let payload = serde_json::json!({
+///     "approval": {
+///         "threshold": 2,
+///         "approvers": ["a", "b", "c"],
+///         "requester": "a"
+///     }
+/// });
+/// let rule = ThresholdRule::from_payload(&payload).unwrap();
+/// assert_eq!(rule.threshold, 2);
+/// assert!(rule.is_authorized("b"));
+/// assert!(!rule.is_authorized("z"));
+/// // The requester is on the allowlist but is excluded from voting.
+/// assert!(rule.is_self_approval("a"));
+/// assert!(!rule.is_met(1));
+/// assert!(rule.is_met(2));
+/// // No `approval` node → single-approver (None).
+/// assert!(ThresholdRule::from_payload(&serde_json::json!({})).is_none());
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ThresholdRule {
+    /// Number of distinct approve votes required to finalize. Always
+    /// `>= 2` for a constructed rule (a `1`-of-M rule is single-approver
+    /// and never materialises as a `ThresholdRule`).
+    pub threshold: u32,
+    /// Named allowlist of approver identities. For an N-of-M
+    /// separation-of-duties control this MUST be non-empty: an empty
+    /// allowlist authorizes NO ONE (see [`Self::is_authorized`]). The
+    /// "any authenticated approver" default is intentionally unsafe here
+    /// — it would let one principal mint distinct actor strings and
+    /// forge a quorum (Stream
+    /// `n-of-m-bind-approver-identity-and-self-approval-exclusion`).
+    pub approvers: Vec<String>,
+    /// Identity of the principal that REQUESTED the action, when known.
+    /// Excluded from the approving set: a vote whose approver matches the
+    /// requester is never counted (separation of duties — the requester
+    /// must not approve their own sensitive action). Populated from
+    /// `approval.requester` on the action payload.
+    #[serde(default)]
+    pub requester: Option<String>,
+}
+
+impl ThresholdRule {
+    /// Parse a threshold rule from an action payload. Returns `None`
+    /// when there is no `approval.threshold`, or when the threshold is
+    /// `0`/`1` (single-approver back-compat). The `approvers` list is
+    /// optional in the payload (defaults to empty), but an empty
+    /// allowlist authorizes no voter — see [`Self::is_authorized`].
+    #[must_use]
+    pub fn from_payload(payload: &serde_json::Value) -> Option<Self> {
+        let node = payload.get("approval")?;
+        let threshold = node.get("threshold")?.as_u64()?;
+        if threshold <= 1 {
+            return None;
+        }
+        let approvers = node
+            .get("approvers")
+            .and_then(serde_json::Value::as_array)
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let requester = node
+            .get("requester")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string);
+        // Clamp at u32 rather than reject: a >4-billion-approver quorum
+        // is a caller bug, not a settle-path concern.
+        let threshold = u32::try_from(threshold).unwrap_or(u32::MAX);
+        Some(Self {
+            threshold,
+            approvers,
+            requester,
+        })
+    }
+
+    /// True when `approver` is a NAMED member of the allowlist.
+    ///
+    /// An N-of-M rule requires distinct, authenticated, named approvers,
+    /// so an empty allowlist authorizes **no one** — the "any
+    /// authenticated approver" default is unsafe for a
+    /// separation-of-duties control (one principal could replay a single
+    /// token across channels under different actor strings to forge a
+    /// quorum). Callers that want single-approver behaviour declare
+    /// `threshold <= 1`, which never materialises as a `ThresholdRule`.
+    #[must_use]
+    pub fn is_authorized(&self, approver: &str) -> bool {
+        !self.approvers.is_empty() && self.approvers.iter().any(|a| a == approver)
+    }
+
+    /// True when `approver` is the action's requester — such a vote must
+    /// be rejected / not counted (separation of duties). Always `false`
+    /// when no requester is recorded.
+    #[must_use]
+    pub fn is_self_approval(&self, approver: &str) -> bool {
+        self.requester.as_deref() == Some(approver)
+    }
+
+    /// True once `distinct_approvals` distinct approve votes have been
+    /// recorded — i.e. the action may finalize as granted.
+    #[must_use]
+    pub fn is_met(&self, distinct_approvals: usize) -> bool {
+        distinct_approvals as u64 >= u64::from(self.threshold)
+    }
+}
+
 /// Convert USD micros to dollars for human-readable error
 /// messages. Public so the dispatch shim can format
 /// consistently.

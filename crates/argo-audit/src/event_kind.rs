@@ -63,6 +63,13 @@ pub enum AuditKind {
     ///
     /// See `event_kind_docs.rs` for first-reply and payload semantics.
     ApprovalReplied,
+    /// One approver's vote on an N-of-M threshold approval was recorded
+    /// (Stream `n-of-m-multi-step-approval`). Distinct from the terminal
+    /// `ApprovalGranted`/`ApprovalDeclined`: this fires once per *new*
+    /// distinct approver vote while the action is still HELD. Payload:
+    /// `{action_id, approver, decision, distinct_approvals, threshold,
+    /// source}`.
+    ApprovalVoteRecorded,
     /// KPI-rollup scheduler persisted per-worker KPI JSON.
     WorkerKpiRolled,
     /// Operator granted human approval for a blocked tool.

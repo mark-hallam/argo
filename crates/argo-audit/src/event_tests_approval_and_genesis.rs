@@ -71,6 +71,24 @@ fn approval_asked_and_replied_round_trip_and_listed() {
 }
 
 #[test]
+fn approval_vote_recorded_round_trips_and_listed() {
+    // Stream `n-of-m-multi-step-approval` — the per-vote kind fires
+    // once per new distinct approver while the action is still HELD,
+    // distinct from the terminal granted/declined settle events. It
+    // must round-trip and appear in `all()` so verifier + rollups
+    // categorise threshold votes as a first-class kind.
+    let kind = AuditKind::ApprovalVoteRecorded;
+    assert_eq!(AuditKind::from_label("approval.vote_recorded"), Some(kind));
+    assert_eq!(kind.label(), "approval.vote_recorded");
+    assert_eq!(
+        serde_json::to_string(&kind).unwrap(),
+        "\"approval_vote_recorded\""
+    );
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&"approval.vote_recorded"));
+}
+
+#[test]
 fn approval_expired_by_timeout_round_trips_and_listed() {
     let kind = AuditKind::ApprovalExpiredByTimeout;
     assert_eq!(

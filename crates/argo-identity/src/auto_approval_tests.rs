@@ -241,3 +241,64 @@ fn decision_reason_round_trips() {
     assert_eq!(d.reason(), "too costly");
     assert!(!d.is_auto_approved());
 }
+
+#[test]
+fn threshold_rule_absent_when_no_approval_node() {
+    assert!(ThresholdRule::from_payload(&serde_json::json!({})).is_none());
+    assert!(ThresholdRule::from_payload(&serde_json::json!({"approval": {}})).is_none());
+}
+
+#[test]
+fn threshold_rule_single_approver_is_none() {
+    // threshold 0 or 1 is just single-approver — no rule materialises.
+    assert!(ThresholdRule::from_payload(&serde_json::json!({"approval":{"threshold":1}})).is_none());
+    assert!(ThresholdRule::from_payload(&serde_json::json!({"approval":{"threshold":0}})).is_none());
+}
+
+#[test]
+fn threshold_rule_empty_allowlist_authorizes_no_one() {
+    let rule =
+        ThresholdRule::from_payload(&serde_json::json!({"approval":{"threshold":2}})).unwrap();
+    assert_eq!(rule.threshold, 2);
+    assert!(rule.approvers.is_empty());
+    // An N-of-M rule requires a NAMED allowlist: the empty "anyone"
+    // default authorizes no voter. This is the exploitable default the
+    // approver-identity-binding brief closes — one principal must not be
+    // able to satisfy a quorum via distinct self-asserted actor strings.
+    assert!(!rule.is_authorized("anyone"));
+}
+
+#[test]
+fn threshold_rule_allowlist_gates_voters() {
+    let rule = ThresholdRule::from_payload(
+        &serde_json::json!({"approval":{"threshold":2,"approvers":["a","b"]}}),
+    )
+    .unwrap();
+    assert!(rule.is_authorized("a"));
+    assert!(rule.is_authorized("b"));
+    assert!(!rule.is_authorized("c"));
+    assert!(!rule.is_met(1));
+    assert!(rule.is_met(2));
+    assert!(rule.is_met(3));
+}
+
+#[test]
+fn threshold_rule_parses_and_excludes_requester() {
+    let rule = ThresholdRule::from_payload(&serde_json::json!({
+        "approval": { "threshold": 2, "approvers": ["a", "b"], "requester": "a" }
+    }))
+    .unwrap();
+    assert_eq!(rule.requester.as_deref(), Some("a"));
+    // The requester is on the allowlist but is excluded from approving
+    // their own action (separation of duties).
+    assert!(rule.is_authorized("a"));
+    assert!(rule.is_self_approval("a"));
+    assert!(!rule.is_self_approval("b"));
+    // No requester recorded → nobody is treated as self-approving.
+    let no_req = ThresholdRule::from_payload(
+        &serde_json::json!({"approval":{"threshold":2,"approvers":["a","b"]}}),
+    )
+    .unwrap();
+    assert_eq!(no_req.requester, None);
+    assert!(!no_req.is_self_approval("a"));
+}

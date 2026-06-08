@@ -66,6 +66,7 @@ mod routes_approval_bundles;
 mod routes_approvals_json;
 mod routes_approvals_json_helpers;
 mod routes_approvals_json_seeded;
+mod routes_approvals_threshold;
 mod audit_query;
 mod routes_audit;
 mod routes_audit_detail;
