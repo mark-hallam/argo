@@ -16,7 +16,10 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 active:opacity-80",
+          // QA A11Y-4 (operator call 2026-06-08): keep the locked brand purple/
+          // gradient; lift the white label with a subtle text-shadow for
+          // readability instead of darkening the colour.
+          "bg-[var(--primary)] text-[var(--primary-foreground)] [text-shadow:0_1px_2px_rgb(0_0_0_/_0.35)] hover:opacity-90 active:opacity-80",
         secondary:
           "bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:bg-[var(--accent)]",
         ghost:

@@ -381,6 +381,8 @@ export function AuthEditorialShell({
           border-radius: 12px;
           background: var(--gradient);
           color: var(--brand-gradient-foreground);
+          /* QA A11Y-4 (operator call): lift the white label on the gradient. */
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
           border: none;
           font-size: 15px;
           font-weight: 700;
