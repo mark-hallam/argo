@@ -317,6 +317,15 @@ async fn dispatch_rate_signing_migration(
             super::skill_upgrade::run(&args.name, args.dry_run, args.yes, args.json).await
         }
         SkillCmd::ListMigrations(args) => super::skill_list_migrations::run(args.json).await,
+        SkillCmd::SelfImprove(args) => {
+            super::skill_self_improve::run(
+                skills,
+                args.tenant.as_deref(),
+                args.since_micros,
+                args.json,
+            )
+            .await
+        }
         SkillCmd::Ir { cmd } => match cmd {
             SkillIrCmd::Backfill { dry_run, json } => {
                 super::skill_ir_backfill::run(skills, Arc::clone(store), dry_run, json).await

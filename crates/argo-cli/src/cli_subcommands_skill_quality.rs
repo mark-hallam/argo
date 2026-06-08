@@ -88,3 +88,18 @@ pub struct SkillReevalCmd {
     #[arg(long)]
     pub json: bool,
 }
+
+#[derive(Args, Debug)]
+pub struct SkillSelfImproveCmd {
+    /// Scope the tick to one tenant — clusters ONLY this tenant's
+    /// traces. Omit to read every tenant.
+    #[arg(long)]
+    pub tenant: Option<String>,
+    /// Last-tick cursor: only read trace audit rows created at/after
+    /// this microsecond epoch. Defaults to the beginning of the log.
+    #[arg(long)]
+    pub since_micros: Option<i64>,
+    /// Emit a JSON report envelope.
+    #[arg(long)]
+    pub json: bool,
+}

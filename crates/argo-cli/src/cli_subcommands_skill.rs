@@ -10,7 +10,7 @@ pub use super::cli_subcommands_skill_pack::SkillPackCmd;
 pub use super::cli_subcommands_skill_publish::{SkillPublishCmd, SkillTagsCmd, SkillUnpublishCmd};
 pub use super::cli_subcommands_skill_quality::{
     SkillQualityCmd, SkillQualityListCmd, SkillQualityRecomputeCmd, SkillQualityTrendCmd,
-    SkillReevalCmd,
+    SkillReevalCmd, SkillSelfImproveCmd,
 };
 pub use super::cli_subcommands_skill_ratings::{SkillRateCmd, SkillRatingsCmd, SkillSetFlagCmd};
 
@@ -368,6 +368,12 @@ pub enum SkillCmd {
     /// Re-run declared eval suites for active skills and flag
     /// regressions for operator review.
     Reeval(SkillReevalCmd),
+    /// Run ONE on-demand self-improvement tick: cluster recent session
+    /// traces, distil + propose candidates (deterministic, no model),
+    /// A/B-eval each named family, and promote winners through the
+    /// regression gate. Writes one hash-chained decision audit row per
+    /// cluster. Does NOT spawn a background loop.
+    SelfImprove(SkillSelfImproveCmd),
     /// Record a publisher-side `skill_version_migration` row
     /// linking `--from` to `--to`. Tenant workspaces with the
     /// `--from` version installed will see this when they run

@@ -300,6 +300,7 @@ pub mod skill_rate;
 pub mod skill_ratings;
 pub mod skill_reeval;
 pub mod skill_refine;
+pub mod skill_self_improve;
 pub mod skill_review;
 mod skill_review_candidates;
 pub mod skill_rollback;

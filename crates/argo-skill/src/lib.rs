@@ -53,6 +53,7 @@ pub mod regression;
 pub mod relevance_selector;
 mod relevance_selector_markers;
 pub mod scheduled_reeval_cron;
+pub mod self_improve_cron;
 pub mod self_improve_loop;
 pub mod sign;
 mod skill;
@@ -167,6 +168,10 @@ pub use relevance_selector::{
 pub use scheduled_reeval_cron::{
     scheduled_reeval_skill, scheduled_reeval_skill_with_config, scheduled_reeval_tick,
     scheduled_reeval_tick_with_config, InputEchoEvalExecutor, ReevalReport, ScheduledReevalConfig,
+};
+pub use self_improve_cron::{
+    self_improve_tick, self_improve_tick_with, DeterministicDistillationCaller, SelfImproveConfig,
+    SelfImproveOutcome, SelfImproveReport, SelfImproveTrace, DECISION_AUDIT_KIND, TRACE_AUDIT_KIND,
 };
 pub use skill::{
     EvalCase, ExpectedOutcome, LifecycleState, PrincipalOverride, Provenance, Skill,
