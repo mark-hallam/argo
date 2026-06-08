@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ElevatedGrant, RbacPermission } from "@/lib/redaction/types";
+import { useSkycotSession } from "@/lib/skycot/use-session";
 
 /**
  * Manages the client-side, time-bounded elevated-view grants for the
@@ -12,8 +13,18 @@ import type { ElevatedGrant, RbacPermission } from "@/lib/redaction/types";
  * queue.
  *
  * The hook returns the currently-live grants (already filtered for
- * expiry) plus an `issueGrant()` callback for the request dialog.
- * Storage events are listened to so multiple tabs share state.
+ * expiry AND for principal/tenant binding) plus an `issueGrant()`
+ * callback for the request dialog. Storage events are listened to so
+ * multiple tabs share state.
+ *
+ * **Security — bind on read.** Grants are stamped with the issuing
+ * `principal` + `tenantId` and, on every read, a grant whose
+ * principal+tenant does not match the CURRENT session is ignored. So a
+ * PII unlock minted under user/tenant A is inert under user/tenant B
+ * even if its bytes survive in `localStorage` (the identity-change purge
+ * also clears them, but bind-on-read makes a survivor harmless on its
+ * own). Legacy grants with no principal/tenant (minted before this
+ * binding existed) never match a real session → ignored, fail-safe.
  */
 
 const STORAGE_KEY = "skycot.elevated-grants";
@@ -40,6 +51,17 @@ export interface IssueGrantInput {
   duration: GrantDuration;
   /** Optional override for the request id (tests). */
   requestId?: string;
+}
+
+/**
+ * The identity a grant is bound to. A grant is only honored when BOTH
+ * fields match the grant's stamped `principal` + `tenantId`. `null`
+ * means "no resolved identity" (logged out / loading), which matches
+ * nothing — so no grant is active without a concrete session.
+ */
+export interface GrantSessionBinding {
+  principal: string | null;
+  tenantId: string | null;
 }
 
 export interface UseElevatedViewGrantsResult {
@@ -93,6 +115,40 @@ function isLive(grant: ElevatedGrant, now: number): boolean {
   return expiry > now;
 }
 
+/**
+ * Fail-safe binding check: a grant is honored only when its stamped
+ * `principal` AND `tenantId` exactly match the current session's. A
+ * grant missing either field (legacy, pre-binding) never matches a
+ * concrete session, and a `null` session field (logged out / loading)
+ * matches nothing. So a grant minted under identity A is never active
+ * under identity B.
+ *
+ * Exported pure so tests can drive it without a session provider.
+ */
+export function grantMatchesBinding(
+  grant: ElevatedGrant,
+  binding: GrantSessionBinding,
+): boolean {
+  if (binding.principal === null || binding.tenantId === null) return false;
+  return (
+    grant.principal === binding.principal &&
+    grant.tenantId === binding.tenantId
+  );
+}
+
+/** Filter stored grants down to those that are both unexpired AND bound
+ *  to the current session. The single chokepoint every consumer reads
+ *  through. Exported pure for tests. */
+export function liveGrantsForSession(
+  grants: ElevatedGrant[],
+  binding: GrantSessionBinding,
+  now: number,
+): ElevatedGrant[] {
+  return grants.filter(
+    (g) => isLive(g, now) && grantMatchesBinding(g, binding),
+  );
+}
+
 function makeRequestId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -101,6 +157,7 @@ function makeRequestId(): string {
 }
 
 export function useElevatedViewGrants(): UseElevatedViewGrantsResult {
+  const { email, tenantId } = useSkycotSession();
   const [grants, setGrants] = useState<ElevatedGrant[]>(() => readStored());
 
   useEffect(() => {
@@ -122,24 +179,33 @@ export function useElevatedViewGrants(): UseElevatedViewGrantsResult {
     };
   }, []);
 
-  const issueGrant = useCallback((input: IssueGrantInput): ElevatedGrant => {
-    const grantedAt = nowIso();
-    const expiresAt = new Date(Date.now() + GRANT_DURATION_MS[input.duration]).toISOString();
-    const grant: ElevatedGrant = {
-      grantedAt,
-      expiresAt,
-      categories: [...input.categories],
-      reason: input.reason,
-      requestId: input.requestId ?? makeRequestId(),
-    };
-    setGrants((prev) => {
-      const live = prev.filter((g) => isLive(g, Date.now()));
-      const next = [...live, grant];
-      writeStored(next);
-      return next;
-    });
-    return grant;
-  }, []);
+  const issueGrant = useCallback(
+    (input: IssueGrantInput): ElevatedGrant => {
+      const grantedAt = nowIso();
+      const expiresAt = new Date(
+        Date.now() + GRANT_DURATION_MS[input.duration],
+      ).toISOString();
+      const grant: ElevatedGrant = {
+        grantedAt,
+        expiresAt,
+        categories: [...input.categories],
+        reason: input.reason,
+        requestId: input.requestId ?? makeRequestId(),
+        // Bind the grant to whoever is signed in right now. Read on
+        // every consumer so a grant is inert outside this identity.
+        principal: email ?? undefined,
+        tenantId: tenantId ?? undefined,
+      };
+      setGrants((prev) => {
+        const live = prev.filter((g) => isLive(g, Date.now()));
+        const next = [...live, grant];
+        writeStored(next);
+        return next;
+      });
+      return grant;
+    },
+    [email, tenantId],
+  );
 
   const revokeGrant = useCallback((requestId: string) => {
     setGrants((prev) => {
@@ -154,5 +220,14 @@ export function useElevatedViewGrants(): UseElevatedViewGrantsResult {
     writeStored([]);
   }, []);
 
-  return { activeGrants: grants, issueGrant, revokeGrant, clearAll };
+  // Expose only grants that are both unexpired AND bound to the current
+  // session. A grant minted under another principal/tenant is filtered
+  // out here even if it still sits in `localStorage` — the fail-safe
+  // bind-on-read that complements the identity-change purge.
+  const activeGrants = useMemo(
+    () => liveGrantsForSession(grants, { principal: email, tenantId }, Date.now()),
+    [grants, email, tenantId],
+  );
+
+  return { activeGrants, issueGrant, revokeGrant, clearAll };
 }

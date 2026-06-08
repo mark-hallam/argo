@@ -59,6 +59,24 @@ export interface ElevatedGrant {
   categories: RbacPermission[];
   reason: string;
   requestId: string;
+  /**
+   * Principal (signed-in user id, e.g. email) the grant was minted for.
+   * Optional for back-compat with grants persisted before this field
+   * existed; a grant whose `principal` does not match the CURRENT
+   * session is treated as non-matching and ignored (fail-safe), so a
+   * grant minted under user A can never be active under user B even if
+   * its bytes survive in `localStorage`. `undefined` (legacy grant) is
+   * treated as "no principal" and therefore never matches a real one.
+   */
+  principal?: string;
+  /**
+   * Tenant the grant was minted under. Same fail-safe binding semantics
+   * as {@link ElevatedGrant.principal}: a grant whose `tenantId` does
+   * not match the current session's tenant is ignored, so a grant from
+   * workspace A is inert under workspace B (forward-looking for an
+   * in-session workspace switcher).
+   */
+  tenantId?: string;
 }
 
 /** Audit-surface policy — combines the E1-e pattern policy with
