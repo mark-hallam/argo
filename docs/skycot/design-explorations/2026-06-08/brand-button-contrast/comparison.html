@@ -1,0 +1,115 @@
+<!doctype html>
+<!--
+  Brand primary-button contrast comparison (QA A11Y-4, 2026-06-08).
+  WCAG AA requires 4.5:1 for normal-size text (<18.66px bold / <24px). The
+  current locked brand purple #8B5CF6 with white label measures 4.23:1 — a
+  hair under. This page renders the current button next to darker-purple
+  candidates (solid + gradient), each at the app's real button size, with its
+  measured white-on-fill ratio, so the change (if any) can be judged by eye.
+  Self-contained, no JS. The purple→PINK gradient direction is unchanged in
+  every option; only the purple START shade varies.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Brand button contrast — SKYCOT</title>
+<style>
+  :root { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  body { margin: 0; background: #fafaff; color: #1e1b4b; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 48px 28px 80px; }
+  h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 6px; }
+  .sub { color: #52525b; font-size: 15px; line-height: 1.55; max-width: 70ch; margin: 0 0 8px; }
+  .rule { font-size: 13px; color: #6d28d9; background: #f5f3ff; border: 1px solid #e9d5ff;
+          border-radius: 10px; padding: 10px 14px; display: inline-block; margin: 10px 0 36px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.14em; color: #7c3aed;
+       margin: 40px 0 18px; font-weight: 700; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 20px; }
+  .card { background: #fff; border: 1px solid #e4e4e7; border-radius: 14px; padding: 22px 20px 18px;
+          box-shadow: 0 10px 30px -22px rgba(30,27,75,.25); }
+  .btnrow { display: flex; justify-content: center; padding: 14px 0 18px; }
+  /* The app's real primary button geometry: ~15px/600, 0 24px pad, 44px min-height, radius 12px */
+  .btn { font: 600 15px Inter, system-ui, sans-serif; color: #fff; border: none; cursor: pointer;
+         min-height: 44px; padding: 0 24px; border-radius: 12px; display: inline-flex; align-items: center;
+         gap: 8px; box-shadow: 0 10px 24px -12px rgba(124,58,237,.5); }
+  .meta { text-align: center; }
+  .hex { font-family: ui-monospace, "JetBrains Mono", monospace; font-size: 12.5px; color: #3f3f46; }
+  .name { font-size: 13px; font-weight: 700; margin-top: 4px; }
+  .ratio { font-size: 22px; font-weight: 800; margin-top: 10px; letter-spacing: -0.01em; }
+  .badge { display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em;
+           text-transform: uppercase; padding: 3px 9px; border-radius: 999px; margin-top: 8px; }
+  .pass { background: #dcfce7; color: #15803d; }
+  .fail { background: #fee2e2; color: #b91c1c; }
+  .near { background: #fef9c3; color: #a16207; }
+  .note { font-size: 13px; color: #52525b; line-height: 1.6; margin: 14px 0 0;
+          background: #fff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 16px 18px; }
+  .locked { outline: 2px solid #8b5cf6; outline-offset: 3px; }
+  .tag { font-size: 10px; font-weight: 800; color: #8b5cf6; letter-spacing: 0.1em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Primary button — purple contrast options</h1>
+  <p class="sub">Each is a real primary button at the app's size (15px/600 white label). The number is the
+  measured white-text-on-fill contrast ratio. The <strong>purple → pink gradient direction is identical</strong>
+  in every gradient option — only the purple <em>start</em> shade changes.</p>
+  <span class="rule">WCAG AA needs <strong>4.5:1</strong> for normal text. Current = 4.23:1 (fails by a hair; would pass as large/bold text).</span>
+
+  <h2>Solid purple buttons (the most common primary CTA)</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="btnrow"><button class="btn locked" style="background:#8b5cf6">Hire them</button></div>
+      <div class="meta"><div class="hex">#8B5CF6</div><div class="name"><span class="tag">CURRENT · LOCKED</span><br>violet-500</div>
+      <div class="ratio">4.23:1</div><span class="badge fail">Fails AA</span></div>
+    </div>
+    <div class="card">
+      <div class="btnrow"><button class="btn" style="background:#8055f0">Hire them</button></div>
+      <div class="meta"><div class="hex">#8055F0</div><div class="name">Barely darker</div>
+      <div class="ratio">4.69:1</div><span class="badge pass">Passes AA</span></div>
+    </div>
+    <div class="card">
+      <div class="btnrow"><button class="btn" style="background:#7c3aed">Hire them</button></div>
+      <div class="meta"><div class="hex">#7C3AED</div><div class="name">violet-600 (recommended)</div>
+      <div class="ratio">5.70:1</div><span class="badge pass">Passes AA</span></div>
+    </div>
+    <div class="card">
+      <div class="btnrow"><button class="btn" style="background:#6d28d9">Hire them</button></div>
+      <div class="meta"><div class="hex">#6D28D9</div><div class="name">violet-700 (most contrast)</div>
+      <div class="ratio">7.10:1</div><span class="badge pass">Passes AAA</span></div>
+    </div>
+  </div>
+
+  <h2>Gradient buttons (purple → pink — the hero / "go" CTAs)</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="btnrow"><button class="btn locked" style="background:linear-gradient(90deg,#8b5cf6,#ec4899)">Go live</button></div>
+      <div class="meta"><div class="hex">#8B5CF6 → #EC4899</div><div class="name"><span class="tag">CURRENT · LOCKED</span></div>
+      <div class="ratio">4.23 → 3.53</div><span class="badge near">Pink end fails</span></div>
+    </div>
+    <div class="card">
+      <div class="btnrow"><button class="btn" style="background:linear-gradient(90deg,#7c3aed,#ec4899)">Go live</button></div>
+      <div class="meta"><div class="hex">#7C3AED → #EC4899</div><div class="name">darker purple start</div>
+      <div class="ratio">5.70 → 3.53</div><span class="badge near">Pink end still 3.53</span></div>
+    </div>
+    <div class="card">
+      <div class="btnrow"><button class="btn" style="background:linear-gradient(90deg,#7c3aed,#db2777)">Go live</button></div>
+      <div class="meta"><div class="hex">#7C3AED → #DB2777</div><div class="name">darker purple + darker pink</div>
+      <div class="ratio">5.70 → 4.55</div><span class="badge pass">Both ends pass</span></div>
+    </div>
+    <div class="card">
+      <div class="btnrow"><button class="btn" style="background:linear-gradient(90deg,#8b5cf6,#ec4899);text-shadow:0 1px 2px rgba(0,0,0,.45)">Go live</button></div>
+      <div class="meta"><div class="hex">unchanged + text-shadow</div><div class="name">keep gradient, add shadow</div>
+      <div class="ratio">readable</div><span class="badge pass">Shadow lifts text</span></div>
+    </div>
+  </div>
+
+  <p class="note"><strong>My read (first-principles, long-term):</strong> the solid <strong>#7C3AED (violet-600)</strong> is the
+  cleanest fix — it's still unmistakably "your purple," passes AA with margin, and a single token change fixes every
+  solid primary button at once. The <strong>gradient</strong> is a separate story: white-on-pink is 3.53:1 at the pink
+  end regardless of the purple, so a gradient button only truly passes if either the pink end is darkened to #DB2777
+  (option 3, keeps the look, both ends pass) <em>or</em> we add a subtle text-shadow (option 4, zero colour change).
+  Gradient CTAs are usually large hero text, so they often qualify as "large text" (3:1) and are defensible as-is —
+  but #DB2777 is the no-asterisk fix. None of this touches the gradient <em>direction</em> or the brand fonts.</p>
+</div>
+</body>
+</html>
