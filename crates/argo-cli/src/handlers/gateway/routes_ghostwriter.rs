@@ -6,11 +6,13 @@
 //! caller's frontend redirects to the L4 canvas with the new
 //! `(skillId, version)` so the canvas is never blank.
 //!
-//! v1 wires the deterministic [`OfflineGhostwriterClient`] so the
-//! endpoint is functional ahead of LLM-routing rollout — same pattern
-//! `routes_genesis::classify_response` uses for archetype
-//! classification. Once `argo-provider` exposes a "strongest available
-//! model" picker the trait swap is one line.
+//! The draft client is real-provider-first with a deterministic fallback:
+//! [`routes_ghostwriter_llm::draft_with_fallback`] tries the real
+//! `argo_provider::Transport` (the SAME machinery genesis/pitch use) when a
+//! provider is configured, and degrades to the dependency-free
+//! `OfflineGhostwriterClient` template on any failure. The response `source`
+//! field reads `provider` for a real draft and `offline` for the fallback, so
+//! the caller can always tell canned output from a model draft (NO_THEATER).
 //!
 //! Bearer auth + principal-header validation run in `dispatch_post`;
 //! this module assumes both have already passed. Tenant resolution
@@ -22,11 +24,12 @@ use super::body_from_request;
 use super::routes_auth::{
     authenticate_request, enforce_header_match, AuthCheckOutcome, AuthenticatedPrincipal,
 };
+use super::routes_ghostwriter_llm::{draft_with_fallback, provider_client_if_enabled};
 use super::store_unavailable;
 use argo_audit::{AuditKind, AuditSink};
 use argo_skill::ir::{
-    canonical_hash_hex, ensure_schema, generate_from_prompt, GhostwriterClient, GhostwriterError,
-    OfflineGhostwriterClient, SkillIrStore, SqliteSkillIrStore,
+    canonical_hash_hex, ensure_schema, GhostwriterClient, GhostwriterError, OfflineGhostwriterClient,
+    SkillIrStore, SqliteSkillIrStore,
 };
 use argo_store::SessionStore;
 use argo_types::{SkillId, TenantId};
@@ -58,11 +61,21 @@ pub(super) async fn draft_from_prompt_response(
         Ok(p) => p,
         Err(resp) => return resp,
     };
-    let llm: OfflineGhostwriterClient = OfflineGhostwriterClient;
-    let graph_result =
-        tokio::time::timeout(GHOSTWRITER_CALL_TIMEOUT, run_pipeline(&prompt, &llm)).await;
-    let graph = match graph_result {
-        Ok(Ok(g)) => g,
+    // Real-provider-first, deterministic fallback. When a provider is
+    // configured the draft comes from the real transport; on ANY provider
+    // failure (or when the pass is disabled) the deterministic offline
+    // template runs instead — graceful degrade, never a 500.
+    let provider = provider_client_if_enabled();
+    let primary: Option<&dyn GhostwriterClient> =
+        provider.as_ref().map(|c| c as &dyn GhostwriterClient);
+    let offline = OfflineGhostwriterClient;
+    let draft_result = tokio::time::timeout(
+        GHOSTWRITER_CALL_TIMEOUT,
+        draft_with_fallback(&prompt, primary, &offline),
+    )
+    .await;
+    let (graph, source) = match draft_result {
+        Ok(Ok(pair)) => pair,
         Ok(Err(err)) => return ghostwriter_error_response(&err),
         Err(_) => return timeout_response(),
     };
@@ -89,16 +102,9 @@ pub(super) async fn draft_from_prompt_response(
         "version": DRAFT_VERSION,
         "irHash": hash,
         "graph": graph_value,
-        "source": "ghostwriter",
+        "source": source,
     });
     ("200 OK", body.to_string())
-}
-
-async fn run_pipeline(
-    prompt: &str,
-    llm: &dyn GhostwriterClient,
-) -> Result<argo_skill::ir::SkillGraph, GhostwriterError> {
-    generate_from_prompt(prompt, llm).await
 }
 
 fn parse_prompt(req: &str) -> Result<String, (&'static str, String)> {
