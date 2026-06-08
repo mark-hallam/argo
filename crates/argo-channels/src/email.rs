@@ -77,32 +77,17 @@ impl EmailChannel {
     }
 
     /// Parse an inbound Postmark webhook into a generic inbound event.
+    ///
+    /// Thin wrapper over [`inbound_event_from_payload`] (the channel
+    /// id is the only channel state the parse needs), so the gateway
+    /// webhook handler and this method share one extraction.
     pub fn parse_inbound_event(
         &self,
         raw: serde_json::Value,
         approval_id: String,
         decision: crate::token::ApprovalDecision,
     ) -> InboundEvent {
-        let actor = raw
-            .get("From")
-            .and_then(|v| v.as_str())
-            .or_else(|| raw.get("FromFull")?.get("Email").and_then(|v| v.as_str()))
-            .unwrap_or("email-operator")
-            .to_string();
-        let note = raw
-            .get("StrippedTextReply")
-            .and_then(|v| v.as_str())
-            .or_else(|| raw.get("TextBody").and_then(|v| v.as_str()))
-            .map(str::to_string);
-        InboundEvent {
-            channel_id: self.id(),
-            approval_id,
-            decision,
-            actor,
-            note,
-            received_at: Utc::now(),
-            raw,
-        }
+        inbound_event_from_payload(self.id(), raw, approval_id, decision)
     }
 
     fn render_subject(&self, n: &Notification) -> String {
@@ -129,6 +114,90 @@ impl EmailChannel {
              <a href=\"{}\">Reject</a></p><p>approval_id: {}</p>",
             n.prompt_body, n.approve_url, n.reject_url, n.approval_id
         )
+    }
+}
+
+/// Classification of a Postmark webhook payload by its `RecordType`.
+///
+/// Postmark posts two shapes to the same inbound URL: an **inbound
+/// message** (an operator reply — `RecordType` is `"Inbound"`, or
+/// absent on legacy inbound payloads) and **delivery-event records**
+/// (`Bounce` / `SpamComplaint` / `Open` / `Click` / `Delivery` /
+/// `SubscriptionChange`). The gateway must branch on this so an event
+/// record is acknowledged, never mis-parsed as an approval token.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PostmarkRecord {
+    /// An operator inbound reply — route through the approval
+    /// token-verify + settle path.
+    InboundReply,
+    /// A delivery-event record carrying its `RecordType` string —
+    /// acknowledge with 200 + an audit row.
+    Event(String),
+}
+
+/// Classify a raw Postmark webhook payload by its `RecordType` field.
+///
+/// # Examples
+/// ```
+/// use argo_channels::email::{classify_postmark_record, PostmarkRecord};
+/// let bounce = serde_json::json!({"RecordType":"Bounce","Email":"x@y.z"});
+/// assert_eq!(classify_postmark_record(&bounce), PostmarkRecord::Event("Bounce".into()));
+/// let reply = serde_json::json!({"From":"op@x.io","TextBody":"approve token=t"});
+/// assert_eq!(classify_postmark_record(&reply), PostmarkRecord::InboundReply);
+/// ```
+#[must_use]
+pub fn classify_postmark_record(raw: &serde_json::Value) -> PostmarkRecord {
+    match raw.get("RecordType").and_then(serde_json::Value::as_str) {
+        // Inbound message webhooks set `RecordType: "Inbound"`; some
+        // legacy inbound payloads omit the field entirely.
+        None | Some("Inbound") => PostmarkRecord::InboundReply,
+        Some(kind) => PostmarkRecord::Event(kind.to_string()),
+    }
+}
+
+/// Build an [`InboundEvent`] from a raw Postmark inbound reply payload.
+///
+/// Free-function core of [`EmailChannel::parse_inbound_event`]: the
+/// gateway webhook handler constructs the structured event without an
+/// [`EmailChannel`] instance (the channel id is the only channel state
+/// it needs), so both paths agree on actor/note extraction.
+///
+/// # Examples
+/// ```
+/// use argo_channels::email::inbound_event_from_payload;
+/// use argo_channels::{ChannelId, token::ApprovalDecision};
+/// let raw = serde_json::json!({"From":"op@x.io","StrippedTextReply":"approve"});
+/// let ev = inbound_event_from_payload(
+///     ChannelId::new("email"), raw, "act-1".into(), ApprovalDecision::Approve);
+/// assert_eq!(ev.approval_id, "act-1");
+/// assert_eq!(ev.actor, "op@x.io");
+/// ```
+#[must_use]
+pub fn inbound_event_from_payload(
+    channel_id: ChannelId,
+    raw: serde_json::Value,
+    approval_id: String,
+    decision: crate::token::ApprovalDecision,
+) -> InboundEvent {
+    let actor = raw
+        .get("From")
+        .and_then(|v| v.as_str())
+        .or_else(|| raw.get("FromFull")?.get("Email").and_then(|v| v.as_str()))
+        .unwrap_or("email-operator")
+        .to_string();
+    let note = raw
+        .get("StrippedTextReply")
+        .and_then(|v| v.as_str())
+        .or_else(|| raw.get("TextBody").and_then(|v| v.as_str()))
+        .map(str::to_string);
+    InboundEvent {
+        channel_id,
+        approval_id,
+        decision,
+        actor,
+        note,
+        received_at: Utc::now(),
+        raw,
     }
 }
 
@@ -210,5 +279,55 @@ impl NotifyChannel for EmailChannel {
 
     fn quiet_hours(&self) -> Option<&QuietHours> {
         Some(&self.config.quiet_hours)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::token::ApprovalDecision;
+    use serde_json::json;
+
+    #[test]
+    fn classify_routes_event_records_away_from_reply_path() {
+        for kind in ["Bounce", "SpamComplaint", "Open", "Click", "Delivery"] {
+            assert_eq!(
+                classify_postmark_record(&json!({"RecordType": kind})),
+                PostmarkRecord::Event(kind.to_string()),
+                "{kind} must classify as an acknowledged event record",
+            );
+        }
+    }
+
+    #[test]
+    fn classify_routes_inbound_and_missing_record_type_to_reply() {
+        assert_eq!(
+            classify_postmark_record(&json!({"RecordType": "Inbound", "From": "op@x.io"})),
+            PostmarkRecord::InboundReply,
+        );
+        // Legacy inbound payloads omit RecordType entirely.
+        assert_eq!(
+            classify_postmark_record(&json!({"From": "op@x.io", "TextBody": "approve"})),
+            PostmarkRecord::InboundReply,
+        );
+    }
+
+    #[test]
+    fn parse_inbound_event_matches_free_function() {
+        let raw = json!({"FromFull": {"Email": "ceo@acme.io"}, "TextBody": "approve please"});
+        let via_method = EmailChannel::new(EmailChannelConfig::disabled_for_tests())
+            .parse_inbound_event(raw.clone(), "act-9".into(), ApprovalDecision::Approve);
+        let via_fn = inbound_event_from_payload(
+            ChannelId::new("email"),
+            raw,
+            "act-9".into(),
+            ApprovalDecision::Approve,
+        );
+        assert_eq!(via_method.actor, "ceo@acme.io");
+        assert_eq!(via_method.note.as_deref(), Some("approve please"));
+        assert_eq!(via_method.actor, via_fn.actor);
+        assert_eq!(via_method.note, via_fn.note);
+        assert_eq!(via_method.approval_id, "act-9");
+        assert_eq!(via_method.decision, ApprovalDecision::Approve);
     }
 }

@@ -144,7 +144,7 @@ still the old binary, so it goes live only after the next gateway rebuild
 | Web inbox (approvals) | ✅ Live | Both ways + WS event stream | `argo-channels/webinbox.rs` |
 | Push — Expo (approvals) | ✅ Live | Both ways; device registry + deep-links | `argo-channels/push.rs` |
 | Microsoft Teams (approvals) | 🟡 Partial | **Outbound only** (Graph adaptive cards); inbound out of scope; no env-dispatch arm (deferred-v1.x) | `argo-channels/teams.rs` |
-| Email — Postmark (approvals) | 🟡 Partial | Outbound real; **inbound is a stub** (no IMAP/SES) | `argo-channels/email.rs` |
+| Email — Postmark (approvals) | ✅ Live | Both ways — outbound real; inbound webhook branches on Postmark `RecordType`: `Inbound` reply→`parse_inbound_event`+settle, `Bounce`/`Click`/`Open`/`SpamComplaint`→200+audited (no longer mis-parsed as approval tokens) | `argo-channels/email.rs`, `argo-cli/.../routes_channels_email.rs` |
 | WhatsApp — Twilio | 🟡 Partial | Inbound real; `send()` exists but **no production outbound dispatch arm** (deferred-v1.x) | `argo-channels/whatsapp.rs` |
 | Matrix | 🟧 Scaffold | Real send impl but neither outbound dispatch nor inbound route wired (deferred-v1.x) | `argo-channels/matrix.rs` |
 | MCP connectors — ~30 real | ✅ Live | Subprocess binaries w/ real HTTP: slack, gmail, gcal, notion, hubspot, jira, linear, salesforce, stripe, zendesk, asana, github-issues, … (6 have live integration tests) | `crates/argo-mcp-connector-*` |
