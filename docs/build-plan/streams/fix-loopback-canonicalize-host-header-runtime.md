@@ -73,3 +73,49 @@ which kills the test/runtime divergence this bug rode in on).
 ## Size / owner
 
 ~15 LOC + test updates. Owner: claude. Web-only fast lane (DEC-006).
+
+## 🔴 BLOCKED 2026-06-10 — wrong premise + may-touch too tight (claude worker)
+
+The prescribed middleware fix was implemented and **proven non-functional at
+runtime**, and would REGRESS (introduce an infinite redirect loop). Do NOT
+re-attempt the middleware approach. Evidence, gathered live on a `next dev`
+server (Next.js 15.5.18) running the candidate code:
+
+1. **The Host-header condition DOES fire** — `req.headers.get("host")` reads
+   `127.0.0.1:3001` faithfully at runtime, so the loopback branch now runs
+   (the auth gate no longer fires for a `127.0.0.1` request). That part of the
+   brief is correct.
+2. **But Next.js relativizes the redirect Location**, defeating the host hop.
+   Next collapses a redirect `Location` to a relative path **iff** its
+   `host:port` equals the request's *normalized* origin. The dev/prod server
+   normalizes the `127.0.0.1` request's `nextUrl` to `localhost:3001` (the very
+   premise this brief relied on), so a redirect to `localhost:3001` (our goal)
+   is emitted as `/team`. Proven by probing three targets from the same
+   handler:
+   - `http://localhost:3001/team`  → `location: /team`            (RELATIVIZED)
+   - `http://example.com/team`      → `location: http://example.com/team`     (absolute)
+   - `http://localhost:59999/team`  → `location: http://localhost:59999/team` (absolute)
+   Forcing it via `res.headers.set("location", target.href)` and via a raw
+   `new NextResponse(null,{status:307,headers:{location:target.href}})` BOTH
+   still came out relative — the relativization is in the edge/middleware
+   serializer, not in `NextResponse.redirect`, so it is unavoidable from
+   middleware.
+3. **Net effect = infinite loop / strictly worse.** The browser requested
+   `127.0.0.1:3001`; `location: /team` resolves against that real host → stays
+   on `127.0.0.1` → middleware fires the loopback branch again → `/team` →
+   loop. The `__Host-session` cookie is still dropped. Acceptance verifier #2
+   (an ABSOLUTE `http://localhost:3000/...` location) is therefore
+   **unachievable from Next middleware** for the same-port `localhost` target.
+
+**Correct fix is OUTSIDE the may-touch list** (`middleware.ts` only):
+- **Option A (recommended):** a `next.config.ts` `redirects()` entry with
+  `has: [{ type: "host", value: "127.0.0.1" }]` and an absolute `destination`
+  on `localhost` — Next does NOT relativize config-level host redirects (they
+  exist for exactly this apex→www / host-canonicalization case).
+- **Option B:** accept that `__Host-` cookies are host-bound and simply
+  document/standardize on `localhost` (never `127.0.0.1`) for the dev/demo
+  origin; drop the canonicalization attempt entirely.
+
+Either path needs a new brief with `next.config.ts` (and/or docs) in
+may-touch. Re-author against current `origin/main`; this brief's middleware-only
+scope is a dead end.
