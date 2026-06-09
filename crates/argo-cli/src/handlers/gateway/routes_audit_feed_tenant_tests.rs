@@ -90,6 +90,39 @@ async fn as_tenant_with_capability_returns_other_tenant() {
     assert!(!workers.contains(&"wa"), "tenant-a row leaked: {workers:?}");
 }
 
+/// The boundary that pins owner-unredaction to the OWN tenant: an owner
+/// with the cross-tenant cap peeking at ANOTHER tenant
+/// (`as_tenant=tenant-b`) still gets that tenant's PII masked. Pairs with
+/// `owner_sees_unredacted_own_tenant` (query-tests) so both directions of
+/// the WS2 redaction boundary are pinned.
+#[tokio::test]
+async fn owner_cross_tenant_still_redacted() {
+    let store = mem_store().await;
+    seed_verb_row_for_tenant(&store, "tenant-b", "wb", "ping sam@acmeco.com to confirm").await;
+    // Owner on their own tenant-a, overriding to tenant-b via the
+    // cross-tenant lane. Owner role unlocks the cap, but the view is NOT
+    // their own tenant, so redaction stays on.
+    let (status, body) = parse_body(
+        list_response(
+            &get_with_tenant_and_cap("/api/v1/audit?as_tenant=tenant-b", "tenant-a"),
+            Some(&store),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(status, "200 OK");
+    let items = body["items"].as_array().expect("items");
+    let verbs: Vec<&str> = items.iter().filter_map(|it| it["verb"].as_str()).collect();
+    assert!(
+        verbs.iter().any(|v| v.contains("[EMAIL]")),
+        "cross-tenant view must mask, got {verbs:?}"
+    );
+    assert!(
+        verbs.iter().all(|v| !v.contains("sam@acmeco.com")),
+        "cross-tenant view leaked raw email, got {verbs:?}"
+    );
+}
+
 #[tokio::test]
 async fn sql_path_used_when_migration_applied() {
     // v67 columns present, SQL path serves the request and returns the

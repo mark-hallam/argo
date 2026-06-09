@@ -51,7 +51,9 @@ use super::audit_query::{
 use super::rate_limit;
 use super::role_gate::{enforce_role, Action};
 use super::routes_audit_feed_indexed::fetch_raw_rows;
-use super::routes_audit_feed_scope::{resolve_tenant_scope, row_in_tenant_scope};
+use super::routes_audit_feed_scope::{
+    feed_redaction_policy, resolve_tenant_scope, row_in_tenant_scope,
+};
 use super::routes_auth_principal::principal_id_for_audit;
 use argo_audit::{AuditKind, AuditSink, ExportedRow};
 use argo_redact::{redact_text, RedactionPolicy};
@@ -111,7 +113,7 @@ pub(super) async fn list_response(
     if let Some(to_micros) = params.to_micros {
         ordered.retain(|r| r.created_at_micros <= to_micros);
     }
-    let policy = RedactionPolicy::default();
+    let policy = feed_redaction_policy(req, &scope);
     let page: Vec<&ExportedRow> = ordered
         .iter()
         .filter(|row| row_in_tenant_scope(row, &scope))

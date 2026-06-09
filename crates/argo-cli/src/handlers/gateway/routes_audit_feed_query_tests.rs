@@ -8,6 +8,7 @@
 
 use super::list_response;
 use super::test_helpers::*;
+use argo_audit::DEFAULT_AUDIT_TENANT_ID;
 
 #[tokio::test]
 async fn returns_200_with_items_and_no_filter() {
@@ -280,8 +281,13 @@ async fn rejects_invalid_cursor_400() {
     assert!(body.contains("cursor"));
 }
 
+/// A NON-owner reading their own tenant still gets PII masked. (Was
+/// `redacts_email_in_verb_by_default`: that header-less request resolved
+/// to owner-on-own-tenant, which is now the UNREDACTED case — so the
+/// masking assertion moves to an explicit non-owner request via
+/// `get_with_tenant`, which stamps `X-Argo-Role: user`.)
 #[tokio::test]
-async fn redacts_email_in_verb_by_default() {
+async fn redacts_email_in_verb_for_non_owner() {
     let store = mem_store().await;
     seed_row(
         &store,
@@ -297,12 +303,59 @@ async fn redacts_email_in_verb_by_default() {
         ),
     )
     .await;
-    let (_, body) =
-        parse_body(list_response(&get("/api/v1/audit?worker=w1"), Some(&store)).await).await;
+    let (_, body) = parse_body(
+        list_response(
+            &get_with_tenant("/api/v1/audit?worker=w1", DEFAULT_AUDIT_TENANT_ID),
+            Some(&store),
+        )
+        .await,
+    )
+    .await;
     let items = body["items"].as_array().unwrap();
     let verbs: Vec<&str> = items.iter().filter_map(|it| it["verb"].as_str()).collect();
     assert!(verbs.iter().any(|v| v.contains("[EMAIL]")));
     assert!(verbs.iter().all(|v| !v.contains("sam@acmeco.com")));
+}
+
+/// The WS2 hero behaviour: an OWNER reading their OWN tenant's feed sees
+/// their own actions UNREDACTED. `get_with_tenant_and_cap` stamps
+/// `X-Argo-Role: owner` against the row's own tenant, so the feed builds
+/// `RedactionPolicy::show_all()` and the raw email survives.
+#[tokio::test]
+async fn owner_sees_unredacted_own_tenant() {
+    let store = mem_store().await;
+    seed_row(
+        &store,
+        row(
+            "w1",
+            "web",
+            "msg",
+            "succeeded",
+            None,
+            None,
+            "internal",
+            "ping sam@acmeco.com to confirm",
+        ),
+    )
+    .await;
+    let (_, body) = parse_body(
+        list_response(
+            &get_with_tenant_and_cap("/api/v1/audit?worker=w1", DEFAULT_AUDIT_TENANT_ID),
+            Some(&store),
+        )
+        .await,
+    )
+    .await;
+    let items = body["items"].as_array().unwrap();
+    let verbs: Vec<&str> = items.iter().filter_map(|it| it["verb"].as_str()).collect();
+    assert!(
+        verbs.iter().any(|v| v.contains("sam@acmeco.com")),
+        "owner must see their own tenant's email unredacted, got {verbs:?}"
+    );
+    assert!(
+        verbs.iter().all(|v| !v.contains("[EMAIL]")),
+        "owner-on-own-tenant must not mask, got {verbs:?}"
+    );
 }
 
 #[tokio::test]

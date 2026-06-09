@@ -1,8 +1,10 @@
 //! Tenant-scope helpers for `GET /api/v1/audit`.
 
-use super::role_gate::{enforce_role, Action};
+use super::role_gate::{enforce_role, resolve_role, Action};
 use super::routes_audit_feed::FeedParams;
 use argo_audit::ExportedRow;
+use argo_identity::user_tenant::UserTenantRole;
+use argo_redact::RedactionPolicy;
 use serde_json::Value;
 
 const DEFAULT_WORKSPACE_TENANT_FALLBACK: &str = "ws-default";
@@ -19,6 +21,12 @@ pub(super) struct TenantScope {
     include_all_tenants: bool,
     /// Whether to surface rows whose payload predates tenant stamping.
     include_legacy: bool,
+    /// Whether the resolved scope is the caller's OWN workspace tenant
+    /// (an absent or self-targeted `as_tenant`), as opposed to a
+    /// cross-tenant `as_tenant=<other>` override or the legacy-admin
+    /// all-tenants lane. Read by [`is_own_tenant`] to decide whether an
+    /// owner may see their own rows unredacted.
+    own_tenant: bool,
 }
 
 pub(super) fn resolve_tenant_scope(
@@ -46,12 +54,46 @@ pub(super) fn resolve_tenant_scope(
     // from the verified session JWT and ignores any role-stamping
     // headers in production. See wave-3 RBAC audit finding #5.
     let cap_granted = enforce_role(req, Action::AuditCrossTenant).is_none();
-    match params.as_tenant.as_deref() {
+    let mut scope = match params.as_tenant.as_deref() {
         Some(other) if cap_granted => tenant_scope(other, other == LEGACY_AUDIT_TENANT_ID),
         _ if workspace_tenant == LEGACY_AUDIT_TENANT_ID => {
             tenant_scope(&workspace_tenant, cap_granted)
         }
         _ => tenant_scope(&workspace_tenant, false),
+    };
+    // Own-tenant = NOT the legacy-admin all-tenants lane AND the tenant
+    // we resolved is the caller's own workspace tenant. A cross-tenant
+    // `as_tenant=<other>` redirects `effective` away from
+    // `workspace_tenant`, so this is false there; a denied-legacy scope
+    // rewrites `effective` to a sentinel, so it is false there too.
+    scope.own_tenant = !scope.include_all_tenants && scope.effective == workspace_tenant;
+    scope
+}
+
+/// Whether this request reads the caller's OWN workspace tenant (not a
+/// cross-tenant override or the legacy-admin all-tenants lane). The
+/// feed's redaction-policy selector keys off this so an owner sees their
+/// own tenant's rows unredacted while cross-tenant views stay masked.
+pub(super) fn is_own_tenant(scope: &TenantScope) -> bool {
+    scope.own_tenant
+}
+
+/// Select the redaction policy for one audit-feed response.
+///
+/// A workspace OWNER reading their OWN tenant's rows sees them
+/// unredacted (`show_all`) — the buyer who paid for the hash-chained
+/// audit must not have their own actions hidden from them. Every other
+/// case keeps the strict mask-everything `default()`: a non-owner role
+/// on the own tenant, any cross-tenant (`as_tenant=<other>`) view, and
+/// the legacy-admin all-tenants lane. `resolve_role` returns `Owner`
+/// only for a verified owner session (production JWT or demo-mode
+/// owner-mint), so an unauthenticated header-less caller fails closed.
+pub(super) fn feed_redaction_policy(req: &str, scope: &TenantScope) -> RedactionPolicy {
+    let is_owner = resolve_role(req) == Some(UserTenantRole::Owner);
+    if is_owner && is_own_tenant(scope) {
+        RedactionPolicy::show_all()
+    } else {
+        RedactionPolicy::default()
     }
 }
 
@@ -77,6 +119,9 @@ fn tenant_scope(effective: &str, include_legacy: bool) -> TenantScope {
         },
         include_all_tenants: legacy_admin_lane,
         include_legacy,
+        // Set by `resolve_tenant_scope` once the workspace tenant is
+        // known; the constructor defaults it to the safe (redacted) value.
+        own_tenant: false,
     }
 }
 

@@ -135,6 +135,30 @@ pub(super) async fn seed_row_for_tenant(store: &Arc<SessionStore>, tenant_id: &s
     sink.flush_pending().await.expect("flush tenant-scoped row");
 }
 
+/// Seed one row under `tenant_id` carrying an arbitrary `verb` (so a
+/// caller can plant PII in the verb to exercise the redaction policy on
+/// a specific tenant). Mirrors [`seed_row_for_tenant`] but lets the verb
+/// vary instead of the fixed `"did x"`.
+pub(super) async fn seed_verb_row_for_tenant(
+    store: &Arc<SessionStore>,
+    tenant_id: &str,
+    worker: &str,
+    verb: &str,
+) {
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
+    sink.write(
+        None,
+        AuditKind::HttpRequest,
+        row(worker, "web", "msg", "succeeded", None, None, "internal", verb),
+        None,
+    )
+    .await
+    .expect("write verb-bearing tenant row");
+    sink.flush_pending()
+        .await
+        .expect("flush verb-bearing tenant row");
+}
+
 pub(super) fn get_with_tenant(path: &str, tenant: &str) -> String {
     // `X-Argo-Role: user` proves the role-gate denies cross-tenant
     // for non-owners. The previous shape relied on header absence
