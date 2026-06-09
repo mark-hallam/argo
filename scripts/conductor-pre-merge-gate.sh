@@ -100,6 +100,27 @@ fail() { printf '\033[31m[pre-merge-gate FAIL]\033[0m %s\n' "$*" >&2; fail_count
 
 log "running on $(git rev-parse --short HEAD)"
 
+# DEC-042 B-1: optionally run the two cargo-heavy gates (test-compile + workspace
+# clippy) in a DEDICATED build worktree + target dir so they never contend with
+# the worker swarm's shared checkout/target. This is what removes the manual
+# "pause the swarm to build" dance (the 2026-06-09 failure). Default OFF — set
+# ARGO_CONDUCTOR_BUILD_WORKTREE=1 to enable. When enabled, the worktree is synced
+# to THIS gate's current HEAD (worktrees of one repo share the object DB, so a
+# local SHA builds the exact same tree, just in isolation). Falls back to the
+# in-place build if the helper is absent or fails — no behavior change otherwise.
+GATE_SCRIPTS_ROOT="$repo_root"   # where the cargo-gate helper scripts are run from
+if [[ "${ARGO_CONDUCTOR_BUILD_WORKTREE:-0}" == "1" && -x "$repo_root/scripts/conductor-build-worktree.sh" ]]; then
+  head_sha="$(git rev-parse HEAD)"
+  if eval "$("$repo_root/scripts/conductor-build-worktree.sh" --ref "$head_sha" 2>/dev/null)" \
+       && [[ -n "${CONDUCTOR_BUILD_WT:-}" && -d "$CONDUCTOR_BUILD_WT" ]]; then
+    GATE_SCRIPTS_ROOT="$CONDUCTOR_BUILD_WT"
+    export CARGO_TARGET_DIR="$CONDUCTOR_BUILD_TARGET"
+    log "build isolation ON — cargo gates run in $CONDUCTOR_BUILD_WT (target $CARGO_TARGET_DIR)"
+  else
+    warn "conductor-build-worktree.sh unavailable/failed; falling back to in-place build"
+  fi
+fi
+
 # Fast preflight: catch the v83-class failure where a migration lands
 # without bumping the runtime EXPECTED_SCHEMA_VERSION constant.
 log "[preflight] expected schema version matches tip migration"
@@ -179,7 +200,7 @@ fi
 # slip through.
 if [[ "$SKIP_TESTS" -eq 0 ]]; then
   log "[6/9] test-compile (cargo check --workspace --tests; ~30s warm)"
-  if ! bash scripts/pre-merge-test-compile.sh; then
+  if ! bash "$GATE_SCRIPTS_ROOT/scripts/pre-merge-test-compile.sh"; then
     fail "test-compile gate FAILED — see output above"
   fi
 else
@@ -209,7 +230,7 @@ fi
 # Gate 8: workspace clippy (slowest; ~3-6 min). Skippable.
 if [[ "$SKIP_CLIPPY" -eq 0 ]]; then
   log "[8/9] workspace clippy (3-6 min)"
-  if ! bash scripts/workspace-clippy-fast-fail.sh; then
+  if ! bash "$GATE_SCRIPTS_ROOT/scripts/workspace-clippy-fast-fail.sh"; then
     fail "workspace clippy failure — see output above"
   fi
 else

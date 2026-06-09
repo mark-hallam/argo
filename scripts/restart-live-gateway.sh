@@ -352,6 +352,16 @@ else
 fi
 
 if [[ "$NEEDS_REBUILD" -eq 1 ]]; then
+    # DEC-042 B-1 note: this release build runs in the shared $REPO checkout and
+    # can contend with the worker swarm (the 2026-06-09 RAM-pressure pause). To
+    # build in isolation, the conductor can route through the dedicated build
+    # worktree first:
+    #   eval "$(bash scripts/conductor-build-worktree.sh --ref "$(git rev-parse HEAD)")"
+    #   ( cd "$CONDUCTOR_BUILD_WT" && CARGO_TARGET_DIR="$CONDUCTOR_BUILD_TARGET" \
+    #       cargo build --release --bin argo )
+    # then point the gateway at "$CONDUCTOR_BUILD_TARGET/release/argo". Left as a
+    # documented option (not wired) because the live-gateway path is load-bearing
+    # and release/debug profiles don't share a target cache anyway.
     log "      running: cargo build --release --bin argo"
     if ! cargo build --release --bin argo; then
         die "cargo build --release --bin argo failed; aborting restart"

@@ -125,6 +125,38 @@ QUOTA_HIT="/tmp/argo-quota-hit-$$"
 
 cd "$REPO"
 
+# --- DEC-042 B-1: serialize the ledger read-modify-write under a per-host lock
+# (scripts/with-ledger-lock.sh). Source it if present so we can wrap an
+# in-process function; define a shim that falls through to a DIRECT run when
+# the helper is absent — additive, no behavior change without it (B-1
+# acceptance #4). The lock closes the window where a concurrent worker /
+# conductor pushes between our `pull --rebase` and our `push origin main`,
+# clobbering a status row. The existing `pull --rebase` stays inside the lock
+# as defence-in-depth for cross-host pushes.
+if [ -r "$REPO/scripts/with-ledger-lock.sh" ]; then
+  # shellcheck source=scripts/with-ledger-lock.sh disable=SC1091
+  . "$REPO/scripts/with-ledger-lock.sh"
+fi
+with_ledger_lock() {
+  if command -v ledger_lock_run >/dev/null 2>&1; then
+    ledger_lock_run "$@"
+  else
+    "$@"
+  fi
+}
+# Shared ledger commit+push tail used by the quota + ship-check release paths
+# below; wrapped in with_ledger_lock at each call site.
+ledger_commit_push() {  # $1 = commit message
+  git -C "$REPO" add docs/build-plan/BUILD_STATUS.md
+  if ! git -C "$REPO" diff --cached --quiet; then
+    git -C "$REPO" commit -m "$1" 2>&1 | tail -1
+    git -C "$REPO" pull --rebase origin main 2>&1 | tail -2
+    git -C "$REPO" push origin main 2>&1 | tail -2
+  else
+    echo "[$(date +%H:%M:%S)] Row already non-CLAIMED; skipping release commit."
+  fi
+}
+
 # --- Clean-stop trap (SIGHUP/SIGTERM/SIGINT) -------------------------------
 # If the operator closes the tab (SIGHUP), kills the loop (SIGTERM), or
 # Ctrl-C's it (SIGINT) while a brief is CLAIMED, release the claim back to
@@ -706,14 +738,7 @@ if n:
     p.write_text(new)
 PY
 
-    git -C "$REPO" add docs/build-plan/BUILD_STATUS.md
-    if ! git -C "$REPO" diff --cached --quiet; then
-      git -C "$REPO" commit -m "status: release $BRIEF_ID (quota; auto-resume pending)" 2>&1 | tail -1
-      git -C "$REPO" pull --rebase origin main 2>&1 | tail -2
-      git -C "$REPO" push origin main 2>&1 | tail -2
-    else
-      echo "[$(date +%H:%M:%S)] Row already non-CLAIMED; skipping release commit."
-    fi
+    with_ledger_lock ledger_commit_push "status: release $BRIEF_ID (quota; auto-resume pending)"
     set -e
     rm -f "$QUOTA_HIT"
 
@@ -780,14 +805,7 @@ new, n = re.subn(
 if n:
     p.write_text(new)
 PY
-    git -C "$REPO" add docs/build-plan/BUILD_STATUS.md
-    if ! git -C "$REPO" diff --cached --quiet; then
-      git -C "$REPO" commit -m "status: release $BRIEF_ID (zombie; no PR opened)" 2>&1 | tail -1
-      git -C "$REPO" pull --rebase origin main 2>&1 | tail -2
-      git -C "$REPO" push origin main 2>&1 | tail -2
-    else
-      echo "[$(date +%H:%M:%S)] Row already non-CLAIMED; skipping ship-check release commit."
-    fi
+    with_ledger_lock ledger_commit_push "status: release $BRIEF_ID (zombie; no PR opened)"
   fi
   set -e
 
