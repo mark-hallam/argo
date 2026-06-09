@@ -1,41 +1,41 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
+import { useCallback, useState, type FormEvent } from "react";
+import { ArrowRight, Loader2, Send, ShieldCheck, Sparkles } from "lucide-react";
+import { askPitchPublic } from "@/lib/api/pitch";
 
 /**
- * "Talk to Portia" public embed — a lightweight taste of the Pitch Agent
- * (Portia) for anonymous landing-page visitors.
+ * "Talk to Portia" public embed — a LIVE, truth-bounded taste of the Pitch
+ * Agent (Portia) for anonymous landing-page visitors.
  *
- * ⚠️ PUBLIC-SAFETY FLAG — NOT WIRED TO THE LIVE ENDPOINT. Portia is live at
- * `POST /api/v1/pitch/ask` (truth-bounded), but that route is authenticated
- * and was built for the operator-facing `/pitch` rehearsal console. Exposing
- * the raw endpoint to anonymous public traffic needs a gated, rate-limited,
- * abuse-guarded PUBLIC-SAFE path first — otherwise it's an open,
- * cost-bearing LLM proxy. So this embed is intentionally a CURATED PREVIEW:
- * the answers below are real, operator-reviewed canonical Q&A pulled from the
- * pitch knowledge base, shown verbatim. The embed does NOT call the gateway,
- * and it is clearly labeled as a preview so it does not fake a live round-trip
- * (NO-THEATER, DEC-007). The full live rehearsal is one click away at `/pitch`
- * (behind auth).
+ * This now makes a REAL call to the public, anonymous, rate-limited
+ * `POST /api/v1/pitch/ask/public` (gateway-public-safe-pitch-ask-rate-limited):
+ * the gateway forces the strict public truth-boundary channel server-side,
+ * grounds the answer in the operator-reviewed canonical-Q&A corpus, and
+ * returns either a corpus-grounded answer or a deterministic deferral —
+ * never a fabricated claim. So the truth-boundary moat is proven LIVE on the
+ * landing page instead of with a hand-written transcript.
  *
- * Backend follow-up to make this live for the public:
- *   - A public, unauthenticated, rate-limited `POST /api/v1/pitch/ask/public`
- *     (or a public-token-gated variant) that reuses the same truth-boundary
- *     evaluator but caps cost/abuse. Then swap the canned answers below for a
- *     real `askPitch()` call (the client already exists in
- *     `web/lib/api/pitch.ts`).
+ * NO-THEATER (DEC-007): when the live route is unreachable or rate-limited
+ * (HTTP 429), the embed falls back GRACEFULLY to an operator-reviewed canned
+ * answer and labels it clearly as an offline sample — it never fakes a live
+ * round-trip. The full operator rehearsal console is at `/pitch` (behind auth).
  */
 
-interface CannedQa {
+type Disposition = "Allow" | "Escalate" | "Block";
+
+interface OfflineQa {
   q: string;
   a: string;
-  /** The truth-boundary disposition this canonical answer carries. */
   disposition: "Allow" | "Escalate";
 }
 
-// Operator-reviewed canonical answers (verbatim taste — not a live call).
-const CANNED: CannedQa[] = [
+/**
+ * Operator-reviewed canonical answers — used ONLY as the graceful offline
+ * fallback (live route unreachable / rate-limited) and as the suggested
+ * starter questions. Never presented as a live answer.
+ */
+const OFFLINE_QA: OfflineQa[] = [
   {
     q: "What makes SKYCOT different from other AI agent platforms?",
     a: "Four things no competitor we surveyed matched: a hash-chained tamper-evident audit trail, a claim-level truth boundary that stops a teammate over-claiming, approval-first control across nine channels, and a hire-a-teammate model with persistent identity and shared skills.",
@@ -53,16 +53,93 @@ const CANNED: CannedQa[] = [
   },
 ];
 
+const SUGGESTIONS: readonly string[] = OFFLINE_QA.map((item) => item.q);
+
+const OFFLINE_DEFER =
+  "I can't reach my live knowledge base right now — so I won't guess. The team can follow up directly, or you can join the early-access list above.";
+
+interface Exchange {
+  q: string;
+  a: string;
+  disposition: Disposition;
+  /**
+   * `true` when this answer is the operator-reviewed offline fallback (the
+   * live call failed or was rate-limited); `false` when it is a real,
+   * truth-bounded gateway answer.
+   */
+  offline: boolean;
+  /** `true` for the initial seed example shown before the visitor asks. */
+  seeded?: boolean;
+}
+
+function offlineAnswerFor(question: string): Exchange {
+  const match = OFFLINE_QA.find((item) => item.q === question);
+  if (match) {
+    return { q: question, a: match.a, disposition: match.disposition, offline: true };
+  }
+  return { q: question, a: OFFLINE_DEFER, disposition: "Escalate", offline: true };
+}
+
+function dispLabel(disposition: Disposition): string {
+  return disposition === "Allow"
+    ? "Truth-boundary: cleared"
+    : "Truth-boundary: deferred to a human";
+}
+
+function dispClass(disposition: Disposition): string {
+  // Block (a swapped-in refusal) renders with the same "deferred" treatment
+  // as Escalate — both mean "Portia did not state an unbacked claim".
+  return disposition === "Allow" ? "portia-disp-allow" : "portia-disp-escalate";
+}
+
 /**
  * `Escalate` answers are exactly the truth boundary working — Portia
  * declines to state a number she can't back up and defers to a human.
  * Surfacing that on the marketing page is a feature, not a bug.
  */
 export function PortiaEmbed() {
-  const [activeIdx, setActiveIdx] = useState(0);
-  const active = CANNED[activeIdx];
+  // Seed with the first canonical answer as a clearly-labeled sample so the
+  // window is never empty; the visitor's own questions get LIVE answers.
+  const [exchange, setExchange] = useState<Exchange>({
+    ...OFFLINE_QA[0],
+    offline: true,
+    seeded: true,
+  });
+  const [pendingQ, setPendingQ] = useState<string | null>(null);
+  const [input, setInput] = useState("");
+  const pending = pendingQ !== null;
 
-  const pick = useCallback((idx: number) => setActiveIdx(idx), []);
+  const ask = useCallback(
+    async (raw: string) => {
+      const question = raw.trim();
+      if (!question || pending) return;
+      setInput("");
+      setPendingQ(question);
+      try {
+        const res = await askPitchPublic(question);
+        setExchange({
+          q: question,
+          a: res.answer,
+          disposition: res.disposition,
+          offline: false,
+        });
+      } catch {
+        // 429 / network / non-2xx → graceful, clearly-labeled offline answer.
+        setExchange(offlineAnswerFor(question));
+      } finally {
+        setPendingQ(null);
+      }
+    },
+    [pending],
+  );
+
+  const onSubmit = useCallback(
+    (e: FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      void ask(input);
+    },
+    [ask, input],
+  );
 
   return (
     <div className="portia-embed" data-testid="portia-embed">
@@ -74,45 +151,90 @@ export function PortiaEmbed() {
           <p className="portia-name">Portia</p>
           <p className="portia-role">Pitch Agent · truth-bounded</p>
         </div>
-        <span className="portia-preview-pill" data-testid="portia-preview-pill">
-          PREVIEW
+        <span className="portia-live-pill" data-testid="portia-live-pill">
+          LIVE
         </span>
       </div>
 
       <div className="portia-window" aria-live="polite">
-        <div className="portia-bubble portia-bubble-user">{active.q}</div>
-        <div className="portia-bubble portia-bubble-agent">
-          <p className="portia-answer">{active.a}</p>
-          <span
-            className={`portia-disp portia-disp-${active.disposition.toLowerCase()}`}
-          >
-            <ShieldCheck size={11} />
-            {active.disposition === "Allow"
-              ? "Truth-boundary: cleared"
-              : "Truth-boundary: deferred to a human"}
-          </span>
-        </div>
+        {pending ? (
+          <>
+            <div className="portia-bubble portia-bubble-user">{pendingQ}</div>
+            <div className="portia-bubble portia-bubble-agent" data-testid="portia-pending">
+              <span className="portia-thinking">
+                <Loader2 size={14} className="portia-spin" /> Portia is checking her knowledge base…
+              </span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="portia-bubble portia-bubble-user">{exchange.q}</div>
+            <div className="portia-bubble portia-bubble-agent">
+              <p className="portia-answer" data-testid="portia-answer">
+                {exchange.a}
+              </p>
+              <span
+                className={`portia-disp ${dispClass(exchange.disposition)}`}
+                data-testid="portia-disp"
+              >
+                <ShieldCheck size={11} />
+                {dispLabel(exchange.disposition)}
+              </span>
+              {exchange.offline && (
+                <span className="portia-offline-tag" data-testid="portia-offline-tag">
+                  {exchange.seeded ? "Sample answer" : "Offline sample"} — ask your own
+                  question for a live reply
+                </span>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
-      <p className="portia-prompt-label">Try one of these:</p>
+      <form className="portia-ask" onSubmit={onSubmit}>
+        <input
+          className="portia-ask-input"
+          data-testid="portia-input"
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask Portia anything about SKYCOT…"
+          maxLength={600}
+          disabled={pending}
+          aria-label="Ask Portia a question"
+        />
+        <button
+          type="submit"
+          className="portia-ask-send"
+          data-testid="portia-send"
+          disabled={pending || input.trim().length === 0}
+          aria-label="Send question to Portia"
+        >
+          <Send size={15} />
+        </button>
+      </form>
+
+      <p className="portia-prompt-label">Or try one of these:</p>
       <div className="portia-chips">
-        {CANNED.map((item, idx) => (
+        {SUGGESTIONS.map((q, idx) => (
           <button
-            key={item.q}
+            key={q}
             type="button"
-            className={`portia-chip ${idx === activeIdx ? "is-active" : ""}`}
-            onClick={() => pick(idx)}
+            className="portia-chip"
+            onClick={() => void ask(q)}
+            disabled={pending}
             data-testid={`portia-chip-${idx}`}
           >
-            {item.q}
+            {q}
           </button>
         ))}
       </div>
 
       <div className="portia-foot">
         <p className="portia-note" data-testid="portia-safety-note">
-          Preview answers are real, operator-reviewed responses — shown verbatim,
-          not a live call. A public, rate-limited Portia is a backend follow-up.
+          Portia answers live and truth-bounded: she only states what's in her
+          operator-reviewed knowledge base and defers anything she can't back up.
+          If the live service is unavailable, you'll see a clearly-labeled sample.
         </p>
         <a href="/pitch" className="portia-cta">
           Open the live rehearsal <ArrowRight size={14} />

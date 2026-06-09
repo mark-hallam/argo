@@ -280,6 +280,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/api/v1/marketing/draft-response", "draft a marketing response from a prompt"),
         // ── pitch agent (v1 demo headline) — truth-bounded Q&A
         ("POST", "/api/v1/pitch/ask", "ask the pitch agent a question (truth-bounded Q&A)"),
+        ("POST", "/api/v1/pitch/ask/public", "anonymous, rate-limited public pitch Q&A (truth-bounded; landing-page widget)"),
         // ── voice I/O (pitch + coach + live transcripts)
         ("GET", "/api/v1/voice/sessions", "list voice sessions (?mode=coach|pitch)"),
         ("GET", "/api/v1/voice/settings", "voice settings panel (provider, voice id, model)"),

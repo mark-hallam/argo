@@ -198,6 +198,18 @@ async fn preflight_dispatch(
     if let Some(resp) = super::routes_wizard::dispatch_post(req).await {
         return Some(resp);
     }
+    // gateway-public-safe-pitch-ask-rate-limited — the ANONYMOUS public
+    // pitch front door behind the landing-page "Talk to Portia" widget.
+    // Mounted here (before `require_identity`, in the same un-gated lane as
+    // the wizard) so a public visitor reaches the truth-bounded answerer.
+    // Per-IP rate-limited + input-capped + strict public truth-boundary
+    // policy. The authenticated `/api/v1/pitch/ask` (below, in
+    // `api_v1_dispatch`) is unchanged and stays bearer-gated.
+    if req.starts_with("POST /api/v1/pitch/ask/public ")
+        || req.starts_with("POST /api/v1/pitch/ask/public?")
+    {
+        return Some(super::routes_pitch_ask_public::ask_public_response(req, store).await);
+    }
     if let Some(resp) = require_identity(req) {
         return Some(resp);
     }

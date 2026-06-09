@@ -128,3 +128,26 @@ export async function askPitch(req: PitchAskRequest): Promise<PitchAskResponse> 
   }
   return raw;
 }
+
+/**
+ * Ask the PUBLIC, anonymous, rate-limited Pitch Agent one question —
+ * `POST /api/v1/pitch/ask/public`. This is the un-authenticated front door
+ * behind the landing-page "Talk to Portia" widget: no bearer is required,
+ * the gateway forces the strict public truth-boundary channel server-side,
+ * and only `question` is sent (channel/audience are NOT client-controlled).
+ *
+ * Throws `ApiError` on any non-2xx (notably `429` when the per-IP cap
+ * fires) or a malformed payload, so the embed can fall back gracefully to
+ * its canned offline answer.
+ */
+export async function askPitchPublic(question: string): Promise<PitchAskResponse> {
+  const raw = await apiPost<unknown>("/api/v1/pitch/ask/public", { question });
+  if (!isPitchAskResponse(raw)) {
+    throw new ApiError(
+      502,
+      "Public pitch endpoint returned an unexpected payload",
+      "INVALID_PITCH_RESPONSE",
+    );
+  }
+  return raw;
+}

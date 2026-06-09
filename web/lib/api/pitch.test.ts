@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { askPitch } from "./pitch";
+import { askPitch, askPitchPublic } from "./pitch";
 import { ApiError } from "./types";
 
 const ORIGINAL_FETCH = globalThis.fetch;
@@ -160,5 +160,50 @@ describe("lib/api/pitch", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(typeof captured).toBe("string");
     expect(captured as string).toContain('"channel":"Rehearsal"');
+  });
+
+  describe("askPitchPublic", () => {
+    it("POSTs to the public route with only the question (channel forced server-side)", async () => {
+      let url = "";
+      let captured: unknown = null;
+      installMock((req) => {
+        url = req.url;
+        void req
+          .clone()
+          .text()
+          .then((body) => {
+            captured = body;
+          });
+        return makeResponse({
+          status: 200,
+          body: {
+            matched: true,
+            entry_id: "tech-stack",
+            answer: "Rust single-binary core.",
+            disposition: "Allow",
+            channel: "WebEmbed",
+            latency_ms: 1,
+          },
+        });
+      });
+      const res = await askPitchPublic("What's the tech stack?");
+      await new Promise((r) => setTimeout(r, 0));
+      expect(url).toContain("/api/v1/pitch/ask/public");
+      expect(res.matched).toBe(true);
+      expect(res.channel).toBe("WebEmbed");
+      // The client never sends channel/audience — those are forced by the gateway.
+      expect(captured as string).not.toContain('"channel"');
+      expect(captured as string).toContain('"question"');
+    });
+
+    it("propagates a 429 rate-limit as ApiError so the embed can fall back", async () => {
+      installMock(() =>
+        makeResponse({
+          status: 429,
+          body: { error: "rate_limited", scope: "pitch_public", retry_after_secs: 5 },
+        }),
+      );
+      await expect(askPitchPublic("hi")).rejects.toBeInstanceOf(ApiError);
+    });
   });
 });

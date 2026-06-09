@@ -189,6 +189,7 @@ mod routes_peer;
 mod routes_pitch_ask;
 mod routes_pitch_ask_llm;
 mod routes_pitch_ask_llm_facts;
+mod routes_pitch_ask_public;
 mod routes_post;
 mod routes_post_admin;
 mod routes_post_costs;

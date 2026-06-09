@@ -60,13 +60,19 @@ describe("MarketingLandingPage", () => {
     expect(document.querySelector("video")).toBeNull();
   });
 
-  it("renders the Portia embed as a clearly-labeled preview, not a live call", () => {
+  it("renders the Portia embed as a LIVE, truth-bounded widget with an ask input", () => {
     render(<MarketingLandingPage />);
 
     const embed = screen.getByTestId("portia-embed");
-    expect(within(embed).getByTestId("portia-preview-pill")).toHaveTextContent(/preview/i);
-    expect(screen.getByTestId("portia-safety-note")).toHaveTextContent(
-      /not a live call/i,
-    );
+    // The widget is now wired to the live public route — labeled LIVE, not a
+    // canned preview. The proof of the truth-boundary moat is real.
+    expect(within(embed).getByTestId("portia-live-pill")).toHaveTextContent(/live/i);
+    // A free-text ask affordance is present (the visitor's own question goes
+    // to POST /api/v1/pitch/ask/public).
+    expect(within(embed).getByTestId("portia-input")).toBeInTheDocument();
+    expect(within(embed).getByTestId("portia-send")).toBeInTheDocument();
+    // Honest safety note: truth-bounded live answering, with a clearly-labeled
+    // sample only when the live service is unavailable (NO-THEATER).
+    expect(screen.getByTestId("portia-safety-note")).toHaveTextContent(/truth-bounded/i);
   });
 });
