@@ -10,9 +10,11 @@ import { EXAMPLE_ROLES } from "@/lib/hire/examples";
  *
  * Replaces E3-a's minimal placeholder. Renders five
  * `<ExampleRoleTile>`s in a responsive grid (1 col mobile, 2 col
- * tablet, 3 col desktop) and a secondary "Or describe your own" link
- * that routes to `/hire` with no `?example=` param. A closed
- * `<details>` disclosure below the grid reveals the locked
+ * tablet, 3 col desktop) and a primary "Describe a role in plain
+ * English" link that routes to `/genesis` — the Genesis
+ * describe-and-watch surface where the stranger watches their first
+ * teammate get built (DEC-034 WS3: Genesis IS the hire path). A
+ * closed `<details>` disclosure below the grid reveals the locked
  * five-bullet feature summary on demand.
  *
  * Copy is locked by the brief (heading, sub-line, disclosure summary,
@@ -51,7 +53,7 @@ export function TeamEmptyState() {
 
       <div className="flex justify-center">
         <Link
-          href="/onboarding/first-hire"
+          href="/genesis"
           data-testid="team-empty-state-describe-own"
           className="inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:translate-y-[-1px] hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           style={{

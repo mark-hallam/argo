@@ -179,7 +179,7 @@ describe("TeamPage", () => {
     expect(within(empty).getByTestId("team-empty-state-tiles")).toBeInTheDocument();
     expect(within(empty).getByTestId("team-empty-state-describe-own")).toHaveAttribute(
       "href",
-      "/onboarding/first-hire",
+      "/genesis",
     );
     expect(screen.queryByTestId("team-subtitle")).not.toBeInTheDocument();
   });
