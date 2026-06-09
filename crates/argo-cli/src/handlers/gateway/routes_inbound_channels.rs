@@ -108,6 +108,7 @@ async fn recent_response(
         kind: Some(APPROVAL_REPLIED_LABEL),
         since_micros: None,
         session_id: None,
+        tenant: None,
     };
     match argo_audit::tail_rows_filtered(store, RAW_FETCH_CAP, &filters).await {
         Ok(mut rows) => {

@@ -244,8 +244,12 @@ pub(super) async fn voice_sessions_response(
     };
     let tenant = super::rate_limit::extract_tenant(req);
     let mode_filter = query_mode(req);
+    // Scope the SQL scan to the caller's tenant so a busy tenant can't
+    // starve this tenant's rows out of the SESSIONS_SCAN_CAP window.
+    // `group_sessions` keeps its per-row tenant check as defence-in-depth.
     let filters = TailFilters {
         kind: Some("voice.transcript_turn"),
+        tenant: Some(tenant.as_str()),
         ..Default::default()
     };
     let rows = match tail_rows_filtered(store, SESSIONS_SCAN_CAP, &filters).await {

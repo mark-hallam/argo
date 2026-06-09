@@ -33,6 +33,7 @@ pub(super) async fn print_count(
         kind: kind.as_deref(),
         since_micros,
         session_id: session_bytes.as_deref(),
+        tenant: None,
     };
     let rows = argo_audit::tail_rows_filtered(&store, 10_000, &filters).await?;
     let n = rows.len();

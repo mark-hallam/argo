@@ -94,6 +94,14 @@ pub struct TailFilters<'a> {
     pub since_micros: Option<i64>,
     /// Exact match on the 16-byte UUID-as-bytes session id.
     pub session_id: Option<&'a [u8]>,
+    /// Exact match on the denormalized `audit_record.tenant_id`
+    /// column. `None` (default) preserves the historical all-tenant
+    /// scan; `Some(t)` pushes `a.tenant_id = ?` into the query so the
+    /// `n`-row LIMIT window is filled from one tenant only (a busy
+    /// tenant can't starve another out of the window). The column
+    /// equals `payload_json.tenant_id` (both stamped at the publish
+    /// edge), so this matches any caller's post-fetch payload check.
+    pub tenant: Option<&'a str>,
 }
 
 /// Fetch the most recent `n` rows in `seq` order (oldest first).
@@ -131,6 +139,9 @@ pub async fn tail_rows_filtered(
     if filters.session_id.is_some() {
         where_clauses.push("a.session_id = ?");
     }
+    if filters.tenant.is_some() {
+        where_clauses.push("a.tenant_id = ?");
+    }
     let where_sql = if where_clauses.is_empty() {
         String::new()
     } else {
@@ -162,6 +173,9 @@ pub async fn tail_rows_filtered(
     }
     if let Some(sid) = filters.session_id {
         q = q.bind(sid.to_vec());
+    }
+    if let Some(t) = filters.tenant {
+        q = q.bind(t.to_string());
     }
     q = q.bind(i64::from(n));
     let rows = q
@@ -370,6 +384,76 @@ mod tests {
         .await
         .unwrap();
         assert!(by_sid.is_empty());
+    }
+
+    #[tokio::test]
+    async fn tail_rows_filtered_scopes_by_tenant() {
+        // Pins the tenant predicate at the SQL level: a `tenant: Some(..)`
+        // filter must return ZERO rows belonging to any other tenant, even
+        // when both tenants' rows share the same `kind`. This is the
+        // query-level isolation guarantee the voice-sessions LIST relies on
+        // (vs. the post-fetch in-memory `tenant_id` check, which stays as
+        // defence-in-depth).
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let sink_a = crate::AuditSink::new_with_tenant(Arc::clone(&store), "ws-a".into());
+        let sink_b = crate::AuditSink::new_with_tenant(Arc::clone(&store), "ws-b".into());
+        for i in 0..2 {
+            sink_a
+                .write(None, AuditKind::TurnStart, serde_json::json!({"i": i}), None)
+                .await
+                .unwrap();
+        }
+        for i in 0..3 {
+            sink_b
+                .write(None, AuditKind::TurnStart, serde_json::json!({"i": i}), None)
+                .await
+                .unwrap();
+        }
+        // ws-a: exactly its 2 rows, each stamped ws-a in the payload.
+        let a_rows = tail_rows_filtered(
+            &store,
+            10,
+            &TailFilters {
+                kind: Some("turn_start"),
+                tenant: Some("ws-a"),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(a_rows.len(), 2, "ws-a sees only its own rows");
+        for r in &a_rows {
+            assert_eq!(
+                r.payload.get("tenant_id").and_then(serde_json::Value::as_str),
+                Some("ws-a")
+            );
+        }
+        // ws-b: exactly its 3 rows.
+        let b_rows = tail_rows_filtered(
+            &store,
+            10,
+            &TailFilters {
+                kind: Some("turn_start"),
+                tenant: Some("ws-b"),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(b_rows.len(), 3, "ws-b sees only its own rows");
+        // Unknown tenant: zero rows (no cross-tenant bleed).
+        let none = tail_rows_filtered(
+            &store,
+            10,
+            &TailFilters {
+                tenant: Some("ws-unknown"),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        assert!(none.is_empty(), "unknown tenant sees nothing");
     }
 
     #[tokio::test]

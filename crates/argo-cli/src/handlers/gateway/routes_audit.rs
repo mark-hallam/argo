@@ -75,6 +75,7 @@ pub(super) async fn audit_count_response(
         kind,
         since_micros,
         session_id: session_bytes.as_deref(),
+        tenant: None,
     };
     match argo_audit::tail_rows_filtered(store, 10_000, &filters).await {
         Ok(rows) => {
@@ -134,6 +135,7 @@ pub(super) async fn audit_recent_response(
         kind,
         since_micros,
         session_id: session_bytes.as_deref(),
+        tenant: None,
     };
     match argo_audit::tail_rows_filtered(store, limit, &filters).await {
         Ok(rows) => {
@@ -281,6 +283,7 @@ pub(super) async fn stream_audit_recent(
         kind: kind.as_deref(),
         since_micros,
         session_id: session_bytes.as_deref(),
+        tenant: None,
     };
     let rows = match argo_audit::tail_rows_filtered(store, limit, &filters).await {
         Ok(r) => r,

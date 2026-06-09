@@ -81,3 +81,55 @@ async fn transcript_turn_rejects_blank_text_and_bad_role() {
     let bad_role = "POST /api/v1/voice/transcript HTTP/1.1\r\nHost: x\r\n\r\n{\"session_id\":\"s\",\"role\":\"bot\",\"text\":\"hi\"}";
     assert!(transcript_turn_response(bad_role, Some(&store)).await.0.starts_with("400"));
 }
+
+/// Persist a transcript turn for a given tenant via the live write path
+/// (which stamps `payload.tenant_id` + the `audit_record.tenant_id` column).
+async fn persist_turn(store: &Arc<SessionStore>, tenant: &str, sid: &str, text: &str) {
+    let body = json!({ "session_id": sid, "role": "user", "text": text, "ts_millis": 1, "mode": "coach" });
+    let req = format!(
+        "POST /api/v1/voice/transcript HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\n\r\n{body}"
+    );
+    let (status, _) = transcript_turn_response(&req, Some(store)).await;
+    assert!(status.starts_with("201"), "write turn for {tenant}: {status}");
+}
+
+async fn list_sessions(store: &Arc<SessionStore>, tenant: &str) -> (String, Value) {
+    let get = format!(
+        "GET /api/v1/voice/sessions HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\n\r\n"
+    );
+    let (status, body) = voice_sessions_response(&get, Some(store)).await;
+    assert_eq!(status, "200 OK", "list for {tenant}");
+    let v: Value = serde_json::from_str(&body).expect("json");
+    (body, v)
+}
+
+#[tokio::test]
+async fn sessions_list_is_tenant_scoped_no_cross_tenant_bleed() {
+    // Two tenants persist transcript turns into ONE shared store. Each
+    // tenant's GET /api/v1/voice/sessions must return ONLY its own sessions
+    // and must NOT leak the other tenant's session_id or text. This pins the
+    // isolation guarantee (now enforced at the SQL level via the tenant
+    // predicate, with the in-memory group_sessions check as belt-and-braces)
+    // against a future refactor that drops either layer.
+    let store = mem_store().await;
+    persist_turn(&store, "ws-a", "a-session-1", "alpha tenant secret moat").await;
+    persist_turn(&store, "ws-a", "a-session-2", "alpha second conversation").await;
+    persist_turn(&store, "ws-b", "b-session-1", "bravo tenant private numbers").await;
+
+    // Tenant A sees only A's two sessions; none of B's id/text.
+    let (body_a, v_a) = list_sessions(&store, "ws-a").await;
+    let sessions_a = v_a["sessions"].as_array().expect("a sessions array");
+    assert_eq!(sessions_a.len(), 2, "ws-a sees its 2 sessions: {body_a}");
+    assert!(sessions_a.iter().all(|s| s["session_id"] == "a-session-1" || s["session_id"] == "a-session-2"));
+    assert!(!body_a.contains("b-session-1"), "B's session_id must not leak to A: {body_a}");
+    assert!(!body_a.contains("bravo tenant private numbers"), "B's text must not leak to A: {body_a}");
+
+    // Tenant B sees only B's one session; none of A's id/text.
+    let (body_b, v_b) = list_sessions(&store, "ws-b").await;
+    let sessions_b = v_b["sessions"].as_array().expect("b sessions array");
+    assert_eq!(sessions_b.len(), 1, "ws-b sees its 1 session: {body_b}");
+    assert_eq!(sessions_b[0]["session_id"], "b-session-1");
+    assert!(!body_b.contains("a-session-1"), "A's session_id must not leak to B: {body_b}");
+    assert!(!body_b.contains("a-session-2"), "A's session_id must not leak to B: {body_b}");
+    assert!(!body_b.contains("alpha tenant secret moat"), "A's text must not leak to B: {body_b}");
+}
