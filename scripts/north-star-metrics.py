@@ -33,6 +33,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 LEDGER = REPO / "docs" / "build-plan" / "BUILD_STATUS.md"
 DRIFT = REPO / "scripts" / "find-stale-claim-drift.py"
+CAPTURE = REPO / "scripts" / "capture-recurring-nits.py"
 
 # Metrics named in DEC-042 §6 that have no real source wired yet. Listed here so
 # the emitted payload is self-documenting about what Stage 1+ still has to build.
@@ -41,7 +42,6 @@ UNINSTRUMENTED = {
         "pct_done_claims_pass_cold_reverify": "B-2/B-4: needs a cold re-verify ledger (the NO-THEATER metric)",
         "mean_time_to_green_ci": "needs per-PR CI-start→green timestamps",
         "defect_escape_rate": "needs a main-branch defect tracker (bugs that reached main)",
-        "recurring_nit_count": "B-3: needs the automated rule-capture tally",
     },
     "product_loop": {
         "teammate_task_success_rate": "needs eval-harness graded-run rollup",
@@ -97,6 +97,21 @@ def drift_rows() -> int | None:
     return int(m.group(1)) if m else None
 
 
+def recurring_nit_count() -> int | None:
+    """Count of uncaptured recurring nits (DEC-042 B-3 capturer, --quiet).
+
+    Best-effort: returns None if the capturer is missing or errors — never a
+    fabricated value (DEC-029 NO THEATER). The value trends DOWN as nits get
+    captured, which is the compounding signal B-3 exists to produce.
+    """
+    if not CAPTURE.exists():
+        return None
+    raw = _run(["python3", str(CAPTURE), "--quiet"])
+    if raw is None or not raw.strip().isdigit():
+        return None
+    return int(raw.strip())
+
+
 def ledger_queue() -> dict[str, int] | None:
     """Status histogram of the BUILD_STATUS ledger table rows."""
     if not LEDGER.exists():
@@ -126,6 +141,8 @@ def collect() -> dict:
         "open_prs": open_pr_count(),
         "drift_rows": drift_rows(),
         "queue_depth": queue,
+        # B-3 (DEC-042 §3): real, computed from the recurring-nit capturer.
+        "recurring_nit_count": recurring_nit_count(),
     }
     for key, reason in UNINSTRUMENTED["build_loop"].items():
         build[key] = None
