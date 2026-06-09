@@ -144,6 +144,18 @@ with_ledger_lock() {
     "$@"
   fi
 }
+
+# --- DEC-042 B-2: source the stop-gate enforcement helper (defines
+# stop_gate_enforce). Additive + default-OFF: stop_gate_enforce returns 0
+# immediately unless ARGO_STOP_GATE=1, so with the flag unset the loop's ship
+# path is byte-identical to pre-B-2. The helper binds "done" to "gate-verified":
+# after a worker opens a PR and flips its row to IN_REVIEW, it re-runs the single
+# checkable verifier (scripts/stop-gate-verify.sh) over the pushed branch and
+# refuses to let a failing-gate change present as done (holds it at NEEDS-FIX).
+if [ -r "$REPO/scripts/stop-gate-enforce.sh" ]; then
+  # shellcheck source=scripts/stop-gate-enforce.sh disable=SC1091
+  . "$REPO/scripts/stop-gate-enforce.sh"
+fi
 # Shared ledger commit+push tail used by the quota + ship-check release paths
 # below; wrapped in with_ledger_lock at each call site.
 ledger_commit_push() {  # $1 = commit message
@@ -808,6 +820,27 @@ PY
     with_ledger_lock ledger_commit_push "status: release $BRIEF_ID (zombie; no PR opened)"
   fi
   set -e
+
+  # ----------------------------------------------------------------------
+  # DEC-042 B-2 stop-gate backstop — "done" must bind to "gate-verified".
+  #
+  # The ship-check above only confirms a PR was OPENED (released the row if
+  # still CLAIMED). It does NOT confirm the verification gate PASSED — a
+  # session can skip the gate and still flip its row to IN_REVIEW (the
+  # NO-THEATER / DEC-029 hole in the build loop). If ARGO_STOP_GATE=1, re-run
+  # the single checkable verifier over the pushed branch (in the B-1 conductor
+  # build worktree, so cargo never pegs the workers' shared target); on
+  # failure, stop_gate_enforce moves the row IN_REVIEW->NEEDS-FIX and comments
+  # the reason on the PR, so a failing-gate change can never PRESENT as done.
+  #
+  # Default OFF (DEC-042): with ARGO_STOP_GATE unset, the guard short-circuits
+  # and this block is a no-op — the ship path is byte-identical to pre-B-2.
+  # ----------------------------------------------------------------------
+  if [ "${ARGO_STOP_GATE:-0}" = "1" ] && command -v stop_gate_enforce >/dev/null 2>&1; then
+    set +e
+    stop_gate_enforce "$BRIEF_ID" "$FAMILY-$BRIEF_ID" "$REPO"
+    set -e
+  fi
 
   # Defensive disk cleanup — SCOPED STRICTLY to this iteration's BRIEF_ID.
   # If the worker followed step 9 of its prompt the worktree is already
