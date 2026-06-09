@@ -82,10 +82,15 @@ rule + rationale: [DEC-029](docs/skycot/decisions/DEC-029-truth-bounded-status-r
 - **Source-of-truth ledgers kept live IN-BAND (every session, never a later sweep):**
   every shipped/changed capability updates its row in
   `docs/build-plan/FEATURE_MATRIX.md` (status badge + commit SHA + crate/route)
-  **in the same commit** — and whenever you edit `FEATURE_MATRIX.md`, regenerate
-  its HTML view in the same commit with `python3 scripts/render-feature-matrix.py`
-  (the committed `docs/skycot/feature-matrix.html` is generated from the .md, never
-  hand-edited); every operator-locked call gets a
+  **in the same commit** — the `FEATURE_MATRIX.md` markdown IS the source-of-truth
+  ledger. `docs/skycot/feature-matrix.html` is a **generated, gitignored, on-demand
+  build artifact — do NOT commit it.** (Committing the rendered HTML produced a hard
+  merge conflict on *every* pair of concurrent FEATURE_MATRIX PRs and stalled
+  otherwise-clean PRs; root-fixed per
+  [DEC-043](docs/skycot/decisions/DEC-043-stop-committing-generated-feature-matrix-html.md).)
+  Regenerate it locally only to *view* it: `python3 scripts/render-feature-matrix.py`
+  (worktree-safe; writes the gitignored HTML, never a tracked change). Every
+  operator-locked call gets a
   `docs/skycot/decisions/DEC-NNN-*.md` ADR + README index line **in the same turn**
   (see the decision-register section below). Build-agent / delegated-work prompts
   MUST carry this rule. If the ledgers ever lag the code, stop and reconcile before

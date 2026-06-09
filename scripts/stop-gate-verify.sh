@@ -142,17 +142,17 @@ else
 fi
 
 # ---- Gate 2: ledger-in-band (no compile) ---------------------------------
-# CLAUDE.md rule: whenever FEATURE_MATRIX.md changes, feature-matrix.html must be
-# regenerated in the SAME commit. Read-only co-presence check over the branch
-# diff (safe in any tree — never mutates).
-echo "[stop-gate] [2/4] ledger-in-band (FEATURE_MATRIX.md <-> feature-matrix.html)" >&2
+# CLAUDE.md rule (post DEC-043): FEATURE_MATRIX.md IS the in-band ledger.
+# feature-matrix.html is a generated, gitignored, on-demand artifact and must
+# NOT be committed — committing the rendered HTML conflicted on every pair of
+# concurrent FEATURE_MATRIX PRs. Read-only check over the branch diff (safe in
+# any tree — never mutates).
+echo "[stop-gate] [2/4] ledger-in-band (generated feature-matrix.html must NOT be committed)" >&2
 if [[ -n "$LEDGER_OVERRIDE" ]]; then
   ( cd "$TREE" && bash -c "$LEDGER_OVERRIDE" ) || fail "ledger-in-band gate (override) failed"
 else
-  if printf '%s\n' "$CHANGED" | grep -qx "docs/build-plan/FEATURE_MATRIX.md"; then
-    if ! printf '%s\n' "$CHANGED" | grep -qx "docs/skycot/feature-matrix.html"; then
-      fail "ledger-in-band: FEATURE_MATRIX.md changed but docs/skycot/feature-matrix.html was not regenerated in the same branch (run python3 scripts/render-feature-matrix.py)"
-    fi
+  if printf '%s\n' "$CHANGED" | grep -qx "docs/skycot/feature-matrix.html"; then
+    fail "ledger-in-band: docs/skycot/feature-matrix.html is a generated, gitignored artifact (DEC-043) and must NOT be committed — drop it from the commit; the FEATURE_MATRIX.md row IS the in-band ledger"
   fi
 fi
 

@@ -6,14 +6,36 @@ color-coded HTML in sync. Re-run after editing the matrix:
 
     python3 scripts/render-feature-matrix.py
 
-Output: docs/skycot/feature-matrix.html (self-contained, no deps).
+Output: docs/skycot/feature-matrix.html — a self-contained (no-deps), **gitignored,
+on-demand** build artifact. It is deliberately NOT committed (committing the
+rendered HTML caused a merge conflict on every concurrent FEATURE_MATRIX PR; see
+DEC-043). Regenerate locally whenever you want to view the matrix in a browser.
 """
 import re
 import pathlib
+import subprocess
 import html as _html
 from datetime import datetime, timezone, timedelta
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+def _repo_root() -> pathlib.Path:
+    """Worktree-safe repo root: the git top-level of the CURRENT working dir, so
+    regenerating from a git worktree writes THAT tree's view (not the main repo,
+    which `__file__`-relative paths would clobber). Falls back to this script's
+    own repo when cwd is not inside a git tree."""
+    try:
+        top = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if top.returncode == 0 and top.stdout.strip():
+            return pathlib.Path(top.stdout.strip())
+    except Exception:
+        pass
+    return pathlib.Path(__file__).resolve().parent.parent
+
+
+ROOT = _repo_root()
 SRC = ROOT / "docs/build-plan/FEATURE_MATRIX.md"
 OUT = ROOT / "docs/skycot/feature-matrix.html"
 

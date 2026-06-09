@@ -33,3 +33,10 @@ docs/personal-site/
 # committed (committing it would change CI/test routing). Only the
 # `.example` template is tracked.
 /argo.toml
+
+# Generated, on-demand build artifact rendered from docs/build-plan/FEATURE_MATRIX.md
+# (the .md is the source-of-truth ledger). The committed HTML caused a hard merge
+# conflict on every pair of concurrent FEATURE_MATRIX PRs, stalling otherwise-clean
+# PRs — root-fixed by gitignoring it (DEC-043). Regenerate locally to view:
+#   python3 scripts/render-feature-matrix.py
+docs/skycot/feature-matrix.html
