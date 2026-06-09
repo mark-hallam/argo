@@ -3,6 +3,7 @@ import {
   fetchWorkerEscalations,
   updateWorkerEscalations,
 } from "./escalations";
+import { ApiError } from "./types";
 
 const ORIGINAL_FETCH = globalThis.fetch;
 
@@ -70,6 +71,9 @@ describe("lib/api/escalations", () => {
     process.env = { ...originalEnv };
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+    // Clear any real-session marker cookie a test set so it does not
+    // leak `hasRealSession() === true` into the next test.
+    document.cookie = "skycot-session=; path=/; max-age=0";
   });
 
   it("fetches the live endpoint and maps snake_case rules to the SPA contract", async () => {
@@ -125,6 +129,39 @@ describe("lib/api/escalations", () => {
     const { policy, source } = await fetchWorkerEscalations("missing");
     expect(source).toBe("mock-offline");
     expect(policy.rules.length).toBeGreaterThan(0);
+  });
+
+  it("anonymous: uses the caller-supplied fallback rules over the generic sample", async () => {
+    installMock(() => makeResponse({ error: "not found" }, 404));
+    const fallback = [
+      { action: "Re-price a listing", condition: "Drops below floor", routesTo: "Seller" },
+    ];
+
+    const { policy, source } = await fetchWorkerEscalations("missing", () => fallback);
+    expect(source).toBe("mock-offline");
+    expect(policy.rules).toEqual(fallback);
+  });
+
+  it("REAL session: returns the live (empty) rule set on is_default, NOT the sample", async () => {
+    document.cookie = "skycot-session=1";
+    installMock(() =>
+      makeResponse({ worker_id: "w1", read_only: false, is_default: true, rules: [] }),
+    );
+
+    const { policy, source } = await fetchWorkerEscalations("w1", () => [
+      { action: "Sample", condition: "Sample condition", routesTo: "Sample owner" },
+    ]);
+    expect(source).toBe("gateway");
+    expect(policy.isDefault).toBe(true);
+    // Honest empty — the supplied sample must NOT leak to a real operator.
+    expect(policy.rules).toEqual([]);
+  });
+
+  it("REAL session: a 404 surfaces an honest error, NOT the sample (NO THEATER)", async () => {
+    document.cookie = "skycot-session=1";
+    installMock(() => makeResponse({ error: "not found" }, 404));
+
+    await expect(fetchWorkerEscalations("w1")).rejects.toBeInstanceOf(ApiError);
   });
 
   it("PATCHes the rule set with a snake_case wire body", async () => {

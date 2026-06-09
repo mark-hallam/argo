@@ -17,7 +17,6 @@
  */
 
 import { apiGet, apiPatch } from "@/lib/api/client";
-import { ApiError } from "@/lib/api/types";
 import type { EscalationRule } from "@/components/skycot/workers/EscalationMatrix";
 import { hasRealSession, isDemoLive } from "@/lib/skycot/demo-mode";
 import { isMissingOrUnreachable } from "./unreachable";
@@ -99,9 +98,17 @@ function isAuthBypassed(): boolean {
   );
 }
 
-function sampleResult(source: EscalationSource): FetchWorkerEscalationsResult {
+function sampleResult(
+  source: EscalationSource,
+  fallbackRules?: () => EscalationRule[],
+): FetchWorkerEscalationsResult {
+  // The caller (the escalation page) can supply its richer per-worker
+  // sample rules; absent that, fall back to the generic sample. Either
+  // way this path is reached ONLY for anonymous dev/demo (see the gating
+  // in `fetchWorkerEscalations`) — never a real or demo-live operator.
+  const rules = fallbackRules?.() ?? SAMPLE_RULES;
   return {
-    policy: { rules: SAMPLE_RULES, isDefault: true, readOnly: false },
+    policy: { rules, isDefault: true, readOnly: false },
     source,
   };
 }
@@ -117,11 +124,12 @@ function mapPolicy(raw: RawGatewayEscalations): WorkerEscalationPolicy {
 
 export async function fetchWorkerEscalations(
   workerId: string,
+  fallbackRules?: () => EscalationRule[],
 ): Promise<FetchWorkerEscalationsResult> {
   // Anonymous auth-bypass mocks the gateway; demo-live opts back into
   // a real round-trip so the recording-day SPA proves the live path.
   if (isAuthBypassed() && !isDemoLive()) {
-    return sampleResult("mock-bypass");
+    return sampleResult("mock-bypass", fallbackRules);
   }
 
   try {
@@ -130,19 +138,20 @@ export async function fetchWorkerEscalations(
     );
     return { policy: mapPolicy(raw), source: "gateway" };
   } catch (err) {
-    // Fall back to the sample only when anonymous/offline in non-strict
-    // mode. A real session or demo-live surfaces the error instead of
-    // silently fabricating rules.
+    // Fall back to the sample ONLY when anonymous/offline in non-strict
+    // mode (`isMissingOrUnreachable` covers a 404 + a connection error).
+    // A REAL signed-in user OR a demo-live recording session surfaces the
+    // error instead of silently fabricating escalation rules — this is a
+    // SAFETY surface, so a 404 must NOT leak the sample to them (NO
+    // THEATER, DEC-007 / DEC-029). The previous unconditional 404 branch
+    // here did exactly that; it is intentionally removed.
     if (
       !hasRealSession() &&
       !isDemoLive() &&
       !isStrictProduction() &&
       isMissingOrUnreachable(err)
     ) {
-      return sampleResult("mock-offline");
-    }
-    if (err instanceof ApiError && err.status === 404) {
-      return sampleResult("mock-offline");
+      return sampleResult("mock-offline", fallbackRules);
     }
     throw err;
   }

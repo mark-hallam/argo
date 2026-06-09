@@ -6,17 +6,26 @@ import { AlertTriangle, ShieldAlert } from "lucide-react";
 import { EscalationMatrix, type EscalationRule } from "@/components/skycot/workers/EscalationMatrix";
 import { TrustOverTimeChart } from "@/components/skycot/workers/TrustOverTimeChart";
 import { useWorker } from "@/lib/hooks/use-worker";
+import { useWorkerEscalations } from "@/lib/hooks/use-worker-escalations";
 import { findSampleTrustHistory, REFERENCE_NOW } from "@/lib/sample-worker-trust-history";
 
 /**
  * Worker escalation tab — `/workers/<id>/escalation`.
  *
- * Static content (rules, matrix, history) is seeded inline so the
- * demo reproduces identically; the trust-over-time chart pulls from
- * `findSampleTrustHistory` and renders the 90-day window anchored
- * at `REFERENCE_NOW`. No gateway dependency for v1 — once the
- * audit-row feed lands, the history table will swap for a real
- * query against `GET /api/v1/workers/<id>/escalations`.
+ * The escalation RULES are now read live from
+ * `GET /api/v1/workers/<id>/escalations` (`useWorkerEscalations` →
+ * `fetchWorkerEscalations`): a real or demo-live operator sees the
+ * teammate's REAL persisted pause-and-escalate rules, never fabricated
+ * ones — closing the NO-THEATER leak on this SAFETY surface (DEC-007 /
+ * DEC-029). The bundled per-worker `SEEDS` survive ONLY as the
+ * anonymous-dev/offline fallback.
+ *
+ * The live GET exposes the rule SET, not a per-event escalation HISTORY
+ * feed or a trust-over-time series, so the history table + trust chart
+ * render their honest EMPTY states for the real/demo-live path (the
+ * sample history + `findSampleTrustHistory` are kept only for the
+ * anonymous-dev fallback). Inventing past escalation events for a real
+ * operator would be the exact theater this surface must not show.
  */
 
 interface EscalationHistoryEntry {
@@ -203,8 +212,27 @@ export default function WorkerEscalationPage() {
   const workerId = routeParams?.workerId ?? "";
   const workerQuery = useWorker(workerId);
   const workerName = workerQuery.data?.name;
+
   const seed = getSeed(workerId);
-  const history = findSampleTrustHistory(workerId);
+  // Live escalation rules. The page's per-worker SEEDS are passed as the
+  // ANONYMOUS-dev fallback only; a real/demo-live operator gets the live
+  // rule set (or an honest error), never the sample.
+  const escQuery = useWorkerEscalations(workerId, () => seed.rules);
+  const result = escQuery.data;
+
+  // Until the live read settles we render no rules (no fabrication on a
+  // safety surface); anonymous dev resolves to the sample near-instantly
+  // via the api module's bypass short-circuit.
+  const rules = result?.policy.rules ?? [];
+
+  // History + trust series have NO live feed. Show the sample ONLY when
+  // the rules came from a mock source (anonymous dev/demo); a real or
+  // demo-live operator (`source === "gateway"`) gets the honest empty
+  // state, never fabricated past escalations (NO THEATER).
+  const fromMock =
+    result?.source === "mock-offline" || result?.source === "mock-bypass";
+  const history = fromMock ? seed.history : [];
+  const trustPoints = fromMock ? findSampleTrustHistory(workerId) : [];
 
   return (
     <div
@@ -213,10 +241,10 @@ export default function WorkerEscalationPage() {
       data-testid="worker-tab-panel-escalation"
       className="space-y-4"
     >
-      <CurrentRulesCard workerName={workerName} rules={seed.rules} />
-      <EscalationMatrix workerName={workerName} rules={seed.rules} />
-      <TrustOverTimeChart points={history} workerName={workerName} />
-      <HistoryCard entries={seed.history} />
+      <CurrentRulesCard workerName={workerName} rules={rules} />
+      <EscalationMatrix workerName={workerName} rules={rules} />
+      <TrustOverTimeChart points={trustPoints} workerName={workerName} />
+      <HistoryCard entries={history} />
     </div>
   );
 }
