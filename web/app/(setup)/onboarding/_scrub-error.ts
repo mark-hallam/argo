@@ -19,8 +19,18 @@ const PROTOCOL_LEAK_PATTERNS: ReadonlyArray<RegExp> = [
   /authorization\s+header/i,
 ];
 
-const DEMO_MODE_LEAK_COPY =
-  "We can't save this in demo mode. Sign in to continue with a real workspace.";
+// Honest substitute for an auth-reject leak. The gateway returns an
+// auth-reject (the `X-Argo-Principal` leak above) when the session was
+// dropped, most often because the app was opened on a non-canonical
+// loopback host (`127.0.0.1` vs `localhost`), which un-pins the
+// `__Host-session` cookie. Claiming the workspace was non-persistent
+// (the old copy) was FALSE and misdirected the user away from the real
+// fix, which is to re-authenticate. The
+// middleware now canonicalizes the host so the session survives; if a
+// reject still reaches here, the honest message is that the session
+// expired and they should sign in again.
+const SESSION_EXPIRED_COPY =
+  "Your session expired. Please sign in again to keep your changes.";
 const GENERIC_FAILURE_COPY = "Something went wrong. Please try again.";
 
 export interface ScrubbedError {
@@ -42,7 +52,7 @@ export function scrubOnboardingErrorMessage(input: unknown): ScrubbedError {
   }
   const isLeak = PROTOCOL_LEAK_PATTERNS.some((re) => re.test(raw));
   if (isLeak) {
-    return { message: DEMO_MODE_LEAK_COPY, wasProtocolLeak: true };
+    return { message: SESSION_EXPIRED_COPY, wasProtocolLeak: true };
   }
   return { message: raw, wasProtocolLeak: false };
 }

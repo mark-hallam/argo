@@ -132,6 +132,41 @@ function withSessionMarker(
   return res;
 }
 
+/**
+ * Canonicalize the loopback host to `localhost` BEFORE any cookie read.
+ *
+ * The session cookie is `__Host-session`, minted with the `__Host-`
+ * prefix (`Path=/; HttpOnly; Secure; SameSite=Lax`, no `Domain`), which
+ * host-pins it to the exact origin that set it. The mint origin is
+ * `localhost:3000` (`app/api/auth/demo-mint/route.ts`). So a cookie set
+ * on `localhost` is NOT sent when the app is opened on `127.0.0.1` — the
+ * two are different hosts even though both are loopback — and the session
+ * silently drops. The visible symptom was an onboarding-save that
+ * mislabelled the resulting gateway auth-reject as "demo mode".
+ *
+ * Fix: when the request arrives on the non-canonical loopback host
+ * `127.0.0.1`, 307-redirect to the same URL with the hostname rewritten
+ * to `localhost` (port, path, and search preserved). The browser then
+ * re-requests on the canonical host and sends the existing
+ * `__Host-session` cookie, so the session survives. Returns `null` for
+ * every other host (including `localhost` itself — so it never loops, and
+ * never touches non-loopback hosts).
+ *
+ * Exported only so the unit test can exercise it directly: in the vitest
+ * harness `NextRequest`'s `nextUrl` normalizes a `127.0.0.1` input back to
+ * `localhost` (it derives the host from a default base, ignoring the
+ * loopback IP), so the branch is untestable through `middleware()`. The
+ * sole *runtime* consumer is still `middleware()` below. The target is
+ * built from `nextUrl.href` (not `.clone()`) so any URL-shaped value
+ * works.
+ */
+export function canonicalLoopbackRedirect(req: NextRequest): NextResponse | null {
+  if (req.nextUrl.hostname !== "127.0.0.1") return null;
+  const target = new URL(req.nextUrl.href);
+  target.hostname = "localhost";
+  return NextResponse.redirect(target, 307);
+}
+
 function readSessionCookie(req: NextRequest): string | undefined {
   return (
     req.cookies.get("__Host-session")?.value ??
@@ -163,6 +198,14 @@ function readSessionCookie(req: NextRequest): string | undefined {
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   const { csp, nonce } = buildCsp();
+
+  // Canonicalize the loopback host BEFORE any cookie read, so the
+  // `__Host-`-pinned session cookie set on `localhost` survives a visit
+  // to `127.0.0.1` (see `canonicalLoopbackRedirect`). Must run first —
+  // returning here means the browser re-requests on the canonical host
+  // and the cookie-bearing request then flows through the gates below.
+  const loopbackRedirect = canonicalLoopbackRedirect(req);
+  if (loopbackRedirect) return withCsp(loopbackRedirect, csp);
   // A rendered (pass-through) response forwards the nonce to the renderer.
   const passThrough = () =>
     NextResponse.next({ request: { headers: forwardHeaders(req, csp, nonce) } });
