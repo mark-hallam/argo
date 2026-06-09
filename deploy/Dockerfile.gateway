@@ -19,7 +19,14 @@ WORKDIR /src
 RUN apt-get update && apt-get install -y --no-install-recommends \
         pkg-config libssl-dev libdbus-1-dev && rm -rf /var/lib/apt/lists/*
 COPY . .
-ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
+# The project's default release profile (lto=fat, codegen-units=1) needs >7.6 GB
+# to LINK the ~60-crate argo binary — more than Docker's memory cap and more than
+# a small deploy instance. Override to thin LTO + parallel codegen for the deploy
+# build only (a gated preview doesn't need max optimization); this is a
+# build-local env override, so the project's default profile is unchanged.
+ENV CARGO_NET_GIT_FETCH_WITH_CLI=true \
+    CARGO_PROFILE_RELEASE_LTO=thin \
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
 RUN cargo build --release --bin argo
 
 # ---- runtime ----
