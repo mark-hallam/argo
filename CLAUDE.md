@@ -157,21 +157,17 @@ Plan documents, in order of operative precedence:
 The vertical-template system is documented in its own design doc
 once Phase 1 lands.
 
-**🟢 SWARM STATE AS OF 2026-05-25T07:40Z** (refreshed by hourly scheduled-task conductor tick):
-the swarm has been RELIT and is **ACTIVE**. Supervisor LaunchAgent
-`com.skycot.worker-supervisor` (PID 68295) is running with 3 worker bash loops
-(PIDs 8485 / 8491 / 8501) + the cron-fired watchdog. Both `/tmp/argo-stop` and
-`~/.argo/stop` halt sentinels are ABSENT. This tick (T07-40): 14 open PRs (all
-MERGEABLE); TODO queue 0/0 (claude/codex — **replenishment urgent**, well
-below threshold 25); gateway schema v81=v81 (FRESH); 0 drift rows; 0
-findings-only overdue. The 2026-05-25 morning recovery session (the stop-the-
-bleed interactive run described in the §"Status" block further down) was the
-PAUSE event; some time after, halt was lifted and supervisor + workers are
-back online. The older
-[`quota-conservation-handoff-2026-05-23.md`](docs/skycot/operator/quota-conservation-handoff-2026-05-23.md)
-doc is now ~2 days stale — substantial merge activity (66 PRs + 1
-closed-as-dup in the 2026-05-25 morning session + more since) has moved main
-far ahead of the state it describes.
+**🟢 SWARM STATE — read it LIVE, never from this file** (this block previously
+embedded PIDs/PR-counts/schema versions that went 16 days stale and asserted a
+since-disabled "hourly refresher"; root-fixed 2026-06-10 by de-staling per the
+truth audit). Current state lives in, in order:
+`pgrep -f worker-supervisor` + the `/tmp/argo-stop` & `~/.argo/stop` sentinels
+(swarm alive?), `docs/build-plan/BUILD_STATUS.md` header (queue + amendments),
+`docs/skycot/agents/heartbeats/conductor.json` (last tick + north-star
+metrics), `git log origin/main` (what shipped). Run-mode is DEC-034 ("I drive
+it, no cron"): an interactive conductor session drives merges/replenishment;
+the worker swarm builds 24/7 under launchd. NB: 0 worker-loop processes while
+TODO=0 is NORMAL standdown (supervisor respawns ~120s) — not a dead swarm.
 
 **🎯 How to prioritise a TODO so workers pick it up first**: workers claim the
 **first eligible `TODO` row by document order** in
@@ -273,6 +269,8 @@ The full audit reports live in `docs/skycot/audit/`:
 - `2026-05-17-readonly-codebase-audit.md` — codex audit (13 findings)
 - `2026-05-17-claude-conductor-audit.md` — claude audit (13 findings + closure verification)
 
+**⚠️ HISTORICAL (2026-05-25 — superseded by the DEC-034 paying-ready sprint, DEC-042 loop, and DEC-044/045/046; current scope = docs/skycot/decisions/VERSION_STATE.md + BUILD_STATUS.md header. Kept for reference only.)**
+
 **Status 2026-05-25 (post interactive merge-train session):** Mission state per MISSION.md operator-locked LIVE criteria + evaluator rounds 1-54, post the 2026-05-25 merge-train (66 PRs shipped, 1 closed-as-duplicate):
 
 - Claim 1 (Teammate, not tool) — 🟢 **LIVE** (regression test passes cold per round-19; SQL tenant gate for team-headline now wired via #2261)
@@ -309,7 +307,7 @@ The full audit reports live in `docs/skycot/audit/`:
 - **2026-05-18 state:** Magic-link signup+verify LIVE on main via #1823. CI gates GREEN locally (parallel-pub-types-enforce + loc-budget + prepared-statements + unsafe-safety + audit-sink-tenant-guard). All 11 disabled GHA workflows intentionally kept disabled per `.github/workflows/DISABLED_WORKFLOWS_POLICY.md` (v1 strategy: admin-merge bypass while GHA billing is operator-blocked). Codex pool at full Pro 20x. SQLCipher 4-PR sequence MERGED.
 - PR #2131 (mission-orchestrator-cross-tenant-handoff-audit-kind) MERGED 2026-05-24T07:11Z.
 
-**Remaining for v1.0 launch (2026-05-25 updated):**
+**⚠️ HISTORICAL — the list below is the 2026-05-25 snapshot; the operative program since 2026-06-04 is the paying-ready sprint (DEC-034) + DEC-042 self-improvement loop. Read docs/skycot/decisions/VERSION_STATE.md for where we are. Remaining for v1.0 launch (2026-05-25 updated):**
 - (a) **agent — DONE 2026-05-25**: cold-rerun of the remaining claim-N-LIVE regression tests passed via `ops-claim-4-and-6-live-cold-rerun-on-current-main`; claims 4 and 6 are now LIVE in the status block above
 - (b) **agent — DONE 2026-05-25**: ✅ MERGED #2283 by conductor T09-30. Canonical gateway port is **7400**; `Makefile`, `scripts/restart-live-gateway.sh`, and `scripts/check-gateway-freshness.sh` all default to `http://127.0.0.1:7400`. Gateway was already alive on 7400, schema v81 FRESH; the restart was a NO_OP.
 - (c) **agent — DONE 2026-05-27**: operator granted macOS permissions on `argo` binary (Accessibility + Screen Recording) on 2026-05-26T20:55Z; cold rerun of the claim-5 LIVE test triad on current main passed via `ops-claim-5-cold-rerun-mcp-and-cu-post-macos-perms`; Claim 5 flipped 🟡 LIKELY-LIVE → 🟢 LIVE in the Status block above.
@@ -322,7 +320,7 @@ The full audit reports live in `docs/skycot/audit/`:
 **To relight the swarm (post tier-1+2 memory-pressure fixes 2026-05-25):**
 1. `rm /tmp/argo-stop ~/.argo/stop` (clears both transient + persistent halt signals — added in commit `a352b4bfb`)
 2. `launchctl load ~/Library/LaunchAgents/com.skycot.worker-supervisor.plist` (will auto-load on next login via `RunAtLoad=true`)
-3. The plist now launches `worker-supervisor.sh 2` (was 4) with `CARGO_BUILD_JOBS=4` env var to cap rustc parallelism
+3. The plist now launches `worker-supervisor.sh 3` (verify against the plist — count has changed over time) with `CARGO_BUILD_JOBS=4` env var to cap rustc parallelism
 
 **Memory-pressure safeguards now in place** (kick in automatically post-relight):
 - Supervisor refuses to spawn a new worker iteration when available RAM < 1 GB, measured by the **canonical `scripts/free-ram-mb.sh`** (free+speculative+inactive+purgeable, parsing the REAL page size). **Conductor + any script: use `bash scripts/free-ram-mb.sh` for RAM checks — never hand-roll `vm_stat` awk.** The page size is **16384 bytes on Apple Silicon, not the x86-assumed 4096**; a hardcoded 4096 undercounts free RAM 4× and falsely reads "RAM-constrained" (this bit the conductor 2026-06-09 — deferred Rust-PR gates for hours at a phantom "64 MB" that was really ~256 MB with ~11 GB reclaimable). Root-fixed via the one canonical helper
