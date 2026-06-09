@@ -25,7 +25,8 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useCheckout, redirectToCheckout } from "@/lib/billing/use-checkout";
@@ -75,6 +76,22 @@ const PLANS: PlanOffer[] = [
   },
 ];
 
+/**
+ * Bounded backoff for the post-checkout tier auto-refresh poll.
+ *
+ * After Stripe Checkout redirects the buyer to `/billing?upgrade=ok`,
+ * the tier-flip webhook (`POST /api/v1/billing/webhook`) is async and
+ * usually lands a beat after the redirect. Rather than stranding a
+ * just-paid customer on their OLD plan until they manually refresh, we
+ * re-poll the SAME usage query (no parallel fetch) on this schedule
+ * until the tier flips off `free`, then stop. Five attempts, ~1.5s →
+ * 6s capped, ≤ ~20s total. If the cap is hit without a flip we fall
+ * back to a calm "still processing" note (the webhook may just be slow,
+ * not broken). NO THEATER (DEC-029): we never render "Pro active"
+ * before the live tier actually flips.
+ */
+const POST_CHECKOUT_POLL_DELAYS_MS = [1500, 2500, 4000, 6000, 6000];
+
 export default function BillingPage() {
   return (
     <Suspense fallback={<BillingFallback />}>
@@ -93,12 +110,41 @@ function BillingFallback() {
 }
 
 function BillingContent() {
-  const { data, isLoading, error } = useQuery<UsageResponse>({
+  const { data, isLoading, error, refetch } = useQuery<UsageResponse>({
     queryKey: ["billing", "usage"],
     queryFn: fetchTenantUsage,
   });
   const checkout = useCheckout();
   const portal = usePortal();
+
+  // Post-checkout tier auto-refresh. Stripe returns the buyer to
+  // `/billing?upgrade=ok`; the tier-flip webhook is async, so the tier
+  // we just fetched is usually still the pre-upgrade `free`. While that
+  // is true we re-poll the EXISTING usage query (same queryKey /
+  // fetchTenantUsage — no parallel fetch) with bounded backoff until it
+  // flips, then stop.
+  const params = useSearchParams();
+  const justUpgraded = params?.get("upgrade") === "ok";
+  const tierStillFree = !!data && data.tier === "free";
+  const [pollAttempts, setPollAttempts] = useState(0);
+  const isPolling =
+    justUpgraded &&
+    tierStillFree &&
+    pollAttempts < POST_CHECKOUT_POLL_DELAYS_MS.length;
+  const pollExhausted =
+    justUpgraded &&
+    tierStillFree &&
+    pollAttempts >= POST_CHECKOUT_POLL_DELAYS_MS.length;
+
+  useEffect(() => {
+    if (!isPolling) return;
+    const delay = POST_CHECKOUT_POLL_DELAYS_MS[pollAttempts];
+    const timer = setTimeout(() => {
+      void refetch();
+      setPollAttempts((n) => n + 1);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [isPolling, pollAttempts, refetch]);
 
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -135,6 +181,24 @@ function BillingContent() {
 
       <section>
         <h2 className="text-lg font-semibold tracking-tight">Plans</h2>
+        {isPolling && (
+          <p
+            role="status"
+            className="mt-2 text-sm text-[var(--muted-foreground)]"
+          >
+            Processing your upgrade… your new plan will appear here in a
+            moment.
+          </p>
+        )}
+        {pollExhausted && (
+          <p
+            role="status"
+            className="mt-2 text-sm text-[var(--muted-foreground)]"
+          >
+            Still processing. Your upgrade is on its way. Refresh in a
+            moment if your new plan isn’t shown yet.
+          </p>
+        )}
         <div className="mt-3 grid gap-4 sm:grid-cols-3">
           {PLANS.map((plan) => (
             <PlanCard
