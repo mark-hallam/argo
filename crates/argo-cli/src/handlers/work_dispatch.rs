@@ -9,22 +9,30 @@
 //! stays well under the 80-LOC ceiling.
 
 use argo_memory::{MemoryEntry, MemoryStore};
-use argo_store::SessionStore;
+use argo_store::{SessionStore, WorkerId};
 use argo_types::{ArgoResult, TenantId, WorkspaceId};
 use chrono::Utc;
 use std::sync::Arc;
 
-// 11 args is intentional: each is load-bearing (storage handles,
-// tenancy ids, vertical scope, provider config, the job, max
-// steps, max tool rounds, output mode). Bundling into a struct
-// would just push the same arity into the struct definition
-// without removing the coupling.
+// 12 args is intentional: each is load-bearing (storage handles,
+// tenancy ids, the optional owning worker, vertical scope, provider
+// config, the job, max steps, max tool rounds, output mode). Bundling
+// into a struct would just push the same arity into the struct
+// definition without removing the coupling.
+//
+// `worker_id` is the teammate that owns this run, when one exists. The
+// `argo work serve` queue path passes `None` (system-driven jobs); the
+// gateway "Run now" path passes `Some(worker.id)` so the session — and
+// therefore every turn audit row emitted under it — attributes to that
+// teammate instead of resolving to "unknown" in the audit feed
+// (fix-runnow-process-job-worker-attribution / e2e R2-F1).
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn process_job(
     store: &Arc<SessionStore>,
     memory: &MemoryStore,
     tenant: TenantId,
     workspace: WorkspaceId,
+    worker_id: Option<WorkerId>,
     vertical_id: &str,
     provider: &str,
     model: &str,
@@ -55,7 +63,7 @@ pub(crate) async fn process_job(
     }
 
     let session_id = p::create_session_with_bundle(
-        store, tenant, workspace, vertical_id, provider, model, job,
+        store, tenant, workspace, worker_id, vertical_id, provider, model, job,
     )
     .await?;
 

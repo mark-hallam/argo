@@ -224,6 +224,9 @@ async fn serve(
                     &memory,
                     tenant,
                     workspace,
+                    // System-driven queue job — no owning teammate to
+                    // stamp; gateway "Run now" is the worker-attributed path.
+                    None,
                     vertical_id,
                     provider,
                     model,

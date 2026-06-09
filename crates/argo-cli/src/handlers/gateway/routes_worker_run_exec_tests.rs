@@ -256,3 +256,41 @@ async fn run_happy_path_completes_with_real_fields() {
     // path() kept alive via `env`; touch it so the field isn't dead.
     assert!(env.path().exists());
 }
+
+/// (c) Worker attribution (e2e R2-F1): a worker-run turn stamps the
+/// run's worker onto the session row. The audit feed resolves a turn
+/// row's `worker` from `session.worker_id` (the agent runner copies it
+/// onto every `turn_start`/`tool_call`/`tool_result`/`turn_end` it
+/// emits), so a NULL here is exactly what made a hired worker's live
+/// work show as `worker: {"id":"","name":"unknown"}`. Pinning the
+/// stamped column proves the fix at the source.
+#[tokio::test]
+async fn run_stamps_worker_id_onto_session() {
+    let env = RunEnv::new().await;
+    env.set("ANTHROPIC_API_KEY", "test-key-present");
+    // Mock seam → the REAL `process_job` engine, no network LLM call.
+    env.set("ARGO_WORKER_RUN_PROVIDER", "mock");
+    env.chdir_tmp();
+
+    let store = mem_store().await;
+    let tenant = fresh_tenant_workspace(&store, &env.root()).await;
+    let worker = add_worker(&store, tenant, REAL_VERTICAL).await;
+
+    run_worker_now(&store, &worker, "Summarise today's open tickets.")
+        .await
+        .expect("no internal error")
+        .expect("a real turn should have run (not blocked)");
+
+    // Exactly one session ran; its `worker_id` BLOB must equal the run's
+    // worker. Without the fix this column is NULL → "unknown" in the feed.
+    let worker_blob: Vec<u8> = sqlx::query_scalar("SELECT worker_id FROM session LIMIT 1")
+        .fetch_one(store.pool())
+        .await
+        .expect("session worker_id should be stamped (not NULL)");
+    assert_eq!(
+        worker_blob,
+        worker.id.0.as_bytes().to_vec(),
+        "the worker-run session must attribute to the run's worker, not 'unknown'"
+    );
+    assert!(env.path().exists());
+}

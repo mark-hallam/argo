@@ -9,7 +9,7 @@ use crate::handlers::vertical::resolve_verticals_dir;
 use crate::handlers::work_artifacts::ArtifactOutput;
 use crate::handlers::work_steps::StepRunOutput;
 use argo_memory::{MemoryEntry, MemoryFile, MemoryStore};
-use argo_store::SessionStore;
+use argo_store::{SessionCreate, SessionStore, WorkerId};
 use argo_types::{ArgoError, ArgoResult, SessionId, TenantId, WorkspaceId};
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -36,10 +36,19 @@ pub(super) fn parse_job_body(job: &MemoryEntry) -> ArgoResult<(String, String)> 
 /// Open a fresh vertical-bound session and install the vertical's
 /// bundled skills (best-effort) so the worker sees the full catalog
 /// the vertical declares.
+///
+/// `worker_id` stamps the owning teammate onto the session row when a
+/// run is worker-driven (the gateway "Run now" path). Every turn audit
+/// row the agent runner emits under this session reads its attribution
+/// from `session.worker_id`, so passing it here is what makes a hired
+/// worker's live work resolve to that worker (not "unknown") in the
+/// audit feed. The `argo work serve` queue path passes `None`.
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn create_session_with_bundle(
     store: &Arc<SessionStore>,
     tenant: TenantId,
     workspace: WorkspaceId,
+    worker_id: Option<WorkerId>,
     vertical_id: &str,
     provider: &str,
     model: &str,
@@ -47,14 +56,15 @@ pub(super) async fn create_session_with_bundle(
 ) -> ArgoResult<SessionId> {
     let title = format!("work job {}", job.id);
     let session_id = store
-        .create_session(
-            tenant,
-            workspace,
+        .create_session_with_worker(SessionCreate {
+            tenant_id: tenant,
+            workspace_id: workspace,
             model,
             provider,
-            Some(&title),
-            Some(vertical_id),
-        )
+            title: Some(&title),
+            vertical_id: Some(vertical_id),
+            worker_id,
+        })
         .await
         .map_err(|e| ArgoError::Provider(format!("create_session: {e}")))?;
     let store_for_attach = Arc::clone(store);

@@ -172,12 +172,16 @@ pub(super) async fn run_worker_now(
         crate::handlers::work::append_pending_job(&memory, workspace, vertical_id, prompt).await?;
 
     // Run ONE real turn via the proven engine (NOT a parallel runner).
+    // Stamp the run with `worker.id` so the session — and every turn
+    // audit row emitted under it — attributes to THIS teammate instead
+    // of resolving to "unknown" in the audit feed (e2e R2-F1).
     let (provider, model) = resolve_run_provider();
     crate::handlers::work_dispatch::process_job(
         store,
         &memory,
         worker.tenant_id,
         workspace,
+        Some(worker.id),
         vertical_id,
         &provider,
         &model,
