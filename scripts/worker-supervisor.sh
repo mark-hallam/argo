@@ -105,21 +105,13 @@ wait_for_stop_to_clear() {
 # trivially recyclable (jetsam-style false-pause; 2026-05-26 fix).
 RAM_PRESSURE_THRESHOLD_MB="${RAM_PRESSURE_THRESHOLD_MB:-1024}"  # 1 GB default
 ram_under_pressure() {
-  local page_size free_pages spec_pages inact_pages purg_pages avail_mb
-  # Single vm_stat call; awk parses all fields we need.
-  eval "$(vm_stat | awk '
-    /page size of/      { print "page_size="$8 }
-    /Pages free/        { gsub(/\./,"",$3); print "free_pages="$3 }
-    /Pages speculative/ { gsub(/\./,"",$3); print "spec_pages="$3 }
-    /Pages inactive/    { gsub(/\./,"",$3); print "inact_pages="$3 }
-    /Pages purgeable/   { gsub(/\./,"",$3); print "purg_pages="$3 }
-  ')"
-  [ -z "$page_size" ] && return 1   # vm_stat unavailable → don't gate
-  [ -z "$free_pages" ] && return 1
-  [ -z "$spec_pages" ] && spec_pages=0
-  [ -z "$inact_pages" ] && inact_pages=0
-  [ -z "$purg_pages" ] && purg_pages=0
-  avail_mb=$(( (free_pages + spec_pages + inact_pages + purg_pages) * page_size / 1024 / 1024 ))
+  # Canonical measurement via scripts/free-ram-mb.sh — it parses the REAL page
+  # size (16384 on Apple Silicon, NOT the x86-assumed 4096), so this can never
+  # re-introduce the 4×-undercount a hand-rolled vm_stat reading is prone to.
+  # Fail-open: if RAM can't be measured, do NOT gate (return 1) — prior behavior.
+  local avail_mb
+  avail_mb=$(bash "$REPO/scripts/free-ram-mb.sh" 2>/dev/null) || return 1
+  [ -z "$avail_mb" ] && return 1
   [ "$avail_mb" -lt "$RAM_PRESSURE_THRESHOLD_MB" ]
 }
 
@@ -400,14 +392,7 @@ for slot in $(seq 1 "$N_SLOTS"); do
           1) ram_wait=900 ;;    # 15 min — second hit
           *) ram_wait=1800 ;;   # 30 min cap — sustained pressure
         esac
-        avail_mb=$(vm_stat | awk '
-          /page size of/      { ps=$8 }
-          /Pages free/        { gsub(/\./,"",$3); fp=$3 }
-          /Pages speculative/ { gsub(/\./,"",$3); sp=$3 }
-          /Pages inactive/    { gsub(/\./,"",$3); ip=$3 }
-          /Pages purgeable/   { gsub(/\./,"",$3); pp=$3 }
-          END { printf "%d", (fp+sp+ip+pp)*ps/1024/1024 }
-        ')
+        avail_mb=$(bash "$REPO/scripts/free-ram-mb.sh" 2>/dev/null || echo "?")
         echo "[$(date +%H:%M:%S)] slot-$slot: RAM-PRESSURE (avail ${avail_mb}MB < ${RAM_PRESSURE_THRESHOLD_MB}MB threshold), sleeping ${ram_wait}s before re-check" >&2
         # At step 3 (30 min cap), also append an alert to SHARED.md so the
         # operator sees sustained pressure in their heartbeat scan.

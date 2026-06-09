@@ -325,7 +325,7 @@ The full audit reports live in `docs/skycot/audit/`:
 3. The plist now launches `worker-supervisor.sh 2` (was 4) with `CARGO_BUILD_JOBS=4` env var to cap rustc parallelism
 
 **Memory-pressure safeguards now in place** (kick in automatically post-relight):
-- Supervisor refuses to spawn a new worker iteration when `vm_stat` free+speculative < 1 GB
+- Supervisor refuses to spawn a new worker iteration when available RAM < 1 GB, measured by the **canonical `scripts/free-ram-mb.sh`** (free+speculative+inactive+purgeable, parsing the REAL page size). **Conductor + any script: use `bash scripts/free-ram-mb.sh` for RAM checks — never hand-roll `vm_stat` awk.** The page size is **16384 bytes on Apple Silicon, not the x86-assumed 4096**; a hardcoded 4096 undercounts free RAM 4× and falsely reads "RAM-constrained" (this bit the conductor 2026-06-09 — deferred Rust-PR gates for hours at a phantom "64 MB" that was really ~256 MB with ~11 GB reclaimable). Root-fixed via the one canonical helper
 - Exponential backoff: 5 min → 15 min → 30 min cap on sustained pressure
 - At the 30-min cap, supervisor appends a `[supervisor-ram-pressure]` line to `docs/skycot/agents/SHARED.md` so the operator sees sustained pressure in the next conductor tick's handoff scan
 - Tunable via `RAM_PRESSURE_THRESHOLD_MB` env var (default 1024)
