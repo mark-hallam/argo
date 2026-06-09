@@ -6,11 +6,14 @@
 #
 # Demo-mode flags are baked at BUILD time (NEXT_PUBLIC_* are build-time in
 # Next). DEMO_MODE + DEMO_LIVE => the SPA fetches REAL seeded gateway data (no
-# mock, no dev-overlay). NEXT_PUBLIC_GATEWAY_URL intentionally stays the
-# canonical 127.0.0.1:7400 (the prebuild port-check enforces this) — the
-# browser uses SAME-ORIGIN relative paths that nginx routes to the gateway, so
-# this value is only the Next-proxy destination + the CSP entry, never a URL
-# the browser dials directly.
+# mock, no dev-overlay). The browser uses SAME-ORIGIN relative paths that nginx
+# routes to the loopback gateway, so NEXT_PUBLIC_GATEWAY_URL is only the
+# build-time CSP/Next-proxy origin, never a URL the browser dials cross-origin.
+# BUT: this image sets NODE_ENV=production, so the prebuild guard
+# (web/scripts/check-canonical-gateway-port.mjs) runs in --strict mode and
+# REQUIRES an HTTPS, non-localhost NEXT_PUBLIC_GATEWAY_URL (it rejects unset +
+# localhost). So default it to the gated-preview public origin; override via
+# --build-arg NEXT_PUBLIC_GATEWAY_URL=https://<your-domain> for a different host.
 
 # ---- builder ----
 FROM node:20-bookworm-slim AS builder
@@ -23,9 +26,11 @@ RUN pnpm install --frozen-lockfile
 COPY web/ ./
 ARG NEXT_PUBLIC_SKYCOT_DEMO_MODE=1
 ARG NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1
+ARG NEXT_PUBLIC_GATEWAY_URL=https://try.skycot.com
 ENV NODE_ENV=production \
     NEXT_PUBLIC_SKYCOT_DEMO_MODE=${NEXT_PUBLIC_SKYCOT_DEMO_MODE} \
-    NEXT_PUBLIC_SKYCOT_DEMO_LIVE=${NEXT_PUBLIC_SKYCOT_DEMO_LIVE}
+    NEXT_PUBLIC_SKYCOT_DEMO_LIVE=${NEXT_PUBLIC_SKYCOT_DEMO_LIVE} \
+    NEXT_PUBLIC_GATEWAY_URL=${NEXT_PUBLIC_GATEWAY_URL}
 RUN pnpm run build
 # REFINE-ON-DEPLOY (DEPLOYMENT.md #6): confirm the prod SPA renders the seeded
 # demo without a login wall. isAuthBypassed() is FALSE in a production build

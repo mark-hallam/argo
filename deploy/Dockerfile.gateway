@@ -17,7 +17,7 @@ WORKDIR /src
 # the release build links sqlcipher, add libsqlcipher-dev here + libsqlcipher
 # in the runtime stage.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+        pkg-config libssl-dev libdbus-1-dev && rm -rf /var/lib/apt/lists/*
 COPY . .
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 RUN cargo build --release --bin argo
