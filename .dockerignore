@@ -18,6 +18,11 @@ target/
 .cargo/
 deploy/docker/.env
 docs/
+# ...but argo-identity + argo-cli include_str! these doc data files at COMPILE
+# time, so they MUST remain in the build context (deploy fix 2026-06-09; the
+# negations follow the docs/ exclusion so they win, per .dockerignore ordering).
+!docs/skycot/pricing/v1-tiers.toml
+!docs/skycot/incidents/_template.md
 book/
 eval-actuals/
 .DS_Store
