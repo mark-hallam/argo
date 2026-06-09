@@ -11,6 +11,7 @@ import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
 import { InstallReceipt } from "./_InstallReceipt";
+import { GenesisDescribeCta } from "@/components/skycot/onboarding/pick-vertical/GenesisDescribeCta";
 
 interface InstallVerticalResponse {
   installed: boolean;
@@ -289,6 +290,7 @@ function PickVerticalFormBody() {
             Pick a template to continue &mdash; we install the skills and route you to step 5.
           </span>
         </div>
+        <GenesisDescribeCta />
         <ul className="ob-roles" data-testid="onboarding-vertical-grid">
           {cards.map((v) => {
             const isSelected = selected === v.id;
