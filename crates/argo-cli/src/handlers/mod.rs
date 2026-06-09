@@ -222,6 +222,7 @@ pub mod plugin;
 pub mod policy_handlers;
 pub mod provider;
 pub mod provider_cache_stats;
+pub mod provider_distillation_caller;
 pub mod recover;
 pub mod recover_cache;
 pub mod recover_prompt;
