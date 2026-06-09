@@ -82,3 +82,31 @@ describe("DocumentUploader image caption", () => {
     expect(ingestMock).not.toHaveBeenCalled();
   });
 });
+
+describe("DocumentUploader wiki / Notion / Confluence URL import", () => {
+  it("branded source chip + Add link POSTs format:wiki_url through the existing ingest path", async () => {
+    ingestMock.mockResolvedValue({
+      results: [{ filename: "https://acme.notion.site/handbook", status: "ingested", chunks: 3 }],
+      ingested: 1,
+      rejected: 0,
+      labels: ["https://acme.notion.site/handbook"],
+      namespace: "onboarding_documents:acme",
+    });
+    render(<DocumentUploader verticalId="genesis-x" />);
+
+    // Pick the Notion source chip — it only re-points the one URL input.
+    fireEvent.click(screen.getByTestId("genesis-import-source-notion"));
+    const input = screen.getByTestId("genesis-url-input") as HTMLInputElement;
+    expect(input.placeholder).toMatch(/Notion page URL/i);
+
+    fireEvent.change(input, { target: { value: "https://acme.notion.site/handbook" } });
+    fireEvent.click(screen.getByTestId("genesis-url-add"));
+
+    await waitFor(() => expect(ingestMock).toHaveBeenCalled());
+    const [verticalId, docs] = ingestMock.mock.calls[0];
+    expect(verticalId).toBe("genesis-x");
+    expect(docs).toHaveLength(1);
+    expect(docs[0].format).toBe("wiki_url");
+    expect(docs[0].content).toBe("https://acme.notion.site/handbook");
+  });
+});

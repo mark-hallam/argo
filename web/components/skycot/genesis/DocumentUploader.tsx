@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { CheckCircle2, FileText, Link2, Loader2, UploadCloud, XCircle } from "lucide-react";
+import { CheckCircle2, FileText, Loader2, UploadCloud, XCircle } from "lucide-react";
 import {
   ingestOnboardingDocuments,
   readFileForIngest,
@@ -15,6 +15,7 @@ import {
   type OnboardingDocInput,
 } from "@/lib/api/genesis-ingest";
 import { ImageCaptionStage, type ImageCaptionStageHandle } from "./ImageCaptionStage";
+import { WikiImportSources } from "./WikiImportSources";
 
 /** Whether a picked file is an image (mirrors `readFileForIngest`). Images
  *  route through the caption-staging row first — a captionless image is rejected. */
@@ -76,7 +77,6 @@ export function DocumentUploader({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [url, setUrl] = useState("");
 
   const blocked = disabled || busy || !verticalId;
 
@@ -165,21 +165,28 @@ export function DocumentUploader({
     [submitDocs],
   );
 
-  const ingestUrl = useCallback(async () => {
-    setError(null);
-    if (!verticalId) {
-      setError("Describe the role first — then add a wiki link.");
-      return;
-    }
-    const trimmed = url.trim();
-    if (!trimmed) return;
-    if (!/^https?:\/\//i.test(trimmed)) {
-      setError("Enter a full http(s) link to a wiki or docs page.");
-      return;
-    }
-    setUrl("");
-    await submitDocs([wikiUrlDoc(trimmed)]);
-  }, [verticalId, url, submitDocs]);
+  // Submit a pasted URL through the existing `wiki_url` ingest path. Returns
+  // true when accepted (so `WikiImportSources` clears its input), false when
+  // validation rejected it. Source chips only adjust the input's guidance copy;
+  // every source funnels into this one `format:"wiki_url"` POST.
+  const ingestUrl = useCallback(
+    async (raw: string): Promise<boolean> => {
+      setError(null);
+      if (!verticalId) {
+        setError("Describe the role first — then add a wiki link.");
+        return false;
+      }
+      const trimmed = raw.trim();
+      if (!trimmed) return false;
+      if (!/^https?:\/\//i.test(trimmed)) {
+        setError("Enter a full http(s) link to a wiki or docs page.");
+        return false;
+      }
+      await submitDocs([wikiUrlDoc(trimmed)]);
+      return true;
+    },
+    [verticalId, submitDocs],
+  );
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -307,50 +314,6 @@ export function DocumentUploader({
           font-size: 12.5px;
           font-weight: 600;
         }
-        .doc-url {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-top: 12px;
-        }
-        .doc-url-input {
-          flex: 1;
-          padding: 9px 12px 9px 34px;
-          border-radius: 12px;
-          border: 1px solid color-mix(in srgb, var(--brand-ink) 14%, transparent);
-          font-size: 13px;
-          font-family: var(--font-sans);
-          color: var(--brand-ink);
-          background:
-            no-repeat 11px center;
-        }
-        .doc-url-wrap {
-          position: relative;
-          flex: 1;
-          display: flex;
-          align-items: center;
-        }
-        .doc-url-icon {
-          position: absolute;
-          left: 10px;
-          color: var(--brand-primary);
-          pointer-events: none;
-        }
-        .doc-url-btn {
-          padding: 9px 16px;
-          border-radius: 12px;
-          border: none;
-          font-size: 13px;
-          font-weight: 700;
-          color: #fff;
-          cursor: pointer;
-          background: linear-gradient(90deg, var(--brand-primary), var(--brand-pink));
-          transition: opacity 0.15s ease;
-        }
-        .doc-url-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
         .spin {
           animation: doc-spin 0.9s linear infinite;
         }
@@ -404,37 +367,7 @@ export function DocumentUploader({
         </span>
       </div>
 
-      <div className="doc-url" data-testid="genesis-url-intake">
-        <span className="doc-url-wrap">
-          <Link2 size={15} className="doc-url-icon" aria-hidden />
-          <input
-            className="doc-url-input"
-            type="url"
-            inputMode="url"
-            placeholder="…or paste a wiki / docs URL"
-            aria-label="Wiki or docs URL"
-            data-testid="genesis-url-input"
-            value={url}
-            disabled={blocked}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void ingestUrl();
-              }
-            }}
-          />
-        </span>
-        <button
-          type="button"
-          className="doc-url-btn"
-          data-testid="genesis-url-add"
-          disabled={blocked || url.trim().length === 0}
-          onClick={() => void ingestUrl()}
-        >
-          Add link
-        </button>
-      </div>
+      <WikiImportSources disabled={blocked} onAddLink={ingestUrl} />
 
       <ImageCaptionStage
         ref={stageRef}
