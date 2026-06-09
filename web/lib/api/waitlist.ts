@@ -1,26 +1,19 @@
 /**
  * Waitlist (early-access) signup API client.
  *
- * ⚠️ BACKEND FOLLOW-UP REQUIRED — the gateway route this posts to,
- * `POST /api/v1/waitlist`, DOES NOT EXIST YET. There is currently no
- * `routes_waitlist*.rs` handler in `crates/argo-cli/src/handlers/gateway/`.
- * Until that handler ships, every call here will resolve to a 404 (or a
- * network error in a static export) and `joinWaitlist` surfaces that as a
- * thrown `ApiError`. The landing-page form deliberately does NOT fake a
- * success state on failure — per the NO-THEATER rule (DEC-007), a draft
- * marketing surface must not pretend a submission landed when no backend
- * recorded it.
+ * The gateway route this posts to, `POST /api/v1/waitlist`, is LIVE
+ * (`crates/argo-cli/src/handlers/gateway/routes_waitlist.rs`, mounted in
+ * `routes.rs` ahead of the bearer-auth gate). It is public/anonymous-safe:
+ * the email is validated, run through the shared per-IP signup rate-limiter
+ * and honeypot guard, then inserted into the `waitlist_signups` table
+ * (additive migration v88) with `ON CONFLICT(email) DO NOTHING`. Submitting
+ * an email returns an idempotent `202 { queued: true }`, so a duplicate
+ * re-submit is a no-op that still reports success. A non-2xx therefore means
+ * a genuine routing/deploy fault, not an expected "not built yet" state, and
+ * `joinWaitlist` surfaces it as a thrown `ApiError` rather than faking a
+ * success banner (NO-THEATER, DEC-007).
  *
- * Backend brief to author (separate PR):
- *   - `POST /api/v1/waitlist` { email, source?, referrer? } → 202 { queued: true }
- *   - Public/anonymous-safe: stricter rate-limit + bot/abuse guard than the
- *     authenticated surface (this route accepts unauthenticated traffic).
- *   - Persist to a `waitlist_signups` table (additive migration) or forward
- *     to the operator's email-capture provider.
- *   - Dedupe on email; idempotent re-submit returns 202.
- *
- * Wire-shape is intentionally minimal so the Rust handler can match it
- * without renaming fields when it lands.
+ * Wire-shape is minimal and matches the Rust handler's fields directly.
  */
 
 import { apiPost } from "@/lib/api/client";
@@ -46,10 +39,9 @@ export function isValidEmail(value: string): boolean {
 /**
  * Submit an email to the early-access waitlist.
  *
- * Throws `ApiError` on any non-2xx (including the 404 that the
- * not-yet-built backend currently returns) so the form can show a real
- * error instead of a fabricated success. When the backend lands, a 202
- * `{ queued: true }` resolves normally.
+ * Resolves `{ queued: true }` on the live route's `202` (both an explicit
+ * `{ queued: true }` body and an empty `202` body). Throws `ApiError` on any
+ * non-2xx so the form can show a real error instead of a fabricated success.
  */
 export async function joinWaitlist(
   req: WaitlistSignupRequest,

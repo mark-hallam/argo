@@ -31,7 +31,7 @@ describe("lib/api/waitlist — joinWaitlist", () => {
     expect(apiPostMock).not.toHaveBeenCalled();
   });
 
-  it("posts a trimmed email + source to /api/v1/waitlist", async () => {
+  it("posts a trimmed email + source to /api/v1/waitlist and resolves queued on a 202 { queued: true }", async () => {
     apiPostMock.mockResolvedValueOnce({ queued: true });
     const res = await joinWaitlist({ email: "  founder@acme.io ", source: "landing-hero" });
     expect(res.queued).toBe(true);
@@ -41,16 +41,25 @@ describe("lib/api/waitlist — joinWaitlist", () => {
     });
   });
 
-  it("propagates the backend 404 (route not built yet) as an ApiError — no fake success", async () => {
-    apiPostMock.mockRejectedValueOnce(new ApiError(404, "Not Found"));
-    await expect(joinWaitlist({ email: "founder@acme.io" })).rejects.toMatchObject({
-      status: 404,
+  it("defaults the source to 'landing' when none is supplied", async () => {
+    apiPostMock.mockResolvedValueOnce({ queued: true });
+    await joinWaitlist({ email: "founder@acme.io" });
+    expect(apiPostMock).toHaveBeenCalledWith("/api/v1/waitlist", {
+      email: "founder@acme.io",
+      source: "landing",
     });
   });
 
-  it("treats a 2xx with an empty/odd body as queued", async () => {
+  it("treats a live 202 with an empty body as queued", async () => {
     apiPostMock.mockResolvedValueOnce(undefined);
     const res = await joinWaitlist({ email: "founder@acme.io" });
     expect(res.queued).toBe(true);
+  });
+
+  it("surfaces a non-2xx from the live route as a thrown ApiError — no fake success", async () => {
+    apiPostMock.mockRejectedValueOnce(new ApiError(500, "Internal Server Error"));
+    await expect(joinWaitlist({ email: "founder@acme.io" })).rejects.toMatchObject({
+      status: 500,
+    });
   });
 });

@@ -8,17 +8,15 @@ import { ApiError } from "@/lib/api/types";
 /**
  * Early-access waitlist email-capture form for the public `/landing` page.
  *
- * ⚠️ DRAFT — BACKEND PENDING. The `POST /api/v1/waitlist` route does not
- * exist yet (see `web/lib/api/waitlist.ts` header). This form is UI-complete
- * and validates the email client-side, but on submit it will hit a 404 until
- * the backend lands. Per NO-THEATER (DEC-007) it does NOT fake a success
- * banner: a real 2xx shows the "you're on the list" state; any failure shows
- * a clearly-labeled error (and, for the expected 404/network case, a
- * "we're wiring this up" note) so a draft surface never pretends a signup
- * was recorded when no backend recorded it.
+ * Posts to the live `POST /api/v1/waitlist` route (see
+ * `web/lib/api/waitlist.ts` header). The email is validated client-side, then
+ * a real `2xx` shows the "you're on the list" state. Per NO-THEATER (DEC-007)
+ * the form never fakes a success banner: any non-2xx is a genuine
+ * routing/deploy fault and surfaces as a clearly-labeled, honest error — it is
+ * no longer treated as an expected "backend not built" state.
  *
  * `source` lets the same component distinguish the hero capture from the
- * final-CTA capture in the (future) backend's analytics.
+ * final-CTA capture in the backend's analytics.
  */
 
 type Phase = "idle" | "submitting" | "queued" | "error";
@@ -34,10 +32,6 @@ export function WaitlistForm({ source = "landing", size = "lg" }: WaitlistFormPr
   const [email, setEmail] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  // Distinguishes "the backend isn't wired yet" (expected on this draft)
-  // from a genuine validation/server error, so the copy can be honest
-  // about which one happened.
-  const [backendPending, setBackendPending] = useState(false);
 
   const submit = useCallback(
     async (e: React.FormEvent) => {
@@ -46,37 +40,23 @@ export function WaitlistForm({ source = "landing", size = "lg" }: WaitlistFormPr
       const trimmed = email.trim();
       if (!isValidEmail(trimmed)) {
         setPhase("error");
-        setBackendPending(false);
         setErrorMsg("Enter a valid email address.");
         return;
       }
       setPhase("submitting");
       setErrorMsg(null);
-      setBackendPending(false);
       try {
         await joinWaitlist({ email: trimmed, source });
         setPhase("queued");
       } catch (err) {
+        // The route is live, so any failure is a genuine routing/server
+        // fault — surface it honestly, never a "backend not built" excuse.
         setPhase("error");
-        // A 404 (route not built) or a network/transport failure is the
-        // EXPECTED state for this draft — surface it honestly rather than
-        // claiming success.
-        const is404 = err instanceof ApiError && err.status === 404;
-        const isNetwork =
-          !(err instanceof ApiError) ||
-          (err instanceof ApiError && err.status >= 500);
-        if (is404 || isNetwork) {
-          setBackendPending(true);
-          setErrorMsg(
-            "Waitlist capture isn't connected yet — this is a draft surface. Your email was NOT saved.",
-          );
-        } else {
-          setErrorMsg(
-            err instanceof ApiError && err.message
-              ? err.message
-              : "Something went wrong. Please try again.",
-          );
-        }
+        setErrorMsg(
+          err instanceof ApiError && err.message
+            ? err.message
+            : "Something went wrong. Please try again.",
+        );
       }
     },
     [email, phase, source],
@@ -138,7 +118,7 @@ export function WaitlistForm({ source = "landing", size = "lg" }: WaitlistFormPr
       </div>
       {phase === "error" && errorMsg ? (
         <p
-          className={`wl-msg ${backendPending ? "wl-msg-pending" : "wl-msg-error"}`}
+          className="wl-msg wl-msg-error"
           role="alert"
           data-testid="waitlist-error"
         >
