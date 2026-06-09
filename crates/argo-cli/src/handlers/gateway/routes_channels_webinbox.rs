@@ -6,8 +6,8 @@
 //! file.
 
 use super::routes_channels::{
-    bad_request, header_value, hmac_secret, percent_decode, server_error, settle, unauthorized,
-    verify_token, Decision,
+    bad_request, header_value, hmac_secret, not_configured, percent_decode, server_error, settle,
+    unauthorized, verify_token, Decision,
 };
 use super::routes_channels_email::token_from_url;
 use crate::handlers::worker_actions::ActionState;
@@ -120,7 +120,7 @@ async fn inbox_decide(
     };
     let secret = match hmac_secret() {
         Ok(s) => s,
-        Err(e) => return server_error(&e),
+        Err(_) => return not_configured(),
     };
     let claims = match verify_token(&token, &secret) {
         Ok(c) if c.approval_id == approval_id && c.decision == decision => c,

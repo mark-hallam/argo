@@ -131,6 +131,13 @@ pub(super) async fn decide_response(
         Some(s) => s,
         None => return super::store_unavailable(),
     };
+    // A malformed (non-UUID) bundle id must 404 like any unknown bundle —
+    // never 500 with the internal `bundle id parse: ...` string leaked from
+    // the store layer (e2e R3-F3/R1-F1). A well-formed-unknown UUID already
+    // 404s below via `get_bundle`.
+    if uuid::Uuid::parse_str(bundle_id).is_err() {
+        return not_found(bundle_id);
+    }
     let body = body_from_request(req);
     let parsed: Value = match serde_json::from_str(body) {
         Ok(v) => v,

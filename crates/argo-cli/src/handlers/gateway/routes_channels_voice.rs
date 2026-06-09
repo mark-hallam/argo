@@ -8,7 +8,8 @@ use argo_types::{ArgoError, ArgoResult, WorkspaceId};
 use serde_json::json;
 
 use super::routes_channels::{
-    bad_request, header_value, hmac_secret, percent_decode, server_error, unauthorized,
+    bad_request, header_value, hmac_secret, not_configured, percent_decode, server_error,
+    unauthorized,
 };
 use super::routes_voice_auth::{
     public_url_for_signature, verify_twilio_signature, verify_voice_token, voice_token,
@@ -30,7 +31,7 @@ pub(super) fn is_voice_webhook(req: &str) -> bool {
 pub(super) async fn voice_webhook_response(req: &str) -> (&'static str, String) {
     let auth_token = match twilio_auth_token() {
         Ok(s) => s,
-        Err(e) => return server_error(&e),
+        Err(_) => return not_configured(),
     };
     let Some(sig) = header_value(req, "X-Twilio-Signature") else {
         return unauthorized("missing X-Twilio-Signature");
@@ -42,7 +43,7 @@ pub(super) async fn voice_webhook_response(req: &str) -> (&'static str, String) 
     }
     let secret = match hmac_secret() {
         Ok(s) => s,
-        Err(e) => return server_error(&e),
+        Err(_) => return not_configured(),
     };
     let Some(token) = voice_token(req, &params) else {
         return bad_request("missing voice callback token");

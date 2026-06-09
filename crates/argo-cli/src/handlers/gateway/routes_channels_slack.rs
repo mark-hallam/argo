@@ -13,8 +13,8 @@
 //! round-50 carry-forward of PR #2257).
 
 use super::routes_channels::{
-    bad_request, constant_time_eq, header_value, hmac_hex, hmac_secret, percent_decode,
-    server_error, settle, unauthorized, verify_token,
+    bad_request, constant_time_eq, header_value, hmac_hex, hmac_secret, not_configured,
+    percent_decode, server_error, settle, unauthorized, verify_token,
 };
 use argo_audit::{AuditKind, AuditSink};
 use serde_json::Value;
@@ -29,11 +29,11 @@ pub(super) async fn slack_webhook_response(req: &str) -> (&'static str, String) 
     // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
     let Ok(signing_secret) = argo_config::cred::get_unscoped("SLACK_APPROVALS_SIGNING_SECRET")
     else {
-        return server_error("missing SLACK_APPROVALS_SIGNING_SECRET");
+        return not_configured();
     };
     let secret = match hmac_secret() {
         Ok(s) => s,
-        Err(e) => return server_error(&e),
+        Err(_) => return not_configured(),
     };
     let body = super::body_from_request(req);
     let Some(sig) = header_value(req, "X-Slack-Signature") else {

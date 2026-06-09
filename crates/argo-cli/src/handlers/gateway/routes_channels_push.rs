@@ -6,8 +6,8 @@
 //! settle/HMAC/helpers live in the parent file.
 
 use super::routes_channels::{
-    bad_request, hmac_secret, percent_decode, server_error, settle, unauthorized, verify_token,
-    Decision,
+    bad_request, hmac_secret, not_configured, percent_decode, server_error, settle, unauthorized,
+    verify_token, Decision,
 };
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -45,7 +45,7 @@ pub(super) async fn push_response(req: &str) -> (&'static str, String) {
     };
     let secret = match hmac_secret() {
         Ok(s) => s,
-        Err(e) => return server_error(&e),
+        Err(_) => return not_configured(),
     };
     let mut claims = match verify_token(&token, &secret) {
         Ok(c) => c,

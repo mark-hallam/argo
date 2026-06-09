@@ -99,6 +99,8 @@ mod routes_channels_sms;
 mod routes_channels_voice;
 mod routes_channels_webinbox;
 mod routes_channels_whatsapp;
+#[cfg(test)]
+mod routes_channels_error_hygiene_tests;
 mod routes_cohorts;
 mod routes_costs_by_day;
 mod routes_counts;

@@ -196,3 +196,25 @@ async fn decide_allows_same_tenant_bundle() {
         "same-tenant decide must flip the bundle to approved"
     );
 }
+
+#[tokio::test]
+async fn decide_malformed_id_404s_without_leaking_parse_error() {
+    // A non-UUID bundle id previously reached the store's id parser and
+    // surfaced its internal `bundle id parse: invalid character ...` string
+    // with a 500 (e2e R3-F3/R1-F1). It must now 404 like any unknown
+    // bundle, with no parse-internals leaked.
+    let (store, tenant_a, _tenant_b) = store_with_two_tenants().await;
+    let req = decide_req("not-a-uuid", tenant_a);
+    let (status, body) = decide_response("not-a-uuid", &req, Some(&store)).await;
+
+    assert_eq!(status, "404 Not Found", "malformed bundle id must 404");
+    assert!(body.contains("bundle_not_found"), "body: {body}");
+    assert!(
+        !body.contains("bundle id parse"),
+        "must not leak the store's parse-error string: {body}"
+    );
+    assert!(
+        !body.contains("invalid character"),
+        "must not leak parse internals: {body}"
+    );
+}

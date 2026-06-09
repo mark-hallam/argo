@@ -9,8 +9,8 @@
 //! switching providers is a follow-up brief.
 
 use super::routes_channels::{
-    bad_request, constant_time_eq, header_value, hmac_hex, hmac_secret, server_error, settle,
-    unauthorized, verify_token,
+    bad_request, constant_time_eq, header_value, hmac_hex, hmac_secret, not_configured,
+    server_error, settle, unauthorized, verify_token,
 };
 use serde_json::Value;
 
@@ -28,7 +28,7 @@ pub(super) async fn imessage_webhook_response(req: &str) -> (&'static str, Strin
     };
     let approval_secret = match hmac_secret() {
         Ok(s) => s,
-        Err(e) => return server_error(&e),
+        Err(_) => return not_configured(),
     };
     let body = super::body_from_request(req);
     let Some(sig) = header_value(req, SIGNATURE_HEADER) else {

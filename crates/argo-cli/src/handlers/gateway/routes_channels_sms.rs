@@ -9,8 +9,8 @@ use base64::Engine as _;
 use sha1::{Digest, Sha1};
 
 use super::routes_channels::{
-    bad_request, clean_token, constant_time_eq, header_value, hmac_secret, percent_decode,
-    server_error, settle, unauthorized, verify_token, Decision, TokenClaims,
+    bad_request, clean_token, constant_time_eq, header_value, hmac_secret, not_configured,
+    percent_decode, server_error, settle, unauthorized, verify_token, Decision, TokenClaims,
 };
 
 struct SmsReply {
@@ -32,7 +32,7 @@ pub(super) fn is_sms_webhook(req: &str) -> bool {
 pub(super) async fn sms_webhook_response(req: &str) -> (&'static str, String) {
     let auth_token = match twilio_auth_token() {
         Ok(s) => s,
-        Err(e) => return server_error(&e),
+        Err(_) => return not_configured(),
     };
     let params = match verified_form_params(req, &auth_token) {
         Ok(params) => params,
@@ -40,7 +40,7 @@ pub(super) async fn sms_webhook_response(req: &str) -> (&'static str, String) {
     };
     let secret = match hmac_secret() {
         Ok(s) => s,
-        Err(e) => return server_error(&e),
+        Err(_) => return not_configured(),
     };
     let reply = match parse_sms_reply(&params, &secret) {
         Ok(reply) => reply,

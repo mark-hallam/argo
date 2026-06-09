@@ -440,3 +440,14 @@ pub(super) fn server_error(msg: &str) -> (&'static str, String) {
         format!("{{\"error\":\"{msg}\"}}"),
     )
 }
+/// A missing/empty server-side channel secret is a config-absence, not a
+/// request fault: an unauthenticated caller must NOT receive a `500` that
+/// names the unset env var (wrong status class + minor info-disclosure,
+/// e2e R3-F3/R1-F1). Map it to a generic `503` instead — the message is
+/// deliberately fixed so no caller can accidentally echo a secret's name.
+pub(super) fn not_configured() -> (&'static str, String) {
+    (
+        "503 Service Unavailable",
+        "{\"error\":\"channel approvals not configured\"}".to_string(),
+    )
+}

@@ -7,7 +7,7 @@
 
 use super::routes_channels::{
     bad_request, clean_token, constant_time_eq, header_value, hmac_hex, hmac_secret,
-    percent_decode, server_error, settle, unauthorized, verify_token, Decision,
+    not_configured, percent_decode, server_error, settle, unauthorized, verify_token, Decision,
 };
 use argo_channels::email::{classify_postmark_record, inbound_event_from_payload, PostmarkRecord};
 use argo_channels::token::ApprovalDecision;
@@ -17,7 +17,7 @@ use serde_json::{json, Value};
 pub(super) async fn handle_email_webhook(req: &str) -> (&'static str, String) {
     let secret = match hmac_secret() {
         Ok(s) => s,
-        Err(e) => return server_error(&e),
+        Err(_) => return not_configured(),
     };
     let body = super::body_from_request(req);
     let Some(sig) = header_value(req, "X-Postmark-Signature") else {

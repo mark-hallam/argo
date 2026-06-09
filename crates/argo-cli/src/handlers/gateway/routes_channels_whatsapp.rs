@@ -7,8 +7,8 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 
 use super::routes_channels::{
-    bad_request, clean_token, constant_time_eq, header_value, hmac_secret, percent_decode,
-    server_error, settle, unauthorized, verify_token, Decision,
+    bad_request, clean_token, constant_time_eq, header_value, hmac_secret, not_configured,
+    percent_decode, server_error, settle, unauthorized, verify_token, Decision,
 };
 
 pub(super) fn is_whatsapp_webhook(req: &str) -> bool {
@@ -19,7 +19,7 @@ pub(super) fn is_whatsapp_webhook(req: &str) -> bool {
 pub(super) async fn whatsapp_webhook_response(req: &str) -> (&'static str, String) {
     let auth_token = match twilio_auth_token() {
         Ok(s) => s,
-        Err(e) => return server_error(&e),
+        Err(_) => return not_configured(),
     };
     let Some(sig) = header_value(req, "X-Twilio-Signature") else {
         return unauthorized("missing X-Twilio-Signature");
@@ -31,7 +31,7 @@ pub(super) async fn whatsapp_webhook_response(req: &str) -> (&'static str, Strin
     }
     let secret = match hmac_secret() {
         Ok(s) => s,
-        Err(e) => return server_error(&e),
+        Err(_) => return not_configured(),
     };
     let Some(body) = form_param(&params, "Body") else {
         return bad_request("missing WhatsApp Body");
