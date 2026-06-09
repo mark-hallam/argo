@@ -3,19 +3,26 @@
 import { useCallback } from "react";
 import { AlertCircle } from "lucide-react";
 import { useWorker } from "@/lib/hooks/use-worker";
-import { useWorkerOverview } from "@/lib/hooks/use-worker-overview";
+import { useWorkerSchedules } from "@/lib/hooks/use-worker-schedules";
 import { DutiesCard, DutiesCardSkeleton } from "@/components/skycot/worker/DutiesCard";
+import { findSampleWorkerOverview } from "@/lib/sample-worker-overview";
+import type { WorkerDuty } from "@/lib/api/worker-overview";
 import {
   DEFAULT_DELEGATOR_PERMISSIONS,
   type WorkerPermissions,
 } from "@/lib/types/worker";
 
 /**
- * Body of the Schedules tab. Reuses the existing `DutiesCard` so the
- * tab is data-equivalent to the overview's duty list — the
- * tab-strip / route addition is the structural fix; the card itself
- * is unchanged. Lives outside the route file so unit tests can mount
- * it directly with a plain `workerId` string.
+ * Body of the Schedules tab. Renders the worker's REAL persisted
+ * schedules via the live `listDuties` reader (#2742) rather than the
+ * overview's fabricated `duties` array — this closes the NO-THEATER
+ * Schedules-tab sample-data leak (DEC-007 / DEC-029).
+ *
+ * The bundled sample duties are passed as the anonymous-dev `fallback`
+ * only; `listDuties`' own gate (`mockFallbackAllowed` = `!hasRealSession()`)
+ * means a signed-in / demo-live operator NEVER sees fixtures — a gateway
+ * 404 / malformed body surfaces an honest error, and an empty rule set
+ * renders the honest empty state (`DutiesCard` shows "No schedules yet.").
  *
  * Toggle + body-click stay inert (`canToggleDuty={false}`) until the
  * duty PATCH endpoint lands, matching `WorkerOverviewContent` — see
@@ -23,23 +30,31 @@ import {
  */
 export function WorkerSchedulesContent({ workerId }: { workerId: string }) {
   const workerQuery = useWorker(workerId);
-  const overviewQuery = useWorkerOverview(workerId);
+
+  // Anonymous-dev fallback: the bundled sample duties for this worker,
+  // byte-identical to what the Overview tab rendered pre-wire. A real
+  // session / demo-live never reaches this (listDuties' NO-THEATER gate).
+  const sampleFallback = useCallback(
+    (): WorkerDuty[] => findSampleWorkerOverview(workerId)?.duties ?? [],
+    [workerId],
+  );
+
+  const schedulesQuery = useWorkerSchedules(workerId, sampleFallback);
 
   const permissions: WorkerPermissions =
     workerQuery.data?.permissions ?? DEFAULT_DELEGATOR_PERMISSIONS;
-  const overview = overviewQuery.data?.overview;
-  const overviewError = overviewQuery.isError
-    ? (overviewQuery.error?.message ?? "Couldn't load this section.")
+  const schedulesError = schedulesQuery.isError
+    ? (schedulesQuery.error?.message ?? "Couldn't load this section.")
     : null;
   const retry = useCallback(() => {
-    overviewQuery.refetch();
-  }, [overviewQuery]);
+    schedulesQuery.refetch();
+  }, [schedulesQuery]);
 
   const onAddDuty = useCallback(() => {
     /* analytics seam — dialog mount happens inside DutiesCard */
   }, []);
 
-  if (overviewQuery.isPending) {
+  if (schedulesQuery.isPending) {
     return (
       <div
         role="tabpanel"
@@ -52,7 +67,7 @@ export function WorkerSchedulesContent({ workerId }: { workerId: string }) {
     );
   }
 
-  if (overviewQuery.isError || !overview) {
+  if (schedulesQuery.isError || !schedulesQuery.data) {
     return (
       <div
         role="tabpanel"
@@ -64,7 +79,7 @@ export function WorkerSchedulesContent({ workerId }: { workerId: string }) {
           <AlertCircle />
         </div>
         <p className="text-sm text-[var(--foreground)]">
-          {overviewError ?? "Couldn't load schedules."}
+          {schedulesError ?? "Couldn't load schedules."}
         </p>
         <button
           type="button"
@@ -85,7 +100,7 @@ export function WorkerSchedulesContent({ workerId }: { workerId: string }) {
       className="space-y-4"
     >
       <DutiesCard
-        duties={overview.duties}
+        duties={schedulesQuery.data.duties}
         canEdit={permissions.canEditDuties}
         canToggleDuty={false}
         workerId={workerId}
