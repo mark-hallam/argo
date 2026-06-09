@@ -28,14 +28,23 @@ retired.
 
 ---
 
-## ✅ READ FIRST — TWO DEPLOY-BLOCKERS found 2026-06-09, now FIXED IN-REPO by the conductor
+## ✅ READ FIRST — FOUR DEPLOY-BLOCKERS found + FIXED 2026-06-09; BOTH images now build VERIFIED GREEN
 
-**Both blockers below were reproduced by an actual `docker build` and then FIXED in-repo
-the same night** (`deploy/Dockerfile.web` + `deploy/Dockerfile.gateway`). So if you are
-building from current `main` you do **not** need to hand-patch anything — `docker compose
-build` should succeed. (Web fix build-verified by the conductor; gateway fix is the
-standard missing-system-lib add. If you are building from a checkout *before* the fix
-commit, apply the minimal changes documented below.)
+**The overnight conductor reproduced four real `docker build` failures (each exposed the
+next) and fixed all four in-repo, then VERIFIED both images build green** — `WEB_BUILD_PASS`
++ `GW_BUILD_PASS` on actual `docker build` runs on Mark's Mac. **From current `main`, you do
+NOT need to hand-patch anything.** The four (detail for items 1–2 below; 3–4 summarized):
+3. **Gateway — compile-time data files excluded.** `argo-identity`/`argo-cli` `include_str!`
+   `docs/skycot/pricing/v1-tiers.toml` + `docs/skycot/incidents/_template.md`, but
+   `.dockerignore` excluded all of `docs/`. Fixed with `.dockerignore` negations.
+4. **Gateway — link OOM.** The default release profile (`lto=fat`, `codegen-units=1`) needs
+   **>7.6 GB to LINK** the ~60-crate binary — more than Docker's memory cap and more than a
+   small instance. Fixed by overriding to `LTO=thin`/`codegen-units=16` for the deploy build
+   (a gated preview doesn't need max optimization). **⚠️ BUILD RAM:** even so, the build is
+   memory-heavy. Build on a machine with **≥6–8 GB RAM** (e.g. your Mac, or a `t4g.medium`+,
+   NOT a 2 GB `t4g.small`) — OR build the images once on the Mac and `docker push` / `docker
+   save | load` them onto the small run-instance. The 2 GB run-instance is fine for *running*
+   the prebuilt images; it is the *build* that needs the RAM.
 
 1. **Web image — missing build-arg.** `deploy/Dockerfile.web` runs `pnpm run build`,
    whose `prebuild` guard (`web/scripts/check-canonical-gateway-port.mjs`) FAILS a
