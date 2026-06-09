@@ -1,10 +1,10 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-29T00:30:00Z",
+  "last_run_utc": "2026-06-09T09:32:00Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "tick-T10-30-aest-INTERACTIVE-DEMO-RECORDING-PREP",
-  "run_notes": "INTERACTIVE conductor session 2026-05-28T03:00 - 2026-05-29T00:30Z (Melbourne 13:00 - 10:30 AEST). MILESTONES THIS SESSION: (1) All 5 MVP-DEMO P0 briefs MERGED — Genesis fetch CORS (#2622 + a8e0f5b22), worker-activity Path A (7e0ea312d), audit-detail tenant-scope (#2635), approvals tenant-scope (#2631), genesis-idempotency (#2630), plus #2634 ops-stash-pop-guard. 13 PRs merged this interactive session. (2) Re-walked all 6 demo scenes against new gateway build (build_commit 4e4e773): Scenes 1, 2, 4, 6 ✅ PASS; Scene 3 surfaced NEW P0 BLOCKER (SPA Genesis Try-again returns 503, curl-direct returns 200 with same headers — bug in second-POST-in-same-browser-session gateway dispatch); Scene 5 needs operator macOS computer-use verification. Authored brief streams/fix-spa-genesis-try-again-503-vs-curl-200.md, claimed within 5min by supervised slot-2 worker (currently reading routes_genesis_stream.rs + boot_router.rs + cors.rs — exactly the brief's hypothesis surfaces). (3) Triage swept 64 open PRs via 5 parallel agents: 10 STALE-FIXED + 2 BRIEF-DRIFT closed (12 total) with citation-grade rationale per close; 44 NEEDS-REBASE + 8 AMBIGUOUS left open for human decision. (4) Rebase swept 51 DIRTY PRs via 5 parallel agents: 0/51 auto-rebased — every conflict hits real business-logic surfaces (.tsx/.rs/.ts files in onboarding first-hire, settings, audit/approvals dashboards, worker-detail, demo runbook, gateway routes), no mechanical drift wins. Conservative rule did its job; all 51 left DIRTY for per-PR human judgment. (5) Operator + conductor agreed: defer the 51 PR cleanup until after v1.0 demo MP4 records; tonight's energy goes to closing Scene 3 Genesis bug + Scene 5 macOS verification + recording. REMAINING for v1.0 demo MP4: (a) Genesis Try-again worker ships PR (in-flight, agent-doable, ~30min-2h), (b) operator records demo MP4, (c) operator hands off the 9 ambiguous PR decisions tomorrow. Workers idle except Genesis brief. Monitor armed (bjzqk2397).",
-  "open_prs": 52,
+  "session_label": "crank-2026-06-09-INTERACTIVE-dec042-stage0-instrumentation",
+  "run_notes": "INTERACTIVE crank conductor tick 2026-06-09 (DEC-034 run-mode: I drive, no cron). VERIFIED THIS TURN: (1) swarm ALIVE \u2014 worker-supervisor PIDs + 3 claude-worker-loop.sh running, both /tmp/argo-stop and ~/.argo/stop ABSENT. (2) recent-conductor-commit short-circuit exit 0 (full tick). (3) drift sweep = 0 rows. (4) open PRs = 2: #2752 CLEAN/MERGEABLE (channel webhook error-hygiene, backend), #2751 DIRTY/CONFLICTING (worker-run attribution, needs rebase). (5) queue STARVED: 0 TODO / 1 zombie CLAIMED (line 704 rebase row) / 2 IN_REVIEW / 42 BLOCKED \u2014 below threshold 25, replenishment fired this tick. DELIVERED THIS TICK: DEC-042 Stage 0 (record + instrument, no behaviour change) \u2014 authored scripts/north-star-metrics.py (the Stage-0 checkable verifier), ran it (exit 0, metrics emit from real sources: 11 merged-PRs/day, 77/7d, 15/24h, drift 0), wired the north_star_metrics block into this heartbeat. Uninstrumented \u00a76 metrics emit as null with explicit reasons (NO THEATER, DEC-029) \u2014 they get real values in Stage 1 (B-2/B-3/B-4) + Stage 2 (P-1). NEXT: Stage 1 B-1 (shared-checkout ledger race fix) authored as top TODO this tick + launch-item briefs to refeed the swarm.",
+  "open_prs": 2,
   "queue_state": {
     "claude_todo": 0,
     "codex_todo": 0,
@@ -12,10 +12,58 @@
     "claude_claimed": 1,
     "codex_claimed": 0,
     "claude_or_codex_claimed": 0,
-    "claude_in_review": 52,
+    "claude_in_review": 2,
     "codex_in_review": 0,
-    "claude_or_codex_in_review": 0
+    "claude_or_codex_in_review": 0,
+    "blocked": 42
   },
-  "the_gate": "Demo-recording prep mode. 5 MVP-DEMO P0s MERGED + 4 of 6 scenes verified live. New Scene 3 blocker (Genesis Try-again 503) has worker in flight. 51 stale PRs deferred to post-demo cleanup. Next: Genesis worker PR + operator records demo MP4.",
-  "quota_probe": "skip"
+  "the_gate": "DEC-042 Stage 0 instrumentation shipped + verified (north-star metrics emit). Stage 1 (build-loop hardening B-1..B-4) is the next active frontier; B-1 (shared-checkout race) authored this tick. Queue refilled off zero. Launch items open: LAUNCH-1 SES live-send (operator creds), pitch past-conversations tenant-scope, localhost auth redirect, SPA session-JWT fail-closed.",
+  "quota_probe": "skip",
+  "north_star_metrics": {
+    "_schema": "dec042-north-star-v1",
+    "_doc": "docs/skycot/decisions/DEC-042-continuous-self-improvement-loop.md#6",
+    "generated_utc": "2026-06-09T09:32:57Z",
+    "build_loop": {
+      "merged_prs_per_day_7d": 11.0,
+      "merged_prs_last_7d": 77,
+      "merged_prs_last_24h": 15,
+      "open_prs": 2,
+      "drift_rows": 0,
+      "queue_depth": {
+        "todo": 0,
+        "claimed": 1,
+        "in_review": 2,
+        "blocked": 42
+      },
+      "pct_done_claims_pass_cold_reverify": null,
+      "mean_time_to_green_ci": null,
+      "defect_escape_rate": null,
+      "recurring_nit_count": null
+    },
+    "product_loop": {
+      "teammate_task_success_rate": null,
+      "skills_created_per_week": null,
+      "skills_adopted_per_week": null,
+      "approval_gate_catch_rate": null,
+      "audit_chain_integrity": null,
+      "time_to_first_useful_action": null
+    },
+    "_uninstrumented": {
+      "build_loop": {
+        "pct_done_claims_pass_cold_reverify": "B-2/B-4: needs a cold re-verify ledger (the NO-THEATER metric)",
+        "mean_time_to_green_ci": "needs per-PR CI-start\u2192green timestamps",
+        "defect_escape_rate": "needs a main-branch defect tracker (bugs that reached main)",
+        "recurring_nit_count": "B-3: needs the automated rule-capture tally"
+      },
+      "product_loop": {
+        "teammate_task_success_rate": "needs eval-harness graded-run rollup",
+        "skills_created_per_week": "P-1: real skill distillation not yet emitting",
+        "skills_adopted_per_week": "P-1: skill-adoption telemetry not yet wired",
+        "approval_gate_catch_rate": "needs held-vs-passed sensitive-action tally",
+        "audit_chain_integrity": "needs a chain-verify probe (hash-chain walk)",
+        "time_to_first_useful_action": "needs new-hire\u2192first-action timestamps"
+      }
+    },
+    "_emitted": true
+  }
 }
