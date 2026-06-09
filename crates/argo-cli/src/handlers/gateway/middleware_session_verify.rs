@@ -157,6 +157,30 @@ pub(super) fn decode_session_cookie(req: &str) -> DecodeOutcome {
     let Some(cookie_value) = extract_session_cookie(req) else {
         return DecodeOutcome::NoCookie;
     };
+    decode_session_token(&cookie_value)
+}
+
+/// Decode + verify-signature + check-exp for a session JWT presented as an
+/// `Authorization: Bearer <jwt>` header. The SPA's SERVER-SIDE proxy route
+/// handlers (Run-now, workflow-propose, …) forward the signed-in user's
+/// session JWT as a bearer — NOT the `__Host-session` cookie — because they
+/// read it out of the NextAuth session server-side. The bearer IS the same
+/// gateway-minted session JWT the cookie carries (`auth_magic_link::mint_jwt`
+/// / `demo_mode::mint_demo_session`; the web layer sets both `__Host-session`
+/// and `session.gatewayToken` to it). Letting tenant resolution honor it the
+/// same way it honors the cookie keeps those proxies on the caller's OWN
+/// tenant instead of the cwd/anonymous fallback (the WS1 cross-tenant hazard).
+/// `NoCookie` when there is no bearer.
+pub(super) fn decode_session_bearer(req: &str) -> DecodeOutcome {
+    let Some(token) = extract_bearer_token(req) else {
+        return DecodeOutcome::NoCookie;
+    };
+    decode_session_token(&token)
+}
+
+/// Shared HS256 decode for a raw session-JWT string — the cookie value OR a
+/// bearer token. Signature + `exp` only, no revocation check.
+fn decode_session_token(token: &str) -> DecodeOutcome {
     let secret = jwt_secret();
     if secret.is_empty() {
         // No secret configured — every signature check would fail
@@ -173,7 +197,7 @@ pub(super) fn decode_session_cookie(req: &str) -> DecodeOutcome {
     // forward-compat with future signer variants).
     validation.required_spec_claims.clear();
     validation.required_spec_claims.insert("exp".to_string());
-    match jsonwebtoken::decode::<VerifiedClaims>(&cookie_value, &key, &validation) {
+    match jsonwebtoken::decode::<VerifiedClaims>(token, &key, &validation) {
         Ok(data) => DecodeOutcome::Decoded(data.claims),
         Err(err) => match err.kind() {
             jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
@@ -182,6 +206,28 @@ pub(super) fn decode_session_cookie(req: &str) -> DecodeOutcome {
             _ => DecodeOutcome::Reject("session invalid"),
         },
     }
+}
+
+/// Parse the token out of an `Authorization: Bearer <token>` header.
+/// Header name is case-insensitive (RFC 7230); the `Bearer` scheme is
+/// matched case-insensitively too. Returns `None` when the header is
+/// absent, not a bearer, or carries an empty token.
+fn extract_bearer_token(req: &str) -> Option<String> {
+    let headers = req
+        .split_once("\r\n\r\n")
+        .map_or(req, |(headers, _body)| headers);
+    headers.lines().skip(1).find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        if !name.trim().eq_ignore_ascii_case("Authorization") {
+            return None;
+        }
+        let value = value.trim();
+        let token = value
+            .strip_prefix("Bearer ")
+            .or_else(|| value.strip_prefix("bearer "))?
+            .trim();
+        (!token.is_empty()).then(|| token.to_string())
+    })
 }
 
 /// Parse the `__Host-session` value out of the request's `Cookie:`

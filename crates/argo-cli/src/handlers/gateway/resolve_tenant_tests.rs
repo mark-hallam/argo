@@ -60,6 +60,10 @@ fn req_with_cookie(jwt: &str) -> String {
     format!("GET /api/v1/team HTTP/1.1\r\nHost: localhost\r\nCookie: __Host-session={jwt}\r\n\r\n")
 }
 
+fn req_with_bearer(jwt: &str) -> String {
+    format!("GET /api/v1/team HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {jwt}\r\n\r\n")
+}
+
 async fn fresh_store() -> SessionStore {
     let store = SessionStore::open(":memory:").await.expect("open store");
     store.migrate().await.expect("migrate");
@@ -247,6 +251,89 @@ async fn session_without_tnt_claim_falls_through() {
         .await
         .expect("cwd resolve");
     assert_eq!(resolved, cwd, "tnt-less cookie must use the cwd fallback");
+
+    std::env::remove_var("SKYCOT_AUTH_JWT_SECRET");
+}
+
+/// Bearer branch — a signed-in user's session JWT presented as an
+/// `Authorization: Bearer` (the form the SPA's server-side proxy route
+/// handlers forward — Run-now, workflow-propose) resolves to the user's
+/// OWN tenant, never the cwd/demo tenant. Without this the bearer-only
+/// proxies ran against the shared demo workspace (WS1 cross-tenant hazard).
+#[allow(clippy::await_holding_lock)]
+#[tokio::test]
+async fn bearer_session_resolves_to_user_tenant_not_cwd() {
+    let _g = env_guard();
+    std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
+
+    let store = fresh_store().await;
+    let tenant_a = provision(&store, "a@acme.test", "Acme A").await;
+    let cwd_tenant = resolve_tenant_for_request("GET /api/v1/team HTTP/1.1\r\n\r\n", &store)
+        .await
+        .expect("cwd resolve");
+
+    let jwt = mint_session(TEST_SECRET, Some(tenant_a.to_string()));
+    let resolved = resolve_tenant_for_request(&req_with_bearer(&jwt), &store)
+        .await
+        .expect("bearer resolve");
+    assert_eq!(resolved, tenant_a, "bearer session must resolve to A's tenant");
+    assert_ne!(resolved, cwd_tenant, "bearer must not fall back to the cwd tenant");
+
+    std::env::remove_var("SKYCOT_AUTH_JWT_SECRET");
+}
+
+/// Precedence — the cookie session wins over the bearer when both are
+/// present (the same user in practice; this pins the order so a future
+/// change can't silently flip it).
+#[allow(clippy::await_holding_lock)]
+#[tokio::test]
+async fn cookie_session_wins_over_bearer() {
+    let _g = env_guard();
+    std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
+
+    let store = fresh_store().await;
+    let tenant_a = provision(&store, "a@acme.test", "Acme A").await;
+    let tenant_b = provision(&store, "b@beta.test", "Beta B").await;
+
+    let cookie_jwt = mint_session(TEST_SECRET, Some(tenant_a.to_string()));
+    let bearer_jwt = mint_session(TEST_SECRET, Some(tenant_b.to_string()));
+    let req = format!(
+        "GET /api/v1/team HTTP/1.1\r\nHost: localhost\r\n\
+         Cookie: __Host-session={cookie_jwt}\r\nAuthorization: Bearer {bearer_jwt}\r\n\r\n"
+    );
+    let resolved = resolve_tenant_for_request(&req, &store)
+        .await
+        .expect("resolve");
+    assert_eq!(resolved, tenant_a, "cookie session must win over the bearer");
+
+    std::env::remove_var("SKYCOT_AUTH_JWT_SECRET");
+}
+
+/// The bearer session (like the cookie) wins over the explicit
+/// `X-Tenant-Id` override — a signed-in user proxied via the bearer cannot
+/// be redirected to another tenant by a stray header.
+#[allow(clippy::await_holding_lock)]
+#[tokio::test]
+async fn bearer_session_wins_over_explicit_header() {
+    let _g = env_guard();
+    std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
+
+    let store = fresh_store().await;
+    let tenant_a = provision(&store, "a@acme.test", "Acme A").await;
+    let tenant_b = provision(&store, "b@beta.test", "Beta B").await;
+
+    let bearer_jwt = mint_session(TEST_SECRET, Some(tenant_a.to_string()));
+    let req = format!(
+        "GET /api/v1/team HTTP/1.1\r\nHost: localhost\r\n\
+         Authorization: Bearer {bearer_jwt}\r\nX-Tenant-Id: {tenant_b}\r\n\r\n"
+    );
+    let resolved = resolve_tenant_for_request(&req, &store)
+        .await
+        .expect("resolve");
+    assert_eq!(
+        resolved, tenant_a,
+        "bearer session must win over header override"
+    );
 
     std::env::remove_var("SKYCOT_AUTH_JWT_SECRET");
 }
