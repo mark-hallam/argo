@@ -40,6 +40,44 @@ set -euo pipefail
 log()  { printf '%s\n' "$*"; }
 die()  { printf '❌ %s\n' "$*" >&2; exit 1; }
 
+# ---------- Stripe env plumbing (WS4 billing) ------------------------
+#
+# After $ARGO_HOME/env.local is sourced, surface the Stripe secrets the
+# live gateway's billing endpoints read at construction
+# (crates/argo-billing/src/stripe_client.rs:17,19,21 — STRIPE_SECRET_KEY,
+# STRIPE_WEBHOOK_SECRET, STRIPE_BASE_URL). Without this, POST
+# /api/v1/billing/{checkout,portal,webhook} cannot build a Stripe client
+# and 500s in the live process even after the operator pastes real keys.
+#
+# Values are OPERATOR-OWED secrets — this NEVER hardcodes or invents a
+# key. It only re-exports what env.local already set so the spawned
+# gateway inherits it. Present -> export. Absent -> one honest log line
+# and continue (no error, no exit) so billing fails-closed with a signal,
+# not silently. The two NEXT_PUBLIC_STRIPE_PRICE_* vars are build-time
+# SPA env; surfaced here only for env.local parity if present.
+plumb_stripe_env() {
+    local var val
+    # Required for live billing — endpoints fail-closed if unset.
+    for var in STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET; do
+        val="${!var:-}"
+        if [[ -n "$val" ]]; then
+            export "${var?}"
+            log "      $var present in env.local — exported for the gateway."
+        else
+            log "      $var not set in env.local — billing endpoints will fail-closed until set."
+        fi
+    done
+    # Optional (STRIPE_BASE_URL has a default in stripe_client.rs) + SPA
+    # build-time parity. Only export when present; silent when absent.
+    for var in STRIPE_BASE_URL NEXT_PUBLIC_STRIPE_PRICE_PRO NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE; do
+        val="${!var:-}"
+        if [[ -n "$val" ]]; then
+            export "${var?}"
+            log "      $var present in env.local — exported for the gateway."
+        fi
+    done
+}
+
 usage() {
     cat <<'EOF'
 Usage: restart-live-gateway.sh [--no-prompt] [--force] [--bootstrap-only]
@@ -169,6 +207,16 @@ bootstrap_env_local() {
             printf '%s\n' "# export ANTHROPIC_API_KEY='sk-ant-...'"
             printf '%s\n' "# export OPENAI_API_KEY='sk-...'"
         fi
+        printf '\n'
+        printf '%s\n' '# Stripe billing secrets (operator-owed). The live billing'
+        printf '%s\n' '# endpoints POST /api/v1/billing/{checkout,portal,webhook} read'
+        printf '%s\n' '# these at construction; without them they fail-closed (500).'
+        printf '%s\n' '# Paste your real keys and uncomment, then re-run with --force.'
+        printf '%s\n' "# export STRIPE_SECRET_KEY='sk_live_...'"
+        printf '%s\n' "# export STRIPE_WEBHOOK_SECRET='whsec_...'"
+        printf '%s\n' "# export STRIPE_BASE_URL='https://api.stripe.com'  # optional override"
+        printf '%s\n' "# export NEXT_PUBLIC_STRIPE_PRICE_PRO='price_...'         # SPA build-time parity"
+        printf '%s\n' "# export NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE='price_...'  # SPA build-time parity"
     } > "$ENV_LOCAL_FILE"
     chmod 600 "$ENV_LOCAL_FILE"
 
@@ -191,6 +239,27 @@ elif [[ -z "${SKYCOT_DB_KEY_BASE64:-}" ]]; then
     bootstrap_env_local
 else
     log "[0/8] No $ENV_LOCAL_FILE but SKYCOT_DB_KEY_BASE64 is set in env; continuing."
+fi
+
+# Surface Stripe billing secrets from the now-sourced env.local so the
+# gateway spawned later in this script inherits them (WS4 billing).
+log "[0/8] Plumbing Stripe billing env from env.local (if present)..."
+plumb_stripe_env
+
+# Dry-run verifier hook (acceptance test): with RESTART_GATEWAY_DRY_RUN=1,
+# print the Stripe-relevant env that survived plumbing, then exit 0 BEFORE
+# touching/spawning the gateway. Lets the acceptance harness assert the
+# present/absent cases by grepping the echoed env — a checkable verifier,
+# not a model self-report. No effect on a normal run (var unset).
+if [[ "${RESTART_GATEWAY_DRY_RUN:-0}" == "1" ]]; then
+    log "[dry-run] RESTART_GATEWAY_DRY_RUN=1 — echoing exported Stripe env, exiting before gateway spawn."
+    for _v in STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_BASE_URL \
+              NEXT_PUBLIC_STRIPE_PRICE_PRO NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE; do
+        if [[ -n "${!_v:-}" ]]; then
+            printf '%s=%s\n' "$_v" "${!_v}"
+        fi
+    done
+    exit 0
 fi
 
 if [[ "$BOOTSTRAP_ONLY" -eq 1 ]]; then
