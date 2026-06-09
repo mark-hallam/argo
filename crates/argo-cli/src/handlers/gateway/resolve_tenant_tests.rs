@@ -197,6 +197,38 @@ async fn jwt_session_wins_over_explicit_header() {
     std::env::remove_var("SKYCOT_AUTH_JWT_SECRET");
 }
 
+/// R4-F1 repro — the Genesis generate is a POST with a JSON body (every
+/// other test here is a bodyless GET). If header/cookie extraction breaks
+/// when a body is present, the genesis write resolves the cwd tenant while
+/// the (GET-shaped) hire resolves the session tenant → "unknown vertical".
+#[allow(clippy::await_holding_lock)]
+#[tokio::test]
+async fn jwt_session_resolves_on_post_with_body_like_genesis_generate() {
+    let _g = env_guard();
+    std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
+
+    let store = fresh_store().await;
+    let tenant_a = provision(&store, "a@acme.test", "Acme A").await;
+    let jwt = mint_session(TEST_SECRET, Some(tenant_a.to_string()));
+
+    let body = r#"{"role_description":"A billing operations assistant."}"#;
+    let req = format!(
+        "POST /api/v1/genesis HTTP/1.1\r\nHost: localhost\r\n\
+         Content-Type: application/json\r\n\
+         Cookie: __Host-session={jwt}\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    );
+    let resolved = resolve_tenant_for_request(&req, &store)
+        .await
+        .expect("resolve");
+    assert_eq!(
+        resolved, tenant_a,
+        "POST+body+cookie (genesis generate shape) must resolve the session tenant, not cwd"
+    );
+
+    std::env::remove_var("SKYCOT_AUTH_JWT_SECRET");
+}
+
 /// A cookie whose `tnt` claim is absent (user mid-onboarding) falls
 /// through to the cwd fallback rather than erroring.
 #[allow(clippy::await_holding_lock)]

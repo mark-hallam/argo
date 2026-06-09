@@ -16,6 +16,7 @@
  */
 
 import { apiPost } from "@/lib/api/client";
+import { resolveCsrfToken } from "@/lib/auth/csrf-token";
 import { ApiError } from "@/lib/api/types";
 import { readChunkWithIdleTimeout } from "@/lib/api/stream-idle-timeout";
 import { resolveGatewayUrl } from "@/lib/config/gateway-url";
@@ -477,6 +478,17 @@ export async function streamGenesis(
     Accept: "text/event-stream",
     "X-Argo-Tenant-Id": req.tenantId,
   };
+  // R4-F1: the genesis generate is a cookie-authenticated MUTATING POST — the
+  // same-origin browser fetch carries the `__Host-session` + `__Host-csrf`
+  // cookies, and the route handler (`app/api/v1/genesis/route.ts`) forwards them
+  // to the gateway so the generated vertical is written under the SAME signed-in
+  // tenant the follow-up hire reads under. That makes the gateway's CSRF gate
+  // (`middleware_csrf`) apply, so we must echo the CSRF token exactly like every
+  // other SPA mutation (`lib/api/client.ts`); without it the gateway rejects the
+  // cookie-bearing POST with 403 csrf_missing. Omitted (skipped) for the
+  // anonymous demo path where no `__Host-csrf` cookie exists.
+  const csrf = await resolveCsrfToken();
+  if (csrf) headers["X-CSRF-Token"] = csrf;
   const body = JSON.stringify({
     role_description: req.roleDescription,
     ...(req.persona !== undefined ? { persona: req.persona } : {}),

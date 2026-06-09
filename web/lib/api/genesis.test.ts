@@ -13,6 +13,14 @@ import {
 import { ApiError, GatewayTimeoutError } from "./types";
 import { STUB_QUESTIONS } from "@/lib/hire/genesis-stub";
 
+// R4-F1: streamGenesis now echoes the CSRF token on the (cookie-authenticated)
+// generate POST, exactly like every other SPA mutation. Mock the resolver to a
+// fixed value so the header assertion is deterministic and no real
+// document.cookie / XHR fallback is exercised.
+vi.mock("@/lib/auth/csrf-token", () => ({
+  resolveCsrfToken: async () => "csrf-abc",
+}));
+
 const ORIGINAL_FETCH = globalThis.fetch;
 
 function makeResponse({
@@ -537,6 +545,31 @@ describe("streamGenesis", () => {
     // Specifically NOT the absolute gateway host (the cross-origin bug).
     expect(capturedUrl).not.toContain("gw.test");
     expect(capturedUrl).not.toMatch(/^https?:\/\//);
+  });
+
+  it("echoes the CSRF token on the cookie-authenticated generate POST (R4-F1)", async () => {
+    // The generate is a first-class cookie-auth mutation now: the route handler
+    // forwards `__Host-session`, so the gateway's CSRF gate applies and the
+    // client MUST echo the double-submit token like every other SPA mutation.
+    // Without it the gateway 403s and the genesis flow can't run as the
+    // signed-in tenant — the generate↔hire tenant split.
+    let capturedHeaders: Headers | null = null;
+    const stream = new ReadableStream({ start: (c) => c.close() });
+    globalThis.fetch = vi.fn((_url: string, init?: RequestInit) => {
+      capturedHeaders = new Headers(init?.headers);
+      return Promise.resolve(
+        new Response(stream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+      );
+    }) as unknown as typeof fetch;
+    await streamGenesis(
+      { roleDescription: "Refund desk agent", tenantId: "op-test" },
+      { onProgress: () => {}, onVerticalReady: () => {}, onError: () => {} },
+    );
+    expect(capturedHeaders).not.toBeNull();
+    expect(capturedHeaders!.get("X-CSRF-Token")).toBe("csrf-abc");
   });
 });
 

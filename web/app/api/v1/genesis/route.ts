@@ -69,6 +69,31 @@ function forwardHeaders(req: NextRequest): Headers {
   const tenant = req.headers.get("x-argo-tenant-id");
   if (tenant) out.set("X-Argo-Tenant-Id", tenant);
 
+  // IDENTITY — forward the session + CSRF cookies (R4-F1 root fix).
+  //
+  // The gateway resolves the tenant a generated vertical is written under from
+  // the `__Host-session` cookie (`resolve_tenant_for_request` → `session_tenant_id`),
+  // EXACTLY as the follow-up hire (`POST /api/v1/workers`) does. The hire reaches
+  // the gateway through Next's generic `/api/v1/:path*` rewrite, which forwards
+  // ALL request headers — including `Cookie`. THIS bespoke handler (which shadows
+  // that rewrite for `/api/v1/genesis` only, to keep the SSE stream unbuffered)
+  // previously hand-picked a header subset and DROPPED `Cookie` — so the generate
+  // ran as the cwd/anonymous tenant while the hire ran as the signed-in tenant.
+  // The two then searched different `.genesis/<tenant>/` segments and the hire
+  // failed `400 unknown vertical`. Forwarding the cookie makes the write segment
+  // and the read segment the SAME signed-in tenant by construction.
+  //
+  // Forwarding `__Host-session` makes this a cookie-authenticated MUTATING POST,
+  // which the gateway's `middleware_csrf` double-submit gate enforces — so the
+  // matching `X-CSRF-Token` header (which the SSE client now sends, like every
+  // other SPA mutation) must ride along too, or the gateway returns 403
+  // csrf_missing. The anonymous demo path is unchanged: with no `__Host-session`
+  // cookie the CSRF gate skips and both generate + hire fall to the cwd tenant.
+  const cookie = req.headers.get("cookie");
+  if (cookie) out.set("Cookie", cookie);
+  const csrf = req.headers.get("x-csrf-token");
+  if (csrf) out.set("X-CSRF-Token", csrf);
+
   // Auth headers, when present (non-bypass / production path). Under the
   // demo-live auth-bypass the gateway accepts the request without these,
   // so they're optional — but forwarded verbatim when the browser sent
