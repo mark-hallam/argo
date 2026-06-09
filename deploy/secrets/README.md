@@ -5,7 +5,7 @@ Canonical production secret/config reference for the SKYCOT gateway.
 - [`skycot-production.env.example`](skycot-production.env.example) — the single,
   code-grounded list of every secret + config a production deploy needs. Each var name
   is verified against the crate that reads it (citations inline). This is the superset;
-  the partial templates (`deploy/.env.deploy.example`, `deploy/docker/.env.example`,
+  the partial templates (`deploy/.env.deploy.example`,
   `deploy/flyio/secrets.example.sh`) stay for their specific deploy paths.
 
 **Never commit a filled-in copy.** `.gitignore` excludes `*.env` here.

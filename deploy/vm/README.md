@@ -3,7 +3,7 @@
 Targets a single **Ubuntu 24.04 LTS** VM (DigitalOcean droplet, Hetzner
 CX22, EC2 `t3.medium`). Not containerised. argo and the web SPA run as
 systemd services; nginx reverse-proxies both; postgres 16 is co-located.
-For docker-compose see `deploy/docker/`; for Kubernetes see `deploy/k8s/`.
+For docker-compose see `deploy/docker-compose.yml`; for Kubernetes see `deploy/k8s/`.
 
 > **SLA**: ≤ 15 min from fresh VM to working stack on 2 vCPU / 4 GB RAM.
 > The `--use-release` artifact path will drop this to ~3 min once GH
@@ -172,7 +172,7 @@ sudo systemctl reload ssh
 
 Other distros (Debian, Rocky, Amazon Linux — operators adapt); pre-built
 release artifacts (separate brief — `--use-release` is wired but errors
-until artifacts land); Docker on VM (use `deploy/docker/`); ansible /
+until artifacts land); Docker on VM (use `deploy/docker-compose.yml`); ansible /
 chef / puppet providers; multi-VM HA (single VM only; use
 `deploy/k8s/`); zero-downtime deploys (single-VM has a restart window).
 

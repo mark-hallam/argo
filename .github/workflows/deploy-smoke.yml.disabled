@@ -116,7 +116,7 @@ jobs:
       - name: Capture compose logs on failure
         if: failure()
         run: |
-          docker compose -f deploy/docker/docker-compose.yml \
+          docker compose -f deploy/docker-compose.smoke.yml \
             --env-file deploy/smoke/.env.smoke \
             logs --no-color > smoke-logs.txt 2>&1 || true
 
@@ -132,6 +132,6 @@ jobs:
       - name: Ensure teardown
         if: always()
         run: |
-          docker compose -f deploy/docker/docker-compose.yml \
+          docker compose -f deploy/docker-compose.smoke.yml \
             --env-file deploy/smoke/.env.smoke \
             down -v --remove-orphans >/dev/null 2>&1 || true

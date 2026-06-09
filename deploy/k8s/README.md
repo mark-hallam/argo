@@ -4,9 +4,10 @@ Plain Kubernetes manifests + kustomize overlays for the `argo` gateway,
 the `argo-web` SPA, and a single-instance `postgres` backend on a
 self-managed cluster. **No Helm.**
 
-Pairs with `deploy/docker/` (K1): docker-compose is the single-machine
-path; this directory is the cluster path. Both consume the same
-`argo:dev` / `argo-web:dev` image conventions.
+Pairs with the canonical compose stack (`deploy/docker-compose.yml`, which
+builds `deploy/Dockerfile.gateway` + `deploy/Dockerfile.web`): docker-compose
+is the single-machine path; this directory is the cluster path. Both consume
+the same `argo:dev` / `argo-web:dev` image conventions.
 
 > **Cloud-agnostic reference.** These manifests target EKS / GKE / AKS /
 > bare-metal Kubernetes. The **operative AWS path for the v1.0 public
@@ -26,9 +27,10 @@ path; this directory is the cluster path. Both consume the same
   specific annotations in `base/ingress.yaml`.
 - (Prod only) [cert-manager](https://cert-manager.io/) + a
   `ClusterIssuer` for automated TLS.
-- Container images. Either build locally per `deploy/docker/` and load
-  into the cluster (`kind load docker-image …`) or push to a registry
-  and override `images:` in the relevant overlay.
+- Container images. Either build locally per the canonical Dockerfiles
+  (`deploy/Dockerfile.gateway` + `deploy/Dockerfile.web`) and load into the
+  cluster (`kind load docker-image …`) or push to a registry and override
+  `images:` in the relevant overlay.
 
 ## Layout
 
@@ -47,9 +49,9 @@ deploy/k8s/
 ## Quickstart — local dev (kind / minikube / k3d)
 
 ```bash
-# 1. Build images per deploy/docker/README.md, then load into the cluster.
-docker build -f deploy/docker/Dockerfile.argo -t argo:dev .
-docker build -f deploy/docker/Dockerfile.web  -t argo-web:dev .
+# 1. Build the canonical images, then load into the cluster.
+docker build -f deploy/Dockerfile.gateway -t argo:dev .
+docker build -f deploy/Dockerfile.web     -t argo-web:dev .
 kind load docker-image argo:dev argo-web:dev   # or minikube/k3d image load
 
 # 2. Create the two Secrets the manifests reference.

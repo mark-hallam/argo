@@ -1,0 +1,97 @@
+# SKYCOT K5 deployment smoke stack — CI/dev variant of the canonical stack.
+#
+# This is NOT a second deploy stack: it builds the SAME canonical images as
+# deploy/docker-compose.yml (deploy/Dockerfile.gateway + deploy/Dockerfile.web),
+# so the smoke always exercises the REAL gateway — bundled truth-boundary
+# policies + pitch corpus + provider manifests, Rust 1.83. (It replaces the
+# removed legacy single-machine stack, whose gateway image built a policy-less
+# Rust-1.75 gateway with no truth-boundary policies — see WS5 consolidation.)
+#
+# Why a separate file from deploy/docker-compose.yml: the canonical compose is
+# the gated-demo topology (host networking + nginx:443 basic-auth + Let's
+# Encrypt TLS), which the API-level smoke can't drive (no certs in CI, gateway
+# on loopback 127.0.0.1:7400). This file instead exposes the gateway + SPA on
+# host ports 8080/3000 for curl-equivalent checks, and overrides the canonical
+# gateway CMD to bind 0.0.0.0:8080 (--insecure-bind) so checks.ts can reach it.
+# Auth ceremony is bypassed via deploy/smoke/.env.smoke (ARGO_GATEWAY_AUTH_BYPASS=1).
+#
+# Driven by deploy/smoke/run.sh (and the disabled deploy-smoke.yml workflow):
+#   bash deploy/smoke/run.sh
+#
+# Services:
+#   postgres — scaffold for the future postgres-backed store (argo uses SQLite
+#              via the argo-data volume today; harmless if argo doesn't connect).
+#   gateway  — the canonical argo gateway image, bound 0.0.0.0:8080 for the smoke.
+#   web      — the canonical Next.js SPA image, HOSTNAME=0.0.0.0 so the host
+#              port mapping is reachable.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: argo
+      POSTGRES_DB: argo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env.smoke}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U argo -d argo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # Intentionally NOT exposed externally — reachable only on the compose
+    # network at `postgres:5432`.
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.gateway
+    image: argo:dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ARGO_GATEWAY_BEARER_TOKEN: ${ARGO_GATEWAY_BEARER_TOKEN:?ARGO_GATEWAY_BEARER_TOKEN must be set in .env.smoke}
+      DATABASE_URL: ${DATABASE_URL:-postgres://argo:${POSTGRES_PASSWORD}@postgres:5432/argo}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ARGO_TENANT_DEFAULT: ${ARGO_TENANT_DEFAULT:-default}
+      ARGO_LOG_LEVEL: ${ARGO_LOG_LEVEL:-info}
+    volumes:
+      - argo-data:/data
+    ports:
+      - "8080:8080"
+    # The canonical image's CMD binds 127.0.0.1:7400 (loopback, nginx-fronted).
+    # For the host-port-exposed smoke we override to 0.0.0.0:8080. --insecure-bind
+    # is required for a non-loopback bind (argo ships without TLS; the smoke is
+    # behind no public ingress). Policies/corpus stay bundled from the image.
+    command:
+      ["argo", "gateway", "start", "--bind", "0.0.0.0", "--port", "8080", "--insecure-bind"]
+    # `argo gateway probe live` is the in-binary K8s-style probe already in the
+    # image (the slim runtime ships no curl). Web's depends_on uses this.
+    healthcheck:
+      test: ["CMD", "argo", "gateway", "probe", "live", "--port", "8080"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    image: argo-web:dev
+    depends_on:
+      gateway:
+        condition: service_healthy
+    environment:
+      # Canonical web image bakes HOSTNAME=127.0.0.1 (loopback, behind nginx).
+      # Override to 0.0.0.0 so the host port mapping below is reachable.
+      HOSTNAME: "0.0.0.0"
+    ports:
+      - "3000:3000"
+
+volumes:
+  pg-data:
+  argo-data:

@@ -19,8 +19,9 @@ set -euo pipefail
 
 SMOKE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SMOKE_DIR}/../.." && pwd)"
-COMPOSE_DIR="${REPO_ROOT}/deploy/docker"
-COMPOSE_FILE="${COMPOSE_DIR}/docker-compose.yml"
+# Smoke variant of the canonical stack: builds deploy/Dockerfile.gateway +
+# deploy/Dockerfile.web with host ports exposed (see deploy/docker-compose.smoke.yml).
+COMPOSE_FILE="${REPO_ROOT}/deploy/docker-compose.smoke.yml"
 ENV_FILE="${SMOKE_DIR}/.env.smoke"
 
 # --- preflight ---------------------------------------------------------------

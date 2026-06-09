@@ -1,8 +1,9 @@
 # K5 deployment smoke test
 
-End-to-end smoke test that exercises the K1 docker-compose stack
-(`deploy/docker/docker-compose.yml`) and asserts the deployed gateway
-+ SPA respond on the documented endpoints.
+End-to-end smoke test that exercises the canonical-image smoke stack
+(`deploy/docker-compose.smoke.yml`, which builds `deploy/Dockerfile.gateway`
++ `deploy/Dockerfile.web`) and asserts the deployed gateway + SPA respond on
+the documented endpoints.
 
 > **CI status (v1): this does NOT run automatically.** The companion workflow
 > `.github/workflows/deploy-smoke.yml` is currently **`.disabled`** — ALL GitHub
@@ -62,7 +63,7 @@ Keep the stack running after a failure for triage:
 
 ```bash
 SMOKE_KEEP_STACK=1 bash deploy/smoke/run.sh
-docker compose -f deploy/docker/docker-compose.yml logs argo
+docker compose -f deploy/docker-compose.smoke.yml logs gateway
 ```
 
 ## Adding new checks
