@@ -1,40 +1,39 @@
 # mission-genesis-workers-empty-state-describe-flow
 
-**Owner**: claude or codex.
-**Authored against**: origin/main `<latest>` on `2026-05-25`.
+**Owner**: claude.
+**Authored against**: origin/main `5b20282f7` on `2026-06-09`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-genesis-workers-empty-state-describe-flow`.
-**Depends on**: `mission-genesis-gateway-route-streaming-api` MERGED + `mission-genesis-spa-page-describe-and-watch` MERGED.
 
-🟡 **P1 MISSION CLAIM 3 — second-time-user discovery surface for Genesis.**
+## Why (verified gap, 2026-06-09)
+DEC-034 WS3: Genesis IS the hire path. When the workspace has no teammates, the `/team` + `/workers` empty state should invite the first hire via the **Genesis describe-and-watch flow** (`/genesis`). It currently invites a describe-flow, but routes to the WRONG surface.
 
-Once the workspace is set up, a returning user who wants to hire another teammate goes to `/workers`. The empty-state today shows the 5 starter templates. We need the same Genesis CTA visible here.
+VERIFIED on current `origin/main` (the empty state IS built — this is a re-route, not a new surface):
+- `web/app/(app)/workers/page.tsx` renders `<HireStarterPrompts />` for the empty roster (lines 102, 250) and `web/app/(app)/team/page.tsx` uses the same.
+- `web/components/empty-state/HireStarterPrompts.tsx` is a thin wrapper around `<TeamEmptyState>`.
+- `web/components/skycot/TeamEmptyState.tsx` IS the empty state. Its primary CTA — "Describe a role in plain English →" (line 62) — `<Link href="/onboarding/first-hire">` (line 54). **It does NOT route to `/genesis`.** The doc-comment even says "Or describe your own link that routes to `/hire`" — stale; the live href is `/onboarding/first-hire`.
+- So the empty-state's "describe your own" CTA bypasses the Genesis describe-and-watch surface entirely. The watch-it-get-built moment is one re-route away.
 
-## Scope
+## Grep-before-write
+- `rg -n 'href|onboarding/first-hire|/genesis|/hire' web/components/skycot/TeamEmptyState.tsx` — confirm the primary CTA still points at `/onboarding/first-hire` (re-verify; do not double-edit if a prior worker already re-pointed it).
+- `rg -l 'TeamEmptyState' web/` — find ALL consumers (`HireStarterPrompts` → `/workers` + `/team`); a single edit to `TeamEmptyState.tsx` fixes every consumer (do NOT fork a parallel component).
+- `rg -n 'data-testid="team-empty-state-describe-own"' web/` — the existing testid the tests assert on; keep it.
+- `rg -n 'useSearchParams|return=' 'web/app/(app)/genesis/page.tsx'` — check whether `/genesis` reads a return param before sending `?return=/team`.
+- `rg 'pub (struct|enum|fn)' crates/` — N/A: web-only (TSX). No new Rust public surface.
 
-Modify the `/workers` empty-state component (per Agent-2 audit, the `WORKER_TAB_IDS` empty state at `web/app/(app)/workers/page.tsx`):
+## Fix (additive / minimal; consumer = both `/workers` and `/team` empty states via the shared component)
+1. **Re-point the primary CTA** in `web/components/skycot/TeamEmptyState.tsx` from `href="/onboarding/first-hire"` to `href="/genesis"` so the headline "describe a role" CTA lands the stranger on the Genesis describe-and-watch surface. Carry `?return=/team` ONLY if `/genesis` consumes it (see grep); otherwise plain `/genesis`.
+2. **Refresh the stale doc-comment** (lines ~8-19) to say it routes to `/genesis` (the Genesis describe flow), not `/hire`.
+3. **Keep the template tiles** (`EXAMPLE_ROLES` grid) as the fast-lane fallback — unchanged. Only the headline "describe your own" CTA moves to Genesis.
+4. **Optional, same component:** the secondary disclosure copy is unchanged. Do NOT add a new component or new testid; reuse `data-testid="team-empty-state-describe-own"`.
 
-1. Above the 5 starter templates, surface the same Genesis CTA card from the onboarding-pick-vertical: "Or describe your own role".
-2. Clicking routes to `/genesis?return=/workers`.
-3. After Hire, route to `/workers/{new_id}` (the just-hired worker's detail page).
+## Acceptance (truth-bounded)
+1. `web/components/skycot/TeamEmptyState.tsx`: the element with `data-testid="team-empty-state-describe-own"` now has `href` starting with `/genesis`. The template tiles (`team-empty-state-tiles`) still render.
+2. Updated **vitest**: the existing TeamEmptyState test that asserts the describe-CTA href is updated to expect `/genesis` (re-run green). If no such test exists, add one rendering `<TeamEmptyState />` and asserting the CTA href.
+3. Both `/workers` and `/team` empty states inherit the new route (verified by the shared-component test; no per-page edit needed).
+4. Web test runner green for the touched files; web lint clean. File stays < 500 LOC (currently ~117).
 
-This is the steady-state hire-another-worker path. Reuse the `<GenesisCta>` component from the onboarding brief.
-
-## Acceptance criteria
-
-- [ ] `/workers` empty state shows the Genesis CTA + 5 prefabs.
-- [ ] `/workers` populated state (with seeded workers) shows the Genesis CTA in a less-prominent way (e.g. small "+ Hire another teammate" button at the top of the card grid that opens the same flow).
-- [ ] After Hire, the new worker appears in the deck without a page reload (or with a single navigate-and-refresh).
-
-## May-touch
-
-- `web/app/(app)/workers/page.tsx`
-- `web/components/skycot/workers/EmptyState.tsx` (or similar; check existing)
-- `web/components/skycot/onboarding/pick-vertical/GenesisCta.tsx` (re-use; may need parameterization)
-
-## Out of scope
-
-- Genesis page / gateway / onboarding-side integration (separate briefs)
+## On ship (same commit)
+Update the FEATURE_MATRIX.md row for the workers/team empty state (or the Genesis row) to note the first-hire empty-state CTA now routes into the Genesis describe-and-watch flow. 🚨 DEC-043: do NOT regenerate or commit `feature-matrix.html` (gitignored) — `.md` row only.
 
 ## Effort
-
-~50-120 LOC. ~1-2 hours.
+XS — a one-line href change + doc-comment + a test assertion update. ~30-60 min.
