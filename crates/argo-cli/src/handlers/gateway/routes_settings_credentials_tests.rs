@@ -6,6 +6,12 @@
 //! Env vars are process-global; the provider-status tests serialize on a
 //! local lock + reset the keys they touch (mirrors `routes_auth_tests.rs`).
 
+// The `ENV_LOCK` guard is intentionally held across `.await` (e.g. `store().await`,
+// `dispatch_get(...).await`) to keep process-global env-var mutation single-threaded
+// across the async test body — dropping it early would let concurrent tests race the
+// shared env. Mirrors `audit_roundtrip_tests.rs`. Do not "optimize" this allow away.
+#![allow(clippy::await_holding_lock)]
+
 use super::*;
 use argo_store::SessionStore;
 use std::sync::Mutex;

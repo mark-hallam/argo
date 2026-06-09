@@ -118,7 +118,7 @@ async fn resolve_tenant(
     // override, then the cwd fallback for CLI. Previously read X-Argo-Tenant-Id
     // then fell to cwd — leaking the default tenant's provider-key status to a
     // real signed-in user (real-mode walk 2026-06-07).
-    super::resolve_tenant::resolve_tenant_for_request(req, &**store)
+    super::resolve_tenant::resolve_tenant_for_request(req, store)
         .await
         .map_err(|e| internal(&format!("resolve tenant: {e}")))
 }
