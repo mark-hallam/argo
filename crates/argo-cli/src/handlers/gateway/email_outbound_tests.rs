@@ -80,6 +80,33 @@ async fn smtp_requires_host() {
     assert!(err.contains("host"), "unexpected error: {err}");
 }
 
+#[tokio::test]
+async fn smtp_rejects_malformed_from_address() {
+    // The SMTP path (lettre, used for AWS SES via
+    // `email-smtp.<region>.amazonaws.com`) parses the From mailbox BEFORE any
+    // network I/O, so a malformed from_address fails deterministically without
+    // a connection — proving the new TLS transport path validates input.
+    let cfg = EmailOutboundConfig {
+        provider: EmailOutboundProvider::Smtp,
+        smtp_host: "email-smtp.us-east-1.amazonaws.com".into(),
+        smtp_port: 587,
+        ..EmailOutboundConfig::default()
+    };
+    let rendered = sample_rendered();
+    let msg = OutboundMessage {
+        to: "ada@example.com",
+        from: "not-an-email",
+        rendered: &rendered,
+    };
+    let err = send(&cfg, msg)
+        .await
+        .expect_err("malformed from_address must error");
+    assert!(
+        err.contains("from_address invalid"),
+        "unexpected error: {err}"
+    );
+}
+
 #[test]
 fn provider_as_str_round_trips() {
     assert_eq!(EmailOutboundProvider::Noop.as_str(), "noop");

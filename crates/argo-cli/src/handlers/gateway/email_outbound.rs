@@ -19,7 +19,6 @@
 
 use argo_config::{EmailOutboundConfig, EmailOutboundProvider};
 use argo_email_templates::RenderedEmail;
-use base64::Engine;
 
 /// One outbound message to one recipient.
 pub(super) struct OutboundMessage<'a> {
@@ -165,9 +164,19 @@ async fn post_json(
     Ok(())
 }
 
-/// Minimal SMTP send: connect, EHLO, AUTH PLAIN, MAIL FROM, RCPT TO,
-/// DATA, `.`, QUIT. Plain TCP only — operators wanting TLS deploy
-/// behind a smarthost or wait for the v1.y `lettre` follow-up.
+/// Send via SMTP with **mandatory TLS** (`lettre`, rustls backend). Real
+/// transactional relays — AWS SES (`email-smtp.<region>.amazonaws.com`),
+/// Gmail, etc. — reject plaintext sessions, so TLS is not optional: port
+/// `465` uses implicit TLS (`relay`); every other port (587 by default,
+/// resolved by the caller) uses STARTTLS (`starttls_relay`). The message is
+/// sent as a multipart/alternative (plaintext + HTML) so the rendered
+/// magic-link template arrives intact in every client. Credentials are
+/// presented only when a username is configured — SES and Gmail always set
+/// one (SES SMTP username/password generated in the SES console).
+///
+/// This replaces the previous hand-rolled plain-TCP SMTP, which could not
+/// authenticate to any TLS-only relay (the documented reason the only working
+/// magic-link delivery was `noop` + copy-from-log).
 async fn send_smtp(
     host: &str,
     port: u16,
@@ -175,95 +184,63 @@ async fn send_smtp(
     password: &str,
     msg: OutboundMessage<'_>,
 ) -> Result<(), String> {
-    use tokio::io::{AsyncWriteExt, BufReader};
-    use tokio::net::TcpStream;
+    use lettre::message::{Mailbox, MultiPart};
+    use lettre::transport::smtp::authentication::Credentials;
+    use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 
     if host.is_empty() {
         return Err("smtp host missing".into());
     }
-    let stream = TcpStream::connect((host, port))
-        .await
-        .map_err(|e| format!("smtp connect {host}:{port}: {e}"))?;
-    let (read, mut write) = stream.into_split();
-    let mut reader = BufReader::new(read);
-    expect_smtp_code(&mut reader, "220").await?;
-    write_smtp_line(&mut write, "EHLO skycot.local").await?;
-    drain_smtp_until(&mut reader, "250").await?;
-    if !username.is_empty() {
-        let plain = base64::engine::general_purpose::STANDARD
-            .encode(format!("\0{username}\0{password}"));
-        write_smtp_line(&mut write, &format!("AUTH PLAIN {plain}")).await?;
-        expect_smtp_code(&mut reader, "235").await?;
+    if msg.from.is_empty() {
+        return Err("from_address missing".into());
     }
-    write_smtp_line(&mut write, &format!("MAIL FROM:<{}>", msg.from)).await?;
-    expect_smtp_code(&mut reader, "250").await?;
-    write_smtp_line(&mut write, &format!("RCPT TO:<{}>", msg.to)).await?;
-    expect_smtp_code(&mut reader, "250").await?;
-    write_smtp_line(&mut write, "DATA").await?;
-    expect_smtp_code(&mut reader, "354").await?;
-    let data = format!(
-        "From: {}\r\nTo: {}\r\nSubject: {}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{}\r\n.\r\n",
-        msg.from, msg.to, msg.rendered.subject, msg.rendered.plaintext
-    );
-    write.write_all(data.as_bytes()).await.map_err(|e| format!("smtp data: {e}"))?;
-    expect_smtp_code(&mut reader, "250").await?;
-    write_smtp_line(&mut write, "QUIT").await?;
+    let from: Mailbox = msg
+        .from
+        .parse()
+        .map_err(|e| format!("smtp from_address invalid: {e}"))?;
+    let to: Mailbox = msg
+        .to
+        .parse()
+        .map_err(|e| format!("smtp recipient invalid: {e}"))?;
+    let email = Message::builder()
+        .from(from)
+        .to(to)
+        .subject(msg.rendered.subject.clone())
+        .multipart(MultiPart::alternative_plain_html(
+            msg.rendered.plaintext.clone(),
+            msg.rendered.html.clone(),
+        ))
+        .map_err(|e| format!("smtp build message: {e}"))?;
+
+    // TLS is mandatory: 465 = implicit TLS, everything else = STARTTLS.
+    let port = if port == 0 { 587 } else { port };
+    let mut builder = if port == 465 {
+        AsyncSmtpTransport::<Tokio1Executor>::relay(host)
+            .map_err(|e| format!("smtp relay({host}): {e}"))?
+    } else {
+        AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(host)
+            .map_err(|e| format!("smtp starttls_relay({host}): {e}"))?
+    }
+    .port(port);
+    if !username.is_empty() {
+        builder = builder.credentials(Credentials::new(
+            username.to_string(),
+            password.to_string(),
+        ));
+    }
+    builder
+        .build()
+        .send(email)
+        .await
+        .map(|_| ())
+        .map_err(|e| format!("smtp send: {e}"))?;
     tracing::info!(
         target: "gateway::email_outbound",
         provider = "smtp",
         recipient = %msg.to,
-        "outbound email dispatched"
+        "outbound email dispatched (TLS)"
     );
     Ok(())
-}
-
-async fn write_smtp_line(
-    write: &mut tokio::net::tcp::OwnedWriteHalf,
-    line: &str,
-) -> Result<(), String> {
-    use tokio::io::AsyncWriteExt;
-    write
-        .write_all(format!("{line}\r\n").as_bytes())
-        .await
-        .map_err(|e| format!("smtp write: {e}"))
-}
-
-async fn expect_smtp_code<R: tokio::io::AsyncBufRead + Unpin>(
-    reader: &mut R,
-    code: &str,
-) -> Result<(), String> {
-    let mut line = String::new();
-    use tokio::io::AsyncBufReadExt;
-    reader
-        .read_line(&mut line)
-        .await
-        .map_err(|e| format!("smtp read: {e}"))?;
-    if !line.starts_with(code) {
-        return Err(format!("smtp expected {code}, got {}", line.trim()));
-    }
-    Ok(())
-}
-
-async fn drain_smtp_until<R: tokio::io::AsyncBufRead + Unpin>(
-    reader: &mut R,
-    code: &str,
-) -> Result<(), String> {
-    use tokio::io::AsyncBufReadExt;
-    loop {
-        let mut line = String::new();
-        reader
-            .read_line(&mut line)
-            .await
-            .map_err(|e| format!("smtp read: {e}"))?;
-        if !line.starts_with(code) {
-            return Err(format!("smtp expected {code}, got {}", line.trim()));
-        }
-        // Multi-line replies use `code-` for continuation, `code ` for terminator.
-        let after_code = line.chars().nth(code.len()).unwrap_or(' ');
-        if after_code != '-' {
-            return Ok(());
-        }
-    }
 }
 
 #[cfg(test)]
