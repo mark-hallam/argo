@@ -42,6 +42,7 @@ fn sample_input() -> JudgeInput<'static> {
         charter: "be my marketing intern, run weekly campaigns to cold leads",
         persona_description: "Maya, a diligent marketing intern.",
         action_vocabulary: vec!["draft_campaign".into(), "schedule_send".into()],
+        action_approvals: None,
     }
 }
 

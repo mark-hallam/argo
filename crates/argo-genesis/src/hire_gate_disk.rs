@@ -46,14 +46,18 @@ impl DiskGateInputs {
     }
 
     /// Borrowed safety-judge projection — same shape both gate paths feed
-    /// the judge.
+    /// the judge. Built from the retained manifest so each action's
+    /// `requires_approval` flag rides parallel to its name (an approval-gated
+    /// dangerous action is safe by construction; only an autonomous one is
+    /// block-worthy). Names + flags share one `actions` iteration, so the
+    /// disk-fence projection matches the SSE-path projection byte for byte.
     #[must_use]
     pub fn judge_input(&self) -> JudgeInput<'_> {
-        JudgeInput {
-            charter: &self.charter,
-            persona_description: &self.persona,
-            action_vocabulary: self.action_vocabulary.clone(),
-        }
+        JudgeInput::from_plan_projection(
+            &self.charter,
+            &self.persona,
+            self.manifest.actions.as_ref(),
+        )
     }
 }
 

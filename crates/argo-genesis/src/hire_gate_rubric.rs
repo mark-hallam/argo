@@ -22,16 +22,13 @@ use crate::rubric::{RubricOutcome, DIMENSION_FLOOR, RUBRIC_PASS_FLOOR};
 /// the LLM rubric feed an identical view of the archetype plan.
 #[must_use]
 pub fn judge_input_for_plan(plan: &GenesisPlan) -> JudgeInput<'_> {
-    JudgeInput {
-        charter: &plan.charter,
-        persona_description: &plan.persona,
-        action_vocabulary: plan
-            .manifest
-            .actions
-            .as_ref()
-            .map(|a| a.actions.keys().cloned().collect())
-            .unwrap_or_default(),
-    }
+    // Funnel through the shared projection so the safety judge sees each
+    // action's `requires_approval` flag (parallel to its name): an
+    // approval-gated send/pay/delete action is safe by construction and must
+    // not be blocked, only an autonomous one is. Without the flags the judge
+    // false-positive-blocked the onboarding first hire's approval-gated
+    // `send_*`/`post_*` actions.
+    JudgeInput::from_plan_projection(&plan.charter, &plan.persona, plan.manifest.actions.as_ref())
 }
 
 impl GateVerdict {

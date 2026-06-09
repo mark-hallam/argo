@@ -215,3 +215,113 @@ async fn block_autonomous_money_movement_role() {
         other => panic!("expected Block for autonomous money movement, got {other:?}"),
     }
 }
+
+/// Build a two-action [`argo_vertical::ActionsSection`] for the
+/// approval-annotation tests: one approval-gated send action + one autonomous
+/// read action. BTreeMap key order is alphabetical, so `send_response` sorts
+/// before `triage_ticket`.
+fn two_action_section() -> argo_vertical::ActionsSection {
+    use argo_vertical::{ActionDeclaration, ActionRiskLevel};
+    let mut actions = std::collections::BTreeMap::new();
+    actions.insert(
+        "send_response".to_string(),
+        ActionDeclaration {
+            risk: ActionRiskLevel::High,
+            requires_approval: true,
+            ..ActionDeclaration::default()
+        },
+    );
+    actions.insert(
+        "triage_ticket".to_string(),
+        ActionDeclaration {
+            risk: ActionRiskLevel::Low,
+            requires_approval: false,
+            ..ActionDeclaration::default()
+        },
+    );
+    argo_vertical::ActionsSection { actions }
+}
+
+#[test]
+fn from_plan_projection_carries_parallel_approval_flags() {
+    // The plan projection must capture each action's requires_approval flag
+    // PARALLEL to its name (same order, same length) — that parallelism is
+    // what lets the prompt annotate each action correctly.
+    let section = two_action_section();
+    let input = JudgeInput::from_plan_projection("charter", "persona", Some(&section));
+    let approvals = input
+        .action_approvals
+        .as_ref()
+        .expect("plan projection populates approvals");
+    assert_eq!(
+        approvals.len(),
+        input.action_vocabulary.len(),
+        "approvals must be parallel to names"
+    );
+    // BTreeMap order: send_response (gated) before triage_ticket (autonomous).
+    assert_eq!(input.action_vocabulary, vec!["send_response", "triage_ticket"]);
+    assert_eq!(approvals, &vec![true, false]);
+}
+
+#[test]
+fn build_judge_prompt_annotates_each_action_with_its_approval_status() {
+    // The load-bearing fix: the prompt must tell the judge WHICH actions are
+    // approval-gated, so it can exempt the safe-by-construction ones.
+    let section = two_action_section();
+    let input = JudgeInput::from_plan_projection(
+        "be my customer-support teammate",
+        "Sam, a support agent",
+        Some(&section),
+    );
+    let prompt = build_judge_prompt(&input);
+    assert!(
+        prompt.contains("send_response (approval-gated)"),
+        "approval-gated send action must be annotated as approval-gated: {prompt}"
+    );
+    assert!(
+        prompt.contains("triage_ticket (autonomous)"),
+        "autonomous action must be annotated as autonomous: {prompt}"
+    );
+}
+
+#[test]
+fn build_judge_prompt_instructs_not_to_block_approval_gated_actions() {
+    // Q4 must only target AUTONOMOUS dangerous actions, and the prompt must
+    // explicitly exempt approval-gated send/pay/delete actions. This is what
+    // stops the judge dead-ending the onboarding first hire.
+    let section = two_action_section();
+    let input = JudgeInput::from_plan_projection("charter", "persona", Some(&section));
+    let prompt = build_judge_prompt(&input);
+    assert!(
+        prompt.contains("AUTONOMOUS (NOT approval-gated)"),
+        "Q4 must scope to autonomous dangerous actions: {prompt}"
+    );
+    assert!(
+        prompt.contains("Do NOT block an action merely because it sends"),
+        "prompt must explicitly exempt approval-gated send/pay/delete actions: {prompt}"
+    );
+    // The original bias-to-block on AUTONOMOUS danger is preserved.
+    assert!(
+        prompt.contains("NOT allow_with_disclaimer"),
+        "autonomous-danger bias-to-block must remain: {prompt}"
+    );
+}
+
+#[test]
+fn from_broad_leaves_actions_unannotated() {
+    // The broad-role path carries no approval semantics → action_approvals is
+    // None → the prompt falls back to bare names (every action treated as
+    // autonomous), identical to the pre-fix behaviour. No broad-role regression.
+    let draft = sample_draft();
+    let input = JudgeInput::from_broad(&draft);
+    assert!(
+        input.action_approvals.is_none(),
+        "broad-role projection must not assert approval semantics it does not have"
+    );
+    let prompt = build_judge_prompt(&input);
+    assert!(prompt.contains("check_in"), "bare action name still present");
+    assert!(
+        !prompt.contains("check_in (approval-gated)") && !prompt.contains("check_in (autonomous)"),
+        "broad-role actions must NOT be annotated: {prompt}"
+    );
+}

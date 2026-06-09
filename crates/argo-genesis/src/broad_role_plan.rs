@@ -57,16 +57,12 @@ impl GenesisOutcome {
 
     fn judge_input(&self) -> JudgeInput<'_> {
         match self {
-            Self::Plan(p) => JudgeInput {
-                charter: &p.charter,
-                persona_description: &p.persona,
-                action_vocabulary: p
-                    .manifest
-                    .actions
-                    .as_ref()
-                    .map(|a| a.actions.keys().cloned().collect())
-                    .unwrap_or_default(),
-            },
+            // Carry each action's `requires_approval` flag parallel to its name
+            // so the judge exempts approval-gated send/pay/delete actions
+            // (safe by construction) and only blocks autonomous ones.
+            Self::Plan(p) => {
+                JudgeInput::from_plan_projection(&p.charter, &p.persona, p.manifest.actions.as_ref())
+            }
             Self::Broad(d) => JudgeInput::from_broad(d),
         }
     }

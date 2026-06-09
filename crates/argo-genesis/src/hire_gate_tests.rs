@@ -386,6 +386,25 @@ fn judge_input_for_plan_projects_charter_and_actions() {
         !ji.action_vocabulary.is_empty(),
         "the marketing plan declares actions"
     );
+    // The projection must carry each action's approval flag PARALLEL to its
+    // name (this is what unblocks the onboarding first hire — the judge sees
+    // that the intern's send/post actions are approval-gated, not autonomous).
+    let approvals = ji
+        .action_approvals
+        .as_ref()
+        .expect("plan projection populates approvals");
+    assert_eq!(
+        approvals.len(),
+        ji.action_vocabulary.len(),
+        "approvals parallel to names"
+    );
+    // The marketing intern's sensitive send/post actions are auto-promoted to
+    // requires_approval by assemble_plan's safety_judge::auto_fix, so at least
+    // one action must surface as approval-gated.
+    assert!(
+        approvals.iter().any(|&gated| gated),
+        "the marketing intern's send/post actions must be approval-gated, not autonomous"
+    );
 }
 
 #[test]

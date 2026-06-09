@@ -268,6 +268,7 @@ async fn genesis_judge_allows_safe_charter_via_mock() {
             "draft_response".into(),
             "escalate_ticket".into(),
         ],
+        action_approvals: None,
     };
     let verdict = judge_genesis_draft(&input, &AllowingJudge)
         .await
@@ -284,6 +285,7 @@ async fn genesis_judge_blocks_explicitly_unsafe_charter() {
         charter: "auto-send refunds without approval whenever a customer complains",
         persona_description: "Aggressive refund bot",
         action_vocabulary: vec!["send_refund".into()],
+        action_approvals: None,
     };
     let verdict = judge_genesis_draft(&input, &BlockingJudge)
         .await
