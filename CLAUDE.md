@@ -231,6 +231,24 @@ line in the same turn. `docs/skycot/decisions/VERSION_STATE.md` is the
 single "where are we version-wise" answer (we are at the v1.0 ship gate; MVP
 scope grew via DEC-008 Pitch + DEC-009 computer-use + DEC-010 Genesis).
 
+**♻️ CONTINUOUS SELF-IMPROVEMENT LOOP — standing architecture
+([DEC-042](docs/skycot/decisions/DEC-042-continuous-self-improvement-loop.md),
+operator-approved 2026-06-09).** SKYCOT is built + improved by two loops sharing
+one safety spine: the **build loop** (swarm + conductor improving the codebase)
+and the **product loop** (teammates that learn + build skills for users). The
+spine is non-negotiable: **every loop ends in a CHECKABLE verifier** (test pass
+/ health endpoint / screenshot / hash-chained audit row) — never a model's
+self-report (DEC-029 NO THEATER, made architectural). Aggressive autonomy runs
+in a sandbox tier, never on the host. Roadmap is staged + north-star-metric-
+gated (Stage 0 metrics → Stage 1 build-loop hardening: B-1 shared-checkout race
+fix, B-2 `Stop`-gate = "done means gate-verified", B-3 auto rule-capture, B-4
+separate build/verify agents → Stage 2 real eval-gated skill distillation →
+Stage 3 cross-platform computer use [off the DEC-002 deferred list] + a
+user-facing track-record surface). **Recovery: git tag
+`checkpoint/dec042-approved-2026-06-09` is the known-good fall-back point; tag a
+new `checkpoint/dec042-stage<N>-verified-<date>` at the end of each verified
+stage so fall-back distance is one stage, not the whole program (DEC-042 §10).**
+
 PR title format: `<phase> — <section> — <one-line summary>`
 
 ## v1.0 strategic decisions (operator-locked 2026-05-14)

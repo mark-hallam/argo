@@ -1,7 +1,7 @@
 # DEC-042 — Continuous self-improvement loop (build loop + product loop)
 
 - **Date:** 2026-06-09
-- **Status:** **PROPOSED — awaiting operator sign-off before execution.** The operator chose "formalize the plan first" (2026-06-09); this ADR is the plan to review/approve. No build work starts until Mark approves the roadmap (and picks the Stage-1 start) below.
+- **Status:** **active** — approved by the operator 2026-06-09 ("Approved"). All 4 §9 sign-off questions answered yes (architecture + staged sequence approved; cross-platform computer use comes off the DEC-002 deferred list, E2B first; aggressive autonomy runs in a sandbox tier; Stage-1 order B-1→B-2→B-3→B-4 confirmed). A known-good recovery checkpoint was tagged at approval time — see §10.
 - **Owner:** conductor (Claude) — proposes; operator approves.
 - **Relates to:** [DEC-029](DEC-029-truth-bounded-status-reporting.md) (NO THEATER / truth-bounded), [DEC-034](DEC-034-paying-ready-sprint-and-conductor-driven-run-mode.md) (conductor-driven run-mode, no cron), [DEC-041](DEC-041-execution-posture-risk-tiered-act-by-default.md) / [DEC-036](DEC-036-autonomous-scheduled-execution.md) / [DEC-037](DEC-037-graduated-real-execution.md) (execution posture), [DEC-017](DEC-017-teammate-eval-harness-synthetic-golden-companies-first.md) (eval harness), [DEC-025](DEC-025-genesis-done-right-full-synthesis.md) (Genesis), [DEC-002](DEC-002-macos-first-computer-use.md) (macOS-first computer-use).
 - **Supersedes:** nothing. Extends the run-mode (DEC-034) with a durable self-improvement architecture.
@@ -148,3 +148,28 @@ This DEC does **not** claim the self-improving loop is "live" — it proposes th
 4. **Where to start** once approved — the Stage-1 order (B-1 → B-4) is recommended; confirm or re-rank.
 
 On approval, this status flips `active`, a CLAUDE.md "self-improvement loop" section is added, and Stage 0 (metrics instrumentation) begins.
+
+---
+
+## 10. Approval + recovery checkpoint (the "fall back to here if we go wrong" point)
+
+**Approved 2026-06-09** by the operator, who also asked to mark a recoverable known-good baseline *before* the self-improvement build-out begins — so if a later stage destabilizes the codebase, we can return to exactly this state.
+
+**Checkpoint:** an annotated git tag at the approval commit:
+
+```
+checkpoint/dec042-approved-2026-06-09
+```
+
+This tag is an immutable pointer to the known-good state as of approval: LAUNCH-2 (first-hire safety-gate) live-verified + shipped, LAUNCH-1 (TLS SMTP/SES) code shipped, the WS1/WS5 perimeter + tenant-isolation hardening in, gateway building cleanly on `main`, and this DEC active. It is pushed to `origin`, so it survives even as `main` advances (the swarm keeps committing; the tag does not move).
+
+**How to fall back (in order of safety):**
+
+1. **Inspect what the checkpoint was** (non-destructive):
+   `git show checkpoint/dec042-approved-2026-06-09 --stat`
+2. **Branch off the checkpoint to investigate/cherry-pick** (non-destructive — preferred):
+   `git checkout -b recover-from-dec042 checkpoint/dec042-approved-2026-06-09`
+3. **Hard reset `main` back to the checkpoint** (DESTRUCTIVE — discards everything after it; do this ONLY with the swarm paused and after `git fetch`, never casually on the shared checkout):
+   `git fetch origin && git checkout main && git reset --hard checkpoint/dec042-approved-2026-06-09 && git push --force-with-lease origin main`
+
+**Operating rule for the build-out (so fall-back is rarely needed):** every stage is gated and reversible on its own (default-OFF flags, per-stage truth-bounded VERIFIED/PARTIAL/BLOCKED reports). New checkpoints SHOULD be tagged at the end of each verified stage (`checkpoint/dec042-stage1-verified-<date>`, etc.) so the fall-back distance is always one stage, not the whole program.
