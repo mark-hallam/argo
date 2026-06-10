@@ -57,7 +57,10 @@ pub(crate) async fn signup_response(
         honeypot_url: parsed.honeypot_url.as_deref(),
         turnstile_response: parsed.cf_turnstile_response.as_deref(),
     };
-    match crate::handlers::gateway::signup_protection::check_signup(req, fields).await {
+    // signup_protection's independent hourly cap keys on the SAME trusted
+    // `src_ip` as the limiter above — never on a client-supplied
+    // `X-Forwarded-For` (fix-signup-protection-xff-trust-and-default).
+    match crate::handlers::gateway::signup_protection::check_signup(src_ip, fields).await {
         SignupProtectionOutcome::Allow => {}
         SignupProtectionOutcome::SilentOk => return ("200 OK", SIGNUP_SENT_BODY.to_string()),
         SignupProtectionOutcome::Deny { status, body } => return (status, body),

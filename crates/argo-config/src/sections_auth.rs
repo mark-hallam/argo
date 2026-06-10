@@ -12,25 +12,20 @@ use serde::{Deserialize, Serialize};
 /// let cfg = AuthConfig::default();
 /// assert_eq!(cfg.signup_protection.ip_limit_per_hour, 5);
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AuthConfig {
-    /// Whether pre-auth signup endpoints may trust the first
-    /// `X-Forwarded-For` hop as the caller IP. Default `true` because
-    /// the hand-rolled route dispatcher does not pass peer addresses
-    /// into route handlers yet.
+    /// Legacy footgun flag, now vestigial. Default `false`
+    /// (secure-by-default). It once let the signup limiter trust the
+    /// first `X-Forwarded-For` hop unconditionally; that limiter now
+    /// keys on the trusted `src_ip` the accept loop extracts
+    /// (`proxy_guard::extract_real_ip`), so nothing consumes this flag.
+    /// The canonical proxy-trust contract is `[gateway.behind_proxy]`
+    /// (`expected_proxy` + `trusted_proxies`). Slated for removal as a
+    /// parallel abstraction (fix-signup-protection-xff-trust-and-default).
     pub trust_proxy_header: bool,
     /// `[auth.signup_protection]` bot and abuse controls.
     pub signup_protection: AuthSignupProtectionConfig,
-}
-
-impl Default for AuthConfig {
-    fn default() -> Self {
-        Self {
-            trust_proxy_header: true,
-            signup_protection: AuthSignupProtectionConfig::default(),
-        }
-    }
 }
 
 /// `[auth.signup_protection]` — public signup abuse controls.

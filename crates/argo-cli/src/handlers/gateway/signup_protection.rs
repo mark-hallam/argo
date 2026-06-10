@@ -13,7 +13,7 @@ use argo_config::{ArgoConfig, AuthConfig};
 use dashmap::DashMap;
 use serde::Deserialize;
 use std::future::Future;
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::IpAddr;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
@@ -44,11 +44,14 @@ pub(super) struct SignupProtectionState {
     email_attempts: DashMap<String, Instant>,
 }
 
-pub(super) async fn check_signup(req: &str, fields: SignupFields<'_>) -> SignupProtectionOutcome {
+pub(super) async fn check_signup(
+    src_ip: IpAddr,
+    fields: SignupFields<'_>,
+) -> SignupProtectionOutcome {
     let cfg = load_auth_config();
     check_signup_with(
         global_state(),
-        req,
+        src_ip,
         fields,
         &cfg,
         Instant::now(),
@@ -59,7 +62,7 @@ pub(super) async fn check_signup(req: &str, fields: SignupFields<'_>) -> SignupP
 
 pub(super) async fn check_signup_with<F, Fut>(
     state: &SignupProtectionState,
-    req: &str,
+    src_ip: IpAddr,
     fields: SignupFields<'_>,
     cfg: &AuthConfig,
     now: Instant,
@@ -75,7 +78,7 @@ where
 
     state.sweep_expired(now);
 
-    if let Some(retry) = state.check_ip(req, cfg, now) {
+    if let Some(retry) = state.check_ip(src_ip, cfg, now) {
         return deny_rate_limited("ip", retry);
     }
 
@@ -129,12 +132,18 @@ impl SignupProtectionState {
             .retain(|_, last| now.saturating_duration_since(*last) < STATE_TTL);
     }
 
-    fn check_ip(&self, req: &str, cfg: &AuthConfig, now: Instant) -> Option<u64> {
+    /// Per-IP hourly cap. Keys on the trusted `src_ip` the accept loop
+    /// extracts (`proxy_guard::extract_real_ip`), the same value the
+    /// other signup limiters thread through — NEVER on a client-supplied
+    /// `X-Forwarded-For` hop. The request string is no longer passed in,
+    /// so this cap is structurally unspoofable
+    /// (fix-signup-protection-xff-trust-and-default).
+    fn check_ip(&self, src_ip: IpAddr, cfg: &AuthConfig, now: Instant) -> Option<u64> {
         let limit = cfg.signup_protection.ip_limit_per_hour;
         if limit == 0 {
             return None;
         }
-        let key = signup_ip_key(req, cfg.trust_proxy_header);
+        let key = normalize_ip_key(src_ip);
         let mut entry = self.ip_attempts.entry(key).or_default();
         entry.retain(|t| now.saturating_duration_since(*t) < IP_WINDOW);
         if entry.len() >= limit as usize {
@@ -176,29 +185,6 @@ fn deny_rate_limited(scope: &str, retry_after_secs: u64) -> SignupProtectionOutc
             "{{\"error\":\"rate_limited\",\"scope\":\"{scope}\",\"retry_after_secs\":{retry_after_secs},\"retry_after\":{retry_after_secs}}}"
         ),
     }
-}
-
-fn signup_ip_key(req: &str, trust_proxy_header: bool) -> String {
-    let ip = if trust_proxy_header {
-        parse_first_xff_hop(req).unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
-    } else {
-        IpAddr::V4(Ipv4Addr::UNSPECIFIED)
-    };
-    normalize_ip_key(ip)
-}
-
-fn parse_first_xff_hop(req: &str) -> Option<IpAddr> {
-    let headers = req.split_once("\r\n\r\n").map_or(req, |(h, _)| h);
-    for line in headers.split("\r\n").skip(1) {
-        let Some((name, value)) = line.split_once(':') else {
-            continue;
-        };
-        if !name.trim().eq_ignore_ascii_case("x-forwarded-for") {
-            continue;
-        }
-        return value.split(',').next()?.trim().parse().ok();
-    }
-    None
 }
 
 fn normalize_ip_key(ip: IpAddr) -> String {

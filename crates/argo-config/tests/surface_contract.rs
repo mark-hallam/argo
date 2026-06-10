@@ -22,7 +22,9 @@ fn public_surface_exports_defaults_for_mission_relevant_sections() {
 
     let _auth: AuthConfig = cfg.auth.clone();
     let _signup: AuthSignupProtectionConfig = cfg.auth.signup_protection.clone();
-    assert!(cfg.auth.trust_proxy_header);
+    // Secure-by-default: the legacy XFF-trust flag now defaults `false`
+    // and is vestigial (fix-signup-protection-xff-trust-and-default).
+    assert!(!cfg.auth.trust_proxy_header);
     assert_eq!(cfg.auth.signup_protection.ip_limit_per_hour, 5);
     assert_eq!(cfg.auth.signup_protection.email_cooldown_secs, 60);
 
