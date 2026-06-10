@@ -33,7 +33,7 @@ const COPY: Record<
   "draft-hydration": {
     title: "Couldn't restore your draft",
     description:
-      "Your in-progress hire couldn't be loaded. Starting over takes about four minutes — your earlier answers aren't lost forever, they just couldn't be recovered.",
+      "Your in-progress hire couldn't be loaded. Starting over is quick — your earlier answers aren't lost forever, they just couldn't be recovered.",
     reset: "Start over",
   },
   "worker-fetch": {

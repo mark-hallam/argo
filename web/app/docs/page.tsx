@@ -44,7 +44,7 @@ const CATEGORIES: DocCategory[] = [
     slug: "getting-started",
     icon: <Rocket size={26} />,
     title: "Getting Started",
-    blurb: "Hire your first AI teammate in four minutes. Onboarding tour, your first workflow, and the trust ratchet explained.",
+    blurb: "Hire your first AI teammate. Onboarding tour, your first workflow, and the trust ratchet explained.",
     count: "8 guides",
   },
   {
@@ -94,7 +94,7 @@ interface FeaturedGuide {
 const FEATURED: FeaturedGuide[] = [
   {
     slug: "getting-started/hire-first-teammate",
-    title: "Hire your first AI teammate in 4 minutes",
+    title: "Hire your first AI teammate",
     read: "4 min read",
     icon: <Rocket size={18} />,
   },

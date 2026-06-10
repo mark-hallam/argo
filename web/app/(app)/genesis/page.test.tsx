@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 /**
- * `/genesis` page-level regression for the additive "Talk it through" toggle
- * (UF Phase-A · A3, DEC-039). Pins that:
+ * `/genesis` page-level regression for the "Talk it through" toggle
+ * (UF Phase-A · A3, DEC-039 / DEC-048 rule 1). Pins that:
  *  - the toggle appears,
- *  - "Describe it" (the original one-shot flow) is the default and unchanged,
- *  - switching to "Talk it through" swaps in the conversation surface,
- *  - switching back restores the one-shot describe surface.
+ *  - "Talk it through" (the guided interview) is now the DEFAULT (DEC-048),
+ *  - switching to "Describe it" swaps in the one-shot surface,
+ *  - switching back restores the conversation surface.
  */
 
 vi.mock("next/navigation", () => ({
@@ -47,34 +47,38 @@ describe("/genesis Talk-it-through toggle", () => {
     });
   });
 
-  it("defaults to the unchanged one-shot 'Describe it' flow", () => {
+  it("defaults to the guided 'Talk it through' interview (DEC-048)", async () => {
     render(<GenesisPage />);
     expect(screen.getByTestId("genesis-mode-toggle")).toBeInTheDocument();
-    expect(screen.getByTestId("genesis-mode-describe")).toHaveAttribute(
+    expect(screen.getByTestId("genesis-mode-talk")).toHaveAttribute(
       "aria-selected",
       "true",
     );
-    // One-shot surface present; conversation absent.
-    expect(screen.getByTestId("genesis-hero-form")).toBeInTheDocument();
-    expect(screen.getByTestId("genesis-cadence-exceptions")).toBeInTheDocument();
-    expect(screen.queryByTestId("genesis-conversation")).not.toBeInTheDocument();
-    expect(mockedTurn).not.toHaveBeenCalled();
-  });
-
-  it("swaps in the conversation surface on 'Talk it through' and back", async () => {
-    render(<GenesisPage />);
-    fireEvent.click(screen.getByTestId("genesis-mode-talk"));
-
+    // Conversation surface present by default; one-shot describe absent.
     await waitFor(() =>
       expect(screen.getByTestId("genesis-conversation")).toBeInTheDocument(),
     );
-    // The one-shot describe surface is hidden in talk mode.
     expect(screen.queryByTestId("genesis-hero-form")).not.toBeInTheDocument();
-    expect(mockedTurn).toHaveBeenCalledTimes(1);
+  });
 
-    // Toggle back — the original flow returns intact.
+  it("swaps in the one-shot 'Describe it' surface and back", async () => {
+    render(<GenesisPage />);
+    // Starts in talk mode (default).
+    await waitFor(() =>
+      expect(screen.getByTestId("genesis-conversation")).toBeInTheDocument(),
+    );
+
     fireEvent.click(screen.getByTestId("genesis-mode-describe"));
+    // The original one-shot flow is one click away, intact.
     expect(screen.getByTestId("genesis-hero-form")).toBeInTheDocument();
+    expect(screen.getByTestId("genesis-cadence-exceptions")).toBeInTheDocument();
     expect(screen.queryByTestId("genesis-conversation")).not.toBeInTheDocument();
+
+    // Toggle back — the guided interview returns.
+    fireEvent.click(screen.getByTestId("genesis-mode-talk"));
+    await waitFor(() =>
+      expect(screen.getByTestId("genesis-conversation")).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId("genesis-hero-form")).not.toBeInTheDocument();
   });
 });

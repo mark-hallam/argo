@@ -409,7 +409,7 @@ function PricingPageContent() {
 
         <section className="pri-final">
           <h2>Ready to hire your first teammate?</h2>
-          <p>No credit card. No demo call. Four minutes to your first working teammate.</p>
+          <p>No credit card. No demo call. A guided interview so your first teammate starts right.</p>
           <Link href="/auth/signup" className="pri-final-cta">
             Start free <ArrowRight size={16} />
           </Link>

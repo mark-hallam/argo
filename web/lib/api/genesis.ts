@@ -41,6 +41,11 @@ import type {
   BoundariesEcho,
   BoundariesSpec,
 } from "@/components/skycot/genesis/BoundariesPanel";
+// The hire-draft builder lives in the sibling `genesis-hire-intake.ts` (this
+// file is grandfathered over the 500-LOC ceiling); re-imported here so the
+// existing hire path is byte-unchanged.
+import { buildHireDraftFromGenesis } from "./genesis-hire-intake";
+export { buildHireDraftFromGenesis } from "./genesis-hire-intake";
 
 export type GenesisSource = "gateway" | "stub";
 
@@ -640,69 +645,6 @@ export interface HireFromGenesisResult {
 }
 
 /**
- * Build a canonical `HireDraft` (snake_case → wire camelCase) from the
- * SSE `vertical_ready` payload. The Rust validator requires:
- *
- * - `suggestedName` non-empty
- * - `charter` >= 20 chars
- * - `suggestedVertical` non-empty + resolvable in the catalog (or
- *   `.genesis/<tenant>/`)
- * - at least one duty with `defaultEnabled = true`
- * - `approvalPolicy.level` in {conservative, balanced, aggressive}
- */
-export function buildHireDraftFromGenesis(
-  ready: GenesisVerticalReadyEvent,
-  roleDescription: string,
-): Record<string, unknown> {
-  const name = (ready.manifest.name || "Operator").trim();
-  // Charter has to clear the 20-char floor; pad with the role description
-  // so we never trip the validator on a terse manifest name.
-  const charter = [
-    `${name} owns this work end-to-end.`,
-    roleDescription.trim(),
-  ]
-    .join("\n\n")
-    .slice(0, 4000);
-  // DEC-048 rule 2 (captured-equals-built): the ONE seed duty fires WHEN the
-  // operator asked at intake, not on a hardcoded 9am default. Its description
-  // is the operator's OWN cadence words (never canned copy), and its cron is
-  // the deterministic parse of those words. An unparseable cadence keeps the
-  // words + falls back to the default cron and is flagged "needs confirmation"
-  // on the review card (`RoleContractReview`) — never silently substituted.
-  // (The SPA's Phase-2 access-controls panel can still rewrite duties post-hire;
-  // this seed clears the validator's "at least one defaultEnabled" requirement.)
-  const cadenceWords = ready.role_contract?.cadence?.trim();
-  const { cron } = parseCadenceToCron(cadenceWords);
-  const description =
-    cadenceWords && cadenceWords.length > 0
-      ? cadenceWords.slice(0, 280)
-      : "Runs on a default weekday schedule until you set one in Schedules.";
-  const duties = [
-    {
-      cron,
-      entryAction: "respond_to_inbound",
-      description,
-      defaultEnabled: true,
-    },
-  ];
-  return {
-    suggestedName: name,
-    charter,
-    suggestedVertical: ready.vertical_id,
-    approvalPolicy: { level: "balanced" },
-    duties,
-    tagline: ready.manifest.persona || ready.manifest.archetype,
-    // DEC-025: carry the Genesis plan id so the persisted worker gets a
-    // `genesis_plan_id=` provenance marker. This is load-bearing for
-    // SAFETY, not just the provenance chip: the runtime capability fence
-    // (P2) AND the enforced probation window (P3) both key off this
-    // marker. Without it the flagship SSE-hired teammate would be hired
-    // UNFENCED (owner `*` keys) and with NO probation — strictly weaker
-    // than the `/onboarding/first-hire` path, which already sets it.
-    genesisPlanId: ready.vertical_id,
-  };
-}
-
 /**
  * POST `/api/v1/workers` with the SSE-derived draft. Surfaces the
  * gateway's `{ workerId }` (or `{ worker_id }`) field as `workerId` so

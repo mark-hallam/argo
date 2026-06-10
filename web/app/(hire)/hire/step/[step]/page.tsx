@@ -65,8 +65,7 @@ const STEP_COPY: Record<Step, StepCopy> = {
     hero: [{ text: "Crafting your" }, { text: " " }, { text: "teammate.", accent: true }],
     sub: (
       <>
-        Drafting the charter, picking schedules, and writing a few example replies.{" "}
-        <strong>This takes about ten seconds.</strong>
+        Drafting the charter, picking schedules, and writing a few example replies.
       </>
     ),
   },

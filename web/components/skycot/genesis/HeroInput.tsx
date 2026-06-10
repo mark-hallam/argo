@@ -262,7 +262,7 @@ export function HeroInput({ value, onChange, onSubmit, isBusy }: HeroInputProps)
           ) : (
             <p id="genesis-role-hint" className="gen-hero-hint">
               We&apos;ll draft a real worker — persona, charter, and skills —
-              in about ten seconds.
+              and walk you through reviewing it.
             </p>
           )}
         </div>

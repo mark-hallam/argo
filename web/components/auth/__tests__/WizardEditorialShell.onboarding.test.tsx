@@ -60,7 +60,7 @@ describe("Onboarding adoption of WizardEditorialShell", () => {
     expect(screen.getByTestId("wiz-shell-exit")).toBeInTheDocument();
     expect(screen.getByTestId("onboarding-step-preview-setup").textContent)
       .toMatchInlineSnapshot(
-        `"Steps 2–3 · 90 secName your workspace, then connect your AI provider."`,
+        `"Steps 2–3 · SETUPName your workspace, then connect your AI provider."`,
       );
     expect(screen.getByTestId("onboarding-pillar-genesis-studio")).toBeInTheDocument();
     expect(screen.getByTestId("onboarding-step-preview-hire")).toBeInTheDocument();

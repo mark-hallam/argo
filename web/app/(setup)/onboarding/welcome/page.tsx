@@ -38,7 +38,7 @@ export default function OnboardingWelcomePage() {
       ]}
       sub={
         <>
-          In <strong>four minutes</strong> you&apos;ll onboard your first AI teammate &mdash;
+          A guided interview so your teammate starts right the first time &mdash;
           with your role, playbook, and guardrails ready before they start.
         </>
       }
@@ -49,7 +49,7 @@ export default function OnboardingWelcomePage() {
       >
         <ul className="ob-pillars">
           <li className="ob-pillar" data-testid="onboarding-step-preview-setup">
-            <p className="ob-pillar-label">Steps 2&ndash;3 &middot; 90 sec</p>
+            <p className="ob-pillar-label">Steps 2&ndash;3 &middot; SETUP</p>
             <p className="ob-pillar-body">
               Name your workspace, then connect your AI provider.
             </p>
@@ -62,11 +62,11 @@ export default function OnboardingWelcomePage() {
             <p className="ob-pillar-body">
               Describe the role in plain English; Skycot synthesises charter,
               action vocabulary, memory schema, and eval suites &mdash; a real
-              teammate ready to start work in minutes.
+              teammate ready to start work.
             </p>
           </li>
           <li className="ob-pillar" data-testid="onboarding-step-preview-hire">
-            <p className="ob-pillar-label">Steps 4&ndash;5 &middot; 2.5 min</p>
+            <p className="ob-pillar-label">Steps 4&ndash;5 &middot; HIRE</p>
             <p className="ob-pillar-body">
               Pick a vertical template, then describe your first teammate.
             </p>

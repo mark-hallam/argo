@@ -26,6 +26,7 @@ import {
   type ConversationGatheredSlots,
 } from "@/components/skycot/genesis/ConversationIntake";
 import { BoundariesPanel, EMPTY_BOUNDARIES, type BoundariesSpec } from "@/components/skycot/genesis/BoundariesPanel";
+import { CadenceExceptionsEditor } from "@/components/skycot/genesis/CadenceExceptionsEditor";
 import {
   GENESIS_PHASES,
   hireFromGenesis,
@@ -38,17 +39,11 @@ import {
 } from "@/lib/api/genesis";
 
 /**
- * `/genesis` — turn plain English into a real AI teammate.
- *
- * Calls `POST /api/v1/genesis` (Server-Sent Events) live, renders a
- * brand-loud progress strip + preview card as the stream advances,
- * then commits the worker via `POST /api/v1/workers` and navigates to
- * `/workers/{id}`. No mock fallback — per `feedback_no_theater_in_demo`
- * the demo path is the real backend pipeline.
- *
- * The tenant id (forwarded as `X-Argo-Tenant-Id` on BOTH calls) is a
- * stable per-session slug so the hire-side vertical-resolution can find
- * the freshly-generated `.genesis/<tenant>/<vertical>/`.
+ * `/genesis` — turn plain English into a real AI teammate. Streams
+ * `POST /api/v1/genesis` (SSE) live, then commits the worker via
+ * `POST /api/v1/workers` and routes to `/workers/{id}`. No mock fallback (real
+ * backend per `feedback_no_theater_in_demo`). The `X-Argo-Tenant-Id` slug (on
+ * BOTH calls) lets the hire find the fresh `.genesis/<tenant>/<vertical>/`.
  */
 
 const TENANT_STORAGE_KEY = "skycot.genesisTenantId";
@@ -91,10 +86,10 @@ export default function GenesisPage() {
   const [intake, setIntake] = useState<CadenceExceptionsSelection>(
     EMPTY_CADENCE_EXCEPTIONS,
   );
-  // UF Phase-A · A3 (DEC-039): "Describe it" (one-shot) ↔ "Talk it through"
-  // (conversational intake). ADDITIVE — both land on the identical review →
-  // hire path below; the toggle only chooses how the role is described.
-  const [mode, setMode] = useState<GenesisMode>("describe");
+  // UF Phase-A · A3 (DEC-039) / DEC-048 rule 1: "Talk it through" is the DEFAULT
+  // (build the teammate right over fast-but-shallow). ADDITIVE — "Describe it"
+  // stays one click away; both land on the identical review → hire path below.
+  const [mode, setMode] = useState<GenesisMode>("talk");
   // Phase-2 access-controls + guardrails: the operator's "Set boundaries" spec,
   // threaded into the SSE request and synthesized into an enforceable
   // truth-boundary policy on the gateway.
@@ -470,6 +465,12 @@ export default function GenesisPage() {
               {vertical.boundaries ? (
                 <BoundariesPanel applied={vertical.boundaries} />
               ) : null}
+              {/* DEC-025 #7 — edit captured cadence/exceptions/success pre-hire. */}
+              <CadenceExceptionsEditor
+                ready={vertical}
+                onChange={setVertical}
+                disabled={status === "hiring"}
+              />
               <RoleContractReview
                 ready={vertical}
                 onConfirmHire={handleHire}

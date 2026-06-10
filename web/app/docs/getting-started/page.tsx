@@ -3,7 +3,7 @@ import { DocsStub } from "../_components/DocsStub";
 
 export const metadata: Metadata = {
   title: "Getting Started — SKYCOT Docs",
-  description: "Hire your first AI teammate in four minutes — onboarding, trust ratchet, and your first workflow.",
+  description: "Hire your first AI teammate — onboarding, trust ratchet, and your first workflow.",
   alternates: { canonical: "/docs/getting-started" },
 };
 

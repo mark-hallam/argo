@@ -255,8 +255,8 @@ function SignupInner() {
       </h1>
 
       <p className="sub">
-        In <span className="emphasis">four minutes</span>, you&apos;ll set up your workspace,
-        link a provider, and have a teammate working alongside you.{" "}
+        You&apos;ll set up your workspace, link a provider, and have a teammate
+        working alongside you.{" "}
         <span className="emphasis">No credit card</span> required.
       </p>
 

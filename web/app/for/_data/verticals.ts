@@ -111,7 +111,7 @@ const SALES: VerticalConfig = {
   },
   ctaStrip: {
     headline: "Hire your first sales teammate",
-    sub: "Live in Slack in under four minutes. No credit card.",
+    sub: "Configured, reviewed, and ready in Slack. No credit card.",
   },
   compliance: ["SOC 2-ready audit trail", "GDPR-aligned data export"],
 };
@@ -164,7 +164,7 @@ const RECRUITING: VerticalConfig = {
   },
   ctaStrip: {
     headline: "Hire your first recruiting teammate",
-    sub: "Live in Slack in under four minutes. No credit card.",
+    sub: "Configured, reviewed, and ready in Slack. No credit card.",
   },
   compliance: [
     "SOC 2-ready audit trail",
@@ -221,7 +221,7 @@ const SUPPORT: VerticalConfig = {
   },
   ctaStrip: {
     headline: "Hire your first support teammate",
-    sub: "Live in Slack in under four minutes. No credit card.",
+    sub: "Configured, reviewed, and ready in Slack. No credit card.",
   },
   compliance: ["SOC 2-ready audit trail", "GDPR-aligned data export"],
 };
@@ -274,7 +274,7 @@ const FINANCE: VerticalConfig = {
   },
   ctaStrip: {
     headline: "Hire your first finance teammate",
-    sub: "Live in Slack in under four minutes. No credit card.",
+    sub: "Configured, reviewed, and ready in Slack. No credit card.",
   },
   compliance: [
     "SOC 2-ready audit trail",
@@ -331,7 +331,7 @@ const MARKETING: VerticalConfig = {
   },
   ctaStrip: {
     headline: "Hire your first marketing teammate",
-    sub: "Live in Slack in under four minutes. No credit card.",
+    sub: "Configured, reviewed, and ready in Slack. No credit card.",
   },
   compliance: ["SOC 2-ready audit trail", "GDPR-aligned data export"],
 };
@@ -381,7 +381,7 @@ const OPS: VerticalConfig = {
   },
   ctaStrip: {
     headline: "Hire your first ops teammate",
-    sub: "Live in Slack in under four minutes. No credit card.",
+    sub: "Configured, reviewed, and ready in Slack. No credit card.",
   },
   compliance: ["SOC 2-ready audit trail", "GDPR-aligned data export"],
 };

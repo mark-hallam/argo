@@ -118,7 +118,7 @@ function HireLandingContent() {
       ]}
       sub={
         <>
-          In <strong>four minutes</strong>, you&apos;ll have hired your first AI teammate
+          A guided interview so your teammate starts right the first time
           — and they&apos;ll start work as soon as you finish.
         </>
       }

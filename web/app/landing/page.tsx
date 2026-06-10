@@ -365,7 +365,7 @@ export default function MarketingLandingPage() {
         <section id="how" className="land-section">
           <p className="land-section-label">HOW IT WORKS</p>
           <h2 className="land-section-title">
-            From plain English to a <strong>working teammate</strong> in four minutes.
+            From plain English to a <strong>working teammate</strong>.
           </h2>
           <div className="land-how-grid">
             {HOW.map((s) => (
