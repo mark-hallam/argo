@@ -20,16 +20,6 @@ use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::OwnedMutexGuard;
-
-/// Serialize on the GATEWAY-WIDE env lock: this test sets the process-global
-/// `ARGO_VERTICALS_DIR` to the real catalog, so it must not run concurrently
-/// with `routes_genesis_stream_tests` (empty tempdir). A private per-module
-/// mutex let those groups race ("receptionist not found") under multi-threaded
-/// runs — the shared lock is the contract those stream tests document.
-async fn env_lock() -> OwnedMutexGuard<()> {
-    crate::handlers::gateway::shared_env_lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -81,7 +71,7 @@ async fn install_vertical_receipt_reports_zero_gates_when_pack_has_none() {
     // The receptionist pack ships with `human_approval_required = []`
     // — the receipt's "approval gates" row must render the
     // "0 policies" branch rather than implying gates were attached.
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;

@@ -17,7 +17,7 @@ use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::OwnedMutexGuard;
 use uuid::Uuid;
 
 const VERT: &str = "pr-checker";
@@ -101,11 +101,6 @@ fn kpi(name: &str, kind: KpiKind, threshold: f64, comparator: KpiComparator) -> 
 
 // ---- DB-driven route tests ---------------------------------------------
 
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
-
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -121,7 +116,7 @@ fn set_test_env(tmp: &std::path::Path) {
 }
 
 struct Env {
-    _guard: MutexGuard<'static, ()>,
+    _guard: OwnedMutexGuard<()>,
     _tmp: TempDir,
     store: Arc<SessionStore>,
     tenant: TenantId,
@@ -129,7 +124,7 @@ struct Env {
 }
 
 async fn prep() -> Env {
-    let guard = env_lock().await;
+    let guard = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = Arc::new(SessionStore::open(":memory:").await.expect("open"));

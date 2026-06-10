@@ -15,12 +15,6 @@ use argo_types::TenantId;
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -106,7 +100,7 @@ async fn dispatch_post_unwrap(req: &str, store: &Arc<SessionStore>) -> (&'static
 
 #[tokio::test]
 async fn list_returns_envelope_with_items() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -129,7 +123,7 @@ async fn list_returns_envelope_with_items() {
 
 #[tokio::test]
 async fn list_pagination_returns_cursor() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -157,7 +151,7 @@ async fn list_pagination_returns_cursor() {
 
 #[tokio::test]
 async fn unread_count_endpoint_returns_count() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -174,7 +168,7 @@ async fn unread_count_endpoint_returns_count() {
 
 #[tokio::test]
 async fn dismiss_one_idempotent_and_removes_from_list() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -201,7 +195,7 @@ async fn dismiss_one_idempotent_and_removes_from_list() {
 
 #[tokio::test]
 async fn dismiss_all_marks_every_visible_row() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -226,7 +220,7 @@ async fn dismiss_all_marks_every_visible_row() {
 
 #[tokio::test]
 async fn cross_principal_cannot_see_other_inbox() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -244,7 +238,7 @@ async fn cross_principal_cannot_see_other_inbox() {
 
 #[tokio::test]
 async fn cross_principal_cannot_dismiss_others_row() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -267,7 +261,7 @@ async fn cross_principal_cannot_dismiss_others_row() {
 
 #[tokio::test]
 async fn broadcast_rows_are_visible_to_every_principal() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -287,7 +281,7 @@ async fn broadcast_rows_are_visible_to_every_principal() {
 
 #[tokio::test]
 async fn dismiss_one_rejects_malformed_id() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -312,7 +306,7 @@ async fn cross_tenant_row_invisible_in_list_and_count() {
     // The handler resolves tenant from cwd → ensure_workspace, so we
     // hand-seed an alien `TenantId` and confirm only the caller's
     // workspace tenant rows surface.
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -345,7 +339,7 @@ async fn cross_tenant_dismiss_does_not_touch_alien_row() {
     // only exists under tenant_b returns the idempotent ok-envelope
     // (the WHERE clause matches zero rows) but leaves tenant_b's row
     // untouched.
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -370,7 +364,7 @@ async fn cross_tenant_dismiss_does_not_touch_alien_row() {
 
 #[tokio::test]
 async fn handlers_return_503_when_store_missing() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let list = dispatch_get(&req_get("/api/v1/notifications", None), None)

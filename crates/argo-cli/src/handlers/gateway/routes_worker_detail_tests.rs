@@ -14,13 +14,7 @@ use argo_types::TenantId;
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -103,7 +97,7 @@ fn extract_id(req: &str) -> &str {
 
 #[tokio::test]
 async fn happy_path_returns_required_fields() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -136,7 +130,7 @@ async fn happy_path_returns_required_fields() {
 
 #[tokio::test]
 async fn invalid_worker_id_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -150,7 +144,7 @@ async fn invalid_worker_id_returns_400() {
 
 #[tokio::test]
 async fn unknown_worker_id_returns_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -170,7 +164,7 @@ async fn unknown_worker_id_returns_404() {
 /// tenants.
 #[tokio::test]
 async fn cross_tenant_worker_detail_returns_same_404_as_unknown_worker() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -200,7 +194,7 @@ async fn cross_tenant_worker_detail_returns_same_404_as_unknown_worker() {
 
 #[tokio::test]
 async fn archived_worker_returns_410_with_recoverable_until() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -222,7 +216,7 @@ async fn archived_worker_returns_410_with_recoverable_until() {
 
 #[tokio::test]
 async fn handler_returns_503_when_store_missing() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let id = WorkerId::new().to_string();
@@ -234,7 +228,7 @@ async fn handler_returns_503_when_store_missing() {
 
 #[tokio::test]
 async fn operator_role_grants_all_permissions() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -262,7 +256,7 @@ async fn operator_role_grants_all_permissions() {
 
 #[tokio::test]
 async fn auditor_role_grants_only_view_audit() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -290,7 +284,7 @@ async fn auditor_role_grants_only_view_audit() {
 
 #[tokio::test]
 async fn delegator_hire_author_can_edit_but_not_delete() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -312,7 +306,7 @@ async fn delegator_hire_author_can_edit_but_not_delete() {
 
 #[tokio::test]
 async fn delegator_non_hire_author_cannot_edit() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -333,7 +327,7 @@ async fn delegator_non_hire_author_cannot_edit() {
 
 #[tokio::test]
 async fn audit_row_written_per_view() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -382,7 +376,7 @@ async fn resolve_permissions_role_table_is_exhaustive() {
 
 #[tokio::test]
 async fn dispatch_path_ignores_query_string() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -400,7 +394,7 @@ async fn dispatch_path_ignores_query_string() {
 
 #[tokio::test]
 async fn unknown_id_in_random_uuid_is_404_not_403() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -453,7 +447,7 @@ fn mint_demo_jwt(email: &str) -> String {
 /// missing wire-up; the helper itself is unit-tested in `permissions_demo`).
 #[tokio::test]
 async fn demo_override_detail_matches_overview_route() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;

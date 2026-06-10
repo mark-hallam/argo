@@ -6,9 +6,6 @@
 //! not affect outcomes.
 
 use super::super::routes_auth::check_bearer_auth;
-use std::sync::Mutex;
-
-static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 const TOKEN_KEY: &str = "ARGO_GATEWAY_BEARER_TOKEN";
 const BYPASS_KEY: &str = "ARGO_GATEWAY_AUTH_BYPASS";
@@ -29,7 +26,7 @@ fn req(auth_header: Option<&str>) -> String {
 
 #[test]
 fn no_token_configured_passes() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_env();
     assert!(check_bearer_auth(&req(None)).is_none());
     assert!(check_bearer_auth(&req(Some("Bearer anything"))).is_none());
@@ -38,7 +35,7 @@ fn no_token_configured_passes() {
 
 #[test]
 fn token_configured_correct_header_passes() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_env();
     std::env::set_var(TOKEN_KEY, "xyz");
     assert!(check_bearer_auth(&req(Some("Bearer xyz"))).is_none());
@@ -47,7 +44,7 @@ fn token_configured_correct_header_passes() {
 
 #[test]
 fn token_configured_wrong_header_returns_401() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_env();
     std::env::set_var(TOKEN_KEY, "xyz");
     let wrong = check_bearer_auth(&req(Some("Bearer nope"))).expect("expected 401");
@@ -60,7 +57,7 @@ fn token_configured_wrong_header_returns_401() {
 
 #[test]
 fn bypass_env_overrides_wrong_token() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_env();
     std::env::set_var(TOKEN_KEY, "xyz");
     std::env::set_var(BYPASS_KEY, "1");

@@ -18,12 +18,6 @@ use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -99,7 +93,7 @@ fn invite_body(email: &str, role: &str) -> String {
 
 #[tokio::test]
 async fn invite_creates_row_and_returns_invitation_id() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -120,7 +114,7 @@ async fn invite_creates_row_and_returns_invitation_id() {
 
 #[tokio::test]
 async fn invite_rejects_invalid_email() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -137,7 +131,7 @@ async fn invite_rejects_invalid_email() {
 
 #[tokio::test]
 async fn invite_rejects_unknown_role() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -154,7 +148,7 @@ async fn invite_rejects_unknown_role() {
 
 #[tokio::test]
 async fn invite_rejects_duplicate_pending() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -177,7 +171,7 @@ async fn invite_rejects_duplicate_pending() {
 
 #[tokio::test]
 async fn invite_forbidden_for_non_admin_caller() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -196,7 +190,7 @@ async fn invite_forbidden_for_non_admin_caller() {
 
 #[tokio::test]
 async fn invite_then_accept_round_trips_and_creates_membership() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -229,7 +223,7 @@ async fn invite_then_accept_round_trips_and_creates_membership() {
 
 #[tokio::test]
 async fn accept_with_unknown_token_returns_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -240,7 +234,7 @@ async fn accept_with_unknown_token_returns_404() {
 
 #[tokio::test]
 async fn accept_with_missing_token_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -250,7 +244,7 @@ async fn accept_with_missing_token_returns_400() {
 
 #[tokio::test]
 async fn list_returns_pending_invitation_after_invite() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -275,7 +269,7 @@ async fn list_returns_pending_invitation_after_invite() {
 
 #[tokio::test]
 async fn list_unauthorized_without_principal() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -290,7 +284,7 @@ async fn invite_persists_token_hash_for_accept_path() {
     // up. This protects against silent regressions where the wire-up
     // drops the token before persistence (e.g. moving `mint_token`
     // to after the insert).
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;

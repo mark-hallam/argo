@@ -12,13 +12,7 @@ use argo_types::TenantId;
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -107,7 +101,7 @@ fn req_detail(cohort_id: &str) -> String {
 
 #[tokio::test]
 async fn bulk_assign_happy_path_assigns_new_skill_to_members() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -141,7 +135,7 @@ async fn bulk_assign_happy_path_assigns_new_skill_to_members() {
 
 #[tokio::test]
 async fn bulk_assign_idempotent_reapplication_counts_already_had() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -165,7 +159,7 @@ async fn bulk_assign_idempotent_reapplication_counts_already_had() {
 
 #[tokio::test]
 async fn bulk_assign_404_when_cohort_unknown() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -183,7 +177,7 @@ async fn bulk_assign_404_when_cohort_unknown() {
 
 #[tokio::test]
 async fn bulk_assign_400_when_worker_not_in_cohort() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -210,7 +204,7 @@ async fn bulk_assign_400_when_worker_not_in_cohort() {
 /// exactly the same as a session-tenant mismatch (403, no row touched).
 #[tokio::test]
 async fn bulk_assign_403_on_cross_tenant_query() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -238,7 +232,7 @@ async fn bulk_assign_403_on_cross_tenant_query() {
 
 #[tokio::test]
 async fn bulk_assign_400_on_invalid_json_body() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -251,7 +245,7 @@ async fn bulk_assign_400_on_invalid_json_body() {
 
 #[tokio::test]
 async fn bulk_assign_400_on_empty_worker_ids() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -269,7 +263,7 @@ async fn bulk_assign_400_on_empty_worker_ids() {
 
 #[tokio::test]
 async fn bulk_assign_writes_one_audit_row_per_worker() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;

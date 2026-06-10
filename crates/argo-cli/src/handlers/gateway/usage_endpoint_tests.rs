@@ -7,12 +7,6 @@ use argo_types::TenantId;
 use chrono::Utc;
 use serde_json::Value;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 async fn mem_store() -> Arc<SessionStore> {
     let store = SessionStore::open(":memory:").await.expect("open mem db");
@@ -40,7 +34,7 @@ async fn parse_ok(store: &Arc<SessionStore>) -> Value {
 
 #[tokio::test]
 async fn fresh_tenant_defaults_to_free_tier_with_zero_usage() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
     let _ = workspace_tenant(&store).await;
     let v = parse_ok(&store).await;
@@ -54,7 +48,7 @@ async fn fresh_tenant_defaults_to_free_tier_with_zero_usage() {
 
 #[tokio::test]
 async fn usage_increment_is_reflected_in_response() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
     let tenant = workspace_tenant(&store).await;
     let now = Utc::now();
@@ -74,7 +68,7 @@ async fn store_unavailable_returns_503() {
 
 #[tokio::test]
 async fn tier_defaults_to_free_when_workspace_predates_tier_column() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
     let tenant = workspace_tenant(&store).await;
     let tier = tenant_tier(&store, tenant).await.expect("tier");

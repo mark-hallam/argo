@@ -144,7 +144,6 @@ fn discord_note(v: &Value) -> Option<String> {
 mod tests {
     use super::*;
     use ed25519_dalek::{Signer, SigningKey};
-    use std::sync::OnceLock;
 
     #[test]
     fn discord_payload_extracts_actor_and_token() {
@@ -167,7 +166,7 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn tampered_token_returns_bad_request() {
-        let _guard = env_lock().await;
+        let _guard = crate::handlers::gateway::shared_env_lock().await;
         std::env::set_var("ARGO_CHANNEL_HMAC_SECRET", "secret");
         let signing = test_signing_key(1);
         set_discord_public_key(&signing);
@@ -185,7 +184,7 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn missing_signature_headers_reject_before_token_secret() {
-        let _guard = env_lock().await;
+        let _guard = crate::handlers::gateway::shared_env_lock().await;
         std::env::remove_var("ARGO_CHANNEL_HMAC_SECRET");
         std::env::remove_var("ARGO_DISCORD_PUBLIC_KEY");
         let req = "POST /channels/discord/decision?token=act.approve.999.sig HTTP/1.1\r\nHost: localhost\r\n\r\n";
@@ -196,7 +195,7 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn bad_signature_rejects_before_token_secret() {
-        let _guard = env_lock().await;
+        let _guard = crate::handlers::gateway::shared_env_lock().await;
         std::env::remove_var("ARGO_CHANNEL_HMAC_SECRET");
         let signer = test_signing_key(1);
         let public_key = test_signing_key(2);
@@ -212,7 +211,7 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn invalid_public_key_fails_closed_and_visible() {
-        let _guard = env_lock().await;
+        let _guard = crate::handlers::gateway::shared_env_lock().await;
         std::env::set_var("ARGO_DISCORD_PUBLIC_KEY", "not-hex");
         let signing = test_signing_key(1);
         let body = r#"{"data":{"custom_id":"argo_approval:act.approve.999.sig"}}"#;
@@ -226,7 +225,7 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn valid_signature_and_token_reach_settle() {
-        let _guard = env_lock().await;
+        let _guard = crate::handlers::gateway::shared_env_lock().await;
         let home = tempfile::tempdir().unwrap();
         std::env::set_var("ARGO_HOME", home.path());
         std::env::set_var("ARGO_CHANNEL_HMAC_SECRET", "secret");
@@ -244,13 +243,6 @@ mod tests {
         assert!(body.contains("no approval"));
         assert!(body.contains("act-discord-signed"));
         std::env::remove_var("ARGO_HOME");
-    }
-
-    async fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
-        static LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
-            .lock()
-            .await
     }
 
     fn test_signing_key(seed: u8) -> SigningKey {

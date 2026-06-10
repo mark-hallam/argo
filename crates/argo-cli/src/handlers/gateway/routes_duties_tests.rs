@@ -15,7 +15,7 @@ use super::duty_test_helpers::*;
 
 #[tokio::test]
 async fn classify_returns_proposal_with_samples_and_no_conflicts_on_fresh_worker() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -39,7 +39,7 @@ async fn classify_returns_proposal_with_samples_and_no_conflicts_on_fresh_worker
 
 #[tokio::test]
 async fn classify_rejects_malformed_cron_hint_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -58,7 +58,7 @@ async fn classify_rejects_malformed_cron_hint_400() {
 
 #[tokio::test]
 async fn classify_returns_404_for_unknown_worker() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -74,7 +74,7 @@ async fn classify_returns_404_for_unknown_worker() {
 /// existence is hidden — both branches return byte-identical 404.
 #[tokio::test]
 async fn cross_tenant_worker_duties_returns_same_404_as_unknown_worker() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -109,7 +109,7 @@ async fn cross_tenant_worker_duties_returns_same_404_as_unknown_worker() {
 
 #[tokio::test]
 async fn classify_archived_worker_returns_410() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -130,7 +130,7 @@ async fn classify_archived_worker_returns_410() {
 
 #[tokio::test]
 async fn commit_inserts_duty_and_returns_first_fire() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -147,7 +147,7 @@ async fn commit_inserts_duty_and_returns_first_fire() {
 
 #[tokio::test]
 async fn commit_rejects_short_label_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -169,7 +169,7 @@ async fn commit_rejects_short_label_400() {
 
 #[tokio::test]
 async fn commit_rejects_non_5_field_cron_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -188,7 +188,7 @@ async fn commit_rejects_non_5_field_cron_400() {
 
 #[tokio::test]
 async fn commit_detects_cron_conflict_and_requires_resolution() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -211,7 +211,7 @@ async fn commit_detects_cron_conflict_and_requires_resolution() {
 
 #[tokio::test]
 async fn commit_with_replace_resolution_deletes_overlap() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -238,7 +238,7 @@ async fn commit_with_replace_resolution_deletes_overlap() {
 
 #[tokio::test]
 async fn preview_returns_requested_samples() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -259,7 +259,7 @@ async fn preview_returns_requested_samples() {
 
 #[tokio::test]
 async fn preview_unknown_duty_returns_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;

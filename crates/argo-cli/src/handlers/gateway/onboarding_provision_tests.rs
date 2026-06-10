@@ -12,17 +12,6 @@ use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::OwnedMutexGuard;
-
-/// Serialize on the GATEWAY-WIDE env lock: these tests set the process-global
-/// `ARGO_VERTICALS_DIR` to the real catalog, so they must not run concurrently
-/// with `routes_genesis_stream_tests` (which point it at an empty tempdir). A
-/// private per-module mutex let those two groups race, intermittently
-/// surfacing "gtm-engineer not in catalog" under multi-threaded test runs —
-/// exactly the contract `routes_genesis_stream_tests::EnvGuard` documents.
-async fn env_lock() -> OwnedMutexGuard<()> {
-    crate::handlers::gateway::shared_env_lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -65,7 +54,7 @@ fn body() -> String {
 
 #[tokio::test]
 async fn happy_path_returns_201_and_tenant_workspace_ids() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -85,7 +74,7 @@ async fn happy_path_returns_201_and_tenant_workspace_ids() {
 
 #[tokio::test]
 async fn missing_principal_returns_401() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -97,7 +86,7 @@ async fn missing_principal_returns_401() {
 
 #[tokio::test]
 async fn non_human_principal_returns_401() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -111,7 +100,7 @@ async fn non_human_principal_returns_401() {
 
 #[tokio::test]
 async fn idempotent_second_call_returns_same_ids_and_200() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -136,7 +125,7 @@ async fn idempotent_second_call_returns_same_ids_and_200() {
 
 #[tokio::test]
 async fn empty_workspace_name_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -153,7 +142,7 @@ async fn empty_workspace_name_returns_400() {
 
 #[tokio::test]
 async fn bad_json_body_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -168,7 +157,7 @@ async fn bad_json_body_returns_400() {
 
 #[tokio::test]
 async fn missing_store_returns_503() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let (status, _) =
@@ -178,7 +167,7 @@ async fn missing_store_returns_503() {
 
 #[tokio::test]
 async fn audit_row_is_written_with_tenant_provisioned_kind() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -206,7 +195,7 @@ async fn audit_row_is_written_with_tenant_provisioned_kind() {
 
 #[tokio::test]
 async fn provision_seeds_5_workplace_docs() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -250,7 +239,7 @@ async fn provision_seeds_5_workplace_docs() {
 
 #[tokio::test]
 async fn provision_is_idempotent_when_docs_already_exist() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -286,7 +275,7 @@ async fn provision_is_idempotent_when_docs_already_exist() {
 
 #[tokio::test]
 async fn seed_emits_5_audit_rows_with_doc_created_kind() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -321,7 +310,7 @@ async fn seed_emits_5_audit_rows_with_doc_created_kind() {
 
 #[tokio::test]
 async fn seed_body_matches_disk_file_byte_for_byte() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -355,7 +344,7 @@ async fn seed_body_matches_disk_file_byte_for_byte() {
 
 #[tokio::test]
 async fn idempotent_call_does_not_write_second_audit_row() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -387,7 +376,7 @@ async fn skill_count_for(store: &Arc<SessionStore>, tenant_id: &str) -> i64 {
 
 #[tokio::test]
 async fn fresh_provision_seeds_baseline_skill_set() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -411,7 +400,7 @@ async fn fresh_provision_seeds_baseline_skill_set() {
 
 #[tokio::test]
 async fn baseline_skill_seed_is_idempotent_on_re_provision() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -433,7 +422,7 @@ async fn baseline_skill_seed_is_idempotent_on_re_provision() {
 
 #[tokio::test]
 async fn baseline_skills_are_tenant_isolated() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;

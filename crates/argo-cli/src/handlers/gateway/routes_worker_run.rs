@@ -361,14 +361,6 @@ fn error_envelope(
 #[path = "routes_worker_run_exec.rs"]
 mod routes_worker_run_exec;
 
-/// Process-wide serialization lock SHARED by BOTH test suites
-/// (`tests` here + `routes_worker_run_exec::tests`). Both mutate the
-/// same global env vars + process cwd, so they MUST serialize on the
-/// same mutex — a per-file mutex would let the two suites run
-/// concurrently and stomp each other's `set_var`/`set_current_dir`.
-#[cfg(test)]
-pub(crate) static TEST_ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
-
 #[cfg(test)]
 #[path = "routes_worker_run_tests.rs"]
 mod tests;

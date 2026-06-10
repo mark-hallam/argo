@@ -8,15 +8,6 @@ use crate::handlers::worker_actions_transitions::open_workspace_memory;
 use argo_memory::MemoryFile;
 use serde_json::Value;
 use std::path::PathBuf;
-use tokio::sync::{Mutex, MutexGuard};
-
-// The test environment globals (`ARGO_HOME`, `ARGO_VERTICALS_DIR`) are
-// process-wide. Serialize the tests on a tokio mutex so the guard can
-// be held across `.await` points (clippy::await_holding_lock).
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -98,7 +89,7 @@ fn auth_get(path: &str) -> String {
 
 #[tokio::test]
 async fn list_returns_pending_items_and_envelope() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_action("act-1").await;
@@ -118,7 +109,7 @@ async fn list_returns_pending_items_and_envelope() {
 
 #[tokio::test]
 async fn list_surfaces_draft_content_from_payload_body() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let rec = pending_record_with_payload(
@@ -148,7 +139,7 @@ async fn list_surfaces_draft_content_from_payload_body() {
 
 #[tokio::test]
 async fn list_cursor_paginates() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     for i in 0..3 {
@@ -179,7 +170,7 @@ async fn list_cursor_paginates() {
 
 #[tokio::test]
 async fn list_limit_max_100_is_accepted() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_action("act-1").await;
@@ -189,7 +180,7 @@ async fn list_limit_max_100_is_accepted() {
 
 #[tokio::test]
 async fn list_limit_above_max_is_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let (status, body) = list_response(&auth_get("/api/v1/approvals?limit=200"), None).await;
@@ -200,7 +191,7 @@ async fn list_limit_above_max_is_400() {
 
 #[tokio::test]
 async fn list_only_workspaces_own_rows_returned() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     // Only seed one row in this workspace; a second tempdir would
@@ -223,7 +214,7 @@ async fn list_only_workspaces_own_rows_returned() {
 
 #[tokio::test]
 async fn decide_approve_transitions_state() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_action("act-approve").await;
@@ -246,7 +237,7 @@ async fn decide_approve_transitions_state() {
 
 #[tokio::test]
 async fn decide_refuse_transitions_state() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_action("act-refuse").await;
@@ -266,7 +257,7 @@ async fn decide_refuse_transitions_state() {
 
 #[tokio::test]
 async fn decide_already_decided_with_different_decision_is_409() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_action("act-conflict").await;
@@ -292,7 +283,7 @@ async fn decide_already_decided_with_different_decision_is_409() {
 
 #[tokio::test]
 async fn decide_same_decision_twice_is_idempotent_200() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_action("act-idem").await;
@@ -309,7 +300,7 @@ async fn decide_same_decision_twice_is_idempotent_200() {
 
 #[tokio::test]
 async fn undo_within_window_restores_to_pending() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_action("act-undo").await;
@@ -335,7 +326,7 @@ async fn undo_within_window_restores_to_pending() {
 
 #[tokio::test]
 async fn undo_outside_window_returns_410() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     // Emulate the outside-window case by appending a single decided
@@ -367,7 +358,7 @@ async fn undo_outside_window_returns_410() {
 
 #[tokio::test]
 async fn decide_writes_an_audit_memory_row() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_action("act-audit").await;
@@ -395,7 +386,7 @@ async fn decide_writes_an_audit_memory_row() {
 
 #[tokio::test]
 async fn decide_bad_json_is_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_action("act-bad").await;
@@ -410,7 +401,7 @@ async fn decide_bad_json_is_400() {
 
 #[tokio::test]
 async fn decide_unknown_id_is_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let (status, body) = decide_response(

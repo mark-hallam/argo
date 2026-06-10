@@ -19,24 +19,14 @@
 //! Loaded via `#[cfg(test)] #[path = "health_check_tests.rs"] mod
 //! tests;` in `startup_check.rs`.
 //!
-//! Tests serialize on a process-wide [`MutexGuard`] because they
+//! Tests serialize on the process-wide shared gateway env lock
+//! (`crate::handlers::gateway::shared_env_lock`) because they
 //! mutate `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `ARGO_HOME` —
 //! `cargo test` runs tests across threads by default and each
 //! thread shares the same env block.
 
 use super::{provider_key_present, run_startup_checks};
 use argo_store::{SessionStore, EXPECTED_SCHEMA_VERSION};
-use tokio::sync::{Mutex, MutexGuard};
-
-// Process-wide serialization for env-mutation tests. `cargo test`
-// runs tests across threads by default and each thread shares the
-// same env block, so concurrent `set_var` / `remove_var` would
-// race. `tokio::sync::Mutex` is async-aware so holding the guard
-// across `.await` is sound (clippy::await_holding_lock).
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 struct EnvVar {
     key: &'static str,
@@ -90,7 +80,7 @@ const LOOPBACK_BIND: &str = "127.0.0.1";
 
 #[tokio::test]
 async fn all_pass_returns_ok() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let (home_dir, home_path) = fresh_home();
     let _h = EnvVar::set("ARGO_HOME", home_path.to_str().unwrap());
     let _a = EnvVar::set("ANTHROPIC_API_KEY", "test-anthropic");
@@ -104,7 +94,7 @@ async fn all_pass_returns_ok() {
 
 #[tokio::test]
 async fn store_unreachable_returns_error() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let dir = tempfile::tempdir().expect("tempdir");
     // Point ARGO_HOME at an existing regular file so `ensure_dir`
     // fails before we even ask SQLite to open the DB. Producing a
@@ -129,7 +119,7 @@ async fn store_unreachable_returns_error() {
 
 #[tokio::test]
 async fn schema_ahead_returns_directional_error() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let (home_dir, home_path) = fresh_home();
     let _h = EnvVar::set("ARGO_HOME", home_path.to_str().unwrap());
     let _a = EnvVar::set("ANTHROPIC_API_KEY", "test-key");
@@ -176,7 +166,7 @@ async fn schema_ahead_returns_directional_error() {
 
 #[tokio::test]
 async fn missing_provider_keys_returns_error() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let (home_dir, home_path) = fresh_home();
     let _h = EnvVar::set("ARGO_HOME", home_path.to_str().unwrap());
     let _a = EnvVar::unset("ANTHROPIC_API_KEY");
@@ -199,7 +189,7 @@ async fn missing_provider_keys_returns_error() {
 
 #[tokio::test]
 async fn skip_flag_bypasses_every_check() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let _a = EnvVar::unset("ANTHROPIC_API_KEY");
     let _o = EnvVar::unset("OPENAI_API_KEY");
     // A valid secret keeps the (skip-proof) fail-closed JWT boot-guard
@@ -242,7 +232,7 @@ fn force_production() -> (EnvVar, EnvVar, EnvVar, EnvVar) {
 
 #[tokio::test]
 async fn prod_mode_missing_secret_refuses() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let _prod = force_production();
     let _j = EnvVar::unset("SKYCOT_AUTH_JWT_SECRET");
     let cwd = std::path::PathBuf::from(GUARD_CWD);
@@ -258,7 +248,7 @@ async fn prod_mode_missing_secret_refuses() {
 
 #[tokio::test]
 async fn prod_mode_empty_secret_refuses() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let _prod = force_production();
     let _j = EnvVar::set("SKYCOT_AUTH_JWT_SECRET", "");
     let cwd = std::path::PathBuf::from(GUARD_CWD);
@@ -273,7 +263,7 @@ async fn prod_mode_empty_secret_refuses() {
 
 #[tokio::test]
 async fn prod_mode_short_secret_refuses() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let _prod = force_production();
     // 31 bytes — one under the 32-byte HS256 floor.
     let _j = EnvVar::set("SKYCOT_AUTH_JWT_SECRET", "0123456789abcdef0123456789abcde");
@@ -290,7 +280,7 @@ async fn prod_mode_short_secret_refuses() {
 
 #[tokio::test]
 async fn prod_mode_valid_secret_boots() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let _prod = force_production();
     let _j = EnvVar::set("SKYCOT_AUTH_JWT_SECRET", VALID_JWT_SECRET);
     // Full happy env so the run reaches Ok once the guard clears.
@@ -305,7 +295,7 @@ async fn prod_mode_valid_secret_boots() {
 
 #[tokio::test]
 async fn prod_mode_bypass_missing_secret_boots() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     // Production by profile, but auth-bypass is the documented dev
     // recovery path → the guard must NOT fire even with no secret.
     let _profile = EnvVar::set("ARGO_GATEWAY_PROFILE", "production");
@@ -324,7 +314,7 @@ async fn prod_mode_bypass_missing_secret_boots() {
 
 #[tokio::test]
 async fn prod_mode_demo_missing_secret_boots() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     // ARGO_DEMO_MODE requires ARGO_GATEWAY_AUTH_BYPASS=1 (existing
     // demo_mode_compatibility_check); both set, no secret → guard must
     // not fire because demo-mode is an escape hatch.
@@ -344,7 +334,7 @@ async fn prod_mode_demo_missing_secret_boots() {
 
 #[tokio::test]
 async fn loopback_dev_missing_secret_boots() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     // No production signal at all (dev/test default) → guard inactive
     // even with no secret. This is the 35+ loopback integration-test
     // boot posture; pin that the guard leaves it untouched.
@@ -381,7 +371,7 @@ async fn loopback_dev_missing_secret_boots() {
 /// the case the profile-env-only tests above cannot exercise.
 #[tokio::test]
 async fn non_loopback_bind_missing_secret_refuses() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     // No profile env, no ARGO_GATEWAY_BIND, no bypass/demo — the ONLY
     // production signal is the explicit non-loopback `--bind`.
     let _profile = EnvVar::unset("ARGO_GATEWAY_PROFILE");
@@ -406,7 +396,7 @@ async fn non_loopback_bind_missing_secret_refuses() {
 /// enforcing) — the 35+ loopback integration boots remain green.
 #[tokio::test]
 async fn loopback_bind_missing_secret_boots() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let _profile = EnvVar::unset("ARGO_GATEWAY_PROFILE");
     let _bind = EnvVar::unset("ARGO_GATEWAY_BIND");
     let _bypass = EnvVar::unset("ARGO_GATEWAY_AUTH_BYPASS");

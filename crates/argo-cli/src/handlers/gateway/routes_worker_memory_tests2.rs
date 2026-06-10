@@ -20,12 +20,6 @@ use argo_types::TenantId;
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -84,7 +78,7 @@ fn get_req(id: &str) -> String {
 
 #[tokio::test]
 async fn active_conversations_round_trip_from_store() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -124,7 +118,7 @@ async fn active_conversations_round_trip_from_store() {
 
 #[tokio::test]
 async fn active_conversations_are_worker_scoped() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -159,7 +153,7 @@ async fn active_conversations_are_worker_scoped() {
 
 #[tokio::test]
 async fn recent_decisions_derives_decided_approvals_only() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -249,7 +243,7 @@ async fn recent_decisions_derives_decided_approvals_only() {
 
 #[tokio::test]
 async fn recent_decisions_maps_reject_to_refused() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -310,7 +304,7 @@ async fn facts_carry_camelcase_factid_and_parseable_createdat() {
     // route formerly emitted only snake_case `created_at`, so `createdAt`
     // was `undefined` → "Invalid Date". Each fact must now carry a
     // camelCase `factId` + a parseable RFC-3339 `createdAt`.
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;

@@ -6,9 +6,6 @@
 //! not affect outcomes — same pattern as `routes_dispatch_post_tests.rs`.
 
 use super::{check_bearer_auth, is_public_get};
-use std::sync::Mutex;
-
-static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 const TOKEN_KEY: &str = "ARGO_GATEWAY_BEARER_TOKEN";
 const BYPASS_KEY: &str = "ARGO_GATEWAY_AUTH_BYPASS";
@@ -39,7 +36,7 @@ fn gate(req: &str) -> Option<(&'static str, String)> {
 
 #[test]
 fn no_token_configured_passes_protected_and_public() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_env();
     // Public allowlist member.
     assert!(gate(&get_req("/health", None)).is_none());
@@ -50,7 +47,7 @@ fn no_token_configured_passes_protected_and_public() {
 
 #[test]
 fn token_configured_correct_header_passes_protected() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_env();
     std::env::set_var(TOKEN_KEY, "xyz");
     assert!(gate(&get_req("/sessions", Some("Bearer xyz"))).is_none());
@@ -60,7 +57,7 @@ fn token_configured_correct_header_passes_protected() {
 
 #[test]
 fn token_configured_wrong_header_returns_401_on_protected() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_env();
     std::env::set_var(TOKEN_KEY, "xyz");
     let wrong = gate(&get_req("/sessions", Some("Bearer nope"))).expect("expected 401");
@@ -73,7 +70,7 @@ fn token_configured_wrong_header_returns_401_on_protected() {
 
 #[test]
 fn health_allowlist_passes_with_wrong_token() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_env();
     std::env::set_var(TOKEN_KEY, "xyz");
     // /health, /health/live, /health/ready, /health/full all bypass auth.
@@ -87,7 +84,7 @@ fn health_allowlist_passes_with_wrong_token() {
 
 #[test]
 fn version_and_routes_allowlist_passes_with_wrong_token() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_env();
     std::env::set_var(TOKEN_KEY, "xyz");
     assert!(gate(&get_req("/version", Some("Bearer nope"))).is_none());
@@ -101,7 +98,7 @@ fn version_and_routes_allowlist_passes_with_wrong_token() {
 
 #[test]
 fn bypass_env_lets_protected_through() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_env();
     std::env::set_var(TOKEN_KEY, "xyz");
     std::env::set_var(BYPASS_KEY, "1");
@@ -115,7 +112,7 @@ fn protected_admin_paths_still_require_auth() {
     // Defends the curated allowlist: /doctor, /db/*, /metrics/json,
     // /audit/*, /workspace/*, /search* are NOT public — they ride
     // through `dispatch_get_admin` but must still hold the token.
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_env();
     std::env::set_var(TOKEN_KEY, "xyz");
     for path in [
@@ -139,7 +136,7 @@ fn catalog_routes_public_but_tenant_scoped_skills_gated() {
     // anonymous (prospect browse before signup), while the tenant-SCOPED skills
     // reads require auth. Pins the exact line so a future allowlist edit cannot
     // silently expose tenant data OR re-close the public signup funnel.
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_env();
     std::env::set_var(TOKEN_KEY, "xyz");
     // Public published-skill catalog (no per-tenant scoping) — pass even with a

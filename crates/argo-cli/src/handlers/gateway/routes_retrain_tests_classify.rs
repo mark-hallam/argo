@@ -4,8 +4,7 @@
 //! `routes_retrain::tests::classify::*`.
 
 use super::{
-    add_worker, classify_response, env_lock, json_of, mem_store, req_with, set_test_env,
-    workspace_tenant,
+    add_worker, classify_response, json_of, mem_store, req_with, set_test_env, workspace_tenant,
 };
 use argo_types::TenantId;
 use serde_json::json;
@@ -13,7 +12,7 @@ use uuid::Uuid;
 
 #[tokio::test]
 async fn classify_memory_fact_is_default() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -42,7 +41,7 @@ async fn classify_memory_fact_is_default() {
 
 #[tokio::test]
 async fn classify_vocabulary_patch_detected() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -63,7 +62,7 @@ async fn classify_vocabulary_patch_detected() {
 
 #[tokio::test]
 async fn classify_action_ban_detected() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -83,7 +82,7 @@ async fn classify_action_ban_detected() {
 
 #[tokio::test]
 async fn classify_policy_rule_detected_with_action_type() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -103,7 +102,7 @@ async fn classify_policy_rule_detected_with_action_type() {
 
 #[tokio::test]
 async fn classify_skill_correction_includes_needs_generalization() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -126,7 +125,7 @@ async fn classify_skill_correction_includes_needs_generalization() {
 
 #[tokio::test]
 async fn classify_empty_input_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -144,7 +143,7 @@ async fn classify_empty_input_returns_400() {
 
 #[tokio::test]
 async fn classify_unknown_worker_returns_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -161,7 +160,7 @@ async fn classify_unknown_worker_returns_404() {
 
 #[tokio::test]
 async fn classify_cross_tenant_returns_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;

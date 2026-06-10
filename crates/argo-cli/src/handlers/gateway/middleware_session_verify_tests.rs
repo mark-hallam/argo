@@ -19,18 +19,10 @@ use argo_store::SessionStore;
 use chrono::Utc;
 use jsonwebtoken::{EncodingKey, Header};
 use serde::Serialize;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 const TEST_SECRET: &str = "skycot-test-secret-deadbeefcafebabe";
 const OTHER_SECRET: &str = "skycot-test-secret-other-key-for-bad-sig";
-
-/// Serializes env-var writes across the test functions so concurrent
-/// tests in the same binary don't see torn `SKYCOT_AUTH_JWT_SECRET`
-/// state. Each test acquires the lock for the duration of its body.
-fn env_guard() -> std::sync::MutexGuard<'static, ()> {
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
-    ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner())
-}
 
 #[derive(Debug, Serialize)]
 struct TestClaims<'a> {
@@ -78,16 +70,9 @@ async fn fresh_store() -> Arc<SessionStore> {
     )
 }
 
-// Each `#[tokio::test]` below holds the `env_guard()` `Mutex<()>` across
-// await points so the process-global `SKYCOT_AUTH_JWT_SECRET` env var
-// stays consistent for the duration of each test. Clippy would normally
-// flag the held-across-await pattern, but the alternative — async-aware
-// `tokio::sync::Mutex` — is unnecessary here: tests are single-threaded
-// per case and the guard is intentionally synchronous.
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn missing_cookie_returns_no_cookie() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
     let store = fresh_store().await;
     let req = "GET /api/v1/sessions HTTP/1.1\r\nHost: localhost\r\n\r\n";
@@ -95,10 +80,9 @@ async fn missing_cookie_returns_no_cookie() {
     assert_eq!(outcome, SessionVerifyOutcome::NoCookie);
 }
 
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn valid_cookie_returns_claims() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
     let store = fresh_store().await;
     let now = Utc::now().timestamp();
@@ -115,10 +99,9 @@ async fn valid_cookie_returns_claims() {
     }
 }
 
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn bad_signature_rejects_as_invalid() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
     let store = fresh_store().await;
     let now = Utc::now().timestamp();
@@ -133,10 +116,9 @@ async fn bad_signature_rejects_as_invalid() {
     );
 }
 
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn expired_exp_rejects_as_expired() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
     let store = fresh_store().await;
     let now = Utc::now().timestamp();
@@ -152,12 +134,11 @@ async fn expired_exp_rejects_as_expired() {
     );
 }
 
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn session_revoked_jti_rejected() {
     // The load-bearing test — without this, the table is cosmetic
     // and the 2026-05-17 HOLD's "silent regression" framing applies.
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
     let store = fresh_store().await;
     let now = Utc::now().timestamp();

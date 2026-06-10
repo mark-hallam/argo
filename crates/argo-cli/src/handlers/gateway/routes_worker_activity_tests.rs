@@ -15,12 +15,6 @@ use argo_types::TenantId;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -124,7 +118,7 @@ async fn call(
 
 #[tokio::test]
 async fn returns_200_with_items_and_required_shape() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -167,7 +161,7 @@ async fn returns_200_with_items_and_required_shape() {
 
 #[tokio::test]
 async fn scopes_rows_to_path_worker_id() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -195,7 +189,7 @@ async fn scopes_rows_to_path_worker_id() {
 
 #[tokio::test]
 async fn filters_by_action_type_and_status() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -240,7 +234,7 @@ async fn filters_by_action_type_and_status() {
 /// byte-identical 404.
 #[tokio::test]
 async fn cross_tenant_worker_activity_returns_same_404_as_unknown_worker() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -269,7 +263,7 @@ async fn cross_tenant_worker_activity_returns_same_404_as_unknown_worker() {
 
 #[tokio::test]
 async fn unknown_worker_id_returns_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -282,7 +276,7 @@ async fn unknown_worker_id_returns_404() {
 
 #[tokio::test]
 async fn archived_worker_returns_410() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -310,7 +304,7 @@ async fn returns_503_when_store_missing() {
 
 #[tokio::test]
 async fn bad_worker_id_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -324,7 +318,7 @@ async fn bad_worker_id_returns_400() {
 
 #[tokio::test]
 async fn rejects_invalid_limit_and_range_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -349,7 +343,7 @@ async fn rejects_invalid_limit_and_range_400() {
 
 #[tokio::test]
 async fn pagination_emits_cursor_and_continues() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -391,7 +385,7 @@ async fn pagination_emits_cursor_and_continues() {
 
 #[tokio::test]
 async fn redacts_email_in_verb_by_default() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -417,7 +411,7 @@ async fn redacts_email_in_verb_by_default() {
 
 #[tokio::test]
 async fn emits_audit_row_per_view() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -446,7 +440,7 @@ async fn emits_audit_row_per_view() {
 
 #[tokio::test]
 async fn cursor_is_opaque_base64_round_trip() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;

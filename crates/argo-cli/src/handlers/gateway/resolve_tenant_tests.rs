@@ -16,16 +16,8 @@ use argo_store::SessionStore;
 use chrono::Utc;
 use jsonwebtoken::{EncodingKey, Header};
 use serde::Serialize;
-use std::sync::{Mutex, MutexGuard};
 
 const TEST_SECRET: &str = "ws1-resolve-tenant-test-secret";
-
-/// Serialize `SKYCOT_AUTH_JWT_SECRET` mutation across tests in this
-/// binary.
-fn env_guard() -> MutexGuard<'static, ()> {
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
-    ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner())
-}
 
 /// Minimal cookie-JWT claim shape — matches the encode side in
 /// `auth_magic_link::mint_jwt` for the fields the resolver reads.
@@ -91,10 +83,9 @@ async fn provision(store: &SessionStore, email: &str, ws: &str) -> TenantId {
 /// Branch 1 — a valid `__Host-session` JWT resolves to the user-bound
 /// tenant from its `tnt` claim, never the cwd/demo tenant and never
 /// another user's tenant.
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn jwt_session_resolves_to_user_tenant_not_cwd_or_other_user() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
 
     let store = fresh_store().await;
@@ -123,10 +114,9 @@ async fn jwt_session_resolves_to_user_tenant_not_cwd_or_other_user() {
 /// the demo / public-endpoint path and must be a *different* tenant
 /// from any provisioned user (proving a stranger lands in the shared
 /// demo workspace, not a user's private one).
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn no_session_falls_back_to_cwd_tenant() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
 
     let store = fresh_store().await;
@@ -148,10 +138,9 @@ async fn no_session_falls_back_to_cwd_tenant() {
 
 /// Branch 2 — explicit `X-Tenant-Id` header (no cookie) resolves to
 /// that tenant, preserving the #2589 override contract.
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn explicit_header_override_resolves_when_no_session() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
 
     let store = fresh_store().await;
@@ -178,10 +167,9 @@ async fn explicit_header_override_resolves_when_no_session() {
 /// Precedence — a signed-in user cannot use `X-Tenant-Id` to escape
 /// their own tenant: the JWT session (branch 1) wins over the explicit
 /// header (branch 2).
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn jwt_session_wins_over_explicit_header() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
 
     let store = fresh_store().await;
@@ -205,10 +193,9 @@ async fn jwt_session_wins_over_explicit_header() {
 /// other test here is a bodyless GET). If header/cookie extraction breaks
 /// when a body is present, the genesis write resolves the cwd tenant while
 /// the (GET-shaped) hire resolves the session tenant → "unknown vertical".
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn jwt_session_resolves_on_post_with_body_like_genesis_generate() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
 
     let store = fresh_store().await;
@@ -235,10 +222,9 @@ async fn jwt_session_resolves_on_post_with_body_like_genesis_generate() {
 
 /// A cookie whose `tnt` claim is absent (user mid-onboarding) falls
 /// through to the cwd fallback rather than erroring.
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn session_without_tnt_claim_falls_through() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
 
     let store = fresh_store().await;
@@ -260,10 +246,9 @@ async fn session_without_tnt_claim_falls_through() {
 /// handlers forward — Run-now, workflow-propose) resolves to the user's
 /// OWN tenant, never the cwd/demo tenant. Without this the bearer-only
 /// proxies ran against the shared demo workspace (WS1 cross-tenant hazard).
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn bearer_session_resolves_to_user_tenant_not_cwd() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
 
     let store = fresh_store().await;
@@ -285,10 +270,9 @@ async fn bearer_session_resolves_to_user_tenant_not_cwd() {
 /// Precedence — the cookie session wins over the bearer when both are
 /// present (the same user in practice; this pins the order so a future
 /// change can't silently flip it).
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn cookie_session_wins_over_bearer() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
 
     let store = fresh_store().await;
@@ -312,10 +296,9 @@ async fn cookie_session_wins_over_bearer() {
 /// The bearer session (like the cookie) wins over the explicit
 /// `X-Tenant-Id` override — a signed-in user proxied via the bearer cannot
 /// be redirected to another tenant by a stray header.
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn bearer_session_wins_over_explicit_header() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
 
     let store = fresh_store().await;

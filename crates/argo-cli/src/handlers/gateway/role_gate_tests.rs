@@ -18,18 +18,10 @@ use super::{
     enforce_role, parse_role_header, required_role, resolve_role, role_meets, Action,
 };
 use argo_identity::user_tenant::UserTenantRole;
-use std::sync::{Mutex, MutexGuard};
 
 const PROD_PROFILE_ENV: &str = "ARGO_GATEWAY_PROFILE";
 const JWT_SECRET_ENV: &str = "SKYCOT_AUTH_JWT_SECRET";
 const TRUST_HEADER_ENV: &str = "ARGO_GATEWAY_TRUST_ROLE_HEADER";
-
-/// Serialise tests that touch process env vars — cargo test runs
-/// these in parallel by default and env state would race.
-fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::new(());
-    M.lock().unwrap_or_else(|p| p.into_inner())
-}
 
 fn set_test_secret() {
     std::env::set_var(JWT_SECRET_ENV, "test-secret-for-role-gate-tests");
@@ -110,7 +102,7 @@ fn parse_role_header_recognises_canonical_taxonomy() {
 
 #[test]
 fn guest_jwt_blocks_worker_freeze() {
-    let _g = env_lock();
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     lock_into_production_mode();
     let req = req_with_jwt(Some("guest"), "");
     let deny = enforce_role(&req, Action::WorkerFreeze);
@@ -123,7 +115,7 @@ fn guest_jwt_blocks_worker_freeze() {
 
 #[test]
 fn admin_jwt_passes_worker_hire_in_production() {
-    let _g = env_lock();
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     lock_into_production_mode();
     let req = req_with_jwt(Some("admin"), "");
     let deny = enforce_role(&req, Action::WorkerHire);
@@ -133,7 +125,7 @@ fn admin_jwt_passes_worker_hire_in_production() {
 
 #[test]
 fn owner_jwt_required_for_audit_cross_tenant() {
-    let _g = env_lock();
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     lock_into_production_mode();
     let owner = req_with_jwt(Some("owner"), "");
     assert!(enforce_role(&owner, Action::AuditCrossTenant).is_none());
@@ -148,7 +140,7 @@ fn owner_jwt_required_for_audit_cross_tenant() {
 fn x_argo_role_header_does_not_bypass_in_prod() {
     // Procurement-grade test: curl with `X-Argo-Role: owner` does
     // NOT bypass the gate when the actual session JWT role is guest.
-    let _g = env_lock();
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     lock_into_production_mode();
     let req = req_with_jwt(Some("guest"), "X-Argo-Role: owner\r\n");
     let deny = enforce_role(&req, Action::WorkerHire);
@@ -164,7 +156,7 @@ fn x_argo_role_header_does_not_bypass_in_prod() {
 #[test]
 fn x_argo_role_header_does_not_bypass_when_no_jwt_in_prod() {
     // No JWT at all: gate fails closed to guest, regardless of header.
-    let _g = env_lock();
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     lock_into_production_mode();
     let req = "POST / HTTP/1.1\r\nHost: x\r\nX-Argo-Role: owner\r\n\r\n";
     let deny = enforce_role(req, Action::WorkerHire);
@@ -178,7 +170,7 @@ fn x_argo_role_header_does_not_bypass_when_no_jwt_in_prod() {
 fn opt_in_trust_role_header_env_unblocks_legacy_callers() {
     // Operators behind a TLS-terminated reverse proxy can opt into
     // header trust by setting `ARGO_GATEWAY_TRUST_ROLE_HEADER=1`.
-    let _g = env_lock();
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     lock_into_production_mode();
     std::env::set_var(TRUST_HEADER_ENV, "1");
     let req = "POST / HTTP/1.1\r\nHost: x\r\nX-Argo-Role: owner\r\n\r\n";
@@ -193,7 +185,7 @@ fn opt_in_trust_role_header_env_unblocks_legacy_callers() {
 
 #[test]
 fn jwt_role_claim_round_trips_through_decoder() {
-    let _g = env_lock();
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     set_test_secret();
     let now = chrono::Utc::now().timestamp();
     let (jwt, _jti) = mint_jwt(
@@ -212,7 +204,7 @@ fn jwt_role_claim_round_trips_through_decoder() {
 
 #[test]
 fn jwt_without_role_claim_defaults_to_guest_on_enforcement() {
-    let _g = env_lock();
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     lock_into_production_mode();
     let req = req_with_jwt(None, "");
     let deny = enforce_role(&req, Action::WorkerHire);

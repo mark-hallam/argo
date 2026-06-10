@@ -6,17 +6,8 @@
 //! Env vars are process-global; the provider-status tests serialize on a
 //! local lock + reset the keys they touch (mirrors `routes_auth_tests.rs`).
 
-// The `ENV_LOCK` guard is intentionally held across `.await` (e.g. `store().await`,
-// `dispatch_get(...).await`) to keep process-global env-var mutation single-threaded
-// across the async test body — dropping it early would let concurrent tests race the
-// shared env. Mirrors `audit_roundtrip_tests.rs`. Do not "optimize" this allow away.
-#![allow(clippy::await_holding_lock)]
-
 use super::*;
 use argo_store::SessionStore;
-use std::sync::Mutex;
-
-static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 const PROVIDER_KEYS: &[&str] = &[
     "ANTHROPIC_API_KEY",
@@ -55,7 +46,7 @@ async fn api_keys_delegates_to_store_empty_on_fresh_tenant() {
 
 #[tokio::test]
 async fn provider_keys_returns_status_array_with_no_secret_values() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     clear_provider_env();
     let s = store().await;
     // Explicit tenant header so the read is tenant-scoped + deterministic.
@@ -87,7 +78,7 @@ async fn provider_keys_returns_status_array_with_no_secret_values() {
 
 #[tokio::test]
 async fn provider_keys_marks_configured_when_credential_present_without_leaking_it() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     clear_provider_env();
     let s = store().await;
     // `cred::get` reads the process env first, so this flips anthropic's

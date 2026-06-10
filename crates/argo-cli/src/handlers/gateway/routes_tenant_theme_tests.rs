@@ -17,12 +17,6 @@ use argo_store::SessionStore;
 use serde_json::{json, Value};
 use sqlx::Row;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 async fn mem_store() -> Arc<SessionStore> {
     let store = SessionStore::open(":memory:").await.expect("open mem db");
@@ -62,7 +56,7 @@ const THEME: &str = "/api/v1/tenant/theme";
 
 #[tokio::test]
 async fn get_returns_locked_skycot_default_when_no_override() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
     let v = parse_ok(dispatch_get(&get_req(THEME), Some(&store)).await);
     // With NO override set the brand is unchanged: the locked SKYCOT
@@ -76,7 +70,7 @@ async fn get_returns_locked_skycot_default_when_no_override() {
 
 #[tokio::test]
 async fn patch_then_get_round_trips_the_override() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
 
     let patched = parse_ok(
@@ -104,7 +98,7 @@ async fn patch_then_get_round_trips_the_override() {
 
 #[tokio::test]
 async fn patch_appends_one_audit_row() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
     assert_eq!(audit_count(&store, "tenant_theme_update").await, 0);
     let _ = dispatch_patch(
@@ -151,7 +145,7 @@ async fn tenant_a_patch_never_changes_tenant_b() {
 
 #[tokio::test]
 async fn patch_rejects_non_hex_accent() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
     for bad in [json!("blue"), json!("#12g"), json!("#1234567"), json!(42)] {
         let (status, body) = dispatch_patch(
@@ -170,7 +164,7 @@ async fn patch_rejects_non_hex_accent() {
 
 #[tokio::test]
 async fn patch_rejects_bad_enum_and_unknown_field() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
 
     let (status, _) = dispatch_patch(
@@ -201,7 +195,7 @@ async fn patch_rejects_bad_enum_and_unknown_field() {
 
 #[tokio::test]
 async fn empty_patch_is_noop_and_stays_default() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
     let v = parse_ok(dispatch_patch(&patch_req_empty(THEME), Some(&store)).await);
     // An empty patch writes no meaningful fields, so `is_override` stays
@@ -215,7 +209,7 @@ async fn empty_patch_is_noop_and_stays_default() {
 
 #[tokio::test]
 async fn non_matching_path_returns_none() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
     assert!(dispatch_get(&get_req("/api/v1/tenant/usage"), Some(&store))
         .await

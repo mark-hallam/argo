@@ -14,7 +14,7 @@ use argo_types::TenantId;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
-use tokio::sync::MutexGuard;
+use tokio::sync::OwnedMutexGuard;
 
 /// Env vars this suite mutates — snapshotted + restored by the test
 /// guards so a panic can't leak state into the next test.
@@ -25,13 +25,6 @@ const TOUCHED_ENV: &[&str] = &[
     "OPENAI_API_KEY",
     "ARGO_WORKER_RUN_PROVIDER",
 ];
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    // SHARED with the sibling `routes_worker_run_exec::tests` suite —
-    // both mutate process-global env + cwd, so they serialize on ONE
-    // mutex (a per-file mutex would let them stomp each other).
-    super::TEST_ENV_LOCK.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -121,7 +114,7 @@ async fn add_worker(store: &Arc<SessionStore>, tenant: TenantId, name: &str) -> 
 /// deterministic `mock` provider via the `ARGO_WORKER_RUN_PROVIDER`
 /// seam — no network LLM call.
 struct Env {
-    _guard: MutexGuard<'static, ()>,
+    _guard: OwnedMutexGuard<()>,
     _tmp: TempDir,
     store: Arc<SessionStore>,
     tenant: TenantId,
@@ -138,7 +131,7 @@ impl Drop for Env {
 }
 
 async fn setup_with_worker(name: &str) -> (Env, Worker) {
-    let guard = env_lock().await;
+    let guard = crate::handlers::gateway::shared_env_lock().await;
     let saved_env = snapshot_env();
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
@@ -246,7 +239,7 @@ async fn run_without_capability_returns_403() {
 
 #[tokio::test]
 async fn run_unknown_worker_returns_404() {
-    let _guard = env_lock().await;
+    let _guard = crate::handlers::gateway::shared_env_lock().await;
     let saved = snapshot_env();
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
@@ -295,7 +288,7 @@ async fn run_empty_body_treated_as_default_trigger_source() {
 
 #[tokio::test]
 async fn run_no_store_returns_503() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let saved = snapshot_env();
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());

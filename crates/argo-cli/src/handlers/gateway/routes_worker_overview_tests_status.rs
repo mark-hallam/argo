@@ -72,7 +72,7 @@ async fn archived_worker_returns_410_with_recoverable_until() {
 
 #[tokio::test]
 async fn handler_returns_503_when_store_missing() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let id = WorkerId::new().to_string();

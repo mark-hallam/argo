@@ -9,7 +9,7 @@ use super::duty_test_helpers::*;
 
 #[tokio::test]
 async fn patch_updates_label_and_schedule_and_enabled() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -30,7 +30,7 @@ async fn patch_updates_label_and_schedule_and_enabled() {
 
 #[tokio::test]
 async fn patch_empty_body_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -47,7 +47,7 @@ async fn patch_empty_body_returns_400() {
 
 #[tokio::test]
 async fn delete_removes_row_and_returns_204() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -74,7 +74,7 @@ async fn delete_removes_row_and_returns_204() {
 
 #[tokio::test]
 async fn delete_unknown_duty_returns_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -93,7 +93,7 @@ async fn delete_unknown_duty_returns_404() {
 
 #[tokio::test]
 async fn list_returns_committed_duties_scoped_to_worker() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -122,7 +122,7 @@ async fn list_returns_committed_duties_scoped_to_worker() {
 /// invariant).
 #[tokio::test]
 async fn list_cross_tenant_returns_same_404_as_unknown_worker() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -157,7 +157,7 @@ async fn returns_503_when_store_missing() {
 
 #[tokio::test]
 async fn commit_emits_audit_row() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;

@@ -6,18 +6,12 @@ use base64::Engine as _;
 use serde_json::Value;
 use sha1::{Digest, Sha1};
 use std::path::PathBuf;
-use tokio::sync::{Mutex, MutexGuard};
 
 use super::*;
 
 const HMAC_SECRET: &str = "voice-test-hmac";
 const TWILIO_AUTH: &str = "auth";
 const VOICE_URL: &str = "https://gw.example.com/twilio/voice/decision";
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -84,7 +78,7 @@ fn signature_invalid_rejects() {
 
 #[tokio::test]
 async fn payload_routes_to_existing_voice_handler() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("TWILIO_AUTH_TOKEN", TWILIO_AUTH);
     let req = "POST /twilio/voice/decision HTTP/1.1\r\nHost: localhost\r\n\r\nDigits=1";
     let (status, body) = super::super::routes_channels::email_webhook_response(req).await;
@@ -95,7 +89,7 @@ async fn payload_routes_to_existing_voice_handler() {
 
 #[tokio::test]
 async fn voice_approve_callback_emits_approval_replied_audit_row() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_pending("voice-approve").await;
@@ -114,7 +108,7 @@ async fn voice_approve_callback_emits_approval_replied_audit_row() {
 
 #[tokio::test]
 async fn voice_deny_callback_emits_approval_replied_audit_row() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_pending("voice-deny").await;
@@ -133,7 +127,7 @@ async fn voice_deny_callback_emits_approval_replied_audit_row() {
 
 #[tokio::test]
 async fn duplicate_voice_callback_does_not_emit_second_audit_row() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_pending("voice-dupe").await;

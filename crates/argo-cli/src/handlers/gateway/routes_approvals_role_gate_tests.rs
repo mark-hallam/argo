@@ -21,19 +21,10 @@ use crate::handlers::worker_actions_transitions::open_workspace_memory;
 use argo_memory::MemoryFile;
 use serde_json::Value;
 use std::path::PathBuf;
-use tokio::sync::{Mutex, MutexGuard};
 
 const PROD_PROFILE_ENV: &str = "ARGO_GATEWAY_PROFILE";
 const JWT_SECRET_ENV: &str = "SKYCOT_AUTH_JWT_SECRET";
 const TRUST_HEADER_ENV: &str = "ARGO_GATEWAY_TRUST_ROLE_HEADER";
-
-/// Process-wide serialisation for tests that mutate ARGO_HOME /
-/// production-mode env vars. Held across `.await` points (the action
-/// memory store is async), so it must be a tokio Mutex.
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -131,7 +122,7 @@ async fn latest_action_record(action_id: &str) -> ActionRecord {
 
 #[tokio::test]
 async fn decide_blocks_guest_role_with_403() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_pending("act-guest").await;
@@ -161,7 +152,7 @@ async fn decide_blocks_guest_role_with_403() {
 
 #[tokio::test]
 async fn decide_admin_role_succeeds_and_stamps_decider_role_into_audit_row() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_pending("act-admin").await;
@@ -192,7 +183,7 @@ async fn decide_user_role_succeeds_at_floor() {
     // `user` is the minimum role permitted to approve — one notch
     // above `guest`. Lock-step verification that the floor is `>=`,
     // not `>`.
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_pending("act-user").await;
@@ -214,7 +205,7 @@ async fn decide_user_role_succeeds_at_floor() {
 
 #[tokio::test]
 async fn decide_refuse_stamps_decider_role_into_cancellation_note() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_pending("act-refuse-admin").await;
@@ -245,7 +236,7 @@ async fn decide_refuse_stamps_decider_role_into_cancellation_note() {
 async fn undo_blocks_guest_role_with_403() {
     // Sister gate to `decide` — undo carries the same risk shape, so
     // guest must be denied with 403.
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     seed_pending("act-undo-guest").await;

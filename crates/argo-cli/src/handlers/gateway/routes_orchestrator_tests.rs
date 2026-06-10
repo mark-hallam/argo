@@ -5,8 +5,6 @@ use super::*;
 use argo_identity::WorkerId;
 use argo_orchestrator::{EscalationStep, Handoff};
 
-static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
-
 fn req(method: &str, target: &str, token: Option<&str>, body: &str) -> String {
     let auth = token
         .map(|t| format!("Authorization: Bearer {t}\r\n"))
@@ -22,7 +20,7 @@ async fn store() -> Arc<SessionStore> {
 
 #[tokio::test]
 async fn orchestrator_routes_auth_and_lifecycle() {
-    let _guard = ENV_LOCK.lock().await;
+    let _guard = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("ARGO_WEBINBOX_BEARER_TOKEN", "tok");
     std::env::set_var(
         "ARGO_WEBINBOX_TENANT_ID",

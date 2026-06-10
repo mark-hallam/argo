@@ -139,12 +139,6 @@ mod integration {
     use argo_types::TenantId;
     use std::path::PathBuf;
     use std::sync::Arc;
-    use tokio::sync::{Mutex, MutexGuard};
-
-    async fn env_lock() -> MutexGuard<'static, ()> {
-        static M: Mutex<()> = Mutex::const_new(());
-        M.lock().await
-    }
 
     fn workspace_root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -214,7 +208,7 @@ mod integration {
     /// and a `worker.escalation_changed` audit row must be appended.
     #[tokio::test]
     async fn patch_then_get_round_trips_and_audits() {
-        let _g = env_lock().await;
+        let _g = crate::handlers::gateway::shared_env_lock().await;
         let tmp = tempfile::tempdir().expect("tempdir");
         set_test_env(tmp.path());
         // Run from a clean cwd so the on-disk TOML lands under tmp and
@@ -268,7 +262,7 @@ mod integration {
 
     #[tokio::test]
     async fn cross_tenant_get_returns_same_404_as_unknown_worker() {
-        let _g = env_lock().await;
+        let _g = crate::handlers::gateway::shared_env_lock().await;
         let tmp = tempfile::tempdir().expect("tempdir");
         set_test_env(tmp.path());
         let store = mem_store().await;
@@ -291,7 +285,7 @@ mod integration {
 
     #[tokio::test]
     async fn cross_tenant_update_returns_same_404_as_unknown_worker() {
-        let _g = env_lock().await;
+        let _g = crate::handlers::gateway::shared_env_lock().await;
         let tmp = tempfile::tempdir().expect("tempdir");
         set_test_env(tmp.path());
         let store = mem_store().await;

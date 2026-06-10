@@ -10,13 +10,7 @@ use argo_types::TenantId;
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -139,7 +133,7 @@ async fn insert_audit_row(store: &Arc<SessionStore>, spec: AuditRowSpec<'_>) {
 
 #[tokio::test]
 async fn list_empty_returns_zero_count() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -153,7 +147,7 @@ async fn list_empty_returns_zero_count() {
 
 #[tokio::test]
 async fn list_groups_workers_by_vertical_and_band() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -177,7 +171,7 @@ async fn list_groups_workers_by_vertical_and_band() {
 
 #[tokio::test]
 async fn list_503_when_store_missing() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let (status, body) = list_response(&req_list(None), None).await;
@@ -187,7 +181,7 @@ async fn list_503_when_store_missing() {
 
 #[tokio::test]
 async fn list_cross_tenant_query_returns_403() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -202,7 +196,7 @@ async fn list_cross_tenant_query_returns_403() {
 
 #[tokio::test]
 async fn list_invalid_tenant_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -214,7 +208,7 @@ async fn list_invalid_tenant_returns_400() {
 
 #[tokio::test]
 async fn detail_returns_members_and_skills() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -253,7 +247,7 @@ async fn detail_returns_members_and_skills() {
 
 #[tokio::test]
 async fn detail_404_when_cohort_unknown() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -271,7 +265,7 @@ async fn detail_404_when_cohort_unknown() {
 
 #[tokio::test]
 async fn detail_includes_recent_activity_scoped_to_members() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -376,7 +370,7 @@ async fn detail_includes_recent_activity_scoped_to_members() {
 
 #[tokio::test]
 async fn detail_recent_activity_is_empty_when_no_audit_rows() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -400,7 +394,7 @@ async fn detail_recent_activity_is_empty_when_no_audit_rows() {
 
 #[tokio::test]
 async fn detail_decodes_percent_encoded_separator() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;

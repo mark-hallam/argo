@@ -36,7 +36,7 @@ use argo_types::TenantId;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
-use tokio::sync::MutexGuard;
+use tokio::sync::OwnedMutexGuard;
 
 /// One real, loadable vertical id from the workspace `verticals/` dir
 /// (`RunEnv` points `ARGO_VERTICALS_DIR` there). Used for the
@@ -52,12 +52,6 @@ const TOUCHED_ENV: &[&str] = &[
     "ARGO_WORKER_RUN_PROVIDER",
 ];
 
-async fn env_lock() -> MutexGuard<'static, ()> {
-    // SHARED with the sibling `routes_worker_run::tests` suite — both
-    // mutate process-global env + cwd, so they serialize on ONE mutex.
-    super::super::TEST_ENV_LOCK.lock().await
-}
-
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -69,7 +63,7 @@ fn workspace_root() -> PathBuf {
 /// RAII test environment: holds the serialization guard + tempdir,
 /// snapshots [`TOUCHED_ENV`], and restores cwd + env on drop.
 struct RunEnv {
-    _guard: MutexGuard<'static, ()>,
+    _guard: OwnedMutexGuard<()>,
     tmp: TempDir,
     saved_env: Vec<(&'static str, Option<String>)>,
     stable_cwd: PathBuf,
@@ -80,7 +74,7 @@ impl RunEnv {
     /// `ARGO_VERTICALS_DIR` at the tempdir / workspace. Does NOT chdir
     /// yet — callers that run a real turn call [`Self::chdir_tmp`].
     async fn new() -> Self {
-        let guard = env_lock().await;
+        let guard = crate::handlers::gateway::shared_env_lock().await;
         let tmp = TempDir::new().expect("tempdir");
         let saved_env = TOUCHED_ENV
             .iter()

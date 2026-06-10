@@ -13,12 +13,6 @@ use super::{dispatch_get, dispatch_patch, read_voice_provider, workspace_default
 use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 async fn mem_store() -> Arc<SessionStore> {
     let store = SessionStore::open(":memory:").await.expect("open mem db");
@@ -50,7 +44,7 @@ fn parse_ok(resp: Option<(&'static str, String)>) -> Value {
 
 #[tokio::test]
 async fn get_workspace_returns_neutral_default_when_unseeded() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
     let resp = dispatch_get(&get_req("/api/v1/workspace"), Some(&store)).await;
     let v = parse_ok(resp);
@@ -82,7 +76,7 @@ fn workspace_default_is_neutral_for_real_tenants_branded_for_demo() {
 
 #[tokio::test]
 async fn get_providers_and_notifications_return_defaults() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
 
     let p = parse_ok(dispatch_get(&get_req("/api/v1/providers/policy"), Some(&store)).await);
@@ -101,7 +95,7 @@ async fn get_providers_and_notifications_return_defaults() {
 
 #[tokio::test]
 async fn patch_then_get_round_trips_a_change() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
 
     // PATCH a single field; response echoes the merged object.
@@ -128,7 +122,7 @@ async fn patch_then_get_round_trips_a_change() {
 
 #[tokio::test]
 async fn patch_providers_validates_enum() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
 
     // Valid enum value is accepted.
@@ -160,7 +154,7 @@ async fn patch_providers_validates_enum() {
 
 #[tokio::test]
 async fn patch_rejects_unknown_field() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
     let (status, body) = dispatch_patch(
         &patch_req("/api/v1/workspace", &json!({ "bogus": "x" })),
@@ -174,7 +168,7 @@ async fn patch_rejects_unknown_field() {
 
 #[tokio::test]
 async fn patch_rejects_wrong_type() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
     // email_enabled must be a bool.
     let (status, _) = dispatch_patch(
@@ -203,7 +197,7 @@ async fn patch_rejects_wrong_type() {
 
 #[tokio::test]
 async fn empty_patch_body_is_noop_returning_current() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
     // Empty body — merge is a no-op, returns the full current
     // (default) object.
@@ -215,7 +209,7 @@ async fn empty_patch_body_is_noop_returning_current() {
 
 #[tokio::test]
 async fn non_matching_path_returns_none() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
     assert!(dispatch_get(&get_req("/api/v1/workers"), Some(&store))
         .await
@@ -234,7 +228,7 @@ async fn non_matching_path_returns_none() {
 
 #[tokio::test]
 async fn get_voice_returns_mock_default_when_unseeded() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
     let v = parse_ok(dispatch_get(&get_req("/api/v1/voice/settings"), Some(&store)).await);
     assert_eq!(v["provider"], "mock");
@@ -242,7 +236,7 @@ async fn get_voice_returns_mock_default_when_unseeded() {
 
 #[tokio::test]
 async fn patch_voice_to_openai_round_trips() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
 
     let patched = parse_ok(
@@ -261,7 +255,7 @@ async fn patch_voice_to_openai_round_trips() {
 
 #[tokio::test]
 async fn patch_voice_rejects_unknown_provider() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
     let (status, _body) = dispatch_patch(
         &patch_req("/api/v1/voice/settings", &json!({ "provider": "elevenlabs" })),
@@ -277,7 +271,7 @@ async fn patch_voice_rejects_unknown_provider() {
 
 #[tokio::test]
 async fn read_voice_provider_reflects_persisted_choice() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let store = mem_store().await;
 
     // Unseeded → None (caller falls back to env), since no row is written

@@ -14,9 +14,6 @@
 //! shared process-global rate-limit bucket.
 
 use super::*;
-use std::sync::Mutex;
-
-static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 /// Build a public-route request from a given source IP + body.
 fn public_req(ip: &str, body: &serde_json::Value) -> String {
@@ -63,7 +60,7 @@ async fn anonymous_in_corpus_question_returns_grounded_answer_not_401() {
 // not trip `clippy::await_holding_lock`.
 #[test]
 fn authenticated_pitch_route_still_requires_a_bearer() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     // Perimeter closed: a bearer token IS configured + bypass off, so a
     // request with no Authorization header is rejected.
     std::env::remove_var("ARGO_GATEWAY_AUTH_BYPASS");

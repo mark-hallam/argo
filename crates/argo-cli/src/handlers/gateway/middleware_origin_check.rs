@@ -79,12 +79,6 @@ fn trusted_origins() -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-
-    // All tests in this module mutate `ARGO_TRUSTED_ORIGINS`; serialize
-    // them through a process-wide mutex so cargo's parallel runner
-    // doesn't observe an env-var write from a sibling test.
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     struct EnvGuard {
         prev: Option<String>,
@@ -121,21 +115,21 @@ mod tests {
 
     #[test]
     fn safe_methods_pass() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
         let _g = EnvGuard::set(None);
         assert!(check_origin(&req_with("GET", &[("Origin", "https://evil.example")])).is_none());
     }
 
     #[test]
     fn no_origin_header_passes() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
         let _g = EnvGuard::set(None);
         assert!(check_origin(&req_with("POST", &[])).is_none());
     }
 
     #[test]
     fn allow_listed_origin_passes() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
         let _g = EnvGuard::set(None);
         let r = req_with("POST", &[("Origin", "http://localhost:3000")]);
         assert!(check_origin(&r).is_none());
@@ -143,7 +137,7 @@ mod tests {
 
     #[test]
     fn untrusted_origin_rejected() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
         let _g = EnvGuard::set(None);
         let r = req_with("POST", &[("Origin", "https://evil.example")]);
         let resp = check_origin(&r).expect("rejected");
@@ -153,7 +147,7 @@ mod tests {
 
     #[test]
     fn env_driven_allowlist_overrides_default() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
         let _g = EnvGuard::set(Some("https://app.skycot.com"));
         let r_allowed = req_with("POST", &[("Origin", "https://app.skycot.com")]);
         let r_blocked = req_with("POST", &[("Origin", "http://localhost:3000")]);

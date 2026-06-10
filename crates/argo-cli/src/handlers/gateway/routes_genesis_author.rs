@@ -97,27 +97,17 @@ impl AuthorClient for GateAuthorClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Mutex, MutexGuard, OnceLock};
-
-    /// `ARGO_GENESIS_LLM_AUTHOR` is process-global; serialize the override
-    /// tests so a concurrent run never observes a half-applied set/clear.
-    fn env_lock() -> MutexGuard<'static, ()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-    }
 
     /// RAII guard restoring the prior value of `ARGO_GENESIS_LLM_AUTHOR`.
     /// `_guard` holds the process-global env lock for the test's lifetime.
     struct AuthorEnvGuard {
         prev: Option<String>,
-        _guard: MutexGuard<'static, ()>,
+        _guard: tokio::sync::OwnedMutexGuard<()>,
     }
 
     impl AuthorEnvGuard {
         fn set(value: &str) -> Self {
-            let guard = env_lock();
+            let guard = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
             let prev = std::env::var(GENESIS_LLM_AUTHOR_ENV).ok();
             std::env::set_var(GENESIS_LLM_AUTHOR_ENV, value);
             Self { prev, _guard: guard }

@@ -19,11 +19,6 @@ use serde_json::{json, Value};
 
 const PUBKEY_ENV: &str = "ARGO_INBOX_WS_JWT_PUBKEY";
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    LOCK.lock().unwrap_or_else(|e| e.into_inner())
-}
-
 fn sample_row(approval_id: &str) -> WebInboxRow {
     WebInboxRow {
         operator_id: "op-1".into(),
@@ -198,7 +193,7 @@ fn token_from_query_parses_and_handles_missing() {
 
 #[test]
 fn authorize_rejects_legacy_bearer_when_no_jwt_pubkey() {
-    let _guard = env_lock();
+    let _guard = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     std::env::remove_var(PUBKEY_ENV);
     let req = "GET /inbox/ws?token=eyJ.eyJ.sig HTTP/1.1\r\nAuthorization: Bearer x\r\n\r\n";
     let now = chrono::Utc::now().timestamp();
@@ -209,7 +204,7 @@ fn authorize_rejects_legacy_bearer_when_no_jwt_pubkey() {
 
 #[test]
 fn authorize_uses_jwt_tenant_when_pubkey_present() {
-    let _guard = env_lock();
+    let _guard = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     let signing = SigningKey::generate(&mut OsRng);
     let vk = signing.verifying_key();
     let b64 = base64::engine::general_purpose::STANDARD.encode(vk.to_bytes());
@@ -232,7 +227,7 @@ fn authorize_uses_jwt_tenant_when_pubkey_present() {
 
 #[test]
 fn authorize_rejects_missing_credentials() {
-    let _guard = env_lock();
+    let _guard = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     std::env::remove_var(PUBKEY_ENV);
     let req = "GET /inbox/ws HTTP/1.1\r\n\r\n";
     let now = chrono::Utc::now().timestamp();
@@ -244,7 +239,7 @@ fn authorize_rejects_missing_credentials() {
 #[tokio::test]
 async fn jwt_auth_subscribes_only_to_claim_tenant() {
     let tenant = {
-        let _guard = env_lock();
+        let _guard = crate::handlers::gateway::shared_env_lock().await;
         let signing = SigningKey::generate(&mut OsRng);
         let vk = signing.verifying_key();
         let b64 = base64::engine::general_purpose::STANDARD.encode(vk.to_bytes());

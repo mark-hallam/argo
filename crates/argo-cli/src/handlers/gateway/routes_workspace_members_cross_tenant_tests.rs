@@ -31,16 +31,10 @@ use chrono::Utc;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
 
 const TENANT_A_PRINCIPAL: &str = "human:owner@tenant-a.example";
 const TENANT_B_PRINCIPAL: &str = "human:owner@tenant-b.example";
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -105,7 +99,7 @@ async fn seed_tenant_returning_id(store: &Arc<SessionStore>, principal: &str) ->
 
 #[tokio::test]
 async fn cross_tenant_list_excludes_other_tenants_members_and_invites() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -174,7 +168,7 @@ async fn cross_tenant_list_excludes_other_tenants_members_and_invites() {
 
 #[tokio::test]
 async fn cross_tenant_invite_does_not_pollute_other_tenants_pending_row() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -259,7 +253,7 @@ async fn cross_tenant_accept_binds_membership_to_invite_tenant_not_caller_tenant
     // token-only (no principal header consulted); this test pins that
     // invariant against a future refactor that adds a principal check
     // and silently rebinds to the caller's tenant.
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;

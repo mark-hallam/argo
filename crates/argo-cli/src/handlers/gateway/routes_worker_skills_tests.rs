@@ -18,12 +18,6 @@ use argo_types::{SkillId, TenantId};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -130,7 +124,7 @@ fn delete_req(path: &str) -> String {
 
 #[tokio::test]
 async fn get_skills_returns_three_section_envelope() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -152,7 +146,7 @@ async fn get_skills_returns_three_section_envelope() {
 
 #[tokio::test]
 async fn get_skills_library_includes_available_skills_not_active() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -177,7 +171,7 @@ async fn get_skills_library_includes_available_skills_not_active() {
 
 #[tokio::test]
 async fn get_skills_cross_tenant_returns_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -191,7 +185,7 @@ async fn get_skills_cross_tenant_returns_404() {
 
 #[tokio::test]
 async fn get_skills_unknown_worker_returns_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -204,7 +198,7 @@ async fn get_skills_unknown_worker_returns_404() {
 
 #[tokio::test]
 async fn get_skills_invalid_worker_id_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -219,7 +213,7 @@ async fn get_skills_invalid_worker_id_returns_400() {
 
 #[tokio::test]
 async fn post_skill_adds_to_active_overlay() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -249,7 +243,7 @@ async fn post_skill_adds_to_active_overlay() {
 
 #[tokio::test]
 async fn post_skill_missing_body_field_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -268,7 +262,7 @@ async fn post_skill_missing_body_field_returns_400() {
 
 #[tokio::test]
 async fn delete_skill_removes_from_active_overlay() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -302,7 +296,7 @@ async fn delete_skill_removes_from_active_overlay() {
 /// the alien tenant is untouched.
 #[tokio::test]
 async fn delete_skill_cross_tenant_returns_404_and_does_not_touch_overlay() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -340,7 +334,7 @@ async fn delete_skill_cross_tenant_returns_404_and_does_not_touch_overlay() {
 
 #[tokio::test]
 async fn history_returns_audit_events_for_skill() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -385,7 +379,7 @@ async fn history_returns_audit_events_for_skill() {
 
 #[tokio::test]
 async fn promote_attaches_skill_and_writes_audit_row() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -426,7 +420,7 @@ async fn promote_attaches_skill_and_writes_audit_row() {
 
 #[tokio::test]
 async fn promote_writes_trust_ratchet_max_proficiency() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -460,7 +454,7 @@ async fn promote_writes_trust_ratchet_max_proficiency() {
 
 #[tokio::test]
 async fn dispatch_post_routes_add_and_delete() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;

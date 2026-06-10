@@ -17,12 +17,6 @@ use argo_types::TenantId;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -101,7 +95,7 @@ async fn call(
 /// so operators can still get the forensic view.
 #[tokio::test]
 async fn default_hides_system_meta_include_meta_restores_them() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -202,7 +196,7 @@ async fn default_hides_system_meta_include_meta_restores_them() {
 /// `action_type` rather than `endpoint`.
 #[tokio::test]
 async fn action_type_metadata_value_is_also_hidden_by_default() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;

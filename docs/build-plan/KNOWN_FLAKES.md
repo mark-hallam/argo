@@ -83,6 +83,37 @@ web-PR boundary note (#2011, #2013, #2014, #2018, #2026, #2027,
 - `argo-cli > worker_actions::worker_actions_tests::gtm_engineer_manifest_declares_expected_action_classification`
   — First observed: 2026-05-09 (`886d9a6bd`). Classification: stable.
   Vertical schema mismatch in the GTM-engineer fixture.
+- `argo-cli > tests/approvals_list_seeded_rows_surface.rs::list_surfaces_seeded_approval_request_rows`
+  — First observed: 2026-06-10 (`fix-gateway-tests-shared-env-lock-migration`).
+  Classification: stable (NOT a parallelism flake — reproduces in full
+  isolation: `cargo test -p argo-cli --test approvals_list_seeded_rows_surface`
+  fails the same way single-threaded). This is a spawned-gateway
+  end-to-end test (separate `tests/` binary) whose seeded-rows request
+  comes back `401 {"error":"unauthorized","reason":"authentication
+  required"}` against the gateway it boots, so the `assert_eq!(status,
+  200)` at `:77` panics. It is a gateway-spawn auth-setup gap, unrelated
+  to the in-process unit-test env/cwd lock work; the migration cannot
+  affect it because `#[cfg(test)]` modules in `src/` aren't compiled into
+  an integration binary. Needs its own follow-up brief (likely the same
+  class as the gateway-spawn keychain note — see the
+  `SKYCOT_DB_KEY_BASE64` auto-memory).
+
+#### RESOLVED 2026-06-10 — gateway env/cwd cross-module parallel races
+
+The ~19-test parallel-flake class boundary-noted on PR #2752
+(`handlers::gateway::routes_approvals_json::*`, `resolve_tenant::*`,
+`routes_worker_overview/detail::*`, `routes_genesis_stream::*`,
+`routes_channels_voice::* / webinbox::*`, etc.) is **fixed** by
+`fix-gateway-tests-shared-env-lock-migration`: ~57 gateway test modules
+that mutated process-global env/cwd under their OWN per-module lock now
+acquire the canonical gateway-wide `shared_env_lock()` /
+`shared_env_mutex()` (`gateway/mod.rs`), so cross-module tests serialize
+on ONE mutex instead of racing. `cargo test -p argo-cli` unit binary is
+green 2× consecutively at DEFAULT parallelism (2940/0). Future
+`--test-threads=1` workarounds for THIS class should no longer be
+needed. (The `approvals_list_seeded_rows_surface` integration entry
+above is a separate, deterministic pre-existing failure, not part of
+this class.)
 
 #### Post-#1039 strict-mode regressions (argo-cli)
 

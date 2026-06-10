@@ -16,17 +16,9 @@ use argo_store::scim_user::ScimUserStore;
 use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
-// `tokio::sync::Mutex` so guards are held safely across `.await`
-// points — env vars are process-global and tests serialize on this.
-static ENV_LOCK: Mutex<()> = Mutex::const_new(());
 const BYPASS_KEY: &str = "ARGO_GATEWAY_AUTH_BYPASS";
 const TOKEN_KEY: &str = "ARGO_SCIM_BEARER_TOKEN";
-
-async fn lock_env() -> tokio::sync::MutexGuard<'static, ()> {
-    ENV_LOCK.lock().await
-}
 
 fn enable_bypass() {
     std::env::remove_var(TOKEN_KEY);
@@ -75,7 +67,7 @@ async fn provision(store: &Arc<SessionStore>, user_name: &str) -> Value {
 
 #[tokio::test]
 async fn list_users_empty_returns_zero_resources() {
-    let _g = lock_env().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     enable_bypass();
     let store = mem_store().await;
     let (status, body) = dispatch(&req("GET", "/scim/v2/Users", ""), Some(&store))
@@ -94,7 +86,7 @@ async fn list_users_empty_returns_zero_resources() {
 
 #[tokio::test]
 async fn create_user_201_returns_scim_envelope() {
-    let _g = lock_env().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     enable_bypass();
     let store = mem_store().await;
     let created = provision(&store, "alice@example.com").await;
@@ -114,7 +106,7 @@ async fn create_user_201_returns_scim_envelope() {
 
 #[tokio::test]
 async fn create_user_400_when_userName_missing() {
-    let _g = lock_env().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     enable_bypass();
     let store = mem_store().await;
     let body = json!({"displayName": "no name"}).to_string();
@@ -133,7 +125,7 @@ async fn create_user_400_when_userName_missing() {
 
 #[tokio::test]
 async fn create_user_409_on_duplicate_userName() {
-    let _g = lock_env().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     enable_bypass();
     let store = mem_store().await;
     provision(&store, "dup@example.com").await;
@@ -150,7 +142,7 @@ async fn create_user_409_on_duplicate_userName() {
 
 #[tokio::test]
 async fn get_user_returns_full_envelope() {
-    let _g = lock_env().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     enable_bypass();
     let store = mem_store().await;
     let created = provision(&store, "bob@example.com").await;
@@ -170,7 +162,7 @@ async fn get_user_returns_full_envelope() {
 
 #[tokio::test]
 async fn get_user_404_for_unknown_id() {
-    let _g = lock_env().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     enable_bypass();
     let store = mem_store().await;
     let missing = "00000000-0000-0000-0000-000000000000";
@@ -186,7 +178,7 @@ async fn get_user_404_for_unknown_id() {
 
 #[tokio::test]
 async fn get_user_400_for_invalid_uuid() {
-    let _g = lock_env().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     enable_bypass();
     let store = mem_store().await;
     let (status, _) = dispatch(&req("GET", "/scim/v2/Users/not-a-uuid", ""), Some(&store))
@@ -198,7 +190,7 @@ async fn get_user_400_for_invalid_uuid() {
 
 #[tokio::test]
 async fn patch_user_deactivate_via_plain_body_sets_active_false() {
-    let _g = lock_env().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     enable_bypass();
     let store = mem_store().await;
     let created = provision(&store, "carol@example.com").await;
@@ -218,7 +210,7 @@ async fn patch_user_deactivate_via_plain_body_sets_active_false() {
 
 #[tokio::test]
 async fn patch_user_accepts_patchop_envelope() {
-    let _g = lock_env().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     enable_bypass();
     let store = mem_store().await;
     let created = provision(&store, "dave@example.com").await;
@@ -246,7 +238,7 @@ async fn patch_user_accepts_patchop_envelope() {
 
 #[tokio::test]
 async fn delete_user_returns_204_and_writes_tombstone() {
-    let _g = lock_env().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     enable_bypass();
     let store = mem_store().await;
     let created = provision(&store, "erin@example.com").await;
@@ -279,7 +271,7 @@ async fn delete_user_returns_204_and_writes_tombstone() {
 
 #[tokio::test]
 async fn delete_already_deleted_user_returns_404() {
-    let _g = lock_env().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     enable_bypass();
     let store = mem_store().await;
     let created = provision(&store, "frank@example.com").await;
@@ -297,7 +289,7 @@ async fn delete_already_deleted_user_returns_404() {
 
 #[tokio::test]
 async fn list_with_user_name_filter_matches_single_row() {
-    let _g = lock_env().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     enable_bypass();
     let store = mem_store().await;
     provision(&store, "gina@example.com").await;
@@ -315,7 +307,7 @@ async fn list_with_user_name_filter_matches_single_row() {
 
 #[tokio::test]
 async fn scim_auth_503_when_token_unset_and_no_bypass() {
-    let _g = lock_env().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     reset_env();
     let store = mem_store().await;
     let (status, body) = dispatch(&req("GET", "/scim/v2/Users", ""), Some(&store))
@@ -334,7 +326,7 @@ async fn scim_auth_503_when_token_unset_and_no_bypass() {
 /// each time.
 #[tokio::test]
 async fn integration_provision_deactivate_reactivate_lifecycle() {
-    let _g = lock_env().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     enable_bypass();
     let store = mem_store().await;
     // 1. provision

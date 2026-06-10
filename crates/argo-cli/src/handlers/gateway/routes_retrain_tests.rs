@@ -18,18 +18,12 @@ use argo_types::TenantId;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
 
 #[path = "routes_retrain_tests_classify.rs"]
 mod classify;
 #[path = "routes_retrain_tests_recent.rs"]
 mod recent;
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -123,7 +117,7 @@ async fn commit_memory_fact(store: &Arc<SessionStore>, worker_id: &str, text: &s
 
 #[tokio::test]
 async fn commit_returns_201_with_retrain_id_and_persists_memory_fact() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -145,7 +139,7 @@ async fn commit_returns_201_with_retrain_id_and_persists_memory_fact() {
 
 #[tokio::test]
 async fn commit_unknown_classification_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -164,7 +158,7 @@ async fn commit_unknown_classification_returns_400() {
 
 #[tokio::test]
 async fn undo_returns_200_and_tombstones_memory_fact() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -194,7 +188,7 @@ async fn undo_returns_200_and_tombstones_memory_fact() {
 
 #[tokio::test]
 async fn undo_tombstones_only_current_tenant_fact() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -244,7 +238,7 @@ async fn undo_tombstones_only_current_tenant_fact() {
 
 #[tokio::test]
 async fn undo_twice_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -265,7 +259,7 @@ async fn undo_twice_returns_400() {
 
 #[tokio::test]
 async fn undo_ignores_other_tenant_undo_marker() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -300,7 +294,7 @@ async fn undo_ignores_other_tenant_undo_marker() {
 
 #[tokio::test]
 async fn undo_unknown_retrain_returns_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -319,7 +313,7 @@ async fn undo_unknown_retrain_returns_404() {
 
 #[tokio::test]
 async fn reverse_test_samples_ignore_other_tenant_tool_calls() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -364,7 +358,7 @@ async fn reverse_test_samples_ignore_other_tenant_tool_calls() {
 
 #[tokio::test]
 async fn reverse_test_returns_default_3_samples_when_omitted() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -386,7 +380,7 @@ async fn reverse_test_returns_default_3_samples_when_omitted() {
 
 #[tokio::test]
 async fn reverse_test_sample_size_out_of_range_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -405,7 +399,7 @@ async fn reverse_test_sample_size_out_of_range_returns_400() {
 
 #[tokio::test]
 async fn dispatch_routes_each_subpath_to_the_right_handler() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -432,7 +426,7 @@ async fn dispatch_routes_each_subpath_to_the_right_handler() {
 
 #[tokio::test]
 async fn handlers_return_503_when_store_missing() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let id = Uuid::now_v7().to_string();
     let req = req_with(
         "POST",
@@ -466,7 +460,7 @@ async fn handlers_return_503_when_store_missing() {
 
 #[tokio::test]
 async fn audit_row_emitted_for_commit() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;

@@ -13,23 +13,15 @@
 use super::*;
 use argo_orchestrator::{DelegationStep, OrchestratorStore, StepId, Supervisor, TeamPlan};
 use argo_store::SessionStore;
-use std::sync::{Mutex, OnceLock};
-
-/// Env vars are process-global; serialize the precedence/flag tests so a
-/// concurrent run does not observe a half-applied set/clear pair.
-fn env_lock() -> &'static Mutex<()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
-}
 
 struct EnvGuard {
     keys: Vec<(&'static str, Option<String>)>,
-    _guard: std::sync::MutexGuard<'static, ()>,
+    _guard: tokio::sync::OwnedMutexGuard<()>,
 }
 
 impl EnvGuard {
-    fn apply(set: &[(&'static str, &str)], unset: &[&'static str]) -> Self {
-        let guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    async fn apply(set: &[(&'static str, &str)], unset: &[&'static str]) -> Self {
+        let guard = crate::handlers::gateway::shared_env_lock().await;
         let mut keys = Vec::with_capacity(set.len() + unset.len());
         for (k, v) in set {
             keys.push((*k, std::env::var(k).ok()));
@@ -54,63 +46,63 @@ impl Drop for EnvGuard {
     }
 }
 
-#[test]
-fn llm_executor_off_by_default() {
-    let _env = EnvGuard::apply(&[], &[ORCH_LLM_EXECUTOR_ENV]);
+#[tokio::test]
+async fn llm_executor_off_by_default() {
+    let _env = EnvGuard::apply(&[], &[ORCH_LLM_EXECUTOR_ENV]).await;
     assert!(
         !llm_executor_enabled(),
         "executor must default OFF so the team-runs test suite stays deterministic"
     );
 }
 
-#[test]
-fn llm_executor_truthy_values_enable() {
+#[tokio::test]
+async fn llm_executor_truthy_values_enable() {
     for v in ["1", "true", "ON", "Yes"] {
-        let _env = EnvGuard::apply(&[(ORCH_LLM_EXECUTOR_ENV, v)], &[]);
+        let _env = EnvGuard::apply(&[(ORCH_LLM_EXECUTOR_ENV, v)], &[]).await;
         assert!(llm_executor_enabled(), "`{v}` should enable the executor");
     }
     for v in ["0", "false", "off", "", "  "] {
-        let _env = EnvGuard::apply(&[(ORCH_LLM_EXECUTOR_ENV, v)], &[]);
+        let _env = EnvGuard::apply(&[(ORCH_LLM_EXECUTOR_ENV, v)], &[]).await;
         assert!(!llm_executor_enabled(), "`{v}` should NOT enable");
     }
 }
 
-#[test]
-fn provider_id_defaults_to_claude_code_cli() {
-    let _env = EnvGuard::apply(&[], &[ORCH_LLM_PROVIDER_ENV, "ARGO_PITCH_LLM_PROVIDER"]);
+#[tokio::test]
+async fn provider_id_defaults_to_claude_code_cli() {
+    let _env = EnvGuard::apply(&[], &[ORCH_LLM_PROVIDER_ENV, "ARGO_PITCH_LLM_PROVIDER"]).await;
     assert_eq!(resolve_provider_id(), "claude-code-cli");
 }
 
-#[test]
-fn provider_id_prefers_orch_specific_env() {
+#[tokio::test]
+async fn provider_id_prefers_orch_specific_env() {
     let _env = EnvGuard::apply(
         &[
             (ORCH_LLM_PROVIDER_ENV, "anthropic"),
             ("ARGO_PITCH_LLM_PROVIDER", "claude-code-cli"),
         ],
         &[],
-    );
+    ).await;
     assert_eq!(resolve_provider_id(), "anthropic");
 }
 
-#[test]
-fn provider_id_falls_back_to_pitch_env() {
+#[tokio::test]
+async fn provider_id_falls_back_to_pitch_env() {
     let _env = EnvGuard::apply(
         &[("ARGO_PITCH_LLM_PROVIDER", "claude-code-cli")],
         &[ORCH_LLM_PROVIDER_ENV],
-    );
+    ).await;
     assert_eq!(resolve_provider_id(), "claude-code-cli");
 }
 
-#[test]
-fn provider_id_ignores_blank_env() {
+#[tokio::test]
+async fn provider_id_ignores_blank_env() {
     let _env = EnvGuard::apply(
         &[
             (ORCH_LLM_PROVIDER_ENV, "   "),
             ("ARGO_PITCH_LLM_PROVIDER", ""),
         ],
         &[],
-    );
+    ).await;
     assert_eq!(resolve_provider_id(), "claude-code-cli");
 }
 
@@ -238,7 +230,7 @@ async fn runtime_executor_falls_back_to_deterministic_detail_when_no_provider() 
             (ORCH_LLM_PROVIDER_ENV, "no-such-provider"),
         ],
         &["ARGO_PITCH_LLM_PROVIDER"],
-    );
+    ).await;
 
     let (inner, orch) = store().await;
     let tenant = TenantId::new();

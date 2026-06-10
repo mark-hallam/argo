@@ -18,13 +18,8 @@ use argo_types::TenantId;
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::OwnedMutexGuard;
 use uuid::Uuid;
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -123,7 +118,7 @@ async fn create_fact(store: &Arc<SessionStore>, worker: &Worker, text: &str) -> 
 
 #[tokio::test]
 async fn get_memory_returns_bundled_shape() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -142,7 +137,7 @@ async fn get_memory_returns_bundled_shape() {
 
 #[tokio::test]
 async fn get_memory_hides_namespace_id_from_delegator() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -164,7 +159,7 @@ async fn get_memory_hides_namespace_id_from_delegator() {
 
 #[tokio::test]
 async fn get_memory_shows_namespace_id_to_operator() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -180,7 +175,7 @@ async fn get_memory_shows_namespace_id_to_operator() {
 
 #[tokio::test]
 async fn get_memory_invalid_worker_id_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -191,7 +186,7 @@ async fn get_memory_invalid_worker_id_returns_400() {
 
 #[tokio::test]
 async fn get_memory_unknown_worker_returns_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -204,7 +199,7 @@ async fn get_memory_unknown_worker_returns_404() {
 
 #[tokio::test]
 async fn get_memory_cross_tenant_worker_returns_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -218,7 +213,7 @@ async fn get_memory_cross_tenant_worker_returns_404() {
 
 #[tokio::test]
 async fn post_fact_creates_row_and_returns_201() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -242,7 +237,7 @@ async fn post_fact_creates_row_and_returns_201() {
 
 #[tokio::test]
 async fn post_empty_text_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -255,7 +250,7 @@ async fn post_empty_text_returns_400() {
 
 #[tokio::test]
 async fn post_oversized_text_returns_400_with_limit() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -270,7 +265,7 @@ async fn post_oversized_text_returns_400_with_limit() {
 
 #[tokio::test]
 async fn post_tombstone_marker_rejected() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -287,7 +282,7 @@ async fn post_tombstone_marker_rejected() {
 
 #[tokio::test]
 async fn put_fact_updates_text_and_returns_200() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -306,7 +301,7 @@ async fn put_fact_updates_text_and_returns_200() {
 
 #[tokio::test]
 async fn put_unknown_fact_returns_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -322,7 +317,7 @@ async fn put_unknown_fact_returns_404() {
 #[tokio::test]
 async fn put_cross_worker_fact_returns_404() {
     // Fact created under worker A; PUT under worker B's URL must 404.
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -338,7 +333,7 @@ async fn put_cross_worker_fact_returns_404() {
 
 #[tokio::test]
 async fn delete_fact_returns_204_and_hides_from_get() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -363,7 +358,7 @@ async fn delete_fact_returns_204_and_hides_from_get() {
 
 #[tokio::test]
 async fn delete_unknown_fact_returns_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -378,7 +373,7 @@ async fn delete_unknown_fact_returns_404() {
 
 #[tokio::test]
 async fn audit_row_written_per_mutation() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -420,8 +415,8 @@ async fn audit_row_written_per_mutation() {
 // "tenant-a" (owner of worker_a + its facts). Each verb against
 // worker_a's id must 404 and leave `memory_entry` byte-identical.
 
-async fn alien_env() -> (MutexGuard<'static, ()>, tempfile::TempDir, Arc<SessionStore>, Worker) {
-    let g = env_lock().await;
+async fn alien_env() -> (OwnedMutexGuard<()>, tempfile::TempDir, Arc<SessionStore>, Worker) {
+    let g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -484,7 +479,7 @@ async fn cross_tenant_delete_fact_returns_404_no_tombstone() {
 
 #[tokio::test]
 async fn handler_returns_503_when_store_missing() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let id = Uuid::now_v7().to_string();
     let (status, _) = list_response(&id, &get_req(&id, None, None), None).await;
     assert_eq!(status, "503 Service Unavailable");

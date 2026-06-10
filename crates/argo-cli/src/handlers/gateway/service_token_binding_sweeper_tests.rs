@@ -2,21 +2,11 @@ use super::*;
 use argo_store::service_token_binding::{insert_binding, list_bindings};
 use chrono::TimeZone;
 use std::ffi::OsString;
-use std::sync::{Mutex, MutexGuard, OnceLock};
-
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 async fn fresh_store() -> Arc<SessionStore> {
     let store = SessionStore::open(":memory:").await.expect("open store");
     store.migrate().await.expect("migrate");
     Arc::new(store)
-}
-
-fn lock_env() -> MutexGuard<'static, ()> {
-    ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .expect("env lock")
 }
 
 struct EnvRestore {
@@ -114,49 +104,49 @@ async fn sweep_deletes_stale_rows_and_emits_audit() {
 
 #[test]
 fn tick_secs_from_env_valid_value() {
-    let _guard = lock_env();
+    let _guard = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     let _tick = EnvRestore::set(TICK_ENV, "120");
     assert_eq!(tick_secs_from_env(), 120);
 }
 
 #[test]
 fn tick_secs_from_env_too_small_clamped() {
-    let _guard = lock_env();
+    let _guard = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     let _tick = EnvRestore::set(TICK_ENV, "5");
     assert_eq!(tick_secs_from_env(), MIN_TICK_SECS);
 }
 
 #[test]
 fn tick_secs_from_env_garbage_falls_back() {
-    let _guard = lock_env();
+    let _guard = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     let _tick = EnvRestore::set(TICK_ENV, "nope");
     assert_eq!(tick_secs_from_env(), DEFAULT_TICK_SECS);
 }
 
 #[test]
 fn ttl_secs_from_env_valid_value() {
-    let _guard = lock_env();
+    let _guard = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     let _ttl = EnvRestore::set(TTL_ENV, "172800");
     assert_eq!(ttl_secs_from_env(), 172_800);
 }
 
 #[test]
 fn ttl_secs_from_env_below_minimum_clamped() {
-    let _guard = lock_env();
+    let _guard = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     let _ttl = EnvRestore::set(TTL_ENV, "60");
     assert_eq!(ttl_secs_from_env(), MIN_TTL_SECS);
 }
 
 #[test]
 fn ttl_secs_from_env_garbage_falls_back() {
-    let _guard = lock_env();
+    let _guard = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     let _ttl = EnvRestore::set(TTL_ENV, "forever");
     assert_eq!(ttl_secs_from_env(), DEFAULT_TTL_SECS);
 }
 
 #[test]
 fn env_defaults_when_unset() {
-    let _guard = lock_env();
+    let _guard = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     let _tick = EnvRestore::remove(TICK_ENV);
     let _ttl = EnvRestore::remove(TTL_ENV);
     assert_eq!(tick_secs_from_env(), DEFAULT_TICK_SECS);

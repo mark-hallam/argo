@@ -20,12 +20,6 @@ use argo_types::TenantId;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -163,7 +157,7 @@ fn get_req(path: &str) -> String {
 
 #[tokio::test]
 async fn replay_merges_synthetic_and_production_outcomes() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     let scenarios_root = set_test_env(tmp.path());
     let store = mem_store().await;
@@ -230,7 +224,7 @@ async fn replay_merges_synthetic_and_production_outcomes() {
 /// `scored` 0) and the merged score equals synthetic-only — NO THEATER.
 #[tokio::test]
 async fn replay_with_no_production_rows_is_synthetic_only() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     let scenarios_root = set_test_env(tmp.path());
     let store = mem_store().await;
@@ -264,7 +258,7 @@ async fn replay_with_no_production_rows_is_synthetic_only() {
 /// and its production replay_outcome rows must never reach the response.
 #[tokio::test]
 async fn cross_tenant_worker_returns_404() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     let scenarios_root = set_test_env(tmp.path());
     let store = mem_store().await;
@@ -302,7 +296,7 @@ async fn cross_tenant_worker_returns_404() {
 
 #[tokio::test]
 async fn invalid_worker_id_returns_400() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -313,7 +307,7 @@ async fn invalid_worker_id_returns_400() {
 
 #[tokio::test]
 async fn missing_store_returns_503() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let ghost = uuid::Uuid::now_v7();
     let path = format!("/api/v1/workers/{ghost}/evals/replay");
     let (status, _) = replay_response(&ghost.to_string(), &get_req(&path), None).await;

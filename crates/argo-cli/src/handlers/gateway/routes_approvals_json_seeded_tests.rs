@@ -142,16 +142,7 @@ fn verb_unknown_action_degrades_readably() {
 use crate::handlers::worker_actions_transitions::open_workspace_memory_with_store;
 use argo_store::approvals::{create_request, DefaultDecision, NewApprovalRequest};
 use std::path::PathBuf;
-use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
-
-// `ARGO_HOME` / `ARGO_VERTICALS_DIR` are process-wide; serialize on a
-// tokio mutex held across `.await` (clippy::await_holding_lock), exactly
-// like `routes_approvals_json_tests.rs`.
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -173,7 +164,7 @@ fn auth_get(path: &str) -> String {
 
 #[tokio::test]
 async fn marcus_authored_request_surfaces_as_worker_name_marcus() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
 
@@ -239,7 +230,7 @@ async fn seeded_read_uses_passed_handle_not_a_reopen() {
     // still passing the ORIGINAL handle. If the read read via the passed
     // handle it finds the row; if it (regressed to) re-opening via
     // ARGO_HOME it would open the empty second DB and find nothing.
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let home_a = tempfile::tempdir().expect("home_a");
     set_test_env(home_a.path());
 
@@ -286,7 +277,7 @@ async fn seeded_read_does_not_remigrate_passed_store() {
     // before/after a read and assert it is unchanged — re-running
     // `migrate()` per request was the pointless work bundled with the
     // race.
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
 

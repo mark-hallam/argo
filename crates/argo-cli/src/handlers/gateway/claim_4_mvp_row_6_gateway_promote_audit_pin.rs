@@ -62,16 +62,10 @@ use argo_types::{SkillId, TenantId};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
 
 // ---------------------------------------------------------------------------
 // Test infrastructure (mirrors routes_worker_skills_tests.rs)
 // ---------------------------------------------------------------------------
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -181,7 +175,7 @@ async fn fetch_promoted_audit_row(
 /// inverts `promotion_kind`, or renames `endpoint` flips this red.
 #[tokio::test]
 async fn promoted_audit_row_payload_carries_skill_worker_promotion_kind_and_tenant() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -243,7 +237,7 @@ async fn promoted_audit_row_payload_carries_skill_worker_promotion_kind_and_tena
 /// stamping path.
 #[tokio::test]
 async fn promoted_audit_row_denorm_tenant_id_column_matches_workspace_tenant() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -293,7 +287,7 @@ async fn promoted_audit_row_denorm_tenant_id_column_matches_workspace_tenant() {
 /// `ws-default` smuggling, no missing column.
 #[tokio::test]
 async fn promote_in_tenant_a_does_not_leak_into_tenant_b_audit_rows() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -363,7 +357,7 @@ async fn promote_in_tenant_a_does_not_leak_into_tenant_b_audit_rows() {
 /// pin is meant to catch.
 #[tokio::test]
 async fn promote_audit_row_principal_id_column_is_stamped_when_caller_sends_x_argo_principal() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;

@@ -19,8 +19,6 @@
 //! explicit tenant signal — the exact case that was broken — and assert
 //! the row reads back, plus a cross-tenant negative.
 
-#![allow(clippy::await_holding_lock)]
-
 use super::routes_audit_feed::list_response;
 use super::{rate_limit, resolve_tenant, routes_genesis_quiz, routes_pitch_ask};
 use argo_store::SessionStore;

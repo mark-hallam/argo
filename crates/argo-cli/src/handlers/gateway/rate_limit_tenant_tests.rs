@@ -191,7 +191,7 @@ fn denied_request_body_carries_documented_shape() {
 
 #[test]
 fn check_request_bypasses_when_auth_bypass_set() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     std::env::set_var("ARGO_GATEWAY_AUTH_BYPASS", "1");
     let req = "POST /sessions HTTP/1.1\r\nX-Tenant-Id: bypass-tester\r\n\r\n";
     assert!(super::check_request(req).is_none());
@@ -204,11 +204,6 @@ fn matches_deny(r: RateLimitTenantCheckResult) {
         RateLimitTenantCheckResult::Allow => panic!("expected Deny, got Allow"),
     }
 }
-
-// Process-wide guard for env-mutating tests. `cargo test` runs unit
-// tests in parallel; serializing avoids cross-test leakage on
-// `ARGO_GATEWAY_AUTH_BYPASS`.
-static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 // ---------------------------------------------------------------
 // mission-per-tenant-rate-limiting additions
@@ -305,7 +300,7 @@ fn with_config_zero_rpm_disables_limiter() {
 
 #[test]
 fn public_get_routes_bypass_check_request() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     // Without bypass config, `/health` would normally hit the limiter
     // for the `anonymous` tenant. The mission brief requires that
     // probe paths skip the limiter so a shared NAT IP behind /health

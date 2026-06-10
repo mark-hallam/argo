@@ -178,26 +178,16 @@ fn user_message(prompt: &str) -> Message {
 mod tests {
     use super::*;
     use argo_skill::ir::OfflineGhostwriterClient;
-    use std::sync::{Mutex, MutexGuard, OnceLock};
-
-    /// `ARGO_GHOSTWRITER_LLM` is process-global; serialize the override tests
-    /// so a concurrent run never observes a half-applied set/clear.
-    fn env_lock() -> MutexGuard<'static, ()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-    }
 
     /// RAII guard restoring the prior value of `ARGO_GHOSTWRITER_LLM`.
     struct LlmEnvGuard {
         prev: Option<String>,
-        _guard: MutexGuard<'static, ()>,
+        _guard: tokio::sync::OwnedMutexGuard<()>,
     }
 
     impl LlmEnvGuard {
         fn set(value: &str) -> Self {
-            let guard = env_lock();
+            let guard = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
             let prev = std::env::var(GHOSTWRITER_LLM_ENV).ok();
             std::env::set_var(GHOSTWRITER_LLM_ENV, value);
             Self { prev, _guard: guard }

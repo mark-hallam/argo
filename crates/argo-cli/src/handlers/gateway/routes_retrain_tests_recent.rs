@@ -4,8 +4,8 @@
 //! file. Tests are reachable as `routes_retrain::tests::recent::*`.
 
 use super::{
-    add_worker, env_lock, json_of, mem_store, recent_response, req_with, set_test_env,
-    workspace_tenant, UNDO_KEY,
+    add_worker, json_of, mem_store, recent_response, req_with, set_test_env, workspace_tenant,
+    UNDO_KEY,
 };
 use argo_audit::{AuditKind, AuditSink};
 use argo_store::SessionStore;
@@ -49,7 +49,7 @@ async fn seed_commit_row(
 
 #[tokio::test]
 async fn recent_lists_committed_retrains_newest_first_in_spa_shape() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -109,7 +109,7 @@ async fn recent_marks_undone_and_handles_missing_store_and_unknown_worker() {
     let (s0, _) = recent_response(&ghost, &r0, None).await;
     assert_eq!(s0, "503 Service Unavailable");
 
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
     set_test_env(tmp.path());
     let store = mem_store().await;

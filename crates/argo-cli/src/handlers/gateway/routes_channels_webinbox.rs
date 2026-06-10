@@ -320,6 +320,10 @@ mod tests {
 
     #[tokio::test]
     async fn webinbox_lists_and_approves_pending_action() {
+        // Serialize on the gateway-wide shared env lock: this test mutates
+        // process-global ARGO_HOME / ARGO_VERTICALS_DIR / ARGO_WEBINBOX_PATH,
+        // which a concurrent test in a sibling module would otherwise clobber.
+        let _g = crate::handlers::gateway::shared_env_lock().await;
         let tmp = tempfile::tempdir().expect("tempdir");
         std::env::set_var("ARGO_HOME", tmp.path().join("home"));
         std::fs::create_dir_all(tmp.path().join("home")).unwrap();

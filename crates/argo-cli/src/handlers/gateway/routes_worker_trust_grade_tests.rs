@@ -15,12 +15,6 @@ use argo_types::TenantId;
 use chrono::Utc;
 use serde_json::Value;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
-
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
 
 fn set_test_env(tmp: &std::path::Path) {
     std::env::set_var("ARGO_HOME", tmp.join("home"));
@@ -154,7 +148,7 @@ fn label_strings_are_human_friendly_for_every_grade() {
 
 #[tokio::test]
 async fn show_response_returns_200_for_existing_worker() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -192,7 +186,7 @@ async fn show_response_returns_200_for_existing_worker() {
 
 #[tokio::test]
 async fn show_response_404_for_unknown_worker() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -205,7 +199,7 @@ async fn show_response_404_for_unknown_worker() {
 
 #[tokio::test]
 async fn show_response_400_for_invalid_worker_id() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;
@@ -218,7 +212,7 @@ async fn show_response_400_for_invalid_worker_id() {
 
 #[tokio::test]
 async fn show_response_503_when_store_absent() {
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let bogus = WorkerId::new().to_string();
@@ -232,7 +226,7 @@ async fn show_response_cross_tenant_worker_returns_404() {
     // tenant_a's worker trust-grade. The handler scopes
     // `get_worker(tenant, id)`, so a worker that exists only on a
     // different tenant looks like a non-existent worker — no leak.
-    let _g = env_lock().await;
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
     let store = mem_store().await;

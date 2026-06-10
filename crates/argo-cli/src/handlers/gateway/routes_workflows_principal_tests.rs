@@ -13,9 +13,6 @@
 
 use super::resolve_principal;
 use argo_types::Principal;
-use std::sync::Mutex;
-
-static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 const BYPASS_KEY: &str = "ARGO_GATEWAY_AUTH_BYPASS";
 const PROFILE_KEY: &str = "ARGO_GATEWAY_PROFILE";
@@ -29,7 +26,7 @@ fn reset_auth_env() {
 
 #[test]
 fn resolve_principal_honours_present_header_regardless_of_mode() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_auth_env();
     let req = "GET /api/v1/verticals/v/workflows/n HTTP/1.1\r\n\
                X-Argo-Principal: human:demo@skycot.com\r\nHost: x\r\n\r\n";
@@ -47,7 +44,7 @@ fn resolve_principal_honours_present_header_regardless_of_mode() {
 
 #[test]
 fn resolve_principal_derives_dev_bypass_when_header_absent_and_bypass_on() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_auth_env();
     std::env::set_var(BYPASS_KEY, "1");
     let req = "GET /api/v1/verticals/v/workflows/n HTTP/1.1\r\nHost: x\r\n\r\n";
@@ -65,7 +62,7 @@ fn resolve_principal_derives_dev_bypass_when_header_absent_and_bypass_on() {
 
 #[test]
 fn resolve_principal_401s_when_header_absent_and_bypass_off() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_auth_env(); // bypass NOT set → simulates the production-shaped path
     let req = "GET /api/v1/verticals/v/workflows/n HTTP/1.1\r\nHost: x\r\n\r\n";
     let resp = resolve_principal(req).expect_err("header-less + no bypass must 401");
@@ -75,7 +72,7 @@ fn resolve_principal_401s_when_header_absent_and_bypass_off() {
 
 #[test]
 fn resolve_principal_401s_on_malformed_header_even_under_bypass() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = crate::handlers::gateway::shared_env_mutex().blocking_lock_owned();
     reset_auth_env();
     std::env::set_var(BYPASS_KEY, "1");
     // Present-but-malformed (no colon) is a client error regardless of mode.

@@ -15,19 +15,10 @@ use argo_store::SessionStore;
 use chrono::Utc;
 use jsonwebtoken::{EncodingKey, Header};
 use serde::Serialize;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 const TEST_SECRET: &str = "skycot-test-secret-deadbeefcafebabe";
 const OTHER_SECRET: &str = "skycot-test-secret-other-key-for-bad-sig";
-
-/// Shared with `middleware_session_verify_tests::env_guard` in spirit
-/// — locally serialize env-var writes within this binary's test set
-/// so concurrent tests don't tear `SKYCOT_AUTH_JWT_SECRET`. Each test
-/// holds the lock for its whole body.
-fn env_guard() -> std::sync::MutexGuard<'static, ()> {
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
-    ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner())
-}
 
 #[derive(Debug, Serialize)]
 struct TestClaims<'a> {
@@ -71,10 +62,9 @@ async fn fresh_store() -> Arc<SessionStore> {
     )
 }
 
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn happy_logout_revokes_jti_and_clears_cookie() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
     let store = fresh_store().await;
     let jti = "jti-logout-happy";
@@ -91,10 +81,9 @@ async fn happy_logout_revokes_jti_and_clears_cookie() {
     assert!(revoked, "jti landed in revoked_tokens");
 }
 
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn missing_cookie_returns_401() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
     let store = fresh_store().await;
     let req = "POST /api/v1/auth/logout HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n";
@@ -109,10 +98,9 @@ async fn missing_cookie_returns_401() {
     );
 }
 
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn invalid_signature_returns_401_and_does_not_revoke() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
     let store = fresh_store().await;
     let jti = "jti-should-not-land";
@@ -126,10 +114,9 @@ async fn invalid_signature_returns_401_and_does_not_revoke() {
     assert!(!revoked, "bad-sig request must NOT write a revocation row");
 }
 
-#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn double_logout_is_idempotent() {
-    let _g = env_guard();
+    let _g = crate::handlers::gateway::shared_env_lock().await;
     std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
     let store = fresh_store().await;
     let jti = "jti-double-logout";

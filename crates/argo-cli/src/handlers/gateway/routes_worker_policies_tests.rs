@@ -105,12 +105,6 @@ mod cross_tenant_regression {
     use argo_types::TenantId;
     use std::path::PathBuf;
     use std::sync::Arc;
-    use tokio::sync::{Mutex, MutexGuard};
-
-    async fn env_lock() -> MutexGuard<'static, ()> {
-        static M: Mutex<()> = Mutex::const_new(());
-        M.lock().await
-    }
 
     fn workspace_root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -172,7 +166,7 @@ mod cross_tenant_regression {
 
     #[tokio::test]
     async fn cross_tenant_worker_policies_returns_same_404_as_unknown_worker() {
-        let _g = env_lock().await;
+        let _g = crate::handlers::gateway::shared_env_lock().await;
         let tmp = tempfile::tempdir().expect("tempdir");
         set_test_env(tmp.path());
         let store = mem_store().await;
@@ -197,7 +191,7 @@ mod cross_tenant_regression {
 
     #[tokio::test]
     async fn cross_tenant_worker_policy_update_returns_same_404_as_unknown_worker() {
-        let _g = env_lock().await;
+        let _g = crate::handlers::gateway::shared_env_lock().await;
         let tmp = tempfile::tempdir().expect("tempdir");
         set_test_env(tmp.path());
         let store = mem_store().await;
