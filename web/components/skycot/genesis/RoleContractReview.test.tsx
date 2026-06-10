@@ -221,6 +221,41 @@ describe("RoleContractReview", () => {
     expect(screen.queryByTestId("genesis-cadence")).toBeNull();
     expect(screen.queryByTestId("genesis-exceptions")).toBeNull();
     expect(screen.queryByTestId("genesis-success-criteria")).toBeNull();
+    expect(screen.queryByTestId("genesis-access-needs")).toBeNull();
+  });
+
+  it("DEC-048: surfaces the access the operator named at intake so it can't silently vanish before hire", () => {
+    render(
+      <RoleContractReview
+        ready={ready({ role_contract: contract({ access_needs: ["Xero", "Slack"] }) })}
+        onConfirmHire={() => {}}
+        isHiring={false}
+      />,
+    );
+    const panel = screen.getByTestId("genesis-access-needs");
+    expect(panel).toHaveTextContent("Xero");
+    expect(panel).toHaveTextContent("Slack");
+    // And the Integrations card no longer contradicts the operator's intake ask —
+    // it names the requested access as draft-only rather than a bare "None bound".
+    expect(screen.queryByTestId("genesis-draft-integrations")).toBeNull();
+    expect(screen.getByTestId("genesis-role-contract-review")).toHaveTextContent(
+      /Xero, Slack were requested at intake/,
+    );
+  });
+
+  it("omits the access-needs panel when none were captured (no empty contradiction)", () => {
+    render(
+      <RoleContractReview
+        ready={ready({ role_contract: contract({ access_needs: [] }) })}
+        onConfirmHire={() => {}}
+        isHiring={false}
+      />,
+    );
+    expect(screen.queryByTestId("genesis-access-needs")).toBeNull();
+    // With no intake access, the Integrations card keeps the original copy.
+    expect(screen.getByTestId("genesis-role-contract-review")).toHaveTextContent(
+      /physically cannot\s+transmit through any live integration/,
+    );
   });
 
   it("shows the hiring spinner state without re-firing the callback", () => {

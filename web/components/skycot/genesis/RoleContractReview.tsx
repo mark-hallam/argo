@@ -182,6 +182,12 @@ export function RoleContractReview({
     cadence.length > 0 && !parseCadenceToCron(cadence).parsed;
   const exceptions = contract.exceptions ?? [];
   const successCriteria = contract.success_criteria ?? [];
+  // Access the operator NAMED at intake (e.g. "Xero") — captured into the
+  // contract but draft-only by design (digest-excluded). These are NOT bound
+  // integrations; surfacing them keeps the review card from silently dropping
+  // a slot the operator stated out loud, and stops the Integrations card from
+  // reading as a contradiction of what they just asked for (DEC-048).
+  const accessNeeds = contract.access_needs ?? [];
 
   return (
     <div className="rc-wrap" data-testid="genesis-role-contract-review">
@@ -298,6 +304,20 @@ export function RoleContractReview({
               </ul>
             </div>
 
+            {accessNeeds.length > 0 ? (
+              <div className="rc-panel" data-testid="genesis-access-needs">
+                <h4 className="rc-h4">
+                  <Plug size={13} aria-hidden /> Access requested at intake (not
+                  yet connected)
+                </h4>
+                <ul className="rc-tag-list">
+                  {accessNeeds.map((a) => (
+                    <li key={a}>{a}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             <div className="rc-panel">
               <h4 className="rc-h4">
                 <Plug size={13} aria-hidden /> Integrations (draft-only at birth)
@@ -308,6 +328,13 @@ export function RoleContractReview({
                     <li key={d}>{d}</li>
                   ))}
                 </ul>
+              ) : accessNeeds.length > 0 ? (
+                <p className="rc-escalation">
+                  None bound yet — {accessNeeds.join(", ")}{" "}
+                  {accessNeeds.length === 1 ? "was" : "were"} requested at intake
+                  and stay draft-only until you connect{" "}
+                  {accessNeeds.length === 1 ? "it" : "them"}.
+                </p>
               ) : (
                 <p className="rc-escalation">
                   None bound — it can draft and propose, but physically cannot
