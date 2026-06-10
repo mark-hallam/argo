@@ -92,28 +92,34 @@ capability covers; handoffs tenant-scoped). But the adversarial review found the
 **anti-runaway bounds are not yet fully load-bearing**, so these are BINDING
 preconditions on the operator flag-flip (NOT on merging #2806, which is off):
 
-1. **Depth bound is conditional on the spawn wiring.** `swarm_bounds_refusal`
-   measures depth off the escalation chain, which only inherits across hops if the
-   spawned child runs in a session that carries the parent handoff id. That real
-   child-execution path "lands separately" (it is NOT in #2806), so today the
-   depth cap is exercised only by the escalation walker, not a recursive-execution
-   path. The Stage-2 spawn wiring MUST carry chain inheritance across the spawn
-   boundary AND add an end-to-end depth test, or `MAX_DELEGATION_DEPTH` is a no-op
-   and the "depth × fan-out → finite" guarantee does not hold. **Until then the
-   global finiteness claim is CONDITIONAL, not proven.**
-2. **Fan-out has a TOCTOU race.** The active-count read and the handoff insert are
-   not atomic, so a burst of concurrent `delegate_task` calls can overshoot
-   `MAX_DELEGATION_FANOUT` (bounded by concurrency width, not infinite). Make the
-   cap atomic with the insert (count-and-insert in one transaction) before flag-on.
-3. **Target tenant validation.** The delegated `worker_id` is not validated to
-   belong to the caller's tenant. It cannot cause cross-tenant EXECUTION (the
-   handoff lives under the caller's tenant and consumption is tenant-scoped), but a
-   mis-aimed target produces an orphaned handoff. Add an explicit same-tenant check
-   so it fails loudly.
+1. **Depth bound is conditional on the spawn wiring** — 🔴 **STILL OPEN (gated on a
+   feature that does not exist yet).** `depth_bound_refusal` measures depth off the
+   escalation chain, which only inherits across hops if the spawned child runs in a
+   session that carries the parent handoff id. Verified 2026-06-11: there is NO
+   consumer that turns a `delegate_task` handoff into a running child worker session
+   (`current_inbound_handoff_id` only finds same-session handoffs; delegate writes
+   under the PARENT's session). So no recursive-execution path exists to bound — the
+   depth cap is correct in code but not yet load-bearing end-to-end. This item is
+   bound to the **child-execution consumer** work (a separate feature: consume a
+   delegate handoff → spawn + run a child session, carrying chain inheritance), with
+   an end-to-end depth test. **Until that lands the global "depth × fan-out → finite"
+   claim is CONDITIONAL.** (Stage 3 territory — the swarm cannot actually recurse
+   until the consumer exists, so this is not exploitable today.)
+2. **Fan-out TOCTOU** — ✅ **DONE (#2808, Stage 2).** The cap is now enforced inside
+   one `BEGIN IMMEDIATE` tx (`OrchestratorStore::try_insert_handoff_capped`:
+   count-and-insert atomically), so concurrent `delegate_task` calls cannot
+   overshoot it. Proven by `fan_out_cap_holds_atomically_under_concurrency`
+   (file-backed WAL, 24 concurrent dispatches → exactly `MAX_DELEGATION_FANOUT` land).
+3. **Target tenant validation** — ✅ **DONE (#2808, Stage 2).** `delegate_task` now
+   refuses a target `worker_id` that EXISTS under a different tenant via
+   `OrchestratorStore::worker_tenant` (a not-yet-materialized target is still
+   allowed; the handoff stays under the caller's tenant). Proven by
+   `cross_tenant_target_is_refused`.
 
-These three + the end-to-end depth test and a fan-out TOCTOU test are the Stage-2
-gate. The conductor/operator MUST NOT set `ARGO_WORKER_SWARM=1` in production until
-all land and are adversarially re-verified.
+**Remaining flag-on gate:** only item 1 (the child-execution consumer + end-to-end
+depth test). The conductor/operator MUST NOT set `ARGO_WORKER_SWARM=1` in production
+until that lands and is adversarially re-verified — until then the swarm has no
+recursive-execution path AND the depth guarantee is unproven end-to-end.
 
 ## Recovery / reversibility
 

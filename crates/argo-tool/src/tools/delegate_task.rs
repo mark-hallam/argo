@@ -9,9 +9,7 @@
 //! out of the historical "not wired" error path.
 use crate::tool::{error_text, success_text, Tool, ToolContext};
 use argo_identity::WorkerId;
-use argo_orchestrator::{
-    EscalationChain, EscalationStep, Handoff, HandoffStatus, OrchestratorStore,
-};
+use argo_orchestrator::{EscalationChain, EscalationStep, Handoff, OrchestratorStore};
 
 /// DEC-049 swarm bound: max delegation lineage depth (escalation-chain length).
 /// A `delegate_task` whose resulting chain would exceed this is refused —
@@ -165,6 +163,9 @@ impl Tool for DelegateTask {
                 ));
             }
         };
+        if let Some(refusal) = tenant_target_refusal(store, ctx, target, started).await {
+            return Ok(refusal);
+        }
         let payload = build_payload(&parsed);
         let mut handoff = Handoff::new(
             ctx.session_id.clone(),
@@ -180,26 +181,15 @@ impl Tool for DelegateTask {
                 started.elapsed().as_millis() as u64,
             ));
         }
-        // DEC-049 swarm bounds — run ALWAYS (independent of the grant), so the
-        // moment worker spawning is ever enabled the swarm stays FINITE.
-        if let Some(refusal) = swarm_bounds_refusal(store, ctx, &handoff, started).await {
+        // DEC-049 depth bound — run ALWAYS (independent of the grant). The
+        // fan-out bound is enforced atomically in the capped insert below.
+        if let Some(refusal) = depth_bound_refusal(ctx, &handoff, started).await {
             return Ok(refusal);
         }
         if let Some(ms) = parsed.deadline_ms {
             handoff.deadline = Some(Utc::now() + chrono::Duration::milliseconds(ms as i64));
         }
-        match store.insert_handoff(ctx.tenant_id, &handoff).await {
-            Ok(()) => Ok(success_text(
-                ctx.call_id,
-                handoff.id.to_string(),
-                started.elapsed().as_millis() as u64,
-            )),
-            Err(e) => Ok(error_text(
-                ctx.call_id,
-                format!("delegate_task: insert_handoff failed: {e}"),
-                started.elapsed().as_millis() as u64,
-            )),
-        }
+        finalize_delegation(store, ctx, &handoff, started).await
     }
 }
 
@@ -224,8 +214,7 @@ fn build_payload(args: &Args) -> serde_json::Value {
 /// cap (too many concurrent children), else `None` to proceed. Runs regardless
 /// of whether the worker holds the spawn grant, so depth × fan-out keeps the
 /// whole swarm finite the moment spawning is ever enabled.
-async fn swarm_bounds_refusal(
-    store: &OrchestratorStore,
+async fn depth_bound_refusal(
     ctx: &ToolContext,
     handoff: &Handoff,
     started: Instant,
@@ -241,29 +230,69 @@ async fn swarm_bounds_refusal(
             started.elapsed().as_millis() as u64,
         ));
     }
-    let active = store
-        .list_handoffs_for_session(ctx.tenant_id, &ctx.session_id)
-        .await
-        .map(|hs| {
-            hs.iter()
-                .filter(|h| {
-                    matches!(h.status, HandoffStatus::Pending | HandoffStatus::Acknowledged)
-                })
-                .count()
-        })
-        .unwrap_or(0);
-    if active >= MAX_DELEGATION_FANOUT {
-        return Some(error_text(
-            ctx.call_id,
-            format!(
-                "delegate_task refused: {active} active delegations from this session \
-                 reaches the fan-out cap {MAX_DELEGATION_FANOUT} (DEC-049 swarm bound \
-                 — too many concurrent children)"
-            ),
-            started.elapsed().as_millis() as u64,
-        ));
+    // The fan-out cap is enforced ATOMICALLY in `try_insert_handoff_capped`
+    // (count-and-insert in one BEGIN IMMEDIATE tx) so concurrent delegations
+    // cannot overshoot it — closes the TOCTOU the earlier separate count had
+    // (DEC-049 Stage 2).
+    None
+}
+
+/// DEC-049 Stage 2 tenant containment: refuse a delegation whose target worker
+/// EXISTS under a DIFFERENT tenant (a not-yet-materialized target resolves to
+/// `None` and is allowed — the handoff stays under the caller's tenant). Stops a
+/// worker aiming a delegation at another tenant's worker.
+async fn tenant_target_refusal(
+    store: &OrchestratorStore,
+    ctx: &ToolContext,
+    target: WorkerId,
+    started: Instant,
+) -> Option<ToolCallResult> {
+    if let Ok(Some(owner)) = store.worker_tenant(target).await {
+        if owner != ctx.tenant_id {
+            return Some(error_text(
+                ctx.call_id,
+                "delegate_task refused: target worker belongs to a different tenant \
+                 (DEC-049 tenant containment)"
+                    .into(),
+                started.elapsed().as_millis() as u64,
+            ));
+        }
     }
     None
+}
+
+/// Atomically insert the delegation handoff under the fan-out cap and render the
+/// tool result: success (handoff id), the fan-out refusal, or the insert error.
+async fn finalize_delegation(
+    store: &OrchestratorStore,
+    ctx: &ToolContext,
+    handoff: &Handoff,
+    started: Instant,
+) -> ArgoResult<ToolCallResult> {
+    match store
+        .try_insert_handoff_capped(ctx.tenant_id, handoff, MAX_DELEGATION_FANOUT)
+        .await
+    {
+        Ok(true) => Ok(success_text(
+            ctx.call_id,
+            handoff.id.to_string(),
+            started.elapsed().as_millis() as u64,
+        )),
+        Ok(false) => Ok(error_text(
+            ctx.call_id,
+            format!(
+                "delegate_task refused: the fan-out cap {MAX_DELEGATION_FANOUT} active \
+                 delegations from this session is reached (DEC-049 swarm bound — too \
+                 many concurrent children)"
+            ),
+            started.elapsed().as_millis() as u64,
+        )),
+        Err(e) => Ok(error_text(
+            ctx.call_id,
+            format!("delegate_task: insert_handoff failed: {e}"),
+            started.elapsed().as_millis() as u64,
+        )),
+    }
 }
 
 async fn inherit_active_chain(
@@ -337,3 +366,7 @@ mod tenant_tests {
 #[cfg(test)]
 #[path = "delegate_task_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "delegate_task_stage2_tests.rs"]
+mod stage2_tests;

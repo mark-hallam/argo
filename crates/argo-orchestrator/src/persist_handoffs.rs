@@ -491,3 +491,6 @@ async fn write_cross_tenant_attempt_audit(
         .map_err(|e| ArgoError::Provider(format!("audit tx commit cross-tenant attempt: {e}")))?;
     Ok(())
 }
+
+#[path = "persist_handoffs_dec049.rs"]
+mod dec049;
