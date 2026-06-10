@@ -513,6 +513,27 @@ def count_braces(line: str) -> tuple[int, int]:
     return line.count("{"), line.count("}")
 
 
+def has_top_level_semicolon(line: str) -> bool:
+    """True if `line` contains a `;` outside any `()`/`[]` nesting — i.e. a
+    statement terminator rather than a `;` inside an array type (`[u8; 32]`)
+    or a tuple/closure expression.
+
+    `{}` nesting is intentionally NOT tracked here: a `;` inside `{}` means
+    the region's braced body already opened (handled by the `entered` flag),
+    and the `;` after a `use a::{…};` group is correctly top-level. Strings
+    should already have been stripped by `strip_strings`."""
+    depth = 0
+    for ch in line:
+        if ch in "([":
+            depth += 1
+        elif ch in ")]":
+            if depth > 0:
+                depth -= 1
+        elif ch == ";" and depth == 0:
+            return True
+    return False
+
+
 def scan_file(path: Path) -> list[Finding]:
     findings: list[Finding] = []
     try:
@@ -554,9 +575,16 @@ def scan_file(path: Path) -> list[Finding]:
 
     lines = text.splitlines()
 
-    # Track stack of (open_brace_depth_at_open, kind) for test regions.
-    # depth is incremented per `{` encountered after the cfg(test) attribute.
-    test_stack: list[int] = []  # depths at which a test region is OPEN
+    # Open test regions, each `[base_depth, entered]`:
+    #   base_depth — brace_depth at the item declaration; the region pops
+    #                when brace_depth returns to this level.
+    #   entered    — False until the item's braced body opens (`brace_depth`
+    #                rose above base, or a brace pair opened on one line).
+    #                A region that never enters and whose declaration ends
+    #                with a top-level `;` is a statement item (`use …;` /
+    #                `const …;` / `mod foo;`) and is discarded so it cannot
+    #                leak test-context onto later production code.
+    test_stack: list[list] = []
     brace_depth = 0
     in_block_comment = False
     raw_hashes = 0  # number of `#` chars in an open multi-line raw string
@@ -588,24 +616,29 @@ def scan_file(path: Path) -> list[Finding]:
         is_doc_comment = ls.startswith("///") or ls.startswith("//!")
 
         if not is_line_comment:
+            ls_code = code_only.lstrip()
+            is_attr_line = ls_code.startswith("#[") or ls_code.startswith("#!")
             if CFG_TEST_RE.match(code_only):
+                # `#[cfg(test)]` attribute — arm a pending region that the
+                # NEXT non-attribute item line will open. Surviving across
+                # intervening `#[…]` attributes / doc-comments is what makes
+                # fn-level and impl-level gating work, not just `mod`.
                 pending_cfg_test = True
-
-            # If a `mod X` appears, decide whether it should open a test
-            # region either because of the pending #[cfg(test)] attribute,
-            # OR because the name itself is `tests` / `*_tests` / `test`.
-            mod_match = MOD_RE.match(code_only)
-            if mod_match:
-                name = mod_match.group(1)
-                opens_test_region = pending_cfg_test or bool(
-                    TEST_MOD_NAME_RE.match(name)
+            elif ls_code and not is_attr_line:
+                # First real item/statement line after any attributes. Open a
+                # test region when either the pending `#[cfg(test)]` armed it
+                # OR the item is a conventionally-named test module
+                # (`tests` / `*_tests` / `test`). One region per pending flag;
+                # the entered/discard bookkeeping below resolves whether it is
+                # a braced body (fn / impl / mod {} / struct …) or a statement
+                # item with no body.
+                mod_match = MOD_RE.match(code_only)
+                test_named_mod = bool(
+                    mod_match and TEST_MOD_NAME_RE.match(mod_match.group(1))
                 )
-                pending_cfg_test = False  # consumed
-                if opens_test_region:
-                    # Whether the `{` lives on this line or later, the
-                    # region's base depth is the current brace_depth and
-                    # closes when we return to that level.
-                    test_stack.append(brace_depth)
+                if pending_cfg_test or test_named_mod:
+                    test_stack.append([brace_depth, False])
+                pending_cfg_test = False  # consumed by this item
 
         opens, closes = count_braces(code_only)
 
@@ -613,9 +646,10 @@ def scan_file(path: Path) -> list[Finding]:
         # because a closing brace at end-of-line ends the region only
         # AFTER the line's code ran.
         if not is_line_comment and not is_doc_comment:
-            # in_test if any region in stack still open at current
-            # brace_depth >= region depth
-            in_test = any(brace_depth >= d for d in test_stack)
+            # in_test if any open region's base depth is at or below the
+            # current brace_depth (we are inside its braced body or its
+            # multi-line signature).
+            in_test = any(brace_depth >= base for base, _ in test_stack)
             # Match against `code_only` so `.unwrap()` appearing inside
             # string literals (e.g. `concat!(..., "…unwrap();")`) does
             # not get reported.
@@ -667,10 +701,26 @@ def scan_file(path: Path) -> list[Finding]:
         if brace_depth < 0:
             brace_depth = 0
 
-        # Pop any test regions whose depth is now >= current depth.
-        # A region opened at depth D is closed when brace_depth < D + 1
-        # is false at line-end (i.e., we returned to depth D).
-        test_stack = [d for d in test_stack if brace_depth > d]
+        # Resolve open test regions for this line:
+        #  - mark a region "entered" once its braced body opens (brace_depth
+        #    rose above base, or a brace pair opened+closed on one line);
+        #  - pop an entered region when brace_depth returns to its base;
+        #  - discard a not-yet-entered region whose declaration just
+        #    terminated with a top-level `;` (a statement item — `use …;` /
+        #    `const …;` / `mod foo;` — with no braced body) so it cannot
+        #    leak test-context onto later production code.
+        if test_stack:
+            had_semi = has_top_level_semicolon(code_only)
+            updated: list[list] = []
+            for base, entered in test_stack:
+                if not entered and (brace_depth > base or opens > 0):
+                    entered = True
+                if entered and brace_depth <= base:
+                    continue  # braced body closed
+                if not entered and had_semi:
+                    continue  # statement item, no braced body
+                updated.append([base, entered])
+            test_stack = updated
 
     return findings
 

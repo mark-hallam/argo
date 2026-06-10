@@ -199,6 +199,18 @@ if ! bash scripts/check-fn-loc.sh; then
   fail "fn-LOC budget — a NEW function exceeds 80 LOC; split it (see output above)"
 fi
 
+# Gate 5d: no unwrap/expect outside #[cfg(test)] — enforce the CLAUDE.md
+# core-platform invariant ("No unwrap/expect outside #[cfg(test)]") at
+# merge time. Pure Python static scan (<2s, no cargo); the classifier
+# recognizes fn-level + impl-level + mod-level #[cfg(test)] gating so test
+# helpers don't false-positive. Origin: architecture audit 2026-06-10 P2-5
+# — the checker existed but was wired to NOTHING on the merge path, so an
+# invariant CI is supposed to reject went unenforced on admin-merge.
+log "[5d/9] no unwrap/expect outside #[cfg(test)]"
+if ! bash scripts/check-no-unwrap-outside-test.sh; then
+  fail "unwrap/expect outside #[cfg(test)] — see output above (CLAUDE.md core invariant)"
+fi
+
 # Gate 6: test-compile (cargo check --workspace --tests). Honored
 # allowlist at scripts/pre-merge-test-carry-allowlist.txt permits
 # explicit carries. Runs BEFORE clippy so cross-crate test breakage

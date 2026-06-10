@@ -199,10 +199,16 @@ impl MasterKey {
         let mut output = [0u8; 32];
         let hk = Hkdf::<Sha256>::new(Some(TENANT_MASTER_KEY_INFO), &root.bytes);
         // The only failure mode for HKDF-Expand is requesting > 255 * Hash::OutputSize
-        // bytes; 32 bytes from SHA-256 is well under that bound, so the
-        // `.expect` is structurally safe (matches the brief verbatim).
+        // bytes; 32 bytes from SHA-256 is well under that bound, so this
+        // error branch is structurally unreachable. Surface it as a Schema
+        // error rather than panicking so the no-unwrap invariant holds.
         hk.expand(tenant_id.to_string().as_bytes(), &mut output)
-            .expect("HKDF expand 32 bytes always fits");
+            .map_err(|_| {
+                ArgoError::Schema(
+                    "HKDF expand of 32 bytes cannot fail (length far under 255*HashLen)"
+                        .to_string(),
+                )
+            })?;
         Self::from_bytes(output)
     }
 
@@ -312,8 +318,13 @@ impl WorkspaceRootKey {
         let secret = legacy.as_age_secret();
         let hk = Hkdf::<Sha256>::new(Some(ROOT_FROM_LEGACY_INFO), secret.as_bytes());
         let mut bytes = [0u8; WORKSPACE_ROOT_KEY_LEN];
+        // HKDF-Expand only fails when the requested length exceeds
+        // 255 * Hash::OutputSize; 32 bytes from SHA-256 is far under that
+        // bound. This fn returns `Self` (no error channel), so the
+        // impossible branch is an explicit `unreachable!` rather than an
+        // `.expect`, keeping the no-unwrap invariant clean.
         hk.expand(b"workspace-root", &mut bytes)
-            .expect("HKDF expand 32 bytes always fits");
+            .unwrap_or_else(|_| unreachable!("HKDF expand of 32 bytes cannot fail"));
         Self { bytes }
     }
 }
