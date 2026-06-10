@@ -8,6 +8,7 @@
 use crate::handlers::vertical::resolve_verticals_dir;
 use crate::handlers::work_artifacts::ArtifactOutput;
 use crate::handlers::work_steps::StepRunOutput;
+use crate::handlers::worker_actions::ActionRecord;
 use argo_memory::{MemoryEntry, MemoryFile, MemoryStore};
 use argo_store::{SessionCreate, SessionStore, WorkerId};
 use argo_types::{ArgoError, ArgoResult, SessionId, TenantId, WorkspaceId};
@@ -122,7 +123,9 @@ pub(super) async fn run_job_steps(
 /// Bundle the per-job artifact metadata, write the on-disk artifact
 /// directory, and emit any worker_action rows discovered in the
 /// assistant text. Returns the directory string (for the
-/// completed_jobs `output_dir`) and the count of actions emitted.
+/// completed_jobs `output_dir`) and the emitted action records (the
+/// gateway run path inline-dispatches the auto-eligible ones; callers
+/// that only need a count use `.len()`).
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn write_artifacts_and_emit_actions(
     store: &Arc<SessionStore>,
@@ -137,7 +140,7 @@ pub(super) async fn write_artifacts_and_emit_actions(
     completed_at: &str,
     step_run: &StepRunOutput,
     preview: &str,
-) -> ArgoResult<(Option<String>, usize)> {
+) -> ArgoResult<(Option<String>, Vec<ActionRecord>)> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let stop_reason_str = step_run.outcome.stop_reason.as_str().to_string();
     let stop_detail_str = step_run.outcome.stop_reason.detail().to_string();
@@ -166,8 +169,8 @@ pub(super) async fn write_artifacts_and_emit_actions(
     let output_dir = artifact
         .as_ref()
         .map(|a| a.output_dir.to_string_lossy().to_string());
-    let actions_emitted = emit_actions(memory, workspace, vertical_id, job, artifact.as_ref()).await;
-    Ok((output_dir, actions_emitted))
+    let actions = emit_actions(memory, workspace, vertical_id, job, artifact.as_ref()).await;
+    Ok((output_dir, actions))
 }
 
 /// `#729` — emit worker_action rows from the assistant text. Failure
@@ -179,7 +182,7 @@ async fn emit_actions(
     vertical_id: &str,
     job: &MemoryEntry,
     artifact: Option<&ArtifactOutput>,
-) -> usize {
+) -> Vec<ActionRecord> {
     if let Some(art) = artifact {
         super::work_emission::emit_and_persist_actions(
             memory,
@@ -190,7 +193,7 @@ async fn emit_actions(
         )
         .await
     } else {
-        0
+        Vec::new()
     }
 }
 

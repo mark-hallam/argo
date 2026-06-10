@@ -373,6 +373,7 @@ pub(crate) mod wizard_onboard_steps;
 pub mod work;
 mod work_artifacts;
 mod work_dispatch;
+mod work_dispatch_executor_inline;
 mod work_dispatch_phases;
 mod work_emission;
 mod work_jobs;

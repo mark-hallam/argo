@@ -21,6 +21,7 @@
 
 use super::vertical::resolve_verticals_dir;
 use super::work_artifacts::ArtifactOutput;
+use super::worker_actions::ActionRecord;
 use super::worker_actions_emit;
 use super::worker_actions_items;
 use super::worker_actions_render;
@@ -33,26 +34,29 @@ use std::collections::HashSet;
 /// `worker_action` memory row, and render `execution_plan.md`
 /// alongside the rest of the artifact bundle.
 ///
-/// Returns the count of action rows persisted (0 when the
-/// vertical isn't found, the manifest carries no `[actions]`,
-/// or no assistant text contained an emission).
+/// Returns the persisted action records (empty when the vertical
+/// isn't found, the manifest carries no `[actions]`, or no assistant
+/// text contained an emission). The gateway run path
+/// ([`super::work_dispatch_executor_inline`]) iterates the returned
+/// records to inline-dispatch the auto-eligible ones; callers that
+/// only need a count use `.len()`.
 pub(crate) async fn emit_and_persist_actions(
     memory: &MemoryStore,
     workspace: WorkspaceId,
     vertical_id: &str,
     job_id: &str,
     artifact: &ArtifactOutput,
-) -> usize {
+) -> Vec<ActionRecord> {
     let dir = resolve_verticals_dir();
     let (registry, _errors) = match argo_vertical::load_dir(&dir) {
         Ok(t) => t,
         Err(e) => {
             eprintln!("argo work: warning — vertical reload for action emission failed: {e}");
-            return 0;
+            return Vec::new();
         }
     };
     let Some(loaded) = registry.get(vertical_id) else {
-        return 0;
+        return Vec::new();
     };
     let manifest = &loaded.manifest;
     // #769: snapshot the sold-items set ONCE per emission pass.
@@ -115,7 +119,7 @@ pub(crate) async fn emit_and_persist_actions(
         eprintln!("argo work: warning — actions.json not written: {e}");
     }
     augment_result_json(&artifact.output_dir, &all_records);
-    all_records.len()
+    all_records
 }
 
 /// Re-read `result.json`, splice in the per-job action artifact

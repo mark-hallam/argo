@@ -82,6 +82,7 @@ pub(crate) async fn process_job(
     finalize_job(
         store,
         memory,
+        tenant,
         workspace,
         vertical_id,
         provider,
@@ -103,6 +104,7 @@ pub(crate) async fn process_job(
 async fn finalize_job(
     store: &Arc<SessionStore>,
     memory: &MemoryStore,
+    tenant: TenantId,
     workspace: WorkspaceId,
     vertical_id: &str,
     provider: &str,
@@ -119,7 +121,7 @@ async fn finalize_job(
     // memory carries a preview pointer.
     let preview: String = step_run.assistant_text.chars().take(2000).collect();
     let completed_at = Utc::now().to_rfc3339();
-    let (output_dir, actions_emitted) = p::write_artifacts_and_emit_actions(
+    let (output_dir, actions) = p::write_artifacts_and_emit_actions(
         store,
         memory,
         workspace,
@@ -134,6 +136,21 @@ async fn finalize_job(
         &preview,
     )
     .await?;
+    // DEC-050 G2 — inline-dispatch the auto-eligible emitted actions
+    // through their declared executors so a "Run now" actually carries
+    // the teammate's work out (not just emit + classify, then stop).
+    // No-op unless `ARGO_EXECUTION_GRADUATION` is on (shipped default
+    // OFF); held / approval-gated / blocked actions stay untouched.
+    super::work_dispatch_executor_inline::dispatch_emitted_actions_inline(
+        store,
+        memory,
+        workspace,
+        tenant,
+        vertical_id,
+        &actions,
+    )
+    .await;
+    let actions_emitted = actions.len();
     p::record_completed_job(
         memory,
         workspace,
