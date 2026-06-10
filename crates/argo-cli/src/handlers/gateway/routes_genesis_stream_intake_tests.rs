@@ -187,3 +187,41 @@ fn vertical_ready_payload_carries_all_three_intake_slots() {
     assert_eq!(rc["success_criteria"][0]["target"], 95.0);
     assert_eq!(rc["success_criteria"][0]["comparator"], "gte");
 }
+
+#[test]
+fn apply_intake_populates_dec048_access_and_escalation() {
+    let mut plan = from_scratch_plan();
+    let body = json!({
+        "role_description": "vineyard logistics",
+        "access_integrations": [" Xero ", "Gmail", "  "],
+        "escalation_failures_threshold": 2,
+        "escalation_to": " my ops lead "
+    })
+    .to_string();
+    apply_intake(&body, &mut plan);
+    let spec = plan.spec.as_ref().expect("spec");
+    assert_eq!(spec.access_integrations, vec!["Xero", "Gmail"]);
+    assert_eq!(spec.escalation.escalate_after_failures, Some(2));
+    assert_eq!(spec.escalation.escalate_to.as_deref(), Some("my ops lead"));
+}
+
+#[test]
+fn apply_intake_rejects_out_of_band_threshold_and_keeps_defaults() {
+    let mut plan = from_scratch_plan();
+    let seeded = plan
+        .spec
+        .as_ref()
+        .expect("spec")
+        .escalation
+        .escalate_after_failures;
+    let body = json!({
+        "escalation_failures_threshold": 5000
+    })
+    .to_string();
+    apply_intake(&body, &mut plan);
+    assert_eq!(
+        plan.spec.as_ref().expect("spec").escalation.escalate_after_failures,
+        seeded,
+        "out-of-band threshold ignored; seeded default kept"
+    );
+}

@@ -130,16 +130,60 @@ async fn run_turn(
     let mut state = store.load(tenant, conversation_id).unwrap_or_default();
 
     // Apply the operator's answer (if any) to the slot the previous question
-    // targeted — the first still-unfilled slot at load time.
+    // targeted — the persisted `pending_slot` when present (DEC-048: optional
+    // slots + follow-ups mean the target is no longer always the first
+    // unfilled slot), else the legacy first-unfilled fallback so pre-DEC-048
+    // conversations on disk keep working.
     if let Some(msg) = message.map(str::trim).filter(|m| !m.is_empty()) {
-        let target = state.first_unfilled_slot();
+        let target = state.pending_slot.take().or_else(|| state.first_unfilled_slot());
         state.record_operator(msg);
         if let Some(slot) = target {
-            apply_answer(&mut state, slot, msg, provider).await;
+            if IntakeSlot::OPTIONAL.contains(&slot) && is_skip(msg) {
+                // An explicit skip resolves the optional slot unfilled — the
+                // seeded defaults apply and the build is never wedged.
+                state.mark_optional_resolved(slot);
+            } else {
+                apply_answer(&mut state, slot, msg, provider).await;
+                if IntakeSlot::OPTIONAL.contains(&slot) {
+                    state.mark_optional_resolved(slot);
+                }
+                // DEC-048 quality bar: at most ONE follow-up per slot when the
+                // captured value is too vague to mint a useful teammate.
+                // Deterministic + provider-free; a second vague answer is
+                // accepted (the cap), so intake can never loop or stall.
+                if !state.followups_used.contains(&slot) {
+                    if let Some(followup) = argo_genesis::needs_followup(&state, slot) {
+                        state.followups_used.push(slot);
+                        state.pending_slot = Some(slot);
+                        state.record_assistant(followup);
+                        let envelope = json!({
+                            "conversation_id": conversation_id,
+                            "status": "asking",
+                            "slot": slot.slug(),
+                            "assistant_message": followup,
+                            "can_confirm": false,
+                            "captured": captured(&state),
+                            "transcript": transcript(&state),
+                        });
+                        store
+                            .save(tenant, conversation_id, &state)
+                            .map_err(|e| format!("persist intake: {e}"))?;
+                        return Ok(("200 OK", envelope));
+                    }
+                }
+            }
         }
     }
 
-    if confirm && state.is_complete() {
+    // Confirm requires the required set complete AND no quality follow-up
+    // awaiting its answer — otherwise "Skip the rest & build" would silently
+    // bypass the DEC-048 quality bar (adversarial-review P1). A refused
+    // confirm falls through to next_step(), which re-asks the follow-up; ONE
+    // answer (vague is fine — the cap accepts it) unblocks confirm.
+    if confirm
+        && state.is_complete()
+        && argo_genesis::required_followup_pending(&state).is_none()
+    {
         state.confirmed = true;
     }
 
@@ -147,11 +191,17 @@ async fn run_turn(
         NextStep::Ask { slot, question } => {
             let question = enrich_question(&state, slot, &question, provider).await;
             state.record_assistant(&question);
+            state.pending_slot = Some(slot);
             json!({
                 "conversation_id": conversation_id,
                 "status": "asking",
                 "slot": slot.slug(),
                 "assistant_message": question,
+                // True once every REQUIRED slot is filled AND no quality
+                // follow-up is pending — the SPA offers "build now" only when
+                // confirm would actually succeed.
+                "can_confirm": state.is_complete()
+                    && argo_genesis::required_followup_pending(&state).is_none(),
                 "captured": captured(&state),
                 "transcript": transcript(&state),
             })
@@ -220,7 +270,21 @@ fn captured(state: &IntakeState) -> Value {
         "cadence": state.cadence,
         "exceptions": state.exceptions,
         "success_criteria": state.success_criteria,
+        "access_integrations": state.access_integrations,
+        "escalation_failures_threshold": state.escalation_failures_threshold,
+        "escalation_to": state.escalation_to,
     })
+}
+
+/// `true` when an optional-slot answer is an explicit skip ("skip", "not
+/// sure", "no", "none", "n/a", "pass", "nothing").
+fn is_skip(msg: &str) -> bool {
+    let lower = msg.trim().to_lowercase();
+    matches!(
+        lower.as_str(),
+        "skip" | "not sure" | "no" | "none" | "n/a" | "na" | "pass" | "nothing" | "dunno"
+    ) || lower.starts_with("skip ")
+        || lower.starts_with("not sure")
 }
 
 /// The dialogue as a wire array of `{speaker, text}` for the chat history.

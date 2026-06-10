@@ -35,6 +35,7 @@ fn criteria_spec(persona: &str, criteria: Vec<SuccessCriterion>) -> CapabilitySp
         cadence: Some("every weekday at 9am".into()),
         exceptions: vec![],
         success_criteria: criteria,
+        access_integrations: vec![],
     }
 }
 

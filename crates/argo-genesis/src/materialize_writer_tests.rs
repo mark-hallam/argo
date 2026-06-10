@@ -40,6 +40,7 @@ fn spec() -> CapabilitySpec {
         cadence: None,
         exceptions: vec![],
         success_criteria: vec![],
+        access_integrations: vec![],
     }
 }
 

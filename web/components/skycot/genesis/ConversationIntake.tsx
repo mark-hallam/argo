@@ -40,6 +40,11 @@ export interface ConversationGatheredSlots {
   cadence: string;
   exceptions: string[];
   successCriteria: SuccessCriterion[];
+  /** Draft-only access needs (DEC-048 Access slot). */
+  accessIntegrations: string[];
+  /** Escalation override (DEC-048 Escalation slot; null keeps the default). */
+  escalationFailuresThreshold: number | null;
+  escalationTo: string;
 }
 
 export interface ConversationIntakeProps {
@@ -68,6 +73,9 @@ export function gatherSlotsFromCaptured(
     cadence: c.cadence,
     exceptions: c.exceptions,
     successCriteria: c.success_criteria,
+    accessIntegrations: c.access_integrations,
+    escalationFailuresThreshold: c.escalation_failures_threshold,
+    escalationTo: c.escalation_to,
   };
 }
 
@@ -94,6 +102,7 @@ export function ConversationIntake({
     ...EMPTY_CAPTURED,
   });
   const [status, setStatus] = useState<ConversationStatus>("asking");
+  const [canConfirm, setCanConfirm] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +129,7 @@ export function ConversationIntake({
         });
         setCaptured(res.captured);
         setStatus(res.status);
+        setCanConfirm(res.can_confirm === true || res.status === "ready");
         if (res.transcript.length > 0) {
           setTranscript(res.transcript);
         } else if (res.assistant_message) {
@@ -375,6 +385,24 @@ export function ConversationIntake({
           <div className="ci-error" role="alert" data-testid="genesis-conversation-error">
             <AlertTriangle size={16} aria-hidden style={{ marginTop: 1 }} />
             <span>{error}</span>
+          </div>
+        ) : null}
+
+        {status === "asking" && canConfirm && !busy ? (
+          <div className="ci-confirm-card" data-testid="genesis-conversation-early-confirm">
+            <p className="ci-confirm-hint">
+              The essentials are captured — the remaining questions are optional.
+            </p>
+            <button
+              type="button"
+              className="ci-confirm-btn"
+              onClick={handleConfirm}
+              disabled={inputsDisabled}
+              data-testid="genesis-conversation-confirm-early"
+            >
+              <CheckCircle2 size={15} aria-hidden />
+              Skip the rest &amp; build
+            </button>
           </div>
         ) : null}
 

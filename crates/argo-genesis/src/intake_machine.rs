@@ -38,94 +38,7 @@ use serde::{Deserialize, Serialize};
 /// possible for an empty charter, which the machine never assembles on). A
 /// general support agent is the most neutral seed.
 const DEFAULT_ARCHETYPE: Archetype = Archetype::CustomerSupportAgent;
-
-/// One required slot the conversation must fill before a spec can be assembled.
-/// The declaration order IS the deterministic ask sequence and the wizard
-/// fallback order.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum IntakeSlot {
-    /// The role description in the operator's own words (becomes `charter`).
-    Charter,
-    /// What to call the teammate (becomes the persona slug).
-    Persona,
-    /// Day-to-day responsibilities in plain language.
-    Responsibilities,
-    /// WHEN the teammate runs — a schedule or a trigger.
-    Cadence,
-    /// Carve-outs the teammate must never act on / must hand off.
-    Exceptions,
-    /// HOW success is measured — typed, measurable criteria.
-    SuccessCriteria,
-}
-
-impl IntakeSlot {
-    /// The required slots, in deterministic ask order.
-    pub const REQUIRED: &'static [IntakeSlot] = &[
-        IntakeSlot::Charter,
-        IntakeSlot::Persona,
-        IntakeSlot::Responsibilities,
-        IntakeSlot::Cadence,
-        IntakeSlot::Exceptions,
-        IntakeSlot::SuccessCriteria,
-    ];
-
-    /// Stable identifier for the slot (wire + LLM extraction key).
-    #[must_use]
-    pub fn slug(self) -> &'static str {
-        match self {
-            IntakeSlot::Charter => "charter",
-            IntakeSlot::Persona => "persona",
-            IntakeSlot::Responsibilities => "responsibilities",
-            IntakeSlot::Cadence => "cadence",
-            IntakeSlot::Exceptions => "exceptions",
-            IntakeSlot::SuccessCriteria => "success_criteria",
-        }
-    }
-
-    /// The deterministic wizard question for this slot — the fail-safe asked
-    /// verbatim when the provider is unavailable. Plain English, one ask each.
-    #[must_use]
-    pub fn wizard_question(self) -> &'static str {
-        match self {
-            IntakeSlot::Charter => {
-                "What role do you want to hire for, and what should they take off your plate?"
-            }
-            IntakeSlot::Persona => "What would you like to call them? (a first name is perfect)",
-            IntakeSlot::Responsibilities => {
-                "What are their main day-to-day responsibilities? (one per line is fine)"
-            }
-            IntakeSlot::Cadence => {
-                "When should they work — on a set schedule, or in response to something happening?"
-            }
-            IntakeSlot::Exceptions => {
-                "Anything they should never do on their own, or always hand to a person first?"
-            }
-            IntakeSlot::SuccessCriteria => {
-                "How will you know they're doing a great job? What does success look like?"
-            }
-        }
-    }
-}
-
-/// Who spoke a transcript turn.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Speaker {
-    /// The Genesis intake assistant (a proposed question).
-    Assistant,
-    /// The operator (an answer).
-    Operator,
-}
-
-/// One captured dialogue turn.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct IntakeTurn {
-    /// Who spoke.
-    pub speaker: Speaker,
-    /// The verbatim text.
-    pub text: String,
-}
+pub use crate::intake_slots::{IntakeSlot, IntakeTurn, Speaker};
 
 /// A bundle of extracted slot values to merge into [`IntakeState`]. The LLM
 /// extraction path ([`crate::intake_llm`]) produces this; the wizard path uses
@@ -151,6 +64,15 @@ pub struct SlotDelta {
     /// Typed success criteria to append.
     #[serde(default)]
     pub success_criteria: Vec<SuccessCriterion>,
+    /// Systems/accounts the teammate will need (draft-only names) to append.
+    #[serde(default)]
+    pub access_integrations: Vec<String>,
+    /// Escalate after this many consecutive failures (1-100).
+    #[serde(default)]
+    pub escalation_failures_threshold: Option<u32>,
+    /// Who/what to escalate to (free text).
+    #[serde(default)]
+    pub escalation_to: Option<String>,
 }
 
 impl SlotDelta {
@@ -167,6 +89,12 @@ impl SlotDelta {
                 .success_criteria
                 .iter()
                 .all(|c| c.name.trim().is_empty())
+            && self.access_integrations.iter().all(|a| a.trim().is_empty())
+            && self.escalation_failures_threshold.is_none()
+            && self
+                .escalation_to
+                .as_deref()
+                .is_none_or(|e| e.trim().is_empty())
     }
 }
 
@@ -199,6 +127,29 @@ pub struct IntakeState {
     /// `Done` transition.
     #[serde(default)]
     pub confirmed: bool,
+    /// Systems/accounts the teammate will need (draft-only at birth).
+    #[serde(default)]
+    pub access_integrations: Vec<String>,
+    /// Escalate after this many consecutive failures (overrides the seeded
+    /// default when captured).
+    #[serde(default)]
+    pub escalation_failures_threshold: Option<u32>,
+    /// Who/what to escalate to (overrides the seeded default when captured).
+    #[serde(default)]
+    pub escalation_to: Option<String>,
+    /// The slot the LAST asked question targets — the incoming answer applies
+    /// here. `None` on legacy persisted states (the caller falls back to
+    /// [`Self::first_unfilled_slot`], the pre-DEC-048 behavior).
+    #[serde(default)]
+    pub pending_slot: Option<IntakeSlot>,
+    /// Optional slots already asked-and-resolved (filled OR explicitly
+    /// skipped) so the loop never re-asks them.
+    #[serde(default)]
+    pub optional_resolved: Vec<IntakeSlot>,
+    /// Slots whose ONE quality follow-up has been used (DEC-048 hard cap: 1
+    /// re-ask per slot, then accept).
+    #[serde(default)]
+    pub followups_used: Vec<IntakeSlot>,
 }
 
 /// What the conversation should do next, given the current [`IntakeState`].
@@ -257,6 +208,33 @@ impl IntakeState {
             IntakeSlot::Cadence => self.cadence.as_deref().is_some_and(|c| !c.trim().is_empty()),
             IntakeSlot::Exceptions => self.exceptions.iter().any(|e| !e.trim().is_empty()),
             IntakeSlot::SuccessCriteria => self.success_criteria.iter().any(|c| !c.name.trim().is_empty()),
+            IntakeSlot::Access => self.access_integrations.iter().any(|a| !a.trim().is_empty()),
+            IntakeSlot::Escalation => {
+                self.escalation_failures_threshold.is_some()
+                    || self
+                        .escalation_to
+                        .as_deref()
+                        .is_some_and(|e| !e.trim().is_empty())
+            }
+        }
+    }
+
+    /// The next OPTIONAL slot to ask: not yet filled and not yet resolved
+    /// (asked + answered-or-skipped). `None` when all optional slots are
+    /// handled.
+    #[must_use]
+    pub fn next_optional_slot(&self) -> Option<IntakeSlot> {
+        IntakeSlot::OPTIONAL
+            .iter()
+            .copied()
+            .find(|slot| !self.slot_filled(*slot) && !self.optional_resolved.contains(slot))
+    }
+
+    /// Mark an optional slot resolved (answered or explicitly skipped) so the
+    /// ask loop never repeats it.
+    pub fn mark_optional_resolved(&mut self, slot: IntakeSlot) {
+        if IntakeSlot::OPTIONAL.contains(&slot) && !self.optional_resolved.contains(&slot) {
+            self.optional_resolved.push(slot);
         }
     }
 
@@ -286,6 +264,15 @@ impl IntakeState {
                 self.success_criteria.push(criterion);
             }
         }
+        extend_trimmed(&mut self.access_integrations, delta.access_integrations);
+        if let Some(threshold) = delta.escalation_failures_threshold {
+            if (1..=100).contains(&threshold) {
+                self.escalation_failures_threshold = Some(threshold);
+            }
+        }
+        if let Some(to) = non_empty(delta.escalation_to) {
+            self.escalation_to = Some(to);
+        }
     }
 
     /// Fill a SPECIFIC slot from the operator's raw answer text — the
@@ -309,27 +296,57 @@ impl IntakeState {
                     self.success_criteria.push(wizard_criterion(&line));
                 }
             }
+            IntakeSlot::Access => {
+                extend_trimmed(&mut self.access_integrations, split_list(raw));
+            }
+            IntakeSlot::Escalation => {
+                // Deterministic fallback: an answer with a number becomes the
+                // failure threshold; a digit-free answer is read as "who to"
+                // free text. The LLM extraction handles richer compound
+                // answers ("after 2 tries, to my ops lead") into BOTH fields.
+                if let Some(n) = first_bounded_int(raw) {
+                    self.escalation_failures_threshold = Some(n);
+                } else if raw.chars().any(|c| c.is_ascii_alphabetic()) {
+                    self.escalation_to = Some(raw.to_string());
+                }
+            }
         }
     }
 
-    /// The next step the conversation should take. Pure + deterministic: ask the
-    /// next unfilled slot's wizard question, else present the assembled spec for
-    /// confirmation, else (post-confirm) hand it off as `Done`.
+    /// The next step the conversation should take. Pure + deterministic: ask
+    /// the next unfilled REQUIRED slot, then any unresolved OPTIONAL slot
+    /// (DEC-048 — unless the operator already confirmed, so a confirm can
+    /// never be wedged by optional questions), else present the assembled
+    /// spec for confirmation / hand it off as `Done`.
     #[must_use]
     pub fn next_step(&self) -> NextStep {
-        match self.first_unfilled_slot() {
-            Some(slot) => NextStep::Ask {
+        if let Some(slot) = self.first_unfilled_slot() {
+            return NextStep::Ask {
                 slot,
                 question: slot.wizard_question().to_string(),
-            },
-            None => {
-                let spec = Box::new(self.assemble_spec());
-                if self.confirmed {
-                    NextStep::Done(spec)
-                } else {
-                    NextStep::Confirm(spec)
-                }
+            };
+        }
+        if !self.confirmed {
+            // A pending REQUIRED-slot quality follow-up is re-asked before
+            // anything else — a refused early-confirm lands here, so the
+            // follow-up is never silently abandoned.
+            if let Some(slot) = crate::intake_quality::required_followup_pending(self) {
+                let question = crate::intake_quality::needs_followup(self, slot)
+                    .map_or_else(|| slot.wizard_question().to_string(), str::to_string);
+                return NextStep::Ask { slot, question };
             }
+            if let Some(slot) = self.next_optional_slot() {
+                return NextStep::Ask {
+                    slot,
+                    question: slot.wizard_question().to_string(),
+                };
+            }
+        }
+        let spec = Box::new(self.assemble_spec());
+        if self.confirmed {
+            NextStep::Done(spec)
+        } else {
+            NextStep::Confirm(spec)
         }
     }
 
@@ -360,6 +377,20 @@ impl IntakeState {
         spec.cadence = self.cadence.clone();
         spec.exceptions = self.exceptions.clone();
         spec.success_criteria = self.success_criteria.clone();
+        spec.access_integrations = self.access_integrations.clone();
+        // Captured escalation prefs override the seeded conservative defaults
+        // (`Some(3)` / "the operator"); a skip keeps the defaults.
+        if self.escalation_failures_threshold.is_some() {
+            spec.escalation.escalate_after_failures = self.escalation_failures_threshold;
+        }
+        if let Some(to) = self
+            .escalation_to
+            .as_deref()
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+        {
+            spec.escalation.escalate_to = Some(to.to_string());
+        }
         spec
     }
 }
@@ -403,6 +434,36 @@ fn split_lines(raw: &str) -> Vec<String> {
         .filter(|l| !l.is_empty())
         .map(str::to_string)
         .collect()
+}
+
+/// Split a list answer on newlines AND commas — access-needs answers tend to
+/// arrive as "Xero, Gmail and Slack" rather than one per line.
+fn split_list(raw: &str) -> Vec<String> {
+    raw.split(['\n', ','])
+        .flat_map(|chunk| chunk.split(" and "))
+        .map(str::trim)
+        .filter(|c| !c.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// The first integer token in `raw` that falls within 1..=100 (the sane
+/// failure-threshold band); out-of-band or absent numbers yield `None`.
+fn first_bounded_int(raw: &str) -> Option<u32> {
+    let mut current = String::new();
+    for c in raw.chars().chain(std::iter::once(' ')) {
+        if c.is_ascii_digit() {
+            current.push(c);
+        } else if !current.is_empty() {
+            if let Ok(n) = current.parse::<u32>() {
+                if (1..=100).contains(&n) {
+                    return Some(n);
+                }
+            }
+            current.clear();
+        }
+    }
+    None
 }
 
 /// Append trimmed, non-blank items to `target`.

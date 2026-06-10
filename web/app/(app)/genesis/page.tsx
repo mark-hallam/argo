@@ -33,6 +33,7 @@ import {
   type GenesisErrorEvent,
   type GenesisPhase,
   type GenesisVerticalReadyEvent,
+  type GenesisStartParams,
   type SuccessCriterion,
 } from "@/lib/api/genesis";
 
@@ -132,17 +133,7 @@ export default function GenesisPage() {
   // params so the conversational path reaches the SAME materialize → review →
   // hire flow as the textarea — no parallel client-side materializer (DEC-039).
   const startStream = useCallback(
-    (params: {
-      roleDescription: string;
-      cadence?: string;
-      exceptions?: string[];
-      successCriteria?: SuccessCriterion[];
-      sopDocument?: string;
-      sopDocumentFormat?: "text" | "pdf_base64";
-      sopFilename?: string;
-      boundaries?: BoundariesSpec;
-      isRetry: boolean;
-    }) => {
+    (params: GenesisStartParams) => {
       setStatus("streaming");
       setActivePhase(null);
       setVertical(null);
@@ -176,6 +167,11 @@ export default function GenesisPage() {
           ...(params.successCriteria && params.successCriteria.length > 0
             ? { successCriteria: params.successCriteria }
             : {}),
+          ...(params.accessIntegrations?.length ? { accessIntegrations: params.accessIntegrations } : {}),
+          ...(typeof params.escalationFailuresThreshold === "number"
+            ? { escalationFailuresThreshold: params.escalationFailuresThreshold }
+            : {}),
+          ...(params.escalationTo ? { escalationTo: params.escalationTo } : {}),
           ...(params.boundaries ? { boundaries: params.boundaries } : {}),
           signal: controller.signal,
         },
@@ -265,6 +261,9 @@ export default function GenesisPage() {
         cadence: gathered.cadence,
         exceptions: gathered.exceptions,
         successCriteria: gathered.successCriteria,
+        accessIntegrations: gathered.accessIntegrations,
+        escalationFailuresThreshold: gathered.escalationFailuresThreshold,
+        escalationTo: gathered.escalationTo,
         boundaries,
         isRetry: false,
       });

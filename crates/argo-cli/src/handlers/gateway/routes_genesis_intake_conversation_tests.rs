@@ -48,16 +48,100 @@ async fn wizard_walk_reaches_ready_then_done() {
     for a in answers {
         last = turn(&store, tenant, conv, Some(a), false).await;
     }
-    // All slots filled → ready, with an assembled spec carrying the slots.
+    // Required slots filled → the optional DEC-048 questions follow, with the
+    // early-build affordance flagged (`can_confirm`).
+    assert_eq!(last["status"], "asking");
+    assert_eq!(last["slot"], "access");
+    assert_eq!(last["can_confirm"], true);
+    let last = turn(&store, tenant, conv, Some("Xero and Gmail"), false).await;
+    assert_eq!(last["slot"], "escalation");
+    let last = turn(&store, tenant, conv, Some("after 2 tries"), false).await;
+    // All slots handled → ready, with an assembled spec carrying the slots.
     assert_eq!(last["status"], "ready");
     assert_eq!(last["spec"]["persona"], "sam");
     assert_eq!(last["captured"]["cadence"], "weekdays on each inbound ticket");
+    assert_eq!(
+        last["captured"]["access_integrations"],
+        serde_json::json!(["Xero", "Gmail"])
+    );
+    assert_eq!(
+        last["spec"]["access_integrations"],
+        serde_json::json!(["Xero", "Gmail"])
+    );
+    assert_eq!(last["spec"]["escalation"]["escalate_after_failures"], 2);
     assert!(last["spec"]["capabilities"].as_array().is_some_and(|a| !a.is_empty()));
 
     // Confirming flips ready → done.
     let done = turn(&store, tenant, conv, None, true).await;
     assert_eq!(done["status"], "done");
     assert_eq!(done["spec"]["persona"], "sam");
+}
+
+#[tokio::test]
+async fn optional_skip_resolves_without_wedging() {
+    let (_d, store) = store();
+    let conv = "skips";
+    turn(&store, "op-a", conv, None, false).await;
+    for a in [
+        "Be my support agent who clears the inbound ticket queue",
+        "Sam",
+        "Answer tier-1 tickets",
+        "weekdays on each inbound ticket",
+        "never issue a refund alone",
+        "first response under five minutes",
+    ] {
+        turn(&store, "op-a", conv, Some(a), false).await;
+    }
+    // Skip both optional slots → ready with the seeded escalation defaults.
+    let v = turn(&store, "op-a", conv, Some("skip"), false).await;
+    assert_eq!(v["slot"], "escalation");
+    let v = turn(&store, "op-a", conv, Some("not sure"), false).await;
+    assert_eq!(v["status"], "ready");
+    assert_eq!(v["spec"]["escalation"]["escalate_after_failures"], 3);
+    assert_eq!(v["captured"]["access_integrations"], serde_json::json!([]));
+}
+
+#[tokio::test]
+async fn early_confirm_bypasses_optional_questions() {
+    let (_d, store) = store();
+    let conv = "early";
+    turn(&store, "op-a", conv, None, false).await;
+    for a in [
+        "Be my support agent who clears the inbound ticket queue",
+        "Sam",
+        "Answer tier-1 tickets",
+        "weekdays on each inbound ticket",
+        "never issue a refund alone",
+        "first response under five minutes",
+    ] {
+        turn(&store, "op-a", conv, Some(a), false).await;
+    }
+    // The Access question is pending, but a confirm goes straight to done —
+    // DEC-048: optional questions never gate the build.
+    let done = turn(&store, "op-a", conv, None, true).await;
+    assert_eq!(done["status"], "done");
+}
+
+#[tokio::test]
+async fn vague_cadence_gets_exactly_one_followup() {
+    let (_d, store) = store();
+    let conv = "vague";
+    turn(&store, "op-a", conv, None, false).await;
+    turn(&store, "op-a", conv, Some("Be my support agent for the queue"), false).await;
+    turn(&store, "op-a", conv, Some("Sam"), false).await;
+    turn(&store, "op-a", conv, Some("Answer tier-1 tickets"), false).await;
+    // Vague cadence → the SAME slot is re-asked once (the quality follow-up).
+    let v = turn(&store, "op-a", conv, Some("Weekly"), false).await;
+    assert_eq!(v["slot"], "cadence", "follow-up targets the cadence slot");
+    assert!(
+        v["assistant_message"]
+            .as_str()
+            .is_some_and(|q| q.to_lowercase().contains("day")),
+        "follow-up asks for a concrete day/time"
+    );
+    // A second vague answer is ACCEPTED (hard cap 1) — intake never loops.
+    let v = turn(&store, "op-a", conv, Some("Weekly"), false).await;
+    assert_eq!(v["slot"], "exceptions", "cap honored; conversation advances");
 }
 
 #[tokio::test]
@@ -264,4 +348,44 @@ async fn no_header_authed_request_keys_on_jwt_tenant_not_default() {
     );
 
     std::env::remove_var("SKYCOT_AUTH_JWT_SECRET");
+}
+
+#[tokio::test]
+async fn confirm_during_required_followup_defers_instead_of_bypassing() {
+    // Adversarial-review P1 (2026-06-10): the bypass window opens when the
+    // LLM delta fills ALL required slots from one rich answer while the
+    // quality follow-up for a vague slot is still pending — `is_complete()`
+    // is true, so the old gate would have honored `confirm` and silently
+    // skipped the follow-up. Seed that exact persisted state (the wizard
+    // path can't reach it one slot at a time), then confirm.
+    let (_d, store) = store();
+    let conv = "bypass";
+    let mut state = argo_genesis::IntakeState {
+        charter: Some("Be my support agent for the queue".to_string()),
+        persona: Some("Sam".to_string()),
+        responsibilities: vec!["Answer tier-1 tickets".to_string()],
+        cadence: Some("Weekly".to_string()),
+        exceptions: vec!["never issue a refund alone".to_string()],
+        ..argo_genesis::IntakeState::default()
+    };
+    state.apply_raw_answer(
+        IntakeSlot::SuccessCriteria,
+        "first response under five minutes",
+    );
+    state.pending_slot = Some(IntakeSlot::Cadence);
+    state.followups_used.push(IntakeSlot::Cadence);
+    store.save("op-a", conv, &state).expect("seed state");
+
+    // Confirm while the follow-up is pending -> REFUSED: the follow-up is
+    // re-asked, not abandoned; not done.
+    let v = turn(&store, "op-a", conv, None, true).await;
+    assert_eq!(v["status"], "asking", "confirm deferred, not honored");
+    assert_eq!(v["slot"], "cadence", "the follow-up is re-asked");
+    assert_eq!(v["can_confirm"], false);
+    // One answer (even vague again - the cap accepts it) unblocks confirm.
+    let v = turn(&store, "op-a", conv, Some("Weekly"), false).await;
+    assert_eq!(v["slot"], "access", "cap honored; walk advances to optionals");
+    assert_eq!(v["can_confirm"], true);
+    let done = turn(&store, "op-a", conv, None, true).await;
+    assert_eq!(done["status"], "done");
 }

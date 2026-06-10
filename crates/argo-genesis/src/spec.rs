@@ -213,6 +213,13 @@ pub struct CapabilitySpec {
     /// Additive + `#[serde(default)]` for back-compat.
     #[serde(default)]
     pub success_criteria: Vec<SuccessCriterion>,
+    /// WHAT systems/accounts the teammate will need (DEC-048 intake slot).
+    /// Free-text names captured at intake, surfaced on the role contract as
+    /// draft-only integrations — honest "to be connected" items, never live
+    /// bindings (integrations stay draft-only at birth). Additive +
+    /// `#[serde(default)]` for back-compat.
+    #[serde(default)]
+    pub access_integrations: Vec<String>,
 }
 
 impl CapabilitySpec {
@@ -270,6 +277,7 @@ impl CapabilitySpec {
             cadence: None,
             exceptions: Vec::new(),
             success_criteria: Vec::new(),
+            access_integrations: Vec::new(),
         }
     }
 

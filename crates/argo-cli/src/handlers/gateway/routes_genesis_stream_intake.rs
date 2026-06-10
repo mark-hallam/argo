@@ -37,6 +37,18 @@ pub(super) struct IntakeCapture {
     /// `KpiKind` / `KpiComparator` vocabulary.
     #[serde(default)]
     success_criteria: Vec<SuccessCriterion>,
+    /// WHAT systems/accounts the teammate will need (DEC-048 Access slot;
+    /// draft-only names, never live bindings).
+    #[serde(default)]
+    access_integrations: Vec<String>,
+    /// Escalate after N consecutive failures (DEC-048 Escalation slot;
+    /// overrides the seeded default when supplied).
+    #[serde(default)]
+    escalation_failures_threshold: Option<u32>,
+    /// Who to escalate to (DEC-048 Escalation slot; overrides the seeded
+    /// default when supplied).
+    #[serde(default)]
+    escalation_to: Option<String>,
 }
 
 impl IntakeCapture {
@@ -50,6 +62,15 @@ impl IntakeCapture {
                 .success_criteria
                 .iter()
                 .any(|c| !c.name.trim().is_empty())
+            || self
+                .access_integrations
+                .iter()
+                .any(|a| !a.trim().is_empty())
+            || self.escalation_failures_threshold.is_some()
+            || self
+                .escalation_to
+                .as_deref()
+                .is_some_and(|e| !e.trim().is_empty())
     }
 }
 
@@ -92,6 +113,27 @@ fn apply_capture(capture: IntakeCapture, plan: &mut GenesisPlan) {
         if !criterion.name.is_empty() {
             spec.success_criteria.push(criterion);
         }
+    }
+    for raw in capture.access_integrations {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            spec.access_integrations.push(trimmed.to_string());
+        }
+    }
+    // DEC-048: captured escalation prefs override the seeded conservative
+    // defaults; absent values keep them (skip-safe).
+    if let Some(threshold) = capture
+        .escalation_failures_threshold
+        .filter(|n| (1..=100).contains(n))
+    {
+        spec.escalation.escalate_after_failures = Some(threshold);
+    }
+    if let Some(to) = capture
+        .escalation_to
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty())
+    {
+        spec.escalation.escalate_to = Some(to);
     }
 }
 

@@ -42,7 +42,19 @@ const FILLED: ConversationCaptured = {
   success_criteria: [
     { name: "on-time dispatch", kind: "percentage", target: 95, comparator: "gte" },
   ],
+  access_integrations: ["Xero", "Gmail"],
+  escalation_failures_threshold: 2,
+  escalation_to: "the operator",
 };
+
+describe("gatherSlotsFromCaptured (DEC-048 slots)", () => {
+  it("carries access + escalation through to the one-shot flow", () => {
+    const gathered = gatherSlotsFromCaptured(FILLED);
+    expect(gathered.accessIntegrations).toEqual(["Xero", "Gmail"]);
+    expect(gathered.escalationFailuresThreshold).toBe(2);
+    expect(gathered.escalationTo).toBe("the operator");
+  });
+});
 
 describe("ConversationIntake", () => {
   beforeEach(() => {

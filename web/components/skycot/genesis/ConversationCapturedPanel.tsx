@@ -152,6 +152,41 @@ export function ConversationCapturedPanel({
           disabled
         />
       ) : null}
+
+      {captured.access_integrations.length > 0 ? (
+        <div data-testid="genesis-captured-access">
+          <span className="ccp-label">
+            <FileText size={15} className="ccp-icon" aria-hidden />
+            Access needed (draft-only)
+          </span>
+          <ul className="ccp-list">
+            {captured.access_integrations.map((a, idx) => (
+              <li key={`${a}-${idx}`}>{a}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {captured.escalation_failures_threshold !== null ||
+      captured.escalation_to.length > 0 ? (
+        <div data-testid="genesis-captured-escalation">
+          <span className="ccp-label">
+            <ScrollText size={15} className="ccp-icon" aria-hidden />
+            Escalation
+          </span>
+          <p className="ccp-text">
+            {captured.escalation_failures_threshold !== null
+              ? `Escalates after ${captured.escalation_failures_threshold} failed ${
+                  captured.escalation_failures_threshold === 1 ? "try" : "tries"
+                }`
+              : "Escalates"}
+            {captured.escalation_to.length > 0
+              ? ` to ${captured.escalation_to}`
+              : ""}
+            .
+          </p>
+        </div>
+      ) : null}
     </aside>
   );
 }

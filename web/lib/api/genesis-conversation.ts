@@ -38,6 +38,12 @@ export interface ConversationCaptured {
   exceptions: string[];
   /** HOW success is measured — typed, measurable criteria. */
   success_criteria: SuccessCriterion[];
+  /** WHAT systems/accounts it will need — draft-only names (DEC-048). */
+  access_integrations: string[];
+  /** Escalate after N consecutive failures (DEC-048; null = seeded default). */
+  escalation_failures_threshold: number | null;
+  /** Who to escalate to (DEC-048; empty = seeded default). */
+  escalation_to: string;
 }
 
 /** One transcript line surfaced as a chat bubble. */
@@ -55,6 +61,10 @@ export interface ConversationResponse {
   /** The assistant's next prompt / acknowledgement. */
   assistant_message?: string;
   captured: ConversationCaptured;
+  /** True once every REQUIRED slot is filled — the optional access/escalation
+   *  questions may still be running, but the operator can build now (DEC-048:
+   *  optional slots never gate). */
+  can_confirm?: boolean;
   /** The assembled spec the backend echoes on `ready`/`done`. The SPA does NOT
    *  materialize from this — it hands the gathered slots to the one-shot flow —
    *  so it's surfaced opaquely for display/debug only. */
@@ -83,6 +93,9 @@ export const EMPTY_CAPTURED: ConversationCaptured = {
   cadence: "",
   exceptions: [],
   success_criteria: [],
+  access_integrations: [],
+  escalation_failures_threshold: null,
+  escalation_to: "",
 };
 
 function asString(value: unknown): string {
@@ -120,6 +133,12 @@ function normalizeCaptured(value: unknown): ConversationCaptured {
     cadence: asString(c.cadence),
     exceptions: asStringArray(c.exceptions),
     success_criteria: asSuccessCriteria(c.success_criteria),
+    access_integrations: asStringArray(c.access_integrations),
+    escalation_failures_threshold:
+      typeof c.escalation_failures_threshold === "number"
+        ? c.escalation_failures_threshold
+        : null,
+    escalation_to: asString(c.escalation_to),
   };
 }
 
@@ -154,6 +173,7 @@ export function normalizeConversationResponse(
     assistant_message:
       typeof v.assistant_message === "string" ? v.assistant_message : undefined,
     captured: normalizeCaptured(v.captured),
+    can_confirm: v.can_confirm === true,
     spec: v.spec,
     transcript: normalizeTranscript(v.transcript),
   };

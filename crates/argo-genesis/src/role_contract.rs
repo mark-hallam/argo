@@ -116,6 +116,12 @@ pub struct RoleContract {
     /// intake-context, digest-excluded treatment as [`Self::cadence`].
     #[serde(default)]
     pub success_criteria: Vec<crate::spec::SuccessCriterion>,
+    /// WHAT systems the operator said the teammate will need (DEC-048 Access
+    /// slot). Sibling of [`Self::draft_integrations`], NOT merged into it —
+    /// that field is digest-bearing; these are digest-excluded intake context
+    /// ("to be connected"). Same treatment as [`Self::cadence`].
+    #[serde(default)]
+    pub access_needs: Vec<String>,
 }
 
 impl RoleContract {
@@ -209,6 +215,7 @@ impl RoleContract {
             cadence: None,
             exceptions: Vec::new(),
             success_criteria: Vec::new(),
+            access_needs: Vec::new(),
         }
     }
 
@@ -228,6 +235,15 @@ impl RoleContract {
         self.cadence = spec.cadence.clone();
         self.exceptions = spec.exceptions.clone();
         self.success_criteria = spec.success_criteria.clone();
+        // DEC-048: operator-stated access needs. Deliberately a SIBLING
+        // display field rather than merged into `draft_integrations` —
+        // `draft_integrations` is part of [`Self::digest`] (the
+        // governance-bearing projection the operator's confirmation binds
+        // to), so mutating it on the enriched display copy could make a
+        // confirmed digest mismatch the gate's re-derived one. Access needs
+        // are intake context ("to be connected"), not live capability, so
+        // they belong with the digest-excluded slots here.
+        self.access_needs = spec.access_integrations.clone();
         self
     }
 

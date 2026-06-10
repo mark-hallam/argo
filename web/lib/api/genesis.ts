@@ -288,6 +288,27 @@ export interface RoleContract {
   cadence?: string | null;
   exceptions?: string[];
   success_criteria?: SuccessCriterion[];
+  /** WHAT systems the operator said it will need (DEC-048; digest-excluded
+   *  sibling of `draft_integrations` — "to be connected", never live). */
+  access_needs?: string[];
+}
+
+/** Params the /genesis page hands its shared one-shot kickoff. Extracted
+ *  from the page (500-line budget); both intake modes funnel through it —
+ *  DEC-039 convergence + the DEC-048 access/escalation slots. */
+export interface GenesisStartParams {
+  roleDescription: string;
+  cadence?: string;
+  exceptions?: string[];
+  successCriteria?: SuccessCriterion[];
+  accessIntegrations?: string[];
+  escalationFailuresThreshold?: number | null;
+  escalationTo?: string;
+  sopDocument?: string;
+  sopDocumentFormat?: "text" | "pdf_base64";
+  sopFilename?: string;
+  boundaries?: BoundariesSpec;
+  isRetry: boolean;
 }
 
 /** The honest gate evidence block the SSE `vertical_ready` payload carries
@@ -393,6 +414,13 @@ export interface StreamGenesisRequest {
    *  Threaded into `CapabilitySpec.success_criteria` (non-empty makes A2's emit
    *  use the operator's REAL goals instead of the default KPI skeleton). */
   successCriteria?: SuccessCriterion[];
+  /** WHAT systems it will need — draft-only names (DEC-048 Access slot).
+   *  Threaded into `CapabilitySpec.access_integrations`. */
+  accessIntegrations?: string[];
+  /** Escalation override — after N failures (DEC-048 Escalation slot). */
+  escalationFailuresThreshold?: number | null;
+  /** Escalation override — who to (DEC-048 Escalation slot). */
+  escalationTo?: string;
   /** Genesis Phase-2 access-controls + guardrails: the operator's "Set
    *  boundaries" spec. The gateway synthesizes an enforceable truth-boundary
    *  policy from it and echoes back what it persisted. Omitted from the wire
@@ -532,6 +560,15 @@ export async function streamGenesis(
       : {}),
     ...(req.successCriteria && req.successCriteria.length > 0
       ? { success_criteria: req.successCriteria }
+      : {}),
+    ...(req.accessIntegrations && req.accessIntegrations.length > 0
+      ? { access_integrations: req.accessIntegrations }
+      : {}),
+    ...(typeof req.escalationFailuresThreshold === "number"
+      ? { escalation_failures_threshold: req.escalationFailuresThreshold }
+      : {}),
+    ...(req.escalationTo && req.escalationTo.trim().length > 0
+      ? { escalation_to: req.escalationTo.trim() }
       : {}),
     // Phase-2 boundaries: the gateway synthesizes a truth-boundary policy from
     // this and echoes it back on `vertical_ready`. Omitted when unset so the

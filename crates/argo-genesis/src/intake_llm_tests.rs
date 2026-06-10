@@ -101,3 +101,24 @@ fn prompts_mention_the_slot_topic() {
     assert!(ep.contains("success_criteria"));
     assert!(ep.contains("csat 90"));
 }
+
+#[tokio::test]
+async fn extract_delta_parses_access_and_escalation_keys() {
+    let client = ok(
+        "{\"access_integrations\":[\"Xero\",\"Gmail\"],\"escalation_failures_threshold\":2,\"escalation_to\":\"my ops lead\"}",
+    );
+    let delta = extract_delta(IntakeSlot::Escalation, "after 2 tries, to my ops lead", &client)
+        .await
+        .expect("a delta");
+    assert_eq!(delta.access_integrations, vec!["Xero", "Gmail"]);
+    assert_eq!(delta.escalation_failures_threshold, Some(2));
+    assert_eq!(delta.escalation_to.as_deref(), Some("my ops lead"));
+}
+
+#[test]
+fn extract_prompt_advertises_dec048_keys() {
+    let prompt = build_extract_prompt(IntakeSlot::Access, "Xero and Gmail");
+    assert!(prompt.contains("access_integrations"));
+    assert!(prompt.contains("escalation_failures_threshold"));
+    assert!(prompt.contains("escalation_to"));
+}

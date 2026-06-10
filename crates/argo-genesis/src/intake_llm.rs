@@ -80,6 +80,12 @@ fn slot_topic(slot: IntakeSlot) -> &'static str {
         IntakeSlot::Cadence => "when the teammate should work (a schedule or a trigger)",
         IntakeSlot::Exceptions => "what the teammate must never do alone or must escalate",
         IntakeSlot::SuccessCriteria => "how success is measured for the teammate",
+        IntakeSlot::Access => {
+            "what systems or accounts the teammate will need access to (draft-only at birth)"
+        }
+        IntakeSlot::Escalation => {
+            "when the teammate should stop and escalate — after how many failures, and to whom"
+        }
     }
 }
 
@@ -131,7 +137,10 @@ pub fn build_extract_prompt(slot: IntakeSlot, answer: &str) -> String {
          \"exceptions\": [<strings: carve-outs to escalate, if given>],\n  \
          \"success_criteria\": [{{\"name\": <metric label>, \"kind\": \
          <\"percentage\"|\"duration_ms\"|\"count\"|\"ratio\"|\"score\">, \
-         \"target\": <number>, \"comparator\": <\"gte\"|\"lte\"|\"eq\">}}]\n\
+         \"target\": <number>, \"comparator\": <\"gte\"|\"lte\"|\"eq\">}}],\n  \
+         \"access_integrations\": [<strings: systems/accounts needed, if given>],\n  \
+         \"escalation_failures_threshold\": <integer 1-100: escalate after N failures, if given>,\n  \
+         \"escalation_to\": <string: who to escalate to, if given>\n\
          }}\n\n\
          The answer is about {topic}, so put its content in the matching field. \
          Do not invent values the operator did not state.\n\n\

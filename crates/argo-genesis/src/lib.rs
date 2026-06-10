@@ -53,6 +53,8 @@ pub mod hire_gate_disk;
 pub mod hire_gate_rubric;
 pub mod intake_llm;
 pub mod intake_machine;
+pub mod intake_quality;
+pub mod intake_slots;
 pub mod intake_store;
 pub mod job_description;
 pub mod manifest_writer;
@@ -117,6 +119,7 @@ pub use intake_llm::{
 pub use intake_machine::{
     IntakeSlot, IntakeState, IntakeTurn, NextStep, SlotDelta, Speaker,
 };
+pub use intake_quality::{cadence_is_vague, exceptions_are_vague, needs_followup, required_followup_pending};
 pub use intake_store::IntakeStore;
 pub use role_contract::{verify_contract_matches, ContractAction, RoleContract};
 pub use author::{apply_authored, author_teammate, build_author_prompt, AuthorClient, AuthoredTeammate};

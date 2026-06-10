@@ -121,6 +121,7 @@ fn materialize_spec_lands_all_intake_slots_and_kpis() {
         from_scratch: true,
         cadence: Some("every weekday at 5pm".into()),
         exceptions: vec!["never touch legal escalations".into()],
+        access_integrations: vec![],
         success_criteria: vec![SuccessCriterion {
             name: "on-time dispatch rate".into(),
             kind: KpiKind::Percentage,
