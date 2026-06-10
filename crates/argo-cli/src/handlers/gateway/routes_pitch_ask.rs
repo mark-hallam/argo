@@ -14,22 +14,24 @@
 //! shows the operator's question history live alongside every other
 //! gateway event.
 
-use super::routes_pitch_ask_llm::{ask_with_llm, CompanyFacts, LlmAskOutcome};
+use super::routes_pitch_ask_llm::{ask_with_llm, CompanyFacts};
 use super::routes_auth_principal;
 use argo_audit::{AuditKind, AuditSink};
-use argo_capability::{
-    evaluate_claim, load_policy, ChannelKind, ClaimCandidate, ClaimDisposition, TruthBoundaryPolicy,
-};
+use argo_capability::{load_policy, ChannelKind, ClaimDisposition, TruthBoundaryPolicy};
 use argo_skill::canonical_qa::CanonicalQaIndex;
 use argo_store::SessionStore;
 use argo_types::TenantId;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::json;
+use shaping::{bad_request, build_canonical_hit_payload, build_llm_payload, service_unavailable};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::Instant;
 use uuid::Uuid;
+
+#[path = "routes_pitch_ask_shaping.rs"]
+mod shaping;
 
 /// Channel selector mirrored from `argo_eval::PitchChannel`. Kept here
 /// so the gateway parses the wire-shape without pulling argo-eval into
@@ -138,43 +140,6 @@ pub(super) async fn ask_response(
     }
 }
 
-fn build_canonical_hit_payload(
-    channel: PitchChannel,
-    policy: &TruthBoundaryPolicy,
-    matched: &argo_skill::canonical_qa::CanonicalMatch,
-    latency_ms: u64,
-) -> (Value, Value) {
-    let evaluation = evaluate_claim(
-        policy,
-        channel.as_capability(),
-        &ClaimCandidate {
-            text: matched.answer.clone(),
-            declared_classes: matched.declared_claim_classes.clone(),
-        },
-    );
-    let (disposition_label, block_reason) = disposition_for_response(&evaluation.disposition);
-    let answer = render_answer(&matched.answer, &evaluation.disposition);
-    let body = json!({
-        "matched": true,
-        "source": "canonical",
-        "entry_id": matched.entry_id,
-        "answer": answer,
-        "declared_claim_classes": matched.declared_claim_classes,
-        "disposition": disposition_label,
-        "block_reason": block_reason,
-        "channel": channel.label(),
-        "latency_ms": latency_ms,
-    });
-    let audit = json!({
-        "entry_id": matched.entry_id,
-        "channel": channel.label(),
-        "disposition": disposition_label,
-        "declared_claim_classes": matched.declared_claim_classes,
-        "latency_ms": latency_ms,
-    });
-    (body, audit)
-}
-
 async fn handle_miss(
     req: &str,
     store: Option<&Arc<SessionStore>>,
@@ -258,65 +223,6 @@ async fn handle_miss(
     ("200 OK", body_json.to_string())
 }
 
-fn build_llm_payload(
-    channel: PitchChannel,
-    outcome: &LlmAskOutcome,
-    latency_ms: u64,
-) -> (Value, Value, Value) {
-    let (disposition_label, block_reason) = disposition_for_response(&outcome.disposition);
-    let source = if outcome.swapped_response {
-        "llm_blocked_canonical_refused"
-    } else {
-        "llm"
-    };
-    let declared = outcome
-        .matched_class
-        .as_ref()
-        .map(|c| vec![c.clone()])
-        .unwrap_or_default();
-    let mut body = json!({
-        "matched": false,
-        "source": source,
-        "answer": outcome.answer,
-        "declared_claim_classes": declared,
-        "disposition": disposition_label,
-        "block_reason": block_reason,
-        "channel": channel.label(),
-        "latency_ms": latency_ms,
-        "model": outcome.model,
-        "tokens": {
-            "input": outcome.tokens_in,
-            "output": outcome.tokens_out,
-        },
-    });
-    if outcome.swapped_response {
-        // The draft is the LLM's actual (unsafe) attempt. Surface it
-        // for the operator's rehearsal surface so they can see what
-        // the model wanted to say before the swap. Production
-        // wire-formats should redact this in transit — out of scope
-        // for v1.
-        if let Some(map) = body.as_object_mut() {
-            map.insert("draft".to_string(), Value::String(outcome.draft.clone()));
-        }
-    }
-    let llm_audit = json!({
-        "channel": channel.label(),
-        "model": outcome.model,
-        "latency_ms": latency_ms,
-        "tokens_in": outcome.tokens_in,
-        "tokens_out": outcome.tokens_out,
-        "response_hash": outcome.response_hash,
-    });
-    let eval_audit = json!({
-        "channel": channel.label(),
-        "disposition": disposition_label,
-        "block_reason": block_reason,
-        "matched_class": outcome.matched_class,
-        "swapped_response": outcome.swapped_response,
-    });
-    (body, llm_audit, eval_audit)
-}
-
 fn llm_fallback_enabled() -> bool {
     // Explicit opt-out wins.
     if let Ok(v) = std::env::var(LLM_FALLBACK_ENV) {
@@ -338,6 +244,9 @@ fn llm_fallback_enabled() -> bool {
     has_key
 }
 
+// Disposition/answer shaping kept here (not in the `shaping` sibling) because
+// `routes_pitch_ask_tests` exercises these two directly; the sibling's
+// `build_*_payload` helpers call them via `super::`.
 fn disposition_for_response(disp: &ClaimDisposition) -> (&'static str, Option<String>) {
     match disp {
         ClaimDisposition::Allow => ("Allow", None),
@@ -358,20 +267,6 @@ fn render_answer(canonical: &str, disp: &ClaimDisposition) -> String {
             "Let me check with the founder before answering that one.".to_string()
         }
     }
-}
-
-fn bad_request(msg: &str) -> (&'static str, String) {
-    (
-        "400 Bad Request",
-        json!({ "error": { "code": "bad_request", "message": msg } }).to_string(),
-    )
-}
-
-fn service_unavailable(msg: &str) -> (&'static str, String) {
-    (
-        "503 Service Unavailable",
-        json!({ "error": { "code": "pitch_unavailable", "message": msg } }).to_string(),
-    )
 }
 
 /// Process-wide cached corpus + policies. Loaded on first request;

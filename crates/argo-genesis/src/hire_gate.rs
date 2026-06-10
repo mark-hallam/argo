@@ -5,22 +5,19 @@
 //!
 //! 1. **Deterministic eval floor** — the 10 generated starter seeds are
 //!    graded against the teammate's *behaviour contract* (system prompt +
-//!    action vocabulary). A thin/empty worker — no actions, a stub prompt —
-//!    fails because the seed's rubric keywords never appear. This is a floor
-//!    against thin workers, not a competence proof (the LLM-graded rubric is
-//!    a documented fast-follow), but it is REAL: it really runs and really
-//!    blocks. The actual scoring is delegated to the canonical
-//!    `argo_eval::run_eval` runner by the gateway orchestrator — this module
-//!    only builds the deterministic inputs so there is no parallel scorer.
+//!    action vocabulary). A thin/empty worker fails because the seed's rubric
+//!    keywords never appear: a floor against thin workers, not a competence
+//!    proof (the LLM-graded rubric is a documented fast-follow), but REAL — it
+//!    really runs and blocks. Scoring is delegated to the canonical
+//!    `argo_eval::run_eval` runner by the gateway orchestrator (this module
+//!    only builds the inputs, so there is no parallel scorer).
 //! 2. **LLM semantic safety judge** — [`crate::genesis_judge`], fail-closed
 //!    to `Block` on any transport/parse error, run by the orchestrator.
 //!
 //! This module is the *pure* half: it turns a [`GenesisPlan`] into the
 //! deterministic eval inputs and the safety-judge projection, and composes
-//! the final [`GateVerdict`]. The provider-touching half (running the eval
-//! subject + dialling the judge) lives in the gateway handler that already
-//! holds the `argo-eval` + transport dependencies, so `argo-genesis` gains
-//! no new crate edge.
+//! the final [`GateVerdict`]. The provider-touching half lives in the gateway
+//! handler that already holds the `argo-eval` + transport deps (no new edge).
 //!
 //! ## Why the behaviour-contract text is the eval subject
 //!
@@ -29,8 +26,7 @@
 //! (derived from the role + its actions): a richly-specified teammate's
 //! contract names its actions and domain, an empty stub's does not — the
 //! "gameable by keyword-parroting, but a true floor against empty workers"
-//! property the design doc calls for. The LLM rubric (P7, [`crate::rubric`])
-//! is the additive axis that closes that gameability gap.
+//! property the design doc calls for. The LLM rubric (P7) closes that gap.
 
 use crate::eval_seed::{self, EvalSeed};
 use crate::hire_gate_contract::{ContractConfirmation, ContractGateInput};
@@ -494,6 +490,10 @@ pub fn behaviour_contract_text(plan: &GenesisPlan) -> String {
 #[cfg(test)]
 #[path = "hire_gate_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "hire_gate_tests2.rs"]
+mod tests2;
 
 #[cfg(test)]
 #[path = "hire_gate_fence_tests.rs"]

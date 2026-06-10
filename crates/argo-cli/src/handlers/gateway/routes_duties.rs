@@ -420,5 +420,13 @@ pub(super) async fn list_response(
 }
 
 #[cfg(test)]
+#[path = "routes_duties_test_helpers.rs"]
+mod duty_test_helpers;
+
+#[cfg(test)]
 #[path = "routes_duties_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "routes_duties_tests2.rs"]
+mod tests2;

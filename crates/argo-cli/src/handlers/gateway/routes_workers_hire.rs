@@ -410,6 +410,10 @@ fn error_envelope(status: &'static str, code: &str, message: &str) -> (&'static 
 mod tests;
 
 #[cfg(test)]
+#[path = "routes_workers_hire_tests2.rs"]
+mod tests2;
+
+#[cfg(test)]
 #[path = "routes_workers_hire_idem_tests.rs"]
 mod idem_tests;
 
