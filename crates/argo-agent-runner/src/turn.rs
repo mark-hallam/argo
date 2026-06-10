@@ -178,6 +178,9 @@ mod turn_helpers_overlay;
 #[path = "turn_helpers_run.rs"]
 mod turn_helpers_run;
 
+#[path = "turn_helpers_run_support.rs"]
+mod turn_helpers_run_support;
+
 #[path = "turn_helpers_truth_boundary.rs"]
 mod turn_helpers_truth_boundary;
 

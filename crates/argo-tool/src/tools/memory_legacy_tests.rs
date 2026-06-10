@@ -137,6 +137,104 @@ async fn vertical_bound_write_persists_with_vertical_id() {
 }
 
 #[tokio::test]
+async fn vertical_bound_read_excludes_other_verticals_rows() {
+    // 3b regression pin (tool layer): a customer-support-bound tool must
+    // not read a gtm-engineer row in the same workspace — the observed
+    // 2026-06-10 leak. Pre-fix `list_active` returned all verticals' rows.
+    let (store, ws) = fresh_store().await;
+    store
+        .append_for_vertical(
+            ws,
+            MemoryFile::Memory,
+            "GTM-OUTREACH-DRAFT".to_string(),
+            None,
+            "gtm-engineer",
+        )
+        .await
+        .unwrap();
+    let tool = Memory::new(store.clone(), ws, Some("customer-support".to_string()));
+    let list = tool
+        .dispatch(serde_json::json!({"action": "list"}), &ctx())
+        .await
+        .unwrap();
+    assert!(
+        first_text(&list).contains("no memory entries"),
+        "got: {}",
+        first_text(&list)
+    );
+    let err = tool
+        .dispatch(
+            serde_json::json!({"action": "read", "entry": "MEMORY.md"}),
+            &ctx(),
+        )
+        .await
+        .expect_err("must not see gtm-engineer row");
+    assert!(err.to_string().contains("no entries"), "got: {err}");
+}
+
+#[tokio::test]
+async fn vertical_bound_write_does_not_supersede_other_verticals_row() {
+    // 3b regression pin: writing customer-support's MEMORY.md must CREATE
+    // (append for its vertical), never supersede gtm-engineer's same-named
+    // row. Pre-fix the supersede check used `list_active`, so the write
+    // could overwrite another vertical's entry (worse than a read leak).
+    let (store, ws) = fresh_store().await;
+    store
+        .append_for_vertical(
+            ws,
+            MemoryFile::Memory,
+            "GTM-OUTREACH-DRAFT".to_string(),
+            None,
+            "gtm-engineer",
+        )
+        .await
+        .unwrap();
+    let tool = Memory::new(store.clone(), ws, Some("customer-support".to_string()));
+    tool.dispatch(
+        serde_json::json!({"action": "write", "entry": "MEMORY.md", "content": "CS-NOTE"}),
+        &ctx(),
+    )
+    .await
+    .unwrap();
+    let gtm = store
+        .list_for_vertical(ws, MemoryFile::Memory, "gtm-engineer")
+        .await
+        .unwrap();
+    assert_eq!(gtm.len(), 1, "gtm row must survive");
+    assert_eq!(gtm[0].body, "GTM-OUTREACH-DRAFT");
+    assert!(
+        gtm[0].superseded_by.is_none(),
+        "gtm row must not be superseded"
+    );
+    let cs = store
+        .list_for_vertical(ws, MemoryFile::Memory, "customer-support")
+        .await
+        .unwrap();
+    assert_eq!(cs.len(), 1);
+    assert_eq!(cs[0].body, "CS-NOTE");
+}
+
+#[tokio::test]
+async fn legacy_unbound_read_still_sees_workspace_global_rows() {
+    // Criterion 3: a tool with no bound vertical (CLI without --vertical)
+    // keeps the workspace-global `list_active` behaviour for back-compat.
+    let (store, ws) = fresh_store().await;
+    store
+        .append(ws, MemoryFile::Memory, "GLOBAL-ROW".to_string(), None)
+        .await
+        .unwrap();
+    let tool = Memory::new(store.clone(), ws, None);
+    let r = tool
+        .dispatch(
+            serde_json::json!({"action": "read", "entry": "MEMORY.md"}),
+            &ctx(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first_text(&r), "GLOBAL-ROW");
+}
+
+#[tokio::test]
 async fn unbound_write_persists_with_null_vertical_id() {
     let (store, ws) = fresh_store().await;
     let tool = Memory::new(store.clone(), ws, None);

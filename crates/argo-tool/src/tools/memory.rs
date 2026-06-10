@@ -281,6 +281,31 @@ pub(crate) fn resolve_entry(entry: Option<&str>) -> ArgoResult<MemoryFile> {
     })
 }
 
+/// List active entries for `file`, scoped to the bound vertical when one
+/// is set (WS1 cross-vertical isolation,
+/// fix-agent-runtime-memory-tool-tenant-and-vertical-scope root cause 3b).
+///
+/// With a `vertical_id`, reads + the supersede-existing check go through
+/// `list_for_vertical` so one role cannot read OR overwrite another role's
+/// same-named entry in the shared workspace. The legacy `vertical_id ==
+/// None` path (CLI without `--vertical`) keeps the workspace-global
+/// `list_active` for backward compat. Mirrors the write CREATE branch in
+/// [`write_action`] that already routes to `append_for_vertical`.
+async fn list_scoped(
+    wired: &WiredMemory,
+    file: MemoryFile,
+) -> ArgoResult<Vec<argo_memory::MemoryEntry>> {
+    match wired.vertical_id.as_deref() {
+        Some(vid) => {
+            wired
+                .store
+                .list_for_vertical(wired.workspace_id, file, vid)
+                .await
+        }
+        None => wired.store.list_active(wired.workspace_id, file).await,
+    }
+}
+
 async fn list_action(wired: &WiredMemory) -> ArgoResult<String> {
     let mut out = String::new();
     for file in [
@@ -289,7 +314,7 @@ async fn list_action(wired: &WiredMemory) -> ArgoResult<String> {
         MemoryFile::Soul,
         MemoryFile::Agents,
     ] {
-        let entries = wired.store.list_active(wired.workspace_id, file).await?;
+        let entries = list_scoped(wired, file).await?;
         if entries.is_empty() {
             continue;
         }
@@ -309,7 +334,7 @@ async fn list_action(wired: &WiredMemory) -> ArgoResult<String> {
 
 async fn read_action(wired: &WiredMemory, entry: Option<&str>) -> ArgoResult<String> {
     let file = resolve_entry(entry)?;
-    let entries = wired.store.list_active(wired.workspace_id, file).await?;
+    let entries = list_scoped(wired, file).await?;
     let head = entries.first().ok_or_else(|| ArgoError::Tool {
         tool: "memory".into(),
         msg: format!("no entries for {}", file.filename()),
@@ -327,7 +352,7 @@ async fn write_action(
         tool: "memory".into(),
         msg: "missing required `content` for write".into(),
     })?;
-    let existing = wired.store.list_active(wired.workspace_id, file).await?;
+    let existing = list_scoped(wired, file).await?;
     let written = if let Some(prev) = existing.first() {
         // Supersede honours the prev entry's lock — UserProtected
         // rejects with a clear ArgoError::UserProtected, which we

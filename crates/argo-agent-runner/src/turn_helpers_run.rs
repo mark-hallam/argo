@@ -22,17 +22,16 @@ use crate::turn_vertical::{consume_one_shot_if_present, SessionGrantState};
 use argo_audit::{AuditKind, AuditSink};
 use argo_capability::CapabilityEngine;
 use argo_identity::{MemoryNs, MemoryScope};
-use argo_orchestrator::{EscalationStep, HandoffId, HandoffStatus};
+use argo_orchestrator::HandoffId;
 use argo_provider::{ProviderRequest, ToolSchema, Transport};
 use argo_store::SessionStore;
 use argo_tool::ToolRegistry;
 use argo_types::{
-    ArgoError, ArgoResult, ContentBlock, MessageRole, Principal, SessionId, TenantId,
-    ToolCallRequest, ToolCallResult,
+    ArgoError, ArgoResult, ContentBlock, MessageRole, Principal, SessionId, ToolCallRequest,
+    ToolCallResult,
 };
-use std::collections::HashMap;
 use std::path::Path;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// Per-turn dispatch state — built once per call to
@@ -52,27 +51,6 @@ pub(super) struct TurnDispatchCtx {
     /// its probation window. Resolved once at session boot; consulted on
     /// every tool dispatch to force approval-gating during probation.
     pub(super) probation: crate::turn_vertical_fence::ProbationStatus,
-}
-
-type ProcessRegistryKey = (TenantId, SessionId);
-type ProcessRegistryCache = HashMap<ProcessRegistryKey, Arc<argo_tool::ProcessRegistry>>;
-
-fn process_registry_cache() -> &'static Mutex<ProcessRegistryCache> {
-    static CACHE: OnceLock<Mutex<ProcessRegistryCache>> = OnceLock::new();
-    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-fn process_registry_for(
-    tenant_id: TenantId,
-    session_id: SessionId,
-) -> Arc<argo_tool::ProcessRegistry> {
-    let mut cache = process_registry_cache()
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    cache
-        .entry((tenant_id, session_id))
-        .or_insert_with(|| Arc::new(argo_tool::ProcessRegistry::new()))
-        .clone()
 }
 
 /// Assemble the dispatch registry, system prompt, tools, and
@@ -109,17 +87,21 @@ pub(super) async fn build_turn_dispatch_ctx(
     // conservative bound-at-birth policy once the worker-row read resolves
     // (P5 (a)).
     let mut truth_boundary = load_truth_boundary_ctx(cwd, session.tenant_id)?;
-    // claude-memory-tool-wire: thread the live MemoryStore + workspace
-    // through dispatch so the in-core `memory` tool can actually persist.
-    // Vertical-bound writes go through `append_for_vertical` when
-    // `vertical_scope` is set; otherwise writes stay workspace-global.
-    let memory_ctx = store.first_workspace().await?.map(|ws| {
-        (
-            Arc::new(argo_memory::MemoryStore::new(store.clone())),
-            ws,
-            vertical_scope.map(str::to_string),
-        )
-    });
+    // claude-memory-tool-wire: thread the live MemoryStore + workspace into
+    // dispatch so the in-core `memory` tool can persist. WS1 tenant isolation
+    // (3a): bind to the SESSION's OWN tenant workspace
+    // (`first_workspace_for_tenant`), NOT the global demo/cwd one
+    // `first_workspace()` returns — fail CLOSED so we never leak another tenant.
+    let memory_ctx = store
+        .first_workspace_for_tenant(session.tenant_id)
+        .await?
+        .map(|ws| {
+            (
+                Arc::new(argo_memory::MemoryStore::new(store.clone())),
+                ws,
+                vertical_scope.map(str::to_string),
+            )
+        });
     // codex-memory-tool-namespace-wiring (F-03 P1) + fix-worker-run-memory-
     // namespace: bind `memory` to a per-worker `MemoryNs`. Ground on the
     // PERSISTED `session.worker_id` (fallback) so the work-dispatch "Run now"
@@ -129,7 +111,7 @@ pub(super) async fn build_turn_dispatch_ctx(
         .map(|wid| MemoryNs::new(session.tenant_id, wid, MemoryScope::WorkerSelf));
     let orchestrator_ctx = Arc::new(argo_orchestrator::OrchestratorStore::new(store.clone()));
     let orch_session_id = argo_orchestrator::SessionId::from_string(session_id.to_string());
-    let current_handoff_id = current_inbound_handoff_id(
+    let current_handoff_id = super::turn_helpers_run_support::current_inbound_handoff_id(
         &orchestrator_ctx,
         session.tenant_id,
         &orch_session_id,
@@ -182,7 +164,8 @@ pub(super) async fn build_turn_dispatch_ctx(
         // operator session (no worker_id) keeps `owner`.
         session.worker_id.is_some(),
     )?;
-    let background_processes = process_registry_for(session.tenant_id, session_id);
+    let background_processes =
+        super::turn_helpers_run_support::process_registry_for(session.tenant_id, session_id);
     // #721: hide manifest-denied tools from the model's tool list.
     let tools = provider_schemas_filtered(&registry, vertical_deny);
     let (mut system_prompt, ab_pending) = build_system_prompt_with_ab(
@@ -215,29 +198,6 @@ pub(super) async fn build_turn_dispatch_ctx(
         current_handoff_id,
         probation: signals.probation,
     })
-}
-
-async fn current_inbound_handoff_id(
-    orchestrator: &argo_orchestrator::OrchestratorStore,
-    tenant_id: TenantId,
-    session_id: &argo_orchestrator::SessionId,
-    worker_id: Option<argo_store::WorkerId>,
-) -> ArgoResult<Option<HandoffId>> {
-    let Some(worker_id) = worker_id else {
-        return Ok(None);
-    };
-    let handoffs = orchestrator
-        .list_handoffs_for_session(tenant_id, session_id)
-        .await?;
-    Ok(handoffs.into_iter().rev().find_map(|handoff| {
-        let active = matches!(
-            handoff.status,
-            HandoffStatus::Pending | HandoffStatus::Acknowledged
-        );
-        let assigned_to_worker =
-            matches!(&handoff.to, EscalationStep::Worker(id) if id == &worker_id);
-        (active && assigned_to_worker).then_some(handoff.id)
-    }))
 }
 
 /// Outcome of a single provider call — either the assistant gave a
