@@ -250,9 +250,22 @@ pub(super) fn classify_route(method: &str, target: &str) -> Cow<'static, str> {
 
 /// Extract the bucket-key tenant from the request.
 ///
-/// **Canonical precedence** (shared by every audit + gateway route that
-/// needs the caller's tenant — see `routes_audit_feed.rs` and
-/// `routes_audit_detail.rs` for the two routes most prone to drift):
+/// **⚠️ Client-controlled — NOT a tenant-isolation key.** Every input below
+/// (the `?tenant=` param, the `X-Tenant-Id` / `X-Argo-Tenant-Id` headers) is
+/// set by the caller, so for an *authenticated* request this returns whatever
+/// tenant the caller asked for, not the tenant their session is bound to. Use
+/// it ONLY for rate-limit bucketing, region gating, metrics labels, and as the
+/// last-resort fallback inside the canonical resolver. Do **not** use it to key
+/// a per-tenant store, an audit write, or any read/write that must isolate one
+/// tenant from another — a tenant-A caller could send `X-Tenant-Id: B` and read
+/// or poison tenant B's data. For those, resolve through
+/// [`super::resolve_tenant::resolve_tenant_for_request`] (or
+/// `resolve_audit_write_tenant` for audit writes), which prefers the
+/// `__Host-session` JWT `tnt` claim so a session caller only ever resolves
+/// their OWN tenant. (P1 isolation gap, security audit 2026-06-10 — the genesis
+/// intake store + voice transcript routes were keyed on this helper.)
+///
+/// **Precedence** (the client-controlled order this helper applies):
 ///
 /// 1. `?tenant=<id>` query param
 /// 2. `X-Tenant-Id` header (canonical)
@@ -262,10 +275,6 @@ pub(super) fn classify_route(method: &str, target: &str) -> Cow<'static, str> {
 ///    sentinel `"default"`)
 /// 5. `argo_config.channels.webinbox.tenant_id` (when set)
 /// 6. `"anonymous"`
-///
-/// Any new audit/gateway route MUST call this helper — do not inline
-/// header reads. See the drift incident behind
-/// `fix-gateway-audit-detail-tenant-resolver-drift-vs-feed` for why.
 pub fn extract_tenant(req: &str) -> String {
     if let Some(target) = request_target(req) {
         if let Some((_, qs)) = target.split_once('?') {

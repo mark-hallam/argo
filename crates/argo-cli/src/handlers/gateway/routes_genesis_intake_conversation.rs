@@ -46,7 +46,7 @@ use super::routes_genesis_stream_llm::{complete_once, resolve_provider_id};
 /// the `(status_line, body)` shape of the other genesis JSON shims.
 pub(super) async fn respond(
     req: &str,
-    _store: Option<&Arc<SessionStore>>,
+    session_store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let body = super::body_from_request(req);
     let parsed: Value = match serde_json::from_str(body) {
@@ -71,7 +71,7 @@ pub(super) async fn respond(
         .and_then(serde_json::Value::as_bool)
         .unwrap_or(false);
 
-    let tenant = super::rate_limit::extract_tenant(req);
+    let tenant = resolve_intake_tenant(req, session_store).await;
     let store = IntakeStore::new(argo_vertical::default_dir());
     // Gate the LLM enrichment on a provider key; absent one, the turn runs the
     // deterministic wizard (the fail-safe demo path).
@@ -89,6 +89,31 @@ pub(super) async fn respond(
     {
         Ok((status, value)) => (status, value.to_string()),
         Err(e) => server_error(&e),
+    }
+}
+
+/// Resolve the tenant the intake store is keyed on for this turn — the
+/// JWT-bound tenant, NOT a client-supplied header.
+///
+/// `rate_limit::extract_tenant` honors `?tenant=` / `X-Tenant-Id`, which an
+/// authenticated tenant-A caller can set to `<B>` to read or poison tenant B's
+/// in-flight teammate draft (P1 isolation gap, security audit 2026-06-10).
+/// [`super::resolve_tenant::resolve_tenant_for_request`] prefers the
+/// `__Host-session` JWT `tnt` claim (WS1 keystone, PRs #2710/#2754), so a
+/// session caller can only ever resolve their OWN tenant; the explicit header
+/// is reachable only on the no-session path. Falls back to `extract_tenant`
+/// solely when there is no session store or the cwd resolver errors, so an
+/// anonymous/demo turn still keys somewhere rather than dropping to an empty
+/// tenant.
+async fn resolve_intake_tenant(req: &str, session_store: Option<&Arc<SessionStore>>) -> String {
+    match session_store {
+        Some(session_store) => {
+            match super::resolve_tenant::resolve_tenant_for_request(req, session_store).await {
+                Ok(tenant) => tenant.to_string(),
+                Err(_) => super::rate_limit::extract_tenant(req),
+            }
+        }
+        None => super::rate_limit::extract_tenant(req),
     }
 }
 

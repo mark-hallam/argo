@@ -83,3 +83,185 @@ async fn tenant_b_starts_a_fresh_conversation_for_the_same_id() {
     let a = store.load("op-a", "shared").expect("tenant A state");
     assert!(a.charter.is_some());
 }
+
+// --- Tenant-resolution isolation (fix-genesis-intake-tenant-resolution) ------
+//
+// The store key must come from the JWT-bound tenant, not the client-supplied
+// `X-Tenant-Id` header. These mirror #2710's `resolve_tenant_tests` pattern:
+// mint a `__Host-session` cookie JWT and assert the resolver/store-key honors
+// it over the header. Env handling uses the process-global gateway test lock so
+// the `SKYCOT_AUTH_JWT_SECRET` mutation can't be torn by a sibling module.
+
+use argo_identity::user::UserAccount;
+use argo_identity::user_store::insert_user;
+use argo_identity::{provision_for_user, ProvisionRequest};
+use argo_store::SessionStore;
+use argo_types::TenantId;
+use chrono::Utc;
+use jsonwebtoken::{EncodingKey, Header};
+use serde::Serialize;
+use std::sync::Arc;
+
+const TEST_SECRET: &str = "genesis-intake-resolution-test-secret";
+
+/// Minimal cookie-JWT claim shape — the fields the resolver reads.
+#[derive(Serialize)]
+struct TestClaims<'a> {
+    sub: &'a str,
+    email: &'a str,
+    tnt: Option<String>,
+    iat: i64,
+    exp: i64,
+}
+
+/// Mint a `__Host-session` cookie JWT carrying `tnt = tenant`.
+fn mint_session(tenant: &TenantId) -> String {
+    let now = Utc::now().timestamp();
+    jsonwebtoken::encode(
+        &Header::new(jsonwebtoken::Algorithm::HS256),
+        &TestClaims {
+            sub: "11111111-1111-1111-1111-111111111111",
+            email: "operator@example.com",
+            tnt: Some(tenant.to_string()),
+            iat: now - 10,
+            exp: now + 3600,
+        },
+        &EncodingKey::from_secret(TEST_SECRET.as_bytes()),
+    )
+    .expect("mint session jwt")
+}
+
+async fn session_store() -> Arc<SessionStore> {
+    let store = SessionStore::open(":memory:").await.expect("open store");
+    store.migrate().await.expect("migrate");
+    Arc::new(store)
+}
+
+/// Provision a fresh user → returns the tenant they own.
+async fn provision(store: &SessionStore, email: &str, ws: &str) -> TenantId {
+    let user = UserAccount::new(email.to_string());
+    insert_user(store, &user).await.expect("insert user");
+    provision_for_user(
+        store,
+        ProvisionRequest {
+            user_id: user.id,
+            user_email: &user.email,
+            workspace_name: ws,
+            company_name: None,
+        },
+    )
+    .await
+    .expect("provision")
+    .tenant_id
+}
+
+/// A `POST /api/v1/genesis/conversation` request with the given cookie +
+/// optional `X-Tenant-Id` override header.
+fn intake_req(jwt: &str, override_tenant: Option<&TenantId>) -> String {
+    let header = override_tenant
+        .map(|t| format!("X-Tenant-Id: {t}\r\n"))
+        .unwrap_or_default();
+    let body = r#"{"conversation_id":"c1","message":"Be my support agent"}"#;
+    format!(
+        "POST /api/v1/genesis/conversation HTTP/1.1\r\nHost: localhost\r\n\
+         Content-Type: application/json\r\n\
+         Cookie: __Host-session={jwt}\r\n{header}Content-Length: {}\r\n\r\n{body}",
+        body.len()
+    )
+}
+
+/// Acceptance 1 — an authed tenant-A request that ALSO carries
+/// `X-Tenant-Id: B` keys the intake store on A (the JWT tenant), never B.
+/// The header cannot redirect the store key.
+#[allow(clippy::await_holding_lock)]
+#[tokio::test]
+async fn authed_request_keys_on_jwt_tenant_not_header_override() {
+    let _g = crate::handlers::gateway::shared_env_lock().await;
+    std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
+
+    let store = session_store().await;
+    let tenant_a = provision(&store, "a@acme.test", "Acme A").await;
+    let tenant_b = provision(&store, "b@beta.test", "Beta B").await;
+    assert_ne!(tenant_a, tenant_b);
+
+    let jwt = mint_session(&tenant_a);
+    let req = intake_req(&jwt, Some(&tenant_b));
+    let resolved = resolve_intake_tenant(&req, Some(&store)).await;
+
+    assert_eq!(resolved, tenant_a.to_string(), "store key must be A's tenant");
+    assert_ne!(
+        resolved,
+        tenant_b.to_string(),
+        "X-Tenant-Id:B must NOT redirect the intake store key"
+    );
+
+    std::env::remove_var("SKYCOT_AUTH_JWT_SECRET");
+}
+
+/// Acceptance 1 (store contents) — driving a turn under the JWT-resolved
+/// tenant writes ONLY A's intake row; B's store is untouched even though the
+/// request carried `X-Tenant-Id: B`. Asserts store contents, not just status.
+#[allow(clippy::await_holding_lock)]
+#[tokio::test]
+async fn cross_tenant_header_cannot_read_or_poison_b_intake() {
+    let _g = crate::handlers::gateway::shared_env_lock().await;
+    std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
+
+    let session = session_store().await;
+    let tenant_a = provision(&session, "a@acme.test", "Acme A").await;
+    let tenant_b = provision(&session, "b@beta.test", "Beta B").await;
+
+    let jwt = mint_session(&tenant_a);
+    let req = intake_req(&jwt, Some(&tenant_b));
+    let resolved = resolve_intake_tenant(&req, Some(&session)).await;
+
+    // Drive the turn against a temp intake store under the resolved tenant —
+    // exactly what `respond` does, minus the global default dir.
+    let (_d, intake) = store();
+    run_turn(&intake, &resolved, "c1", Some("Be my support agent"), false, None)
+        .await
+        .expect("turn");
+
+    // A's row exists; B's was never created (no read, no poison).
+    assert!(
+        intake.load(&tenant_a.to_string(), "c1").is_some(),
+        "tenant A's intake row must exist under A's key"
+    );
+    assert!(
+        intake.load(&tenant_b.to_string(), "c1").is_none(),
+        "tenant B's intake store must be untouched by A's cross-tenant header"
+    );
+
+    std::env::remove_var("SKYCOT_AUTH_JWT_SECRET");
+}
+
+/// Acceptance 2 — a no-header authed request keys on the JWT tenant, NOT the
+/// cwd/config-default tenant the old `extract_tenant` collapsed everyone onto.
+#[allow(clippy::await_holding_lock)]
+#[tokio::test]
+async fn no_header_authed_request_keys_on_jwt_tenant_not_default() {
+    let _g = crate::handlers::gateway::shared_env_lock().await;
+    std::env::set_var("SKYCOT_AUTH_JWT_SECRET", TEST_SECRET);
+
+    let store = session_store().await;
+    let tenant_a = provision(&store, "a@acme.test", "Acme A").await;
+
+    // The tenant a no-session (anonymous/demo) request would resolve to.
+    let no_session = resolve_intake_tenant(
+        "POST /api/v1/genesis/conversation HTTP/1.1\r\n\r\n",
+        Some(&store),
+    )
+    .await;
+
+    let jwt = mint_session(&tenant_a);
+    let req = intake_req(&jwt, None);
+    let resolved = resolve_intake_tenant(&req, Some(&store)).await;
+
+    assert_eq!(resolved, tenant_a.to_string(), "must key on the JWT tenant");
+    assert_ne!(
+        resolved, no_session,
+        "authed request must NOT collapse onto the cwd/config-default tenant"
+    );
+
+    std::env::remove_var("SKYCOT_AUTH_JWT_SECRET");
+}

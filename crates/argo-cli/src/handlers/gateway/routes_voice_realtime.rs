@@ -204,7 +204,13 @@ pub(super) async fn transcript_turn_response(
     if parsed.role != "user" && parsed.role != "agent" {
         return bad_request("role must be \"user\" or \"agent\"");
     }
-    let tenant = super::rate_limit::extract_tenant(req);
+    // Stamp the transcript audit row under the JWT-resolved tenant (the same
+    // canonical resolver the audit feed reads back through), NOT the
+    // client-controlled `extract_tenant` header — otherwise a tenant-A caller
+    // could write into tenant B's voice history by sending `X-Tenant-Id: B`.
+    // Mirrors the genesis audit-write fix (#2737) and pairs with the matching
+    // read in `voice_sessions_response` so write and read agree on the tenant.
+    let tenant = super::resolve_tenant::resolve_audit_write_tenant(req, store).await;
     let principal = super::routes_auth_principal::principal_id_for_audit(req);
     let payload = json!({
         "session_id": parsed.session_id,
@@ -242,7 +248,12 @@ pub(super) async fn voice_sessions_response(
     let Some(store) = store else {
         return super::store_helpers::store_unavailable();
     };
-    let tenant = super::rate_limit::extract_tenant(req);
+    // Resolve the read tenant the SAME way `transcript_turn_response` stamps
+    // the write, so a session caller reads exactly their own voice history and
+    // never tenant B's by sending `X-Tenant-Id: B`. Using the client-controlled
+    // `extract_tenant` here let an authed tenant-A caller list tenant B's
+    // sessions; the JWT-first canonical resolver closes that.
+    let tenant = super::resolve_tenant::resolve_audit_write_tenant(req, store).await;
     let mode_filter = query_mode(req);
     // Scope the SQL scan to the caller's tenant so a busy tenant can't
     // starve this tenant's rows out of the SESSIONS_SCAN_CAP window.
