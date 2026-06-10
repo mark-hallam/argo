@@ -111,11 +111,19 @@ pub(crate) enum TruthBoundaryBinding {
 
 /// Combined Genesis signals for a session, all derived from a single
 /// worker-row read. Returned by [`genesis_signals_for_worker`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+///
+/// `Copy` was dropped when `fs_root` (a `String`) was added — every caller
+/// only reads fields, so by-value moves never occur.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct GenesisSignals {
     pub(crate) provenance: GenesisProvenance,
     pub(crate) probation: ProbationStatus,
     pub(crate) truth_boundary: TruthBoundaryBinding,
+    /// cu1 (DEC-050 G1): the worker's scoped filesystem sandbox root
+    /// (`worker.fs_root` column), when one is set. `None` for ad-hoc
+    /// sessions, workers with no sandbox, or an unreadable row — in which
+    /// case the capability fence emits no `Fs*` cap (default-deny preserved).
+    pub(crate) fs_root: Option<String>,
 }
 
 /// Read the worker row ONCE and derive both the Genesis capability-fence
@@ -149,6 +157,7 @@ pub(crate) async fn genesis_signals_for_worker(
         provenance: GenesisProvenance::None,
         probation: ProbationStatus::Normal,
         truth_boundary: TruthBoundaryBinding::None,
+        fs_root: None,
     };
     let Some(worker_id) = worker_id else {
         return normal;
@@ -183,10 +192,15 @@ pub(crate) async fn genesis_signals_for_worker(
                 }
                 None => TruthBoundaryBinding::None,
             };
+            // cu1 (DEC-050 G1): read the worker's scoped sandbox root from the
+            // SAME session-boot window. A NULL column / read error → `None`,
+            // which the fence treats as default-deny (no `Fs*` cap emitted).
+            let fs_root = attrs::read_worker_fs_root(store, tenant_id, worker_id).await;
             GenesisSignals {
                 provenance,
                 probation,
                 truth_boundary,
+                fs_root,
             }
         }
         Ok(None) => normal,
@@ -446,27 +460,13 @@ pub(crate) fn derive_profile_from_manifest(
     // manifest opts in (lists `delegate_task` in `[tools].allowed`) AND the
     // global `ARGO_WORKER_SWARM` flag is on. Both required → doubly default-off.
     let can_spawn_subagent =
-        swarm_enabled() && allowed.iter().any(|t| t.trim() == "delegate_task");
+        attrs::swarm_enabled() && allowed.iter().any(|t| t.trim() == "delegate_task");
     WorkerCapabilityProfile::derive(declared_actions, allowed, denied, integration_servers)
         .with_subagent_spawn(can_spawn_subagent)
 }
 
-/// DEC-049 master switch for worker child-teammate spawning. Reads
-/// `ARGO_WORKER_SWARM`; default OFF. Accepts `1`/`true`/`yes`/`on`
-/// (case-insensitive) as on, everything else (including unset) as off —
-/// mirrors the `ARGO_DUTY_AUTOFIRE` posture. Operator-only flip after a
-/// blast-radius review.
-#[must_use]
-pub(crate) fn swarm_enabled() -> bool {
-    matches!(
-        std::env::var("ARGO_WORKER_SWARM")
-            .ok()
-            .as_deref()
-            .map(|v| v.trim().to_ascii_lowercase())
-            .as_deref(),
-        Some("1" | "true" | "yes" | "on")
-    )
-}
+#[path = "turn_vertical_fence_attrs.rs"]
+mod attrs;
 
 #[cfg(test)]
 #[path = "turn_vertical_fence_probation_tests.rs"]

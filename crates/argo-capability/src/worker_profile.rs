@@ -47,6 +47,14 @@
 
 use argo_types::{Capability, CapabilitySet, SpawnKind};
 use std::collections::BTreeSet;
+use std::path::Path;
+
+/// In-core file-tool names a fenced teammate may hold. When a worker has a
+/// scoped `fs_root` AND its allow-set grants one of these, [`WorkerCapabilityProfile::to_capability_set`]
+/// emits the matching `Fs*` capability scoped to `<fs_root>/**` — never wider.
+/// `file_read` → `FsRead`; `file_write` / `file_patch` → `FsWrite`.
+const FILE_READ_TOOL: &str = "file_read";
+const FILE_WRITE_TOOLS: &[&str] = &["file_write", "file_patch"];
 
 /// Irreversible / business-ruining action verbs that ALWAYS require a
 /// human in the loop, no matter what a generated profile grants — matched
@@ -240,6 +248,16 @@ pub struct WorkerCapabilityProfile {
     /// manifest opt-in AND the `ARGO_WORKER_SWARM` flag. NEVER grants
     /// `Spawn{Subprocess}`/`{Container}` — those stay owner-only (host escape).
     can_spawn_subagent: bool,
+    /// cu1 (DEC-050 G1): when `Some`, this worker has a scoped filesystem
+    /// sandbox root. [`Self::to_capability_set`] then emits `FsRead`/`FsWrite`
+    /// caps scoped to `<fs_root>/**` — but ONLY for the file tools the
+    /// allow-set already grants (`file_read` → `FsRead`; `file_write` /
+    /// `file_patch` → `FsWrite`). `None` (the default) emits no `Fs*` caps at
+    /// all, so a worker without a sandbox keeps the historical default-deny:
+    /// it cannot touch the filesystem. Access is NEVER granted outside
+    /// `fs_root`, and a sandbox NEVER grants `Spawn` (terminal stays
+    /// owner-only — DEC-049). Set via [`Self::with_fs_root`].
+    fs_root: Option<String>,
 }
 
 impl WorkerCapabilityProfile {
@@ -292,7 +310,56 @@ impl WorkerCapabilityProfile {
             denied_tools: denied,
             draft_integrations,
             can_spawn_subagent: false,
+            fs_root: None,
         }
+    }
+
+    /// cu1 (DEC-050 G1): bind (or clear) this worker's scoped filesystem
+    /// sandbox root. When `fs_root` is `Some`, [`Self::to_capability_set`]
+    /// emits `FsRead`/`FsWrite` caps scoped to `<fs_root>/**` for whichever
+    /// file tools the allow-set already permits (`file_read` → `FsRead`;
+    /// `file_write` / `file_patch` → `FsWrite`). When `None` (the default),
+    /// no `Fs*` cap is emitted and the worker cannot touch the filesystem —
+    /// the historical default-deny posture is preserved.
+    ///
+    /// The grant is doubly fenced: a `file_*` tool that is NOT in the
+    /// allow-set (or is explicitly denied) yields no `Fs*` cap even with a
+    /// sandbox set, and the glob is ALWAYS confined to `<fs_root>/**` so a
+    /// worker can never read or write outside its own folder. A sandbox NEVER
+    /// emits `Spawn` of any kind.
+    ///
+    /// ```
+    /// use argo_capability::WorkerCapabilityProfile;
+    /// use argo_types::Capability;
+    /// use std::path::Path;
+    /// let profile = WorkerCapabilityProfile::derive(
+    ///     [], ["file_write".into()], [], [],
+    /// )
+    /// .with_fs_root(Some(Path::new("/tmp/w")));
+    /// let set = profile.to_capability_set();
+    /// assert!(set.covers(&Capability::FsWrite { path_glob: "/tmp/w/notes.txt".into() }));
+    /// // Never outside the sandbox:
+    /// assert!(!set.covers(&Capability::FsWrite { path_glob: "/tmp/other/x".into() }));
+    /// ```
+    #[must_use]
+    pub fn with_fs_root(mut self, fs_root: Option<&Path>) -> Self {
+        // Defense-in-depth (DEC-050 G1 security review): an empty or
+        // `..`-containing root would mint a `/**` or traversal glob. The
+        // capability `covers()` check is LEXICAL (the file tools' `confine_path`
+        // is the real traversal guard), so refuse such roots at the type
+        // boundary too — they resolve to `None` (no Fs grant) rather than a
+        // dangerous glob. The runtime reader already filters empty; this closes
+        // the same footgun for every caller of the type.
+        self.fs_root = fs_root
+            .map(|p| p.display().to_string())
+            .filter(|s| !s.trim().is_empty() && !s.contains(".."));
+        self
+    }
+
+    /// The worker's scoped filesystem sandbox root, if one is bound.
+    #[must_use]
+    pub fn fs_root(&self) -> Option<&str> {
+        self.fs_root.as_deref()
     }
 
     /// DEC-049: grant (or revoke) `Spawn{Subagent}` on this profile. The
@@ -401,6 +468,23 @@ impl WorkerCapabilityProfile {
             caps.push(Capability::Spawn {
                 spawn_kind: SpawnKind::Subagent,
             });
+        }
+        // cu1 (DEC-050 G1): a worker with a scoped sandbox gets `Fs*` caps
+        // confined to `<fs_root>/**`, but ONLY for the file tools its allow-set
+        // already permits (deny-wins via `permits_tool`). No sandbox → no `Fs*`
+        // cap (default-deny preserved). The glob is always rooted at `fs_root`,
+        // so a worker can never read or write outside its own folder; `Spawn`
+        // is never emitted from here (terminal stays owner-only — DEC-049).
+        if let Some(root) = &self.fs_root {
+            let glob = format!("{}/**", root.trim_end_matches('/'));
+            if self.permits_tool(FILE_READ_TOOL) {
+                caps.push(Capability::FsRead {
+                    path_glob: glob.clone(),
+                });
+            }
+            if FILE_WRITE_TOOLS.iter().any(|t| self.permits_tool(t)) {
+                caps.push(Capability::FsWrite { path_glob: glob });
+            }
         }
         CapabilitySet(caps)
     }

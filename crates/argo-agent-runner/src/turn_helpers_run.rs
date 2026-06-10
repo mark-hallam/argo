@@ -154,13 +154,27 @@ pub(super) async fn build_turn_dispatch_ctx(
             vertical_scope,
         );
     }
+    // cu1 (DEC-050 G1): bind the worker's scoped sandbox root onto the derived
+    // profile so `to_capability_set` emits `FsRead`/`FsWrite{<fs_root>/**}` for
+    // whichever file tools the manifest allows. No sandbox → no `Fs*` cap
+    // (default-deny preserved). A deny-all (fail-closed) profile carries no
+    // `file_*` tool, so attaching a root to it still emits nothing.
+    let fs_root_path = signals.fs_root.as_deref().map(Path::new);
     let worker_profile = fence::resolve_worker_profile_for_session(
         session.tenant_id,
         vertical_scope,
         signals.provenance,
-    );
+    )
+    .map(|p| p.with_fs_root(fs_root_path));
+    // The file tools jail to the dispatch `cwd`. When the worker has a sandbox,
+    // jail the tools to `fs_root` so the physical jail COINCIDES with the
+    // granted glob — a read/write the capability fence permits resolves to a
+    // real path inside the sandbox. Without a sandbox, the historical `cwd`
+    // default is unchanged. `cwd` is still used above for manifest / memory /
+    // truth-boundary loading (those live in the home dir, not the sandbox).
+    let dispatch_cwd: &Path = fs_root_path.unwrap_or(cwd);
     let (registry, engine, principal) = build_dispatch_ctx(
-        cwd,
+        dispatch_cwd,
         memory_ctx,
         memory_namespace,
         Arc::clone(&orchestrator_ctx),

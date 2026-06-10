@@ -254,3 +254,197 @@ fn with_subagent_spawn_false_revokes() {
         .to_capability_set()
         .covers(&spawn(SpawnKind::Subagent)));
 }
+
+// ---- cu1 (DEC-050 G1): worker-scoped filesystem sandbox grant ----
+
+use std::path::Path;
+
+fn fs_read(glob: &str) -> Capability {
+    Capability::FsRead {
+        path_glob: glob.to_string(),
+    }
+}
+
+fn fs_write(glob: &str) -> Capability {
+    Capability::FsWrite {
+        path_glob: glob.to_string(),
+    }
+}
+
+#[test]
+fn fs_root_with_file_write_grants_scoped_fswrite_only() {
+    // Brief acceptance #1: derive(fs_root=/tmp/w) + allowed ["file_write"]
+    // → set covers FsWrite{/tmp/w/**} and does NOT cover a path outside the
+    // sandbox, Spawn, or a terminal ToolDispatch.
+    let profile = WorkerCapabilityProfile::derive(
+        Vec::<String>::new(),
+        ["file_write".into()],
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+    )
+    .with_fs_root(Some(Path::new("/tmp/w")));
+    let set = profile.to_capability_set();
+    // Covers writes INSIDE the sandbox.
+    assert!(set.covers(&fs_write("/tmp/w/report.txt")));
+    assert!(set.covers(&fs_write("/tmp/w/sub/dir/a.md")));
+    // Never outside the sandbox.
+    assert!(!set.covers(&fs_write("/tmp/other/x")));
+    assert!(!set.covers(&fs_write("/etc/passwd")));
+    // file_write alone does NOT grant read.
+    assert!(!set.covers(&fs_read("/tmp/w/report.txt")));
+    // No Spawn, no terminal — the sandbox loosens ONLY the fs fence.
+    assert!(!set.covers(&spawn(SpawnKind::Subagent)));
+    assert!(!set.covers(&spawn(SpawnKind::Subprocess)));
+    assert!(!set.covers(&tool("terminal")));
+}
+
+#[test]
+fn fs_root_with_file_read_grants_scoped_fsread_only() {
+    let profile = WorkerCapabilityProfile::derive(
+        Vec::<String>::new(),
+        ["file_read".into()],
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+    )
+    .with_fs_root(Some(Path::new("/tmp/w")));
+    let set = profile.to_capability_set();
+    assert!(set.covers(&fs_read("/tmp/w/notes.md")));
+    assert!(!set.covers(&fs_read("/tmp/other/secret")));
+    // Read-only: no write grant.
+    assert!(!set.covers(&fs_write("/tmp/w/notes.md")));
+}
+
+#[test]
+fn fs_root_with_file_patch_grants_fswrite() {
+    // file_patch is a mutation tool → FsWrite (not FsRead).
+    let profile = WorkerCapabilityProfile::derive(
+        Vec::<String>::new(),
+        ["file_patch".into()],
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+    )
+    .with_fs_root(Some(Path::new("/tmp/w")));
+    let set = profile.to_capability_set();
+    assert!(set.covers(&fs_write("/tmp/w/app.rs")));
+    assert!(!set.covers(&fs_read("/tmp/w/app.rs")));
+}
+
+#[test]
+fn no_fs_root_emits_no_fs_caps_default_deny_preserved() {
+    // Brief acceptance #1 regression pin: fs_root=None → NO Fs caps even when
+    // the file tools are in the allow-set. Default-deny is preserved; a worker
+    // without a sandbox cannot touch the filesystem at all.
+    let profile = WorkerCapabilityProfile::derive(
+        Vec::<String>::new(),
+        ["file_read".into(), "file_write".into(), "file_patch".into()],
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+    );
+    assert_eq!(profile.fs_root(), None);
+    let set = profile.to_capability_set();
+    assert!(!set.covers(&fs_read("/tmp/w/x")));
+    assert!(!set.covers(&fs_write("/tmp/w/x")));
+    // Slash-glob form is also not covered.
+    assert!(!set.covers(&fs_read("/anything")));
+}
+
+#[test]
+fn fs_root_without_file_tool_emits_no_fs_caps() {
+    // A sandbox set but NO file_* tool in the allow-set → no Fs cap. The grant
+    // requires BOTH the sandbox AND the tool.
+    let profile = WorkerCapabilityProfile::derive(
+        Vec::<String>::new(),
+        ["web_search".into()],
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+    )
+    .with_fs_root(Some(Path::new("/tmp/w")));
+    let set = profile.to_capability_set();
+    assert!(!set.covers(&fs_read("/tmp/w/x")));
+    assert!(!set.covers(&fs_write("/tmp/w/x")));
+}
+
+#[test]
+fn fs_root_respects_deny_wins() {
+    // file_write in BOTH allowed + denied → deny wins, so no FsWrite cap even
+    // with a sandbox.
+    let profile = WorkerCapabilityProfile::derive(
+        Vec::<String>::new(),
+        ["file_read".into(), "file_write".into()],
+        ["file_write".into()],
+        Vec::<String>::new(),
+    )
+    .with_fs_root(Some(Path::new("/tmp/w")));
+    let set = profile.to_capability_set();
+    // Read survives; write is denied.
+    assert!(set.covers(&fs_read("/tmp/w/x")));
+    assert!(!set.covers(&fs_write("/tmp/w/x")));
+}
+
+#[test]
+fn with_fs_root_none_clears_the_sandbox() {
+    let profile = WorkerCapabilityProfile::derive(
+        Vec::<String>::new(),
+        ["file_write".into()],
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+    )
+    .with_fs_root(Some(Path::new("/tmp/w")))
+    .with_fs_root(None);
+    assert_eq!(profile.fs_root(), None);
+    assert!(!profile
+        .to_capability_set()
+        .covers(&fs_write("/tmp/w/x")));
+}
+
+#[test]
+fn fs_root_trailing_slash_normalized() {
+    // A root with a trailing slash must not produce a `//**` double-slash glob.
+    let profile = WorkerCapabilityProfile::derive(
+        Vec::<String>::new(),
+        ["file_read".into()],
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+    )
+    .with_fs_root(Some(Path::new("/tmp/w/")));
+    let set = profile.to_capability_set();
+    assert!(set.covers(&fs_read("/tmp/w/notes.md")));
+    assert!(!set.covers(&fs_read("/tmp/other/x")));
+}
+
+#[test]
+fn with_fs_root_rejects_empty_and_traversal_roots() {
+    // Defense-in-depth (DEC-050 G1 review): the capability `covers()` glob is
+    // lexical, so an empty root (`/**`) or a `..`-containing root would mint a
+    // dangerous/escaping glob. `with_fs_root` refuses them at the type boundary
+    // → they resolve to None (no Fs grant). (The file tools' confine_path is
+    // the real runtime traversal guard; this is belt-and-suspenders.)
+    for bad in ["", "   ", "/tmp/w/..", "../../etc", "/tmp/../etc"] {
+        let profile = WorkerCapabilityProfile::derive(
+            Vec::<String>::new(),
+            ["file_write".into(), "file_read".into()],
+            Vec::<String>::new(),
+            Vec::<String>::new(),
+        )
+        .with_fs_root(Some(Path::new(bad)));
+        let set = profile.to_capability_set();
+        assert!(
+            !set.covers(&fs_write("/etc/passwd")),
+            "root {bad:?} must not mint an escaping FsWrite glob"
+        );
+        assert!(
+            !set.covers(&fs_write("/tmp/w/x")),
+            "root {bad:?} must grant NO Fs cap at all"
+        );
+        assert!(!set.covers(&fs_read("/tmp/w/x")));
+    }
+    // Sanity: a clean root still grants the scoped cap.
+    let ok = WorkerCapabilityProfile::derive(
+        Vec::<String>::new(),
+        ["file_write".into()],
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+    )
+    .with_fs_root(Some(Path::new("/tmp/w")));
+    assert!(ok.to_capability_set().covers(&fs_write("/tmp/w/ok.txt")));
+}
