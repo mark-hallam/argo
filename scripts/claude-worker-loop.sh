@@ -836,9 +836,33 @@ PY
   # Default OFF (DEC-042): with ARGO_STOP_GATE unset, the guard short-circuits
   # and this block is a no-op — the ship path is byte-identical to pre-B-2.
   # ----------------------------------------------------------------------
+  stop_gate_held=0
   if [ "${ARGO_STOP_GATE:-0}" = "1" ] && command -v stop_gate_enforce >/dev/null 2>&1; then
     set +e
-    stop_gate_enforce "$BRIEF_ID" "$FAMILY-$BRIEF_ID" "$REPO"
+    if ! stop_gate_enforce "$BRIEF_ID" "$FAMILY-$BRIEF_ID" "$REPO"; then
+      stop_gate_held=1
+    fi
+    set -e
+  fi
+
+  # ----------------------------------------------------------------------
+  # DEC-042 B-4 separate verify-agent — every change carries a verdict from a
+  # DIFFERENT context than the author. The deterministic stop-gate above is
+  # author-independent but mechanical; this spawns a fresh, read-only `claude -p`
+  # verify session that judges whether the diff satisfies the brief's acceptance
+  # criteria and whether the added tests pin the claimed behavior (the judgment
+  # layer the builder session can't supply unbiased). On FAIL it holds the row
+  # IN_REVIEW->NEEDS-FIX and comments the reason; all logic lives in the script.
+  #
+  # Deterministic gates first: skip when the stop-gate already held the row (it's
+  # NEEDS-FIX, no point spending a model call). Default OFF (DEC-042): with
+  # ARGO_SEPARATE_VERIFIER unset the script is a no-op — byte-identical to pre-B-4.
+  # ----------------------------------------------------------------------
+  if [ "${ARGO_SEPARATE_VERIFIER:-0}" = "1" ] && [ "$stop_gate_held" -eq 0 ] \
+       && [ -r "$REPO/scripts/stop-gate-verify-agent.sh" ]; then
+    set +e
+    bash "$REPO/scripts/stop-gate-verify-agent.sh" \
+      --brief "$BRIEF_ID" --branch "$FAMILY-$BRIEF_ID" --repo "$REPO"
     set -e
   fi
 
