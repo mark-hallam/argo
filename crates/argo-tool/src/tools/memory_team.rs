@@ -15,21 +15,29 @@ use argo_memory::shared_team::{shared_team, SharedEntry, SharedTeamNs};
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use uuid::Uuid;
 
-/// Resolve the shared-team namespace for the action, plus the
-/// worker id used as the author stamp on writes. The worker must
-/// be bound to a `MemoryNs` (via `Memory::with_namespace`); the
-/// `list` / `read` / `write` legacy actions don't require this.
-fn resolve_namespace(
+/// Soft, non-error degradation returned by the team actions when the
+/// `memory` tool is not bound to a worker namespace (a bare operator
+/// session). Returned in place of a hard `ArgoError::Tool` so the line
+/// never surfaces as a tool error in a customer transcript
+/// (defense-in-depth alongside the run-path binding in
+/// `argo-agent-runner::turn_helpers_run`). See
+/// `fix-worker-run-memory-namespace-unbound-team-actions`.
+const UNBOUND_TEAM_MEMORY: &str =
+    "(no team memory available — this session is not bound to a worker namespace)\n";
+
+/// Resolve the shared-team namespace for the action, plus the worker
+/// id used as the author stamp on writes. Returns `Ok(None)` when the
+/// tool is not bound to a worker namespace (via `Memory::with_namespace`)
+/// so callers degrade gracefully instead of raising a hard tool error.
+/// A malformed or cross-tenant `team_id` is still a hard `Err` — those
+/// are genuine misuse, not a missing binding.
+fn try_resolve_namespace(
     wired: &WiredMemory,
     team_id: Option<&str>,
-) -> ArgoResult<(SharedTeamNs, WorkerId)> {
-    let ns = wired.namespace.as_ref().ok_or_else(|| ArgoError::Tool {
-        tool: "memory".into(),
-        msg: "memory tool not bound to a worker namespace — \
-             team actions require `Memory::with_namespace(store, ws, vertical_id, ns)` \
-             instead of `Memory::new(store, ws, vertical_id)`."
-            .into(),
-    })?;
+) -> ArgoResult<Option<(SharedTeamNs, WorkerId)>> {
+    let Some(ns) = wired.namespace.as_ref() else {
+        return Ok(None);
+    };
     let tenant = match team_id {
         None => ns.tenant_id,
         Some(raw) => {
@@ -48,7 +56,7 @@ fn resolve_namespace(
             TenantId(parsed)
         }
     };
-    Ok((shared_team(tenant), ns.worker_id))
+    Ok(Some((shared_team(tenant), ns.worker_id)))
 }
 
 /// Format every shared-team row visible to this tenant. One row per
@@ -59,7 +67,9 @@ pub(super) async fn list_team_action(
     wired: &WiredMemory,
     team_id: Option<&str>,
 ) -> ArgoResult<String> {
-    let (ns, _author) = resolve_namespace(wired, team_id)?;
+    let Some((ns, _author)) = try_resolve_namespace(wired, team_id)? else {
+        return Ok(UNBOUND_TEAM_MEMORY.into());
+    };
     let entries = wired.store.read_shared_team(&ns).await?;
     if entries.is_empty() {
         return Ok("(no shared-team entries)\n".into());
@@ -98,7 +108,9 @@ pub(super) async fn read_team_action(
         tool: "memory".into(),
         msg: format!("invalid read_team `entry` (expected uuid): {e}"),
     })?;
-    let (ns, _author) = resolve_namespace(wired, team_id)?;
+    let Some((ns, _author)) = try_resolve_namespace(wired, team_id)? else {
+        return Ok(UNBOUND_TEAM_MEMORY.into());
+    };
     let entries = wired.store.read_shared_team(&ns).await?;
     entries
         .into_iter()
@@ -123,7 +135,13 @@ pub(super) async fn write_team_action(
         tool: "memory".into(),
         msg: "missing required `content` for write_team".into(),
     })?;
-    let (ns, author) = resolve_namespace(wired, team_id)?;
+    // NO THEATER: when there is no bound worker namespace we cannot write,
+    // so report the skip truthfully rather than claiming a write happened.
+    let Some((ns, author)) = try_resolve_namespace(wired, team_id)? else {
+        return Ok("shared-team write skipped: this session is not bound to a worker \
+                   namespace, so there is no team memory to write to."
+            .into());
+    };
     let written = wired
         .store
         .write_shared_team(&ns, author, body.to_string())

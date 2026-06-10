@@ -151,22 +151,23 @@ async fn query_scored_unwired_errors_with_historical_message() {
 }
 
 #[tokio::test]
-async fn query_scored_wired_without_namespace_explains_binding() {
+async fn query_scored_wired_without_namespace_degrades_to_empty_list() {
+    // fix-worker-run-memory-namespace-unbound-team-actions: a bare
+    // operator session (no bound worker namespace) must NOT raise a hard
+    // tool error that would leak into a customer transcript — it degrades
+    // to an empty hit list instead.
     let (store, ws) = fresh_store().await;
     let tool = Memory::new(store, ws, None);
-    let err = tool
+    let r = tool
         .dispatch(
             serde_json::json!({"action": "query_scored", "query": "alpha"}),
             &ctx(),
         )
         .await
-        .expect_err("must reject when no namespace bound");
-    let msg = err.to_string();
-    assert!(
-        msg.contains("not bound to a worker namespace"),
-        "got: {msg}"
-    );
-    assert!(msg.contains("Memory::with_namespace"), "got: {msg}");
+        .expect("must degrade gracefully, not error");
+    assert!(!r.is_error, "unbound query_scored must not be a tool error");
+    let hits: Vec<serde_json::Value> = serde_json::from_str(&first_text(&r)).expect("json");
+    assert!(hits.is_empty(), "unbound query_scored returns empty hits");
 }
 
 // ───────────────── shared-team actions ─────────────────
@@ -322,17 +323,66 @@ async fn read_team_cross_tenant_team_id_is_rejected() {
 }
 
 #[tokio::test]
-async fn team_actions_without_namespace_binding_explain_requirement() {
+async fn team_actions_without_namespace_binding_degrade_gracefully() {
+    // fix-worker-run-memory-namespace-unbound-team-actions: team actions on
+    // a session with no bound worker namespace must degrade (Ok, soft
+    // message) rather than raising a hard tool error into the transcript.
     let (store, ws) = fresh_store().await;
     let tool = Memory::new(store, ws, None);
-    let err = tool
+
+    // list_team → empty / "no team memory available", not an error.
+    let list = tool
         .dispatch(serde_json::json!({"action": "list_team"}), &ctx())
         .await
-        .expect_err("must require a bound namespace");
-    let msg = err.to_string();
+        .expect("list_team must degrade, not error");
+    assert!(!list.is_error, "list_team must not be a tool error");
     assert!(
-        msg.contains("not bound to a worker namespace"),
-        "got: {msg}"
+        first_text(&list).contains("no team memory available"),
+        "got: {}",
+        first_text(&list)
     );
-    assert!(msg.contains("team actions"), "got: {msg}");
+
+    // read_team → same soft degradation (entry id is well-formed).
+    let read = tool
+        .dispatch(
+            serde_json::json!({"action": "read_team", "entry": Uuid::nil().to_string()}),
+            &ctx(),
+        )
+        .await
+        .expect("read_team must degrade, not error");
+    assert!(!read.is_error, "read_team must not be a tool error");
+
+    // write_team → truthful skip (NO THEATER: never claims a write happened).
+    let write = tool
+        .dispatch(
+            serde_json::json!({"action": "write_team", "content": "x"}),
+            &ctx(),
+        )
+        .await
+        .expect("write_team must degrade, not error");
+    assert!(!write.is_error, "write_team must not be a tool error");
+    assert!(
+        first_text(&write).contains("write skipped"),
+        "got: {}",
+        first_text(&write)
+    );
+}
+
+#[tokio::test]
+async fn cross_tenant_team_id_stays_hard_error_even_when_degrading_path_exists() {
+    // The graceful-degradation path is ONLY for a missing worker binding.
+    // A bound session given a mismatched team_id is genuine misuse and must
+    // still be rejected hard.
+    let (store, ws) = fresh_store().await;
+    let ns = ns_for();
+    let tool = Memory::with_namespace(store, ws, None, ns);
+    let other = TenantId::new();
+    let err = tool
+        .dispatch(
+            serde_json::json!({"action": "list_team", "team_id": other.to_string()}),
+            &ctx(),
+        )
+        .await
+        .expect_err("cross-tenant team_id must still be rejected");
+    assert!(err.to_string().contains("cross-team"), "got: {err}");
 }

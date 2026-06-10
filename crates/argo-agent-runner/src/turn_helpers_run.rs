@@ -120,12 +120,13 @@ pub(super) async fn build_turn_dispatch_ctx(
             vertical_scope.map(str::to_string),
         )
     });
-    // codex-memory-tool-namespace-wiring (F-03 P1): when the
-    // session carries a `worker_id`, bind the in-core `memory` tool
-    // to a per-worker `MemoryNs` so the `query_scored` / `*_team`
-    // actions address the tenant-scoped namespace store.
-    let memory_namespace =
-        worker_id.map(|wid| MemoryNs::new(session.tenant_id, wid, MemoryScope::WorkerSelf));
+    // codex-memory-tool-namespace-wiring (F-03 P1) + fix-worker-run-memory-
+    // namespace: bind `memory` to a per-worker `MemoryNs`. Ground on the
+    // PERSISTED `session.worker_id` (fallback) so the work-dispatch "Run now"
+    // path binds even if the threaded param is dropped (DEC-041 fence below).
+    let memory_namespace = worker_id
+        .or(session.worker_id)
+        .map(|wid| MemoryNs::new(session.tenant_id, wid, MemoryScope::WorkerSelf));
     let orchestrator_ctx = Arc::new(argo_orchestrator::OrchestratorStore::new(store.clone()));
     let orch_session_id = argo_orchestrator::SessionId::from_string(session_id.to_string());
     let current_handoff_id = current_inbound_handoff_id(

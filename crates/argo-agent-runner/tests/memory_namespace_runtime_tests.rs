@@ -5,10 +5,12 @@
 //! — actually binds the tool to a `MemoryNs` when one is supplied,
 //! so `query_scored` can reach the per-worker namespace store and a
 //! second worker cannot see the first worker's private rows. Without
-//! the wire, the tool falls back to `Memory::new` and `query_scored`
-//! returns the "not bound to a worker namespace" error.
+//! the wire, the tool falls back to `Memory::new`; the
+//! namespace-requiring actions then degrade gracefully (empty / soft
+//! result) rather than raising a hard tool error into the transcript.
 //!
-//! Brief: `codex-memory-tool-namespace-wiring` (F-03 P1).
+//! Briefs: `codex-memory-tool-namespace-wiring` (F-03 P1) +
+//! `fix-worker-run-memory-namespace-unbound-team-actions`.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -168,19 +170,77 @@ async fn runtime_namespace_isolates_workers_in_same_tenant() {
 }
 
 #[tokio::test]
-async fn runtime_namespace_unbound_errors_with_actionable_hint() {
+async fn runtime_namespace_unbound_degrades_gracefully() {
+    // fix-worker-run-memory-namespace-unbound-team-actions: through the
+    // PRODUCTION `builtin_tools_with_runtime` constructor, an unbound
+    // session (no worker namespace) must NOT raise a hard tool error for
+    // the namespace-requiring actions — it degrades to an empty / soft
+    // result so the line never surfaces in a customer transcript.
     let fx = fresh().await;
     let tool = memory_tool(&fx, None);
-    let err = tool
+
+    let q = tool
         .dispatch(
             serde_json::json!({"action": "query_scored", "query": "anything"}),
             &ctx(fx.tenant),
         )
         .await
-        .expect_err("query_scored without a bound namespace must error");
-    let msg = err.to_string();
+        .expect("query_scored must degrade, not error");
+    assert!(!q.is_error, "unbound query_scored must not error: {:?}", q.content);
+    let hits: Vec<serde_json::Value> =
+        serde_json::from_str(&text_body(&q)).expect("empty hit envelope JSON");
+    assert!(hits.is_empty(), "unbound query_scored returns empty hits");
+
+    let l = tool
+        .dispatch(serde_json::json!({"action": "list_team"}), &ctx(fx.tenant))
+        .await
+        .expect("list_team must degrade, not error");
+    assert!(!l.is_error, "unbound list_team must not error: {:?}", l.content);
     assert!(
-        msg.contains("Memory::with_namespace"),
-        "error must name the with_namespace constructor: {msg}",
+        text_body(&l).contains("no team memory available"),
+        "got: {}",
+        text_body(&l)
     );
+}
+
+/// Acceptance #1: a worker-stamped run binds the namespace so the
+/// `*_team` actions are reachable end-to-end through the production
+/// constructor (the path `build_turn_dispatch_ctx` now feeds from
+/// `session.worker_id`). Fills the coverage gap the brief flags —
+/// `routes_worker_run_tests` use the mock provider and never exercise
+/// memory actions.
+#[tokio::test]
+async fn runtime_namespace_bind_lets_team_actions_reach_store() {
+    let fx = fresh().await;
+    let worker = WorkerId::new();
+    let ns = MemoryNs::new(fx.tenant, worker, MemoryScope::WorkerSelf);
+    let tool = memory_tool(&fx, Some(ns));
+
+    // write_team under a bound namespace persists (not the skip message).
+    let w = tool
+        .dispatch(
+            serde_json::json!({"action": "write_team", "content": "team note"}),
+            &ctx(fx.tenant),
+        )
+        .await
+        .expect("write_team ok");
+    assert!(!w.is_error, "bound write_team: {:?}", w.content);
+    assert!(
+        text_body(&w).contains("wrote shared-team entry"),
+        "got: {}",
+        text_body(&w)
+    );
+
+    // list_team sees the row and never raises the "not bound" error.
+    let l = tool
+        .dispatch(serde_json::json!({"action": "list_team"}), &ctx(fx.tenant))
+        .await
+        .expect("list_team ok");
+    assert!(!l.is_error, "bound list_team: {:?}", l.content);
+    let body = text_body(&l);
+    assert!(
+        !body.contains("not bound to a worker namespace"),
+        "bound session must not see the unbound error: {body}"
+    );
+    assert!(body.contains("bytes="), "list_team must show the row: {body}");
 }

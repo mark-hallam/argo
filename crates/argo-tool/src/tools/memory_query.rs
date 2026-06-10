@@ -76,13 +76,16 @@ pub(super) async fn query_scored_action(
                 .into(),
         });
     }
-    let ns = wired.namespace.as_ref().ok_or_else(|| ArgoError::Tool {
-        tool: "memory".into(),
-        msg: "memory tool not bound to a worker namespace — \
-             register via `Memory::with_namespace(store, ws, vertical_id, ns)` \
-             instead of `Memory::new(store, ws, vertical_id)`."
-            .into(),
-    })?;
+    // Degrade gracefully on a bare operator session (no bound worker
+    // namespace): return an empty hit list rather than a hard tool error
+    // that would surface in a customer transcript. The run path now binds
+    // the namespace for hired teammates
+    // (argo-agent-runner::turn_helpers_run), so only genuinely worker-less
+    // sessions reach this branch.
+    // Fix: fix-worker-run-memory-namespace-unbound-team-actions.
+    let Some(ns) = wired.namespace.as_ref() else {
+        return Ok("[]".to_string());
+    };
     let k = parsed
         .limit
         .unwrap_or(DEFAULT_QUERY_SCORED_LIMIT)
