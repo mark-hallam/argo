@@ -75,6 +75,12 @@ the build moving, safely and verifiably.
   claim stash un-staged a conductor batch mid-commit).
 - **Shared-checkout safety:** `git add` explicit files only; fetch+rebase
   before push; NEVER `git reset --hard` the shared tree from the conductor.
+  **Before ANY ledger commit, verify the shared checkout is on `main`
+  (`git branch --show-current` = main).** A worker can leave it on a feature
+  branch; then `git push origin main` SILENTLY no-ops while your commit lands
+  on the worker branch (observed 2026-06-10 — recovered by cherry-picking the
+  stranded commit onto main in a throwaway worktree, then `git branch -f`
+  the local feature ref back to origin).
 - **Exit codes:** NEVER judge a gate, merge, or hook by a `| tail`/`| grep`
   pipeline — pipes mask non-zero exits (bit three times on 2026-06-10).
   Pattern: `out=$(cmd 2>&1); rc=$?` then print what you need.
