@@ -3,15 +3,23 @@
 //! When a worker turn is servicing an inbound handoff, `delegate_task`
 //! must see that active handoff id on `ToolContext` and prepend the
 //! delegated worker to the still-active escalation chain.
+//!
+//! `delegate_task` requires the `Spawn{Subagent}` capability, and under the
+//! DEC-041 (D) capability fence a worker-bound session with no derived
+//! profile binds a deny-all role — so the fixture provisions the worker as a
+//! fenced-but-Spawn-capable Genesis teammate through the REAL fence path (a
+//! manifest that opts into `delegate_task` + the DEC-049 `ARGO_WORKER_SWARM`
+//! grant), NOT by disabling the fence. See [`provision_spawn_capable_worker`].
 
 use argo_agent_runner::run_turn_with_events;
+use argo_identity::{IdentityStore, Persona, Role, Worker};
 use argo_orchestrator::{
     EscalationChain, EscalationStep, Handoff, OrchestratorStore, SessionId as OrchSessionId,
 };
 use argo_store::{SessionCreate, SessionStore, StoreResult, WorkerId};
 use argo_types::{SessionId, TenantId};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tempfile::TempDir;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
@@ -20,6 +28,32 @@ const PROVIDER: &str = "orchestrator";
 const MODEL: &str = "claude-delegate-chain-smoke";
 const API_KEY_ENV: &str = "ARGO_DELEGATE_CHAIN_SMOKE_KEY";
 const HUMAN_FALLBACK: &str = "ops@example.test";
+
+/// Genesis vertical id the fixture provisions a Spawn-granting manifest for.
+/// Must satisfy the fence's `is_safe_vertical_id` (ASCII alnum / `-` / `_`).
+const VERTICAL_ID: &str = "delegate-chain-spawn";
+
+/// Process-global verticals discovery root for this test binary. The runtime
+/// fence resolves a worker's capability profile from
+/// `$ARGO_VERTICALS_DIR/.genesis/<tenant-slug>/<vertical_id>/vertical.toml`
+/// via `argo_vertical::default_dir()`, so the fixture writes its
+/// Spawn-granting manifest there. Set ONCE (`OnceLock`) so the two parallel
+/// tests in this binary don't race on `set_var`; each test writes its OWN
+/// tenant slug under the shared root, so scheduling order is irrelevant.
+/// `ARGO_WORKER_SWARM=1` is the DEC-049 master switch the `Spawn{Subagent}`
+/// grant requires (manifest opt-in AND flag on).
+static VERTICALS_ROOT: OnceLock<TempDir> = OnceLock::new();
+
+fn verticals_root() -> &'static std::path::Path {
+    VERTICALS_ROOT
+        .get_or_init(|| {
+            let dir = TempDir::new().expect("verticals root tempdir");
+            std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+            std::env::set_var("ARGO_WORKER_SWARM", "1");
+            dir
+        })
+        .path()
+}
 
 #[derive(Clone)]
 struct DelegateSequence {
@@ -105,6 +139,10 @@ async fn fixture(with_active_handoff: bool) -> StoreResult<Fixture> {
     let (tenant, workspace) = store
         .ensure_workspace("delegate-chain", cwd.path().to_string_lossy().as_ref())
         .await?;
+    // Lift the worker out of the DEC-041 (D) deny-all fence the REAL way:
+    // a Genesis-provenance worker bound to a manifest that grants
+    // `delegate_task` (Spawn-capable under `ARGO_WORKER_SWARM`).
+    provision_spawn_capable_worker(&store, tenant, receiver).await?;
     let session = store
         .create_session_with_worker(SessionCreate {
             tenant_id: tenant,
@@ -112,7 +150,7 @@ async fn fixture(with_active_handoff: bool) -> StoreResult<Fixture> {
             model: MODEL,
             provider: PROVIDER,
             title: Some("delegate-chain"),
-            vertical_id: None,
+            vertical_id: Some(VERTICAL_ID),
             worker_id: Some(receiver),
         })
         .await?;
@@ -217,6 +255,54 @@ async fn emitted_handoff(f: &Fixture) -> Handoff {
         .into_iter()
         .find(|handoff| handoff.to == EscalationStep::Worker(f.callee))
         .expect("delegated handoff")
+}
+
+/// Provision the fixture's worker as a fenced-but-Spawn-capable Genesis
+/// teammate via the REAL runtime fence path (NOT by disabling the
+/// DEC-041 (D) deny-all fence):
+///
+/// 1. Write a Genesis vertical manifest under THIS tenant's
+///    `.genesis/<slug>/<VERTICAL_ID>/` that opts into `delegate_task`, so
+///    `resolve_worker_profile_for_session` derives a profile whose
+///    `Spawn{Subagent}` grant is on (under `ARGO_WORKER_SWARM=1`). The
+///    manifest declares no `[tools].denied` / `[escalation]`, so
+///    `delegate_task` is neither hidden nor approval-gated.
+/// 2. Persist a worker row carrying Genesis provenance (`genesis_plan_id=`)
+///    — the signal that makes the fence derive a profile instead of binding
+///    the deny-all default — with `probation_until` in the past, i.e. a
+///    GRADUATED teammate, so the P3 probation gate does not force-hold the
+///    delegation.
+async fn provision_spawn_capable_worker(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    worker_id: WorkerId,
+) -> StoreResult<()> {
+    let slug = argo_vertical::sanitize_tenant(&tenant.to_string());
+    let dir = verticals_root().join(".genesis").join(slug).join(VERTICAL_ID);
+    std::fs::create_dir_all(&dir).expect("genesis vertical dir");
+    std::fs::write(
+        dir.join("vertical.toml"),
+        format!(
+            "schema_version = \"1\"\n\
+             [vertical]\nid = \"{VERTICAL_ID}\"\nname = \"Delegate Chain Spawn\"\n\
+             version = \"0.1.0\"\n\
+             [tools]\nallowed = [\"delegate_task\"]\ndenied = []\n"
+        ),
+    )
+    .expect("write genesis manifest");
+
+    let mut worker = Worker::draft(
+        tenant,
+        VERTICAL_ID,
+        Persona::named("Delegator", "human:test"),
+        Role::new("Delegate downstream work to a child teammate."),
+    );
+    worker.id = worker_id;
+    worker.persona.provenance_chain = vec![
+        format!("genesis_plan_id={VERTICAL_ID}"),
+        "probation_until=2000-01-01T00:00:00+00:00".to_string(),
+    ];
+    IdentityStore::new(store).create_worker(&worker).await
 }
 
 fn write_manifest(cwd: &std::path::Path, base_url: &str) {
