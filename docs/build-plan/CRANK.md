@@ -113,6 +113,8 @@ mergeability — poll `gh pr view <N> --json mergeable` until not UNKNOWN
 before acting on the next. Conflicted second PR: rebase in a throwaway
 worktree, keep the NEWEST row from each side, force-push with lease.
 
+**Stacked squash-merges DROP the 2nd PR's delta — verify on main, not the worktree.** If PR B is stacked on PR A (B's branch contains A's commits), squash-merging B *after* A can land an empty/wrong diff (GitHub squashes B against a base that already has A's changes). AFTER merging any stacked pair, `git show origin/main:<file>` to confirm B's change actually landed — do NOT trust the gated worktree (it's a rebased copy, not what squash-merges). Prefer: merge A, then REBASE B onto post-A main and merge B STANDALONE. Observed 2026-06-10: #2780 stacked on #2776 — its verify-route security fix showed MERGED but never reached main (merge commit not an ancestor of main); caught a tick later, re-queued as fix-verify-route-xff-spoof-reland.
+
 **Swarm liveness:** `pgrep -f worker-supervisor` + sentinels
 (`/tmp/argo-stop`, `~/.argo/stop`) ABSENT. **0 worker loops + TODO=0 is
 NORMAL standdown** — supervisor respawns every ~120s (check
