@@ -1,32 +1,34 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-06-10T05:29:15Z",
+  "last_run_utc": "2026-06-10T06:31:00Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "loop-2026-06-10-swarm-stall-recovery",
-  "run_notes": "AUTONOMOUS /loop. SWARM-STALL INCIDENT (recovered): the shared-checkout race ESCALATED \u2014 worker zombie-release commits (CLAIMED\u2192TODO flips) committed to the shared checkout's LOCAL main but FAILED TO PUSH, leaving local main diverged (2 ahead/1 behind); this made EVERY new worker fail `git pull --ff-only` rc=128, so the supervisor backed slots off (slot-1 to 900s) and loops collapsed 9\u21921. Vicious cycle (zombie\u2192unpushed-release\u2192divergence\u2192next-worker-fails\u2192more-zombies). RECOVERY: realigned local main to origin (branch-force, NOT reset --hard, tree was clean) \u2192 `git pull --ff-only` works again \u2192 workers will succeed as slots respawn; re-released the 2 stranded-CLAIMED briefs to TODO (split-pr-2790 P1 perimeter-last-limiter + genesis-access-controls). Did NOT restart the supervisor (1 worker still running; self-heals by ~15:38). *** This is the STRONGEST case yet for DEC-042 B-1 (route worker LEDGER COMMITS through with-ledger-lock so a failed push never strands on the shared main). The race no longer just delays a conductor commit \u2014 it STALLED THE ENTIRE SWARM. Operator: prioritize B-1 + B-4 (#2778). *** Also merged #2792 (env-vars doc, audit P3-7, doc fast lane). Open PRs needing processing next: #2793 (web Run-now), #2791 (USER.md follow-up, Rust gate+review), #2790 + #2787 (P1 splits \u2014 now re-claimable). Perimeter verify route STILL spoofable on main until #2790's split lands.",
-  "open_prs": 6,
+  "session_label": "loop-2026-06-10-perimeter-and-tenant-complete",
+  "run_notes": "AUTONOMOUS /loop. TWO MILESTONES this cycle, both verified on main: (1) \u2b50 PERIMETER XFF-SPOOF CLASS CLOSED 6/6 \u2014 #2790 re-landed the verify-route fix that #2780 silently DROPPED (stacked-squash); verify.rs:70 now keys the 60/IP/min throttle on trusted src_ip + signup_source_ip RETIRED (zero non-test callers). All 6 anonymous limiters (signup/waitlist/enterprise/pitch/signup_protection/verify) now spoof-proof. (2) \u2b50 TENANT-ISOLATION CLUSTER COMPLETE 3/3 \u2014 #2786 Genesis-hired teammates runnable (tenant-scoped vertical resolve) + #2788 worker memory namespace server-authoritatively bound + #2787 memory-tool tenant+vertical scope (closes cross-vertical leak). Each gate-PASS + adversarial-review CONFIRMED-FIXED + verified on main. Both #2790 + #2787 needed worker test/file splits (LOC gates) \u2014 resolved this cycle. STILL HELD (correct): #2791 (shared-identity-file readability) \u2014 adversarial review found a NEW-VULN (over-relaxed cross-vertical identity read); gate PASSED but couldn't see the logic flaw \u2014 only the review caught it; P1 fix-2791 CLAIMED + building. #2778 B-4 (operator). #2773 voice (attended verify). Swarm recovered from the earlier stall (loops 5, git stable, no re-divergence). Queue TODO=3 healthy, drift 0. STANDING OPERATOR THREADS: B-1 worker-ledger-lock (the stall proved it now halts the swarm, not just races commits) + B-4 #2778 (note: B-4 running the gate alone would NOT have caught #2791's vuln \u2014 the adversarial-review layer is essential for security surfaces).",
+  "open_prs": 3,
   "queue_state": {
-    "note": "split-pr-2790 (P1 perimeter) + genesis-access-controls re-released TODO; swarm recovering from stall"
+    "todo": 3,
+    "claimed": 2,
+    "note": "fix-2791 (P1 security) building; only held/operator PRs open"
   },
-  "the_gate": "SWARM-STALL recovered (shared-checkout divergence cleared); B-1 worker-ledger-lock is now URGENT (the race stalled the whole swarm, not just a commit). DEC-042 Stage-1 B-4 (#2778) operator-hold. Perimeter 5/6 (verify-route reland #2790 blocked on a test-file split, re-claimable). Tenant-isolation 2/3 (#2787 blocked on production-file split). Gate spine (parallel-types+fn-loc+unwrap) working \u2014 catching real violations.",
+  "the_gate": "\u2b50 PERIMETER 6/6 + TENANT-ISOLATION 3/3 both COMPLETE + verified on main (2 DEC-044 public-preview hardening conditions). Gate spine enforces 3 invariants. DEC-042 Stage-1 B-4 (#2778) operator-hold; B-1 worker-lock now urgent (stalled the swarm). Next: land fix-2791 when built; the dropped-#2780 integrity gap is now CLOSED.",
   "quota_probe": "skip",
   "north_star_metrics": {
     "_schema": "dec042-north-star-v1",
     "_doc": "docs/skycot/decisions/DEC-042-continuous-self-improvement-loop.md#6",
-    "generated_utc": "2026-06-10T05:29:16Z",
+    "generated_utc": "2026-06-10T06:31:01Z",
     "build_loop": {
       "merged_prs_per_day_7d": 16.86,
       "merged_prs_last_7d": 118,
       "merged_prs_last_24h": 43,
-      "open_prs": 6,
+      "open_prs": 3,
       "drift_rows": 0,
       "queue_depth": {
-        "todo": 5,
-        "claimed": 1,
-        "in_review": 7,
+        "todo": 3,
+        "claimed": 2,
+        "in_review": 5,
         "blocked": 28
       },
-      "recurring_nit_count": 16,
+      "recurring_nit_count": 17,
       "pct_done_claims_pass_cold_reverify": null,
       "mean_time_to_green_ci": null,
       "defect_escape_rate": null
