@@ -1,30 +1,29 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-06-10T01:20:06Z",
+  "last_run_utc": "2026-06-10T02:04:45Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "loop-2026-06-10-tick-operator-requested",
-  "run_notes": "AUTONOMOUS /loop tick (operator said 'run the tick'). VERIFIED: on main, drift 0, supervisor alive + 9 worker loops, sentinels absent, 12GB RAM. PR disposition: #2779 (parallel-pub-types gate-enforce, P1 \u2014 restores the silently-disabled drift gate) is CONFLICTING with #2774's split (authored pre-split; 3 regions in routes_pitch_ask.rs incl. an evaluate_claim import region) \u2014 conductor DECLINED to hand-resolve unattended (risk of silently dropping intent in a type-canonicalization) and queued rebase-pr-2779-parallel-pub-types-on-split (P1). #2775 env-lock same structural collision \u2192 rebase-pr-2775 (P2). #2773 voice HELD (mic browser-verify, attended). #2778 B-4 HELD (operator, governance). No merges this tick (the only mergeable candidate was conflicting). QUEUE replenished 2\u21927 (DEC-046): 2 rebase-on-split briefs + 3 audit-tail (fn-loc-gate baseline+enforce, unwrap-checker cfg-test-detection+wire, surface-pins for argo-types/store/audit) \u2014 all premises re-verified on current main before authoring; all 5 VERIFIED on origin/main. SHARED-CHECKOUT CHURN (recovered, no loss): a worker's concurrent commit+push to the shared main checkout carried the conductor's replenishment commit (0a4371d47) to origin while the conductor's own lock-wrapped push reported a transient rebase error \u2014 verified the work landed (commit on origin/main, 5 briefs tracked, TODO=7) rather than trusting the error. Heartbeat committed from an isolated worktree to avoid the churn. Recurring pattern: workers commit ledger status to the shared checkout concurrently; the with-ledger-lock mutex serializes conductor writes but not workers' independent checkout ops \u2014 worth a follow-up to route worker ledger commits through the same lock.",
+  "session_label": "loop-2026-06-10-perimeter-spoof-class-closed",
+  "run_notes": "AUTONOMOUS /loop tick. MILESTONE: the X-Forwarded-For rate-limit-spoof class is CLOSED across all 5 anonymous routes (DEC-034 WS5 perimeter). Two-PR ordered sequence, each gate-PASS + adversarially reviewed: #2776 (4 form routes signup/waitlist/enterprise/public-pitch \u2192 trusted src_ip; gate PASS + prior review), then #2780 (verify-route 60/IP/min throttle \u2192 trusted src_ip + signup_source_ip RETIRED zero callers; gate PASS + review CONFIRMED-FIXED). Caught + respected the forced merge order (#2780 retires a helper 4 routes still called on raw main \u2192 would break the build if merged first). RESIDUAL found by the #2780 review + queued P2 (NO THEATER \u2014 didn't let 'perimeter fixed' paper over it): signup_protection's 2nd limiter still keys on unconditional parse_first_xff_hop with trust_proxy_header defaulting TRUE (fronted by the now-spoof-proof signup_limiter, so not wide open) \u2192 fix-signup-protection-xff-trust-and-default. Other open PRs held/with-workers: #2779 (parallel-types gate, rebase-on-split brief claimed), #2775 (env-lock, rebase brief), #2773 (voice, attended browser-verify), #2778 (B-4, operator review). All ledger flips done in-band via isolated worktrees (sidesteps the recurring shared-checkout worker-churn race; that race still warrants the B-1 follow-up to route worker ledger commits through with-ledger-lock).",
   "open_prs": 4,
   "queue_state": {
-    "todo": 7,
-    "note": "DEC-046 floor held; 2 CLAIMED in flight (rebase-pr-2779 claimed by worker)"
+    "note": "see BUILD_STATUS header; ~7 TODO incl. the residual + audit-tail; workers rebasing #2779/#2775"
   },
-  "the_gate": "Tick complete: queue 2\u21927 (verified), 2 split-conflicted PRs handed to workers via rebase briefs, 2 PRs held for operator/attended-verify, audit P2 tail now briefed (fn-loc, unwrap-checker, surface-pins). DEC-042 Stage-1: B-1/B-2/B-3 done; B-4 in #2778 (operator-hold). Next tick: process rebase-pr-2779 once a worker lands it; keep topping the queue.",
+  "the_gate": "Perimeter XFF-spoof class CLOSED (WS5 milestone for the public-preview gate). DEC-042 Stage-1 B-1/B-2/B-3 done; B-4 in #2778 (operator-hold). Next: process worker rebases (#2779 P1 restores the parallel-types drift gate); keep queue fed; the signup_protection residual + B-1 worker-lock follow-up are the live perimeter/process threads.",
   "quota_probe": "skip",
   "north_star_metrics": {
     "_schema": "dec042-north-star-v1",
     "_doc": "docs/skycot/decisions/DEC-042-continuous-self-improvement-loop.md#6",
-    "generated_utc": "2026-06-10T01:20:08Z",
+    "generated_utc": "2026-06-10T02:04:46Z",
     "build_loop": {
-      "merged_prs_per_day_7d": 14.86,
-      "merged_prs_last_7d": 104,
-      "merged_prs_last_24h": 29,
-      "open_prs": 5,
+      "merged_prs_per_day_7d": 15.0,
+      "merged_prs_last_7d": 105,
+      "merged_prs_last_24h": 30,
+      "open_prs": 4,
       "drift_rows": 0,
       "queue_depth": {
         "todo": 7,
         "claimed": 2,
-        "in_review": 5,
+        "in_review": 4,
         "blocked": 28
       },
       "recurring_nit_count": 17,
