@@ -45,7 +45,7 @@
 //! regardless of what the profile or the LLM judge say. This is the
 //! deterministic floor under the (non-deterministic) semantic judge.
 
-use argo_types::{Capability, CapabilitySet};
+use argo_types::{Capability, CapabilitySet, SpawnKind};
 use std::collections::BTreeSet;
 
 /// Irreversible / business-ruining action verbs that ALWAYS require a
@@ -233,6 +233,13 @@ pub struct WorkerCapabilityProfile {
     /// kept OUT of the dispatch allow-set until a deliberate post-hire
     /// grant promotes one.
     draft_integrations: BTreeSet<String>,
+    /// DEC-049: when true, [`Self::to_capability_set`] emits
+    /// `Spawn{Subagent}` so this worker may `delegate_task` (spawn a child
+    /// teammate). Default false (deny). Set ONLY via
+    /// [`Self::with_subagent_spawn`], which the agent-runner gates behind the
+    /// manifest opt-in AND the `ARGO_WORKER_SWARM` flag. NEVER grants
+    /// `Spawn{Subprocess}`/`{Container}` — those stay owner-only (host escape).
+    can_spawn_subagent: bool,
 }
 
 impl WorkerCapabilityProfile {
@@ -284,7 +291,24 @@ impl WorkerCapabilityProfile {
             allowed_tools: allowed,
             denied_tools: denied,
             draft_integrations,
+            can_spawn_subagent: false,
         }
+    }
+
+    /// DEC-049: grant (or revoke) `Spawn{Subagent}` on this profile. The
+    /// agent-runner sets this to `swarm_enabled() && manifest allows
+    /// delegate_task`, so the grant is doubly default-off. Subagent ONLY —
+    /// there is no path to `Spawn{Subprocess}`/`{Container}` from a profile.
+    #[must_use]
+    pub fn with_subagent_spawn(mut self, yes: bool) -> Self {
+        self.can_spawn_subagent = yes;
+        self
+    }
+
+    /// `true` if this profile grants child-teammate spawning (DEC-049).
+    #[must_use]
+    pub fn can_spawn_subagent(&self) -> bool {
+        self.can_spawn_subagent
     }
 
     /// `true` when `tool_name` is permitted by this profile.
@@ -365,6 +389,17 @@ impl WorkerCapabilityProfile {
             }
             caps.push(Capability::ToolDispatch {
                 tool_name_glob: (*safe).to_string(),
+            });
+        }
+        // DEC-049: a worker may spawn CHILD TEAMMATES (delegate_task) only when
+        // explicitly granted. `Subagent` ONLY — the host-escape kinds
+        // (`Subprocess`/`Container`) are never reachable from a worker profile;
+        // they stay owner/admin-only. The grant is doubly gated upstream (the
+        // manifest must allow `delegate_task` AND `ARGO_WORKER_SWARM` must be
+        // on), so this stays deny-by-default.
+        if self.can_spawn_subagent {
+            caps.push(Capability::Spawn {
+                spawn_kind: SpawnKind::Subagent,
             });
         }
         CapabilitySet(caps)

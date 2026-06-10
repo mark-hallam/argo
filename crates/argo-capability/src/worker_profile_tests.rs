@@ -2,7 +2,7 @@
 //! and the deterministic irreversibility gate (DEC-025 Genesis fence).
 
 use super::*;
-use argo_types::Capability;
+use argo_types::{Capability, SpawnKind};
 
 fn tool(name: &str) -> Capability {
     Capability::ToolDispatch {
@@ -187,4 +187,70 @@ fn irreversible_action_catches_synonym_families_the_old_token_list_missed() {
             "{name} carries a dangerous family and must be always-human"
         );
     }
+}
+
+// ---- DEC-049: bounded worker subagent swarm ----
+
+fn spawn(kind: SpawnKind) -> Capability {
+    Capability::Spawn { spawn_kind: kind }
+}
+
+#[test]
+fn profile_emits_no_spawn_by_default() {
+    // The grant is opt-in: a plain profile (even one that allows the
+    // delegate_task TOOL) emits NO Spawn capability unless explicitly granted.
+    let profile = WorkerCapabilityProfile::derive(
+        Vec::<String>::new(),
+        ["delegate_task".into()],
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+    );
+    let set = profile.to_capability_set();
+    assert!(
+        !set.covers(&spawn(SpawnKind::Subagent)),
+        "delegate_task in allowed_tools alone must NOT grant Spawn — the runtime \
+         gates the grant behind ARGO_WORKER_SWARM via with_subagent_spawn"
+    );
+}
+
+#[test]
+fn with_subagent_spawn_grants_only_subagent() {
+    let profile = WorkerCapabilityProfile::derive(
+        Vec::<String>::new(),
+        ["delegate_task".into()],
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+    )
+    .with_subagent_spawn(true);
+    let set = profile.to_capability_set();
+    assert!(set.covers(&spawn(SpawnKind::Subagent)), "granted → Subagent spawn");
+    assert!(profile.can_spawn_subagent());
+    // The host-escape kinds are NEVER reachable from a worker profile.
+    assert!(
+        !set.covers(&spawn(SpawnKind::Subprocess)),
+        "worker profile must never grant Subprocess (host escape)"
+    );
+    assert!(
+        !set.covers(&spawn(SpawnKind::Container)),
+        "worker profile must never grant Container (host escape)"
+    );
+    assert!(
+        !set.covers(&spawn(SpawnKind::BackgroundProcess)),
+        "worker profile must never grant BackgroundProcess (strongest host escape)"
+    );
+}
+
+#[test]
+fn with_subagent_spawn_false_revokes() {
+    let profile = WorkerCapabilityProfile::derive(
+        Vec::<String>::new(),
+        ["delegate_task".into()],
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+    )
+    .with_subagent_spawn(false);
+    assert!(!profile.can_spawn_subagent());
+    assert!(!profile
+        .to_capability_set()
+        .covers(&spawn(SpawnKind::Subagent)));
 }

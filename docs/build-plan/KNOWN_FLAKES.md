@@ -94,7 +94,10 @@ current main and moved to the Resolved section below — re-verified
   commits `107b4e6b1` 2026-06-07 + `60b80e7d6` 2026-05-31 — both landed AFTER
   the test's #2256) denies `delegate_task`'s required `Spawn{Subagent}`
   capability, so `insert_handoff` never runs. The fence is correct-by-design;
-  the TEST is stale. Tracked + fix approach in
+  the TEST is stale. **Update 2026-06-11 (DEC-049):** the `Spawn{Subagent}` grant these tests
+  need now EXISTS (a `WorkerCapabilityProfile` can emit it under manifest
+  opt-in + the `ARGO_WORKER_SWARM` flag). The remaining work is test-only
+  provisioning; the brief below is UNBLOCKED → TODO. Tracked + fix approach in
   `streams/fix-delegate-handoff-test-provision-spawn-capable-worker.md`
   (provision a Spawn-capable worker via the real fence path). Remove this
   entry when that brief lands.

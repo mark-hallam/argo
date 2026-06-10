@@ -442,7 +442,30 @@ pub(crate) fn derive_profile_from_manifest(
         .as_ref()
         .map(|m| m.servers.keys().cloned().collect())
         .unwrap_or_default();
+    // DEC-049: grant child-teammate spawn (`Spawn{Subagent}`) only when the
+    // manifest opts in (lists `delegate_task` in `[tools].allowed`) AND the
+    // global `ARGO_WORKER_SWARM` flag is on. Both required → doubly default-off.
+    let can_spawn_subagent =
+        swarm_enabled() && allowed.iter().any(|t| t.trim() == "delegate_task");
     WorkerCapabilityProfile::derive(declared_actions, allowed, denied, integration_servers)
+        .with_subagent_spawn(can_spawn_subagent)
+}
+
+/// DEC-049 master switch for worker child-teammate spawning. Reads
+/// `ARGO_WORKER_SWARM`; default OFF. Accepts `1`/`true`/`yes`/`on`
+/// (case-insensitive) as on, everything else (including unset) as off —
+/// mirrors the `ARGO_DUTY_AUTOFIRE` posture. Operator-only flip after a
+/// blast-radius review.
+#[must_use]
+pub(crate) fn swarm_enabled() -> bool {
+    matches!(
+        std::env::var("ARGO_WORKER_SWARM")
+            .ok()
+            .as_deref()
+            .map(|v| v.trim().to_ascii_lowercase())
+            .as_deref(),
+        Some("1" | "true" | "yes" | "on")
+    )
 }
 
 #[cfg(test)]

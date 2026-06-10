@@ -9,7 +9,20 @@
 //! out of the historical "not wired" error path.
 use crate::tool::{error_text, success_text, Tool, ToolContext};
 use argo_identity::WorkerId;
-use argo_orchestrator::{EscalationChain, EscalationStep, Handoff, OrchestratorStore};
+use argo_orchestrator::{
+    EscalationChain, EscalationStep, Handoff, HandoffStatus, OrchestratorStore,
+};
+
+/// DEC-049 swarm bound: max delegation lineage depth (escalation-chain length).
+/// A `delegate_task` whose resulting chain would exceed this is refused —
+/// stops infinite recursion. Depth × [`MAX_DELEGATION_FANOUT`] bounds the whole
+/// swarm to a finite size (anti-fork-bomb).
+pub const MAX_DELEGATION_DEPTH: usize = 4;
+
+/// DEC-049 swarm bound: max concurrent in-flight (Pending/Acknowledged)
+/// delegations from one session. Reaching it refuses further `delegate_task`
+/// until some children settle — stops one worker fanning into hundreds.
+pub const MAX_DELEGATION_FANOUT: usize = 8;
 use argo_types::{ArgoError, ArgoResult, Capability, CapabilitySet, SpawnKind, ToolCallResult};
 use async_trait::async_trait;
 use chrono::Utc;
@@ -167,6 +180,11 @@ impl Tool for DelegateTask {
                 started.elapsed().as_millis() as u64,
             ));
         }
+        // DEC-049 swarm bounds — run ALWAYS (independent of the grant), so the
+        // moment worker spawning is ever enabled the swarm stays FINITE.
+        if let Some(refusal) = swarm_bounds_refusal(store, ctx, &handoff, started).await {
+            return Ok(refusal);
+        }
         if let Some(ms) = parsed.deadline_ms {
             handoff.deadline = Some(Utc::now() + chrono::Duration::milliseconds(ms as i64));
         }
@@ -199,6 +217,53 @@ fn build_payload(args: &Args) -> serde_json::Value {
         }
     }
     p
+}
+
+/// DEC-049 swarm bounds. Returns `Some(refusal)` if this delegation would
+/// exceed the depth cap (chain too long → infinite recursion) or the fan-out
+/// cap (too many concurrent children), else `None` to proceed. Runs regardless
+/// of whether the worker holds the spawn grant, so depth × fan-out keeps the
+/// whole swarm finite the moment spawning is ever enabled.
+async fn swarm_bounds_refusal(
+    store: &OrchestratorStore,
+    ctx: &ToolContext,
+    handoff: &Handoff,
+    started: Instant,
+) -> Option<ToolCallResult> {
+    let depth = handoff.active_escalation_chain().map_or(1, |c| c.len());
+    if depth > MAX_DELEGATION_DEPTH {
+        return Some(error_text(
+            ctx.call_id,
+            format!(
+                "delegate_task refused: delegation depth {depth} exceeds max \
+                 {MAX_DELEGATION_DEPTH} (DEC-049 swarm bound — too deep a chain)"
+            ),
+            started.elapsed().as_millis() as u64,
+        ));
+    }
+    let active = store
+        .list_handoffs_for_session(ctx.tenant_id, &ctx.session_id)
+        .await
+        .map(|hs| {
+            hs.iter()
+                .filter(|h| {
+                    matches!(h.status, HandoffStatus::Pending | HandoffStatus::Acknowledged)
+                })
+                .count()
+        })
+        .unwrap_or(0);
+    if active >= MAX_DELEGATION_FANOUT {
+        return Some(error_text(
+            ctx.call_id,
+            format!(
+                "delegate_task refused: {active} active delegations from this session \
+                 reaches the fan-out cap {MAX_DELEGATION_FANOUT} (DEC-049 swarm bound \
+                 — too many concurrent children)"
+            ),
+            started.elapsed().as_millis() as u64,
+        ));
+    }
+    None
 }
 
 async fn inherit_active_chain(

@@ -320,3 +320,84 @@ async fn dispatch_chain_payload_smoke_round_trips_from_store() {
         serde_json::json!([format!("worker:{target}"), format!("worker:{caller}")])
     );
 }
+
+// ---- DEC-049 swarm bounds ----
+
+#[tokio::test]
+async fn depth_cap_refuses_too_deep_a_delegation() {
+    // An inbound handoff already at the depth cap: delegating onward would make
+    // the chain MAX_DELEGATION_DEPTH+1 deep → refused (stops infinite recursion).
+    let session_id = argo_orchestrator::SessionId::new();
+    let store = wired_store_with_session(&session_id).await;
+    let chain: Vec<String> = (0..MAX_DELEGATION_DEPTH)
+        .map(|i| format!("worker:lvl{i}"))
+        .collect();
+    let active = active_handoff(&store, &session_id, chain, 0).await;
+    let mut ctx = ctx_with(session_id.clone());
+    ctx.current_handoff_id = Some(active.id);
+
+    let r = DelegateTask::new(Arc::clone(&store))
+        .dispatch(
+            serde_json::json!({
+                "worker_id": WorkerId::new().0.to_string(),
+                "task": "one hop too deep",
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
+    assert!(r.is_error, "depth > {MAX_DELEGATION_DEPTH} must be refused");
+    // The over-deep delegation was NOT persisted: only the inbound handoff exists.
+    let count = store
+        .list_handoffs_for_session(TenantId(uuid::Uuid::nil()), &session_id)
+        .await
+        .unwrap()
+        .len();
+    assert_eq!(count, 1, "refused delegation must not create a handoff");
+}
+
+#[tokio::test]
+async fn fan_out_cap_refuses_beyond_max_active() {
+    // Saturate the session with MAX_DELEGATION_FANOUT in-flight (Pending)
+    // delegations; the next one is refused (stops one worker fanning to hundreds).
+    let session_id = argo_orchestrator::SessionId::new();
+    let store = wired_store_with_session(&session_id).await;
+    for _ in 0..MAX_DELEGATION_FANOUT {
+        let h = Handoff::new(
+            session_id.clone(),
+            WorkerId::new(),
+            EscalationStep::Worker(WorkerId::new()),
+            "in-flight child",
+            serde_json::json!({}),
+        );
+        store
+            .insert_handoff(TenantId(uuid::Uuid::nil()), &h)
+            .await
+            .unwrap();
+    }
+    let ctx = ctx_with(session_id.clone());
+    let r = DelegateTask::new(Arc::clone(&store))
+        .dispatch(
+            serde_json::json!({
+                "worker_id": WorkerId::new().0.to_string(),
+                "task": "one too many",
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
+    assert!(
+        r.is_error,
+        "the {}th concurrent delegation must hit the fan-out cap",
+        MAX_DELEGATION_FANOUT + 1
+    );
+    let count = store
+        .list_handoffs_for_session(TenantId(uuid::Uuid::nil()), &session_id)
+        .await
+        .unwrap()
+        .len();
+    assert_eq!(
+        count, MAX_DELEGATION_FANOUT,
+        "refused delegation must not create a handoff"
+    );
+}

@@ -241,3 +241,43 @@ fn genesis_worker_resolves_only_its_own_tenant_dotgenesis_manifest() {
     );
     assert!(!bob_profile.permits_tool("web_search"));
 }
+
+// ---- DEC-049: the production grant gate (manifest opt-in + ARGO_WORKER_SWARM) ----
+
+#[test]
+fn delegate_manifest_grants_subagent_spawn_only_when_flag_on() {
+    use argo_types::{Capability, SpawnKind};
+    let subagent = Capability::Spawn {
+        spawn_kind: SpawnKind::Subagent,
+    };
+    // A manifest that opts in by allowing the delegate_task tool.
+    let m = manifest_with(&[], &["delegate_task"], &[], &[]);
+    let prev = std::env::var("ARGO_WORKER_SWARM").ok();
+
+    // Flag OFF (default): the opt-in manifest still grants NO spawn.
+    std::env::remove_var("ARGO_WORKER_SWARM");
+    let off = derive_profile_from_manifest(&m);
+    assert!(!off.can_spawn_subagent(), "flag off → no grant");
+    assert!(!off.to_capability_set().covers(&subagent));
+
+    // Flag ON + manifest opt-in → Subagent spawn granted (and nothing else).
+    std::env::set_var("ARGO_WORKER_SWARM", "1");
+    let on = derive_profile_from_manifest(&m);
+    assert!(on.can_spawn_subagent(), "flag on + delegate_task allowed → grant");
+    assert!(on.to_capability_set().covers(&subagent));
+    assert!(!on.to_capability_set().covers(&Capability::Spawn {
+        spawn_kind: SpawnKind::Subprocess
+    }));
+
+    // Flag ON but the manifest does NOT allow delegate_task → still no grant.
+    let no_optin = manifest_with(&[], &["web_search"], &[], &[]);
+    assert!(
+        !derive_profile_from_manifest(&no_optin).can_spawn_subagent(),
+        "no delegate_task in manifest → no grant even with the flag on"
+    );
+
+    match prev {
+        Some(v) => std::env::set_var("ARGO_WORKER_SWARM", v),
+        None => std::env::remove_var("ARGO_WORKER_SWARM"),
+    }
+}
