@@ -33,6 +33,14 @@ fn test_src_ip(req: &str) -> std::net::IpAddr {
         .expect("test request must carry an X-Forwarded-For hop")
 }
 
+/// Trusted loopback `src_ip` for verify tests that don't exercise the
+/// per-IP throttle. The accept loop always supplies a trusted src_ip;
+/// `verify_outcome` now keys its 60/IP/min throttle on it, never on the
+/// request's `X-Forwarded-For` (fix-verify-route-xff-spoof-reland).
+fn loopback() -> std::net::IpAddr {
+    std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)
+}
+
 #[tokio::test]
 async fn signup_with_valid_email_returns_200() {
     let store = fresh_store().await;
@@ -122,7 +130,7 @@ async fn verify_with_invalid_token_returns_401() {
         None,
         r#"{"token":"never-issued"}"#,
     );
-    let outcome = verify_outcome(&r, Some(&store)).await;
+    let outcome = verify_outcome(&r, loopback(), Some(&store)).await;
     assert!(
         outcome.status.starts_with("401"),
         "status={} body={}",
@@ -155,7 +163,7 @@ async fn signup_then_verify_round_trip_sets_host_cookie() {
         None,
         &format!(r#"{{"token":"{raw_token}"}}"#),
     );
-    let outcome = verify_outcome(&verify_req, Some(&store)).await;
+    let outcome = verify_outcome(&verify_req, loopback(), Some(&store)).await;
     assert!(
         outcome.status.starts_with("200"),
         "status={} body={}",
@@ -193,9 +201,9 @@ async fn verify_is_single_use() {
         None,
         &format!(r#"{{"token":"{raw_token}"}}"#),
     );
-    let first = verify_outcome(&r, Some(&store)).await;
+    let first = verify_outcome(&r, loopback(), Some(&store)).await;
     assert!(first.status.starts_with("200"));
-    let second = verify_outcome(&r, Some(&store)).await;
+    let second = verify_outcome(&r, loopback(), Some(&store)).await;
     assert!(
         second.status.starts_with("401"),
         "{} {}",
@@ -225,7 +233,7 @@ async fn verify_expired_token_returns_401() {
         None,
         &format!(r#"{{"token":"{raw_token}"}}"#),
     );
-    let outcome = verify_outcome(&r, Some(&store)).await;
+    let outcome = verify_outcome(&r, loopback(), Some(&store)).await;
     assert!(
         outcome.status.starts_with("401"),
         "{} {}",
@@ -314,7 +322,7 @@ async fn verify_binds_newest_tenant_for_multi_tenant_user() {
         None,
         &format!(r#"{{"token":"{raw_token}"}}"#),
     );
-    let outcome = verify_outcome(&r, Some(&store)).await;
+    let outcome = verify_outcome(&r, loopback(), Some(&store)).await;
     assert!(outcome.status.starts_with("200"), "{}", outcome.status);
     let expected = newer.id.to_string();
     assert!(
@@ -364,27 +372,23 @@ async fn verify_emits_auth_succeeded_and_auth_failed_audit_rows() {
     )
     .await
     .unwrap();
-    // Success → AuthSucceeded.
-    let ok = verify_outcome(
-        &req(
-            "POST /api/v1/auth/verify",
-            Some("203.0.113.42"),
-            &format!(r#"{{"token":"{raw_token}"}}"#),
-        ),
-        Some(&store),
-    )
-    .await;
+    // Success → AuthSucceeded. The audit `source_ip` is the trusted
+    // src_ip the accept loop passes, not the request's `X-Forwarded-For`;
+    // `test_src_ip` makes the two coincide for the assertion below.
+    let ok_req = req(
+        "POST /api/v1/auth/verify",
+        Some("203.0.113.42"),
+        &format!(r#"{{"token":"{raw_token}"}}"#),
+    );
+    let ok = verify_outcome(&ok_req, test_src_ip(&ok_req), Some(&store)).await;
     assert!(ok.status.starts_with("200"), "{}", ok.status);
     // Failure → AuthFailed (NotFound).
-    let bad = verify_outcome(
-        &req(
-            "POST /api/v1/auth/verify",
-            Some("203.0.113.43"),
-            r#"{"token":"never-minted"}"#,
-        ),
-        Some(&store),
-    )
-    .await;
+    let bad_req = req(
+        "POST /api/v1/auth/verify",
+        Some("203.0.113.43"),
+        r#"{"token":"never-minted"}"#,
+    );
+    let bad = verify_outcome(&bad_req, test_src_ip(&bad_req), Some(&store)).await;
     assert!(bad.status.starts_with("401"), "{}", bad.status);
     // Both rows live in the audit table under the `auth.*` kinds.
     let (success_count, success_payload): (i64, String) = sqlx::query_as(

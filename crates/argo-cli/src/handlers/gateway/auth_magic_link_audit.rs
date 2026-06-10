@@ -1,19 +1,14 @@
-use super::super::rate_limit_ip;
 use argo_audit::{AuditKind, AuditSink, ANONYMOUS_AUDIT_TENANT_ID};
 use argo_store::SessionStore;
 use dashmap::DashMap;
 use serde_json::json;
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::IpAddr;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 /// Sliding-window verify rate limit: 60 attempts/IP/minute.
 pub(crate) const VERIFY_RATE_LIMIT_PER_MIN: usize = 60;
 pub(crate) const VERIFY_RATE_LIMIT_WINDOW: Duration = Duration::from_secs(60);
-
-pub(crate) fn signup_source_ip(req: &str) -> IpAddr {
-    rate_limit_ip::parse_first_xff_hop(req).unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST))
-}
 
 pub(crate) fn error_resp(status: &'static str, msg: &str) -> (&'static str, String) {
     (status, serde_json::json!({ "error": msg }).to_string())

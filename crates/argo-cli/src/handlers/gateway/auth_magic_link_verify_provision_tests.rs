@@ -62,7 +62,8 @@ async fn verify_once(
     argo_store::user_account::insert_magic_link(store.pool(), &sha256_hex(raw_token), email, now + 900)
         .await
         .expect("insert link");
-    verify_outcome(&verify_req(raw_token), Some(store)).await
+    let trusted = std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST);
+    verify_outcome(&verify_req(raw_token), trusted, Some(store)).await
 }
 
 #[tokio::test]

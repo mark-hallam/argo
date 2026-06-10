@@ -43,7 +43,7 @@ pub(super) use crate::handlers::gateway::rate_limit_ip;
 #[cfg(test)]
 pub(super) use auth_audit::VERIFY_RATE_LIMIT_PER_MIN;
 pub(super) use auth_audit::{
-    emit_auth_failed, emit_auth_succeeded, error_resp, signup_source_ip, verify_rate_limit_check,
+    emit_auth_failed, emit_auth_succeeded, error_resp, verify_rate_limit_check,
     VERIFY_RATE_LIMIT_WINDOW,
 };
 pub(super) use auth_delivery::{deliver_magic_link, looks_like_email};
@@ -58,6 +58,10 @@ pub(super) use std::net::IpAddr;
 #[cfg(test)]
 #[path = "auth_magic_link_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "auth_magic_link_verify_throttle_tests.rs"]
+mod verify_throttle_tests;
 
 /// Mounted from `routes::dispatch_route_inner` ahead of the
 /// operator-bearer-auth gate so anonymous browsers can sign up.

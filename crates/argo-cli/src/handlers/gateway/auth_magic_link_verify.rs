@@ -1,6 +1,6 @@
 use super::{
-    emit_auth_failed, emit_auth_succeeded, mint_jwt, sha256_hex, signup_source_ip,
-    verify_rate_limit_check, SessionStore, JWT_TTL_SECS, VERIFY_RATE_LIMIT_WINDOW,
+    emit_auth_failed, emit_auth_succeeded, mint_jwt, sha256_hex, verify_rate_limit_check, IpAddr,
+    SessionStore, JWT_TTL_SECS, VERIFY_RATE_LIMIT_WINDOW,
 };
 use argo_identity::user::UserAccount;
 use argo_identity::user_store::{get_user_by_email, insert_user, update_last_login};
@@ -29,10 +29,11 @@ struct VerifyBody {
 /// cookie directly alongside the SPA-readable JSON envelope.
 pub(crate) async fn serve_verify_stream(
     req: &str,
+    src_ip: IpAddr,
     store: Option<&Arc<SessionStore>>,
     out: &mut TcpStream,
 ) -> tokio::io::Result<()> {
-    let outcome = verify_outcome(req, store).await;
+    let outcome = verify_outcome(req, src_ip, store).await;
     let mut head = format!(
         "HTTP/1.1 {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n",
         outcome.status,
@@ -55,8 +56,18 @@ pub(crate) struct VerifyOutcome {
     pub set_cookie: Option<String>,
 }
 
-pub(crate) async fn verify_outcome(req: &str, store: Option<&Arc<SessionStore>>) -> VerifyOutcome {
-    let source_ip = signup_source_ip(req);
+pub(crate) async fn verify_outcome(
+    req: &str,
+    src_ip: IpAddr,
+    store: Option<&Arc<SessionStore>>,
+) -> VerifyOutcome {
+    // The 60/IP/min token-brute-force throttle keys on the trusted
+    // `src_ip` the accept loop extracted (`boot_router` →
+    // `proxy_guard::extract_real_ip`), never on a client-supplied
+    // `X-Forwarded-For`. Rotating the forged header therefore cannot mint
+    // a fresh verify bucket per request (fix-verify-route-xff-spoof-reland,
+    // mirroring the signup route's `signup_limiter().check(src_ip)`).
+    let source_ip = src_ip;
     let Some(s) = store else {
         return err_outcome("500 Internal Server Error", "store_unavailable");
     };
