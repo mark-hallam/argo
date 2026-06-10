@@ -1,32 +1,34 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-06-10T02:04:45Z",
+  "last_run_utc": "2026-06-10T02:43:55Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "loop-2026-06-10-perimeter-spoof-class-closed",
-  "run_notes": "AUTONOMOUS /loop tick. MILESTONE: the X-Forwarded-For rate-limit-spoof class is CLOSED across all 5 anonymous routes (DEC-034 WS5 perimeter). Two-PR ordered sequence, each gate-PASS + adversarially reviewed: #2776 (4 form routes signup/waitlist/enterprise/public-pitch \u2192 trusted src_ip; gate PASS + prior review), then #2780 (verify-route 60/IP/min throttle \u2192 trusted src_ip + signup_source_ip RETIRED zero callers; gate PASS + review CONFIRMED-FIXED). Caught + respected the forced merge order (#2780 retires a helper 4 routes still called on raw main \u2192 would break the build if merged first). RESIDUAL found by the #2780 review + queued P2 (NO THEATER \u2014 didn't let 'perimeter fixed' paper over it): signup_protection's 2nd limiter still keys on unconditional parse_first_xff_hop with trust_proxy_header defaulting TRUE (fronted by the now-spoof-proof signup_limiter, so not wide open) \u2192 fix-signup-protection-xff-trust-and-default. Other open PRs held/with-workers: #2779 (parallel-types gate, rebase-on-split brief claimed), #2775 (env-lock, rebase brief), #2773 (voice, attended browser-verify), #2778 (B-4, operator review). All ledger flips done in-band via isolated worktrees (sidesteps the recurring shared-checkout worker-churn race; that race still warrants the B-1 follow-up to route worker ledger commits through with-ledger-lock).",
-  "open_prs": 4,
+  "session_label": "loop-2026-06-10-gate-hardening",
+  "run_notes": "AUTONOMOUS /loop tick. MILESTONE: the merge-gate verification spine is materially hardened \u2014 3 audit-tail PRs merged, each conductor-VERIFIED: #2779 parallel-pub-types lint now ENFORCED (--enforce) + 6 live duplicate types cleared (gate PASS + the PR's own --enforce verifier exit 0 = zero duplicates; architecture-audit P1 'silent gate' CLOSED); #2781 env-lock migration rebased onto #2774's routes_duties split + landed (gate PASS + 0 remaining local static ENV_LOCK; the ~19-test parallel-flake class rooted out; #2775 closed STALE-SUPERSEDED); #2782 fn-loc gate baselined (314 offenders) + wired into conductor-pre-merge-gate.sh + local-ci (verified BOTH directions: exit 0 clean / exit 1 on a synthetic 92-LOC fn; audit P2-4 CLOSED). Net: duplicate-types AND oversized-functions are now enforceable on the merge path \u2014 two verification-spine holes the audit flagged are closed. Caught + self-corrected an exit-code-masking slip (judged a synthetic fn-loc test by `| tail`'s exit; re-ran with real $? capture \u2014 the CRANK guardrail in action). Pipeline healthy: workers actively building the perimeter RESIDUAL (fix-signup-protection-xff-trust-and-default) + unwrap-checker (audit P2-5), both CLAIMED. TODO=4 + 2 CLAIMED = adequate runway; no bulk replenish (DEC-046). Open PRs: #2778 B-4 (operator-hold), #2773 voice (attended browser-verify). All ledger flips in-band via isolated worktrees (the shared-checkout worker-churn race recurred + was sidestepped every time; B-1 worker-lock follow-up still recommended).",
+  "open_prs": 2,
   "queue_state": {
-    "note": "see BUILD_STATUS header; ~7 TODO incl. the residual + audit-tail; workers rebasing #2779/#2775"
+    "todo": 4,
+    "claimed": 2,
+    "note": "perimeter-residual + unwrap-checker in flight; replenish next tick if TODO<3"
   },
-  "the_gate": "Perimeter XFF-spoof class CLOSED (WS5 milestone for the public-preview gate). DEC-042 Stage-1 B-1/B-2/B-3 done; B-4 in #2778 (operator-hold). Next: process worker rebases (#2779 P1 restores the parallel-types drift gate); keep queue fed; the signup_protection residual + B-1 worker-lock follow-up are the live perimeter/process threads.",
+  "the_gate": "Verification spine hardened this tick (parallel-types + fn-loc both enforced). Perimeter XFF class closed last tick; its residual is in-flight. DEC-042 Stage-1 B-1/B-2/B-3 done, B-4 in #2778 (operator-hold). The two live operator threads: review #2778 (finishes Stage 1), and the B-1 worker-ledger-lock follow-up (race recurred again).",
   "quota_probe": "skip",
   "north_star_metrics": {
     "_schema": "dec042-north-star-v1",
     "_doc": "docs/skycot/decisions/DEC-042-continuous-self-improvement-loop.md#6",
-    "generated_utc": "2026-06-10T02:04:46Z",
+    "generated_utc": "2026-06-10T02:43:56Z",
     "build_loop": {
-      "merged_prs_per_day_7d": 15.0,
-      "merged_prs_last_7d": 105,
-      "merged_prs_last_24h": 30,
-      "open_prs": 4,
+      "merged_prs_per_day_7d": 15.29,
+      "merged_prs_last_7d": 107,
+      "merged_prs_last_24h": 32,
+      "open_prs": 2,
       "drift_rows": 0,
       "queue_depth": {
-        "todo": 7,
-        "claimed": 2,
-        "in_review": 4,
+        "todo": 5,
+        "claimed": 1,
+        "in_review": 2,
         "blocked": 28
       },
-      "recurring_nit_count": 17,
+      "recurring_nit_count": 16,
       "pct_done_claims_pass_cold_reverify": null,
       "mean_time_to_green_ci": null,
       "defect_escape_rate": null
