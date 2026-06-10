@@ -90,6 +90,68 @@ fn write_vertical_with_overwrite_true_wipes_then_writes() {
     assert!(out.join("vertical.toml").exists(), "fresh manifest written");
 }
 
+#[test]
+fn materialize_spec_lands_all_intake_slots_and_kpis() {
+    // DEC-048 rule 2 round-trip (captured-equals-built): a spec carrying all
+    // three intake slots → `materialize_spec` must (1) keep them on `plan.spec`,
+    // (2) emit the typed success-criterion as a REAL manifest KPI (not the
+    // default skeleton), and (3) carry all three onto the review contract via
+    // `with_intake_slots`.
+    use crate::spec::{CapabilityDecl, CapabilitySpec, EscalationSpec, SuccessCriterion};
+    use crate::{materialize_spec, Archetype, ExecutorIntent, RoleContract};
+    use argo_vertical::{ActionRiskLevel, KpiComparator, KpiKind};
+
+    let spec = CapabilitySpec {
+        charter: "a vineyard logistics coordinator who schedules harvests".into(),
+        persona: "vinny".into(),
+        persona_description: "Coordinates vineyard harvest scheduling.".into(),
+        responsibilities: vec!["Schedule harvests".into()],
+        capabilities: vec![CapabilityDecl {
+            action_name: "schedule_harvest".into(),
+            intent: "Schedule a harvest window".into(),
+            risk: ActionRiskLevel::Low,
+            reversible: true,
+            proposed_executor: ExecutorIntent::Builtin,
+            requires_approval: false,
+        }],
+        success_metrics: vec![],
+        onboarding_script: "Hi, I keep the harvest calendar tight.".into(),
+        escalation: EscalationSpec::default(),
+        nearest_archetype: Archetype::CalendarCoordinator,
+        from_scratch: true,
+        cadence: Some("every weekday at 5pm".into()),
+        exceptions: vec!["never touch legal escalations".into()],
+        success_criteria: vec![SuccessCriterion {
+            name: "on-time dispatch rate".into(),
+            kind: KpiKind::Percentage,
+            target: 95.0,
+            comparator: KpiComparator::Gte,
+        }],
+    };
+
+    let plan = materialize_spec(&spec).expect("materialize");
+
+    // (1) the plan keeps the spec with all three slots intact.
+    let s = plan.spec.as_ref().expect("plan carries spec");
+    assert_eq!(s.cadence.as_deref(), Some("every weekday at 5pm"));
+    assert_eq!(s.exceptions, vec!["never touch legal escalations".to_string()]);
+    assert_eq!(s.success_criteria.len(), 1);
+
+    // (2) the operator's typed goal reached the manifest as a REAL KPI.
+    assert!(
+        plan.manifest.kpis.iter().any(|k| k.kind == KpiKind::Percentage
+            && (k.threshold - 95.0).abs() < f64::EPSILON
+            && k.comparator == KpiComparator::Gte),
+        "typed success-criterion must emit a manifest KPI, not the default skeleton"
+    );
+
+    // (3) the review contract carries all three for the pre-hire display.
+    let contract = RoleContract::derive_from_manifest(&plan.manifest).with_intake_slots(s);
+    assert_eq!(contract.cadence.as_deref(), Some("every weekday at 5pm"));
+    assert_eq!(contract.exceptions.len(), 1);
+    assert_eq!(contract.success_criteria.len(), 1);
+}
+
 // ---- LLM-classifier dispatch (mission-genesis-llm-classifier) ----
 
 use argo_types::ArgoResult;

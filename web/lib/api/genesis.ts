@@ -18,6 +18,7 @@
 import { apiPost } from "@/lib/api/client";
 import { resolveCsrfToken } from "@/lib/auth/csrf-token";
 import { ApiError } from "@/lib/api/types";
+import { parseCadenceToCron } from "@/lib/api/genesis-cadence";
 import { readChunkWithIdleTimeout } from "@/lib/api/stream-idle-timeout";
 import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 import { STUB_QUESTIONS, stubWorkerDraft } from "@/lib/hire/genesis-stub";
@@ -612,7 +613,7 @@ export interface HireFromGenesisResult {
  * - at least one duty with `defaultEnabled = true`
  * - `approvalPolicy.level` in {conservative, balanced, aggressive}
  */
-function buildHireDraftFromGenesis(
+export function buildHireDraftFromGenesis(
   ready: GenesisVerticalReadyEvent,
   roleDescription: string,
 ): Record<string, unknown> {
@@ -625,15 +626,25 @@ function buildHireDraftFromGenesis(
   ]
     .join("\n\n")
     .slice(0, 4000);
-  // One default duty so the hire validator's "at least one
-  // defaultEnabled" requirement passes. The SPA's Phase-2 access-
-  // controls panel rewrites duties post-hire; this seed exists only so
-  // the worker isn't inert at creation time.
+  // DEC-048 rule 2 (captured-equals-built): the ONE seed duty fires WHEN the
+  // operator asked at intake, not on a hardcoded 9am default. Its description
+  // is the operator's OWN cadence words (never canned copy), and its cron is
+  // the deterministic parse of those words. An unparseable cadence keeps the
+  // words + falls back to the default cron and is flagged "needs confirmation"
+  // on the review card (`RoleContractReview`) — never silently substituted.
+  // (The SPA's Phase-2 access-controls panel can still rewrite duties post-hire;
+  // this seed clears the validator's "at least one defaultEnabled" requirement.)
+  const cadenceWords = ready.role_contract?.cadence?.trim();
+  const { cron } = parseCadenceToCron(cadenceWords);
+  const description =
+    cadenceWords && cadenceWords.length > 0
+      ? cadenceWords.slice(0, 280)
+      : "Runs on a default weekday schedule until you set one in Schedules.";
   const duties = [
     {
-      cron: "0 9 * * 1-5",
+      cron,
       entryAction: "respond_to_inbound",
-      description: "Pick up inbound messages on the morning shift.",
+      description,
       defaultEnabled: true,
     },
   ];

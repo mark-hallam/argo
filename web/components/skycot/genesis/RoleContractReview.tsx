@@ -6,17 +6,22 @@ import {
   ArrowRight,
   BookCheck,
   CheckCircle2,
+  Clock,
   Loader2,
   ShieldCheck,
   ShieldAlert,
   Ban,
   Plug,
+  Split,
+  Target,
 } from "lucide-react";
 import type {
   GenesisVerticalReadyEvent,
   RoleContract,
   RoleContractAction,
+  SuccessCriterion,
 } from "@/lib/api/genesis";
+import { parseCadenceToCron } from "@/lib/api/genesis-cadence";
 
 /**
  * Genesis P5 (c) — the operator "what can this teammate do" review screen
@@ -53,6 +58,12 @@ function riskClass(risk: string): string {
     default:
       return "rc-risk-low";
   }
+}
+
+/** Render a typed success criterion as one human-readable line. */
+function formatCriterion(k: SuccessCriterion): string {
+  const op = k.comparator === "gte" ? "≥" : k.comparator === "lte" ? "≤" : "=";
+  return `${k.name}: ${op} ${k.target} (${k.kind})`;
 }
 
 function GateBadge({ ready }: { ready: GenesisVerticalReadyEvent }) {
@@ -161,6 +172,17 @@ export function RoleContractReview({
     );
   }
 
+  // Intake-context slots the operator captured (DEC-048 rule 2 — every captured
+  // slot must be visible before hire, so the operator can catch any loss). The
+  // cadence is checked against the SAME deterministic parser the hire path uses,
+  // so the "needs confirmation" note shows exactly when the minted schedule
+  // would fall back to a default rather than the operator's words.
+  const cadence = contract.cadence?.trim() ?? "";
+  const cadenceNeedsConfirm =
+    cadence.length > 0 && !parseCadenceToCron(cadence).parsed;
+  const exceptions = contract.exceptions ?? [];
+  const successCriteria = contract.success_criteria ?? [];
+
   return (
     <div className="rc-wrap" data-testid="genesis-role-contract-review">
       <div className="rc-card">
@@ -220,6 +242,50 @@ export function RoleContractReview({
               </h4>
               <p className="rc-escalation">{contract.escalation}</p>
             </div>
+
+            {cadence ? (
+              <div className="rc-panel" data-testid="genesis-cadence">
+                <h4 className="rc-h4">
+                  <Clock size={13} aria-hidden /> When it runs
+                </h4>
+                <p className="rc-escalation">{cadence}</p>
+                {cadenceNeedsConfirm ? (
+                  <p
+                    className="rc-escalation"
+                    data-testid="genesis-cadence-needs-confirm"
+                  >
+                    Schedule needs confirmation — set it in Schedules after
+                    hiring.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {exceptions.length > 0 ? (
+              <div className="rc-panel" data-testid="genesis-exceptions">
+                <h4 className="rc-h4">
+                  <Split size={13} aria-hidden /> Exceptions / hand-offs
+                </h4>
+                <ul className="rc-tag-list">
+                  {exceptions.map((e) => (
+                    <li key={e}>{e}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {successCriteria.length > 0 ? (
+              <div className="rc-panel" data-testid="genesis-success-criteria">
+                <h4 className="rc-h4">
+                  <Target size={13} aria-hidden /> How success is measured
+                </h4>
+                <ul className="rc-tag-list">
+                  {successCriteria.map((k) => (
+                    <li key={k.name}>{formatCriterion(k)}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             <div className="rc-panel rc-panel-willnot">
               <h4 className="rc-h4">

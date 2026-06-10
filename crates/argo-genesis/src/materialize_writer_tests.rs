@@ -61,6 +61,29 @@ fn system_prompt_is_sourced_from_spec_not_archetype_label() {
 }
 
 #[test]
+fn system_prompt_lists_operator_exceptions() {
+    // DEC-048 rule 2 (captured-equals-built): the carve-outs the operator typed
+    // at intake must land in the minted pack's system prompt, not be display-only.
+    let mut s = spec();
+    s.exceptions = vec![
+        "never touch legal escalations".into(),
+        "hand off refunds over $5k".into(),
+    ];
+    let prompt = system_prompt_from_spec(&s);
+    assert!(prompt.contains("What you will NOT do"));
+    assert!(prompt.contains("never touch legal escalations"));
+    assert!(prompt.contains("hand off refunds over $5k"));
+}
+
+#[test]
+fn system_prompt_omits_exceptions_section_when_none() {
+    // Back-compat: a spec with no captured carve-outs emits no carve-out
+    // section (the text-only path is unchanged).
+    let prompt = system_prompt_from_spec(&spec());
+    assert!(!prompt.contains("What you will NOT do"));
+}
+
+#[test]
 fn persona_prompt_signs_off_with_persona_and_omits_archetype() {
     let prompt = persona_prompt_from_spec(&spec());
     assert!(prompt.contains("— clara"));

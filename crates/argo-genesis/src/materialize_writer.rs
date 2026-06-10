@@ -41,12 +41,27 @@ pub fn system_prompt_from_spec(spec: &CapabilitySpec) -> String {
         .iter()
         .map(|c| format!("- `{}` — {}\n", c.action_name, c.intent.trim()))
         .collect::<String>();
+    // The operator's intake carve-outs (DEC-048 rule 2 — captured-equals-built):
+    // situations the teammate must NOT act on / must hand off. Soft enforcement
+    // — the prompt binds behaviour; the HARD truth-boundary fence is DEC-025
+    // Phase-2 scope. Omitted entirely when no exceptions were captured.
+    let exceptions = if spec.exceptions.is_empty() {
+        String::new()
+    } else {
+        let items: String = spec
+            .exceptions
+            .iter()
+            .map(|e| format!("- {}\n", e.trim()))
+            .collect();
+        format!("## What you will NOT do (operator carve-outs)\n\n{items}\n")
+    };
     format!(
         "# System prompt — worker `{persona}`\n\n\
          You are {persona}. {description}\n\n\
          ## Charter (operator's words)\n\n{charter}\n\n\
          ## What you are responsible for\n\n{responsibilities}\n\
          ## Your action vocabulary\n\n{actions}\n\
+         {exceptions}\
          ## How to behave\n\n\
          - Plan before you act. Surface your plan to the operator before \
          dispatching any action that touches the outside world.\n\
@@ -72,6 +87,7 @@ pub fn system_prompt_from_spec(spec: &CapabilitySpec) -> String {
         charter = spec.charter,
         responsibilities = responsibilities,
         actions = actions,
+        exceptions = exceptions,
     )
 }
 

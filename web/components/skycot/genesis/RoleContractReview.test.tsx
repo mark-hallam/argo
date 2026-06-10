@@ -170,6 +170,59 @@ describe("RoleContractReview", () => {
     expect(screen.queryByTestId("genesis-confirm-hire-button")).toBeNull();
   });
 
+  it("DEC-048: surfaces cadence, exceptions, and typed success-criteria so the operator can catch any loss before hiring", () => {
+    render(
+      <RoleContractReview
+        ready={ready({
+          role_contract: contract({
+            cadence: "every weekday at 5pm",
+            exceptions: ["never touch legal escalations", "hand off refunds over $5k"],
+            success_criteria: [
+              { name: "on-time dispatch rate", kind: "percentage", target: 95, comparator: "gte" },
+            ],
+          }),
+        })}
+        onConfirmHire={() => {}}
+        isHiring={false}
+      />,
+    );
+    expect(screen.getByTestId("genesis-cadence")).toHaveTextContent("every weekday at 5pm");
+    // A parseable cadence shows NO needs-confirmation note.
+    expect(screen.queryByTestId("genesis-cadence-needs-confirm")).toBeNull();
+    const ex = screen.getByTestId("genesis-exceptions");
+    expect(ex).toHaveTextContent("never touch legal escalations");
+    expect(ex).toHaveTextContent("hand off refunds over $5k");
+    const kpi = screen.getByTestId("genesis-success-criteria");
+    expect(kpi).toHaveTextContent("on-time dispatch rate");
+    expect(kpi).toHaveTextContent(/95/);
+    expect(kpi).toHaveTextContent(/percentage/);
+  });
+
+  it("DEC-048: an unparseable cadence shows the needs-confirmation note (no silent substitution)", () => {
+    render(
+      <RoleContractReview
+        ready={ready({
+          role_contract: contract({ cadence: "whenever an inbound ticket arrives" }),
+        })}
+        onConfirmHire={() => {}}
+        isHiring={false}
+      />,
+    );
+    expect(screen.getByTestId("genesis-cadence")).toHaveTextContent(
+      "whenever an inbound ticket arrives",
+    );
+    expect(screen.getByTestId("genesis-cadence-needs-confirm")).toHaveTextContent(
+      /needs confirmation/i,
+    );
+  });
+
+  it("omits the intake panels entirely when no slots were captured", () => {
+    render(<RoleContractReview ready={ready()} onConfirmHire={() => {}} isHiring={false} />);
+    expect(screen.queryByTestId("genesis-cadence")).toBeNull();
+    expect(screen.queryByTestId("genesis-exceptions")).toBeNull();
+    expect(screen.queryByTestId("genesis-success-criteria")).toBeNull();
+  });
+
   it("shows the hiring spinner state without re-firing the callback", () => {
     const onConfirm = vi.fn();
     render(<RoleContractReview ready={ready()} onConfirmHire={onConfirm} isHiring={true} />);

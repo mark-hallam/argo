@@ -133,3 +133,57 @@ fn malformed_body_is_safe() {
     let spec = plan.spec.as_ref().expect("spec present");
     assert!(spec.cadence.is_none() && spec.success_criteria.is_empty());
 }
+
+#[test]
+fn vertical_ready_payload_carries_all_three_intake_slots() {
+    // DEC-048 rule 2 (captured-equals-built), gateway seam: the `vertical_ready`
+    // SSE payload the SPA renders must surface cadence / exceptions / typed
+    // success-criteria so the pre-hire review can show them. `build_final_payload`
+    // enriches the derived role contract with `with_intake_slots(plan.spec)`, so
+    // every slot applied to the plan reaches the wire.
+    use argo_genesis::{
+        ComprehensionOutcome, ContractGateInput, EvalFloorOutcome, GateVerdict, SafetySignal,
+        SopComprehensionOutcome,
+    };
+
+    let mut plan = from_scratch_plan();
+    let body = json!({
+        "cadence": "every weekday at 5pm",
+        "exceptions": ["never touch legal escalations"],
+        "success_criteria": [
+            { "name": "on-time dispatch rate", "kind": "percentage", "target": 95, "comparator": "gte" }
+        ]
+    })
+    .to_string();
+    apply_intake(&body, &mut plan);
+
+    // A composed gate carries the derived role contract (the slots are added by
+    // the payload builder, not the gate). Confirmation state is irrelevant here.
+    let gate = GateVerdict::compose(
+        EvalFloorOutcome::from_counts(2, 2),
+        ComprehensionOutcome::from_counts(2, 2),
+        SopComprehensionOutcome::not_applicable(),
+        SafetySignal::Allow,
+        ContractGateInput::from_plan(&plan, None),
+    );
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let payload = super::super::routes_genesis_stream_payload::build_final_payload(
+        &plan,
+        dir.path(),
+        "op-x",
+        "Vinny",
+        3,
+        &gate,
+        None,
+        None,
+        None,
+    );
+
+    let rc = &payload["role_contract"];
+    assert_eq!(rc["cadence"], "every weekday at 5pm");
+    assert_eq!(rc["exceptions"][0], "never touch legal escalations");
+    assert_eq!(rc["success_criteria"][0]["name"], "on-time dispatch rate");
+    assert_eq!(rc["success_criteria"][0]["target"], 95.0);
+    assert_eq!(rc["success_criteria"][0]["comparator"], "gte");
+}

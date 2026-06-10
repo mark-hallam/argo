@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  buildHireDraftFromGenesis,
   classifyRole,
   dispatchGenesisEvent,
   hireFromGenesis,
@@ -193,6 +194,77 @@ const READY_PAYLOAD: GenesisVerticalReadyEvent = {
   eval_seed_count: 5,
   judge_verdict: "pass",
 };
+
+describe("buildHireDraftFromGenesis", () => {
+  type Duty = { cron: string; description: string; defaultEnabled: boolean };
+
+  function duties(draft: Record<string, unknown>): Duty[] {
+    return draft.duties as Duty[];
+  }
+
+  function readyWithCadence(cadence?: string): GenesisVerticalReadyEvent {
+    return {
+      ...READY_PAYLOAD,
+      role_contract: {
+        role_name: "Mariah",
+        does: "Handles inbound support.",
+        actions: [],
+        approval_required: [],
+        autonomous: [],
+        escalation: "Escalates when uncertain.",
+        will_not: [],
+        draft_integrations: [],
+        ...(cadence !== undefined ? { cadence } : {}),
+      },
+    };
+  }
+
+  it("DEC-048: threads the captured cadence into a REAL cron + the user's own words", () => {
+    const draft = buildHireDraftFromGenesis(
+      readyWithCadence("every weekday at 5pm"),
+      "be my support agent",
+    );
+    const d = duties(draft)[0]!;
+    // The minted schedule fires at 17:00 weekdays — NOT the old hardcoded 9am.
+    expect(d.cron).toBe("0 17 * * 1-5");
+    // The duty description is the operator's OWN words, never canned copy.
+    expect(d.description).toBe("every weekday at 5pm");
+    expect(d.defaultEnabled).toBe(true);
+  });
+
+  it("DEC-048: the canned 'morning shift' copy is gone from the hire path", () => {
+    const draft = buildHireDraftFromGenesis(
+      readyWithCadence("every weekday at 5pm"),
+      "be my support agent",
+    );
+    expect(JSON.stringify(draft)).not.toContain(
+      "Pick up inbound messages on the morning shift",
+    );
+  });
+
+  it("keeps an unparseable cadence as the description and never invents the morning-shift copy", () => {
+    const draft = buildHireDraftFromGenesis(
+      readyWithCadence("whenever an inbound ticket arrives"),
+      "be my support agent",
+    );
+    const d = duties(draft)[0]!;
+    // Words preserved verbatim; cron falls back to the default (the review card
+    // surfaces "needs confirmation" — pinned in RoleContractReview.test.tsx).
+    expect(d.description).toBe("whenever an inbound ticket arrives");
+    expect(d.cron).toBe("0 9 * * 1-5");
+    expect(JSON.stringify(draft)).not.toContain("morning shift");
+  });
+
+  it("uses an honest default (not the canned copy) when no cadence was captured", () => {
+    const draft = buildHireDraftFromGenesis(
+      readyWithCadence(undefined),
+      "be my support agent",
+    );
+    const d = duties(draft)[0]!;
+    expect(d.cron).toBe("0 9 * * 1-5");
+    expect(d.description).not.toContain("morning shift");
+  });
+});
 
 describe("parseSseBlock", () => {
   it("decodes event + JSON data", () => {
