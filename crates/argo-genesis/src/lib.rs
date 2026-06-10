@@ -63,6 +63,7 @@ pub mod memory_schema;
 pub mod onboarding_documents;
 pub mod pipeline;
 pub mod pipeline_seed;
+pub mod policy_synth;
 pub mod prompt_engineer;
 pub mod prompt_writer;
 pub mod quality;
@@ -137,6 +138,11 @@ pub use onboarding_documents::{
     MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES,
 };
 pub use safe_fetch::{safe_fetch_text, SAFE_FETCH_BODY_CAP_BYTES};
+pub use policy_synth::{
+    boundaries_echo, gated_class_names, normalize_topic, persist_policy, synthesize_policy,
+    smart_defaults as boundaries_smart_defaults, AccessLevel, AccessScope, BoundariesSpec,
+    DataCategory, BOUNDARIES_POLICY_FILENAME, GENESIS_BOUNDARIES_POLICY_ID,
+};
 pub use job_description::{
     genesis_from_job_description, genesis_from_job_description_with, GenesisDraft, JobDescInput,
 };

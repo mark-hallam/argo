@@ -33,6 +33,13 @@ import type {
   Question,
   QuestionAnswer,
 } from "@/lib/hire/genesis-types";
+// Type-only import (erased at compile time, so no client-component runtime
+// dependency leaks into server route handlers). The boundaries spec/echo's
+// canonical home is the panel component.
+import type {
+  BoundariesEcho,
+  BoundariesSpec,
+} from "@/components/skycot/genesis/BoundariesPanel";
 
 export type GenesisSource = "gateway" | "stub";
 
@@ -324,6 +331,11 @@ export interface GenesisVerticalReadyEvent {
   sop_source_label?: string | null;
   /** Honest gate evidence (eval / comprehension / SOP / safety pass-rates). */
   gate?: GenesisGateDetail;
+  /** Genesis Phase-2 access-controls + guardrails: the SERVER-TRUTH echo of the
+   *  truth-boundary policy synthesized from the operator's "Set boundaries"
+   *  panel. The SPA renders THIS at the hire step, not local form state
+   *  (no-theater). `null` when no boundaries were configured. */
+  boundaries?: BoundariesEcho | null;
 }
 
 export interface GenesisErrorEvent {
@@ -380,6 +392,11 @@ export interface StreamGenesisRequest {
    *  Threaded into `CapabilitySpec.success_criteria` (non-empty makes A2's emit
    *  use the operator's REAL goals instead of the default KPI skeleton). */
   successCriteria?: SuccessCriterion[];
+  /** Genesis Phase-2 access-controls + guardrails: the operator's "Set
+   *  boundaries" spec. The gateway synthesizes an enforceable truth-boundary
+   *  policy from it and echoes back what it persisted. Omitted from the wire
+   *  when no boundaries were configured. */
+  boundaries?: BoundariesSpec;
   /** Aborts the in-flight stream when the caller unmounts / retries. */
   signal?: AbortSignal;
 }
@@ -515,6 +532,10 @@ export async function streamGenesis(
     ...(req.successCriteria && req.successCriteria.length > 0
       ? { success_criteria: req.successCriteria }
       : {}),
+    // Phase-2 boundaries: the gateway synthesizes a truth-boundary policy from
+    // this and echoes it back on `vertical_ready`. Omitted when unset so the
+    // wire shape is unchanged for a request that sets no boundaries.
+    ...(req.boundaries ? { boundaries: req.boundaries } : {}),
   });
   // Internal controller is what the idle-timeout aborts on a stall (so a
   // wedged socket is torn down). It's chained to the caller's `signal` so

@@ -25,6 +25,7 @@ import {
   ConversationIntake,
   type ConversationGatheredSlots,
 } from "@/components/skycot/genesis/ConversationIntake";
+import { BoundariesPanel, EMPTY_BOUNDARIES, type BoundariesSpec } from "@/components/skycot/genesis/BoundariesPanel";
 import {
   GENESIS_PHASES,
   hireFromGenesis,
@@ -93,6 +94,10 @@ export default function GenesisPage() {
   // (conversational intake). ADDITIVE — both land on the identical review →
   // hire path below; the toggle only chooses how the role is described.
   const [mode, setMode] = useState<GenesisMode>("describe");
+  // Phase-2 access-controls + guardrails: the operator's "Set boundaries" spec,
+  // threaded into the SSE request and synthesized into an enforceable
+  // truth-boundary policy on the gateway.
+  const [boundaries, setBoundaries] = useState<BoundariesSpec>(EMPTY_BOUNDARIES);
   const [status, setStatus] = useState<Status>("idle");
   const [activePhase, setActivePhase] = useState<GenesisPhase | null>(null);
   const [vertical, setVertical] = useState<GenesisVerticalReadyEvent | null>(null);
@@ -135,6 +140,7 @@ export default function GenesisPage() {
       sopDocument?: string;
       sopDocumentFormat?: "text" | "pdf_base64";
       sopFilename?: string;
+      boundaries?: BoundariesSpec;
       isRetry: boolean;
     }) => {
       setStatus("streaming");
@@ -170,6 +176,7 @@ export default function GenesisPage() {
           ...(params.successCriteria && params.successCriteria.length > 0
             ? { successCriteria: params.successCriteria }
             : {}),
+          ...(params.boundaries ? { boundaries: params.boundaries } : {}),
           signal: controller.signal,
         },
         {
@@ -237,9 +244,10 @@ export default function GenesisPage() {
             sopFilename: sop.filename,
           }
         : {}),
+      boundaries,
       isRetry,
     });
-  }, [roleDescription, sop, intake, status, startStream]);
+  }, [roleDescription, sop, intake, boundaries, status, startStream]);
 
   // "Talk it through" confirmed: hand the gathered slots to the SAME one-shot
   // stream. We also mirror them into the describe-mode state so a downstream
@@ -257,10 +265,11 @@ export default function GenesisPage() {
         cadence: gathered.cadence,
         exceptions: gathered.exceptions,
         successCriteria: gathered.successCriteria,
+        boundaries,
         isRetry: false,
       });
     },
-    [startStream],
+    [boundaries, startStream],
   );
 
   const handleHire = useCallback(async () => {
@@ -398,6 +407,11 @@ export default function GenesisPage() {
                     onChange={setIntake}
                     disabled={isBusy}
                   />
+                  <BoundariesPanel
+                    value={boundaries}
+                    onChange={setBoundaries}
+                    disabled={isBusy}
+                  />
                 </>
               ) : null}
             </>
@@ -454,6 +468,9 @@ export default function GenesisPage() {
                 verticalId={vertical.vertical_id}
                 disabled={status === "hiring"}
               />
+              {vertical.boundaries ? (
+                <BoundariesPanel applied={vertical.boundaries} />
+              ) : null}
               <RoleContractReview
                 ready={vertical}
                 onConfirmHire={handleHire}

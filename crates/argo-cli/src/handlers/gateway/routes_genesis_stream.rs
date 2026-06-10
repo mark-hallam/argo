@@ -99,6 +99,13 @@ struct GenesisRequest {
     /// audit row). Defaults to a generic label when absent.
     #[serde(default)]
     sop_filename: Option<String>,
+    /// Genesis Phase-2 access-controls + guardrails (this brief). The visual
+    /// "Set boundaries" spec — read-only/read-write per data category, a
+    /// dollar approval ceiling, and free-text escalation topics — synthesized
+    /// into an enforceable truth-boundary policy. Omitted from the wire when the
+    /// operator sets no boundaries, so the wire shape is unchanged otherwise.
+    #[serde(default)]
+    boundaries: Option<argo_genesis::policy_synth::BoundariesSpec>,
 }
 
 /// Path-prefix check used by the connection router to peel this
@@ -348,6 +355,11 @@ pub(super) async fn serve_genesis_stream(
     .await?;
     let gate = super::routes_genesis_gate::run_hire_gate(&plan, Some(&vertical_dir)).await;
     let dry_run_until = super::routes_genesis_stream_payload::read_dry_run_until(&vertical_dir);
+    // Genesis Phase-2 boundaries (this brief). Synthesize the server-truth echo
+    // and best-effort persist the policy TOML next to the vertical when the
+    // resolved tenant is a real UUID (the signed-in demo path). The echo always
+    // reflects the synthesized policy so the SPA renders server truth at hire.
+    let boundaries_echo = persist_and_echo_boundaries(parsed.boundaries.as_ref(), &tenant_id, &vertical_dir);
     let final_payload = super::routes_genesis_stream_payload::build_final_payload(
         &plan,
         &vertical_dir,
@@ -357,6 +369,7 @@ pub(super) async fn serve_genesis_stream(
         &gate,
         dry_run_until.as_deref(),
         sop_status.as_ref().map(|(label, len)| (label.as_str(), *len)),
+        boundaries_echo.as_ref(),
     );
 
     write_progress(out, "ready", "Vertical ready", 100).await?;
@@ -373,6 +386,43 @@ pub(super) async fn serve_genesis_stream(
     )
     .await;
     out.shutdown().await
+}
+
+/// Synthesize the boundaries echo for the `vertical_ready` payload and
+/// best-effort persist the policy TOML next to the vertical.
+///
+/// Returns `None` when no boundaries were configured. The echo is the
+/// server-truth summary of the synthesized truth-boundary policy (the SAME
+/// synthesis the persisted policy uses), so the SPA renders what the server
+/// produced, not its local form (no-theater). Disk persistence only happens
+/// when the resolved tenant is a real UUID (the signed-in path) — the
+/// anonymous/test fallback slug isn't a valid policy `tenant_id`, so we echo
+/// without persisting rather than fabricating a tenant. Per-worker RUNTIME
+/// loading of the persisted policy is a deferred follow-up (runtime loading is
+/// process-global via `ARGO_TRUTH_BOUNDARY_POLICY_PATH` today).
+fn persist_and_echo_boundaries(
+    spec: Option<&argo_genesis::policy_synth::BoundariesSpec>,
+    tenant_id: &str,
+    vertical_dir: &Path,
+) -> Option<serde_json::Value> {
+    let spec = spec?;
+    if spec.is_empty() {
+        return None;
+    }
+    if let Ok(uuid) = uuid::Uuid::parse_str(tenant_id) {
+        if let Err(e) = argo_genesis::policy_synth::persist_policy(
+            spec,
+            argo_types::TenantId(uuid),
+            vertical_dir,
+        ) {
+            tracing::warn!(
+                target: "gateway::genesis_stream",
+                error = %e,
+                "boundaries policy persist failed; echoing synthesized spec only",
+            );
+        }
+    }
+    Some(argo_genesis::policy_synth::boundaries_echo(spec))
 }
 
 fn provider_key_present() -> bool {

@@ -28,6 +28,7 @@ pub(super) fn build_final_payload(
     gate: &GateVerdict,
     dry_run_until: Option<&str>,
     sop: Option<(&str, usize)>,
+    boundaries: Option<&Value>,
 ) -> Value {
     let actions = plan
         .manifest
@@ -88,6 +89,12 @@ pub(super) fn build_final_payload(
         "contract_digest": gate.contract_digest,
         "sop_uploaded": gate.sop_applicable,
         "sop_source_label": sop_label,
+        // Genesis Phase-2 access-controls + guardrails (this brief). The
+        // server-truth summary of the truth-boundary policy synthesized from the
+        // operator's "Set boundaries" panel — the SPA renders THIS echo at the
+        // hire step, never its local form state (no-theater). `null` when no
+        // boundaries were configured.
+        "boundaries": boundaries.cloned().unwrap_or(Value::Null),
         "gate": {
             "state": gate.state.as_str(),
             "eval_passed": gate.eval_passed,

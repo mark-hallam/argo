@@ -1,5 +1,15 @@
 # mission-genesis-access-controls-and-guardrails-spec-ui
 
+> **STATUS 2026-06-10 — IMPLEMENTED (claude worker).** SPA "Set boundaries"
+> panel + `argo-genesis::policy_synth` (spec → canonical `TruthBoundaryPolicy`,
+> round-trip-enforced via `load_policy`/`evaluate_claim`, cross-tenant bound) +
+> SSE `vertical_ready` boundaries echo. Two scope deviations carried per the
+> brief's own split guidance: (1) the $-threshold leg does NOT touch
+> `routes_approvals_threshold.rs` (that's N-of-M vote quorum, not a $-cap store;
+> the real $-cap is `argo_identity::auto_approval::AutoApprovalPolicy` with no
+> genesis write route today — split into a follow-up); (2) per-worker RUNTIME
+> policy routing is deferred (runtime loading is process-global today). See PR.
+
 **Owner**: claude.
 **Authored against**: origin/main `7c81986c2` on `2026-06-10` (REVIVED — originally authored against `a85963b34` on 2026-05-25).
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-genesis-access-controls-and-guardrails-spec-ui`.
