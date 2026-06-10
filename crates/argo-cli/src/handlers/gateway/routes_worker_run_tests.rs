@@ -7,10 +7,13 @@
 
 #![allow(clippy::too_many_lines)]
 
-use super::post_run;
+use super::{canonical_outcome_status, post_run};
 use argo_identity::{IdentityStore, Persona, Role, Worker, WorkerId};
 use argo_store::SessionStore;
 use argo_types::TenantId;
+use chrono::Utc;
+use jsonwebtoken::{EncodingKey, Header};
+use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
@@ -24,7 +27,43 @@ const TOUCHED_ENV: &[&str] = &[
     "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
     "ARGO_WORKER_RUN_PROVIDER",
+    "SKYCOT_AUTH_JWT_SECRET",
 ];
+
+/// Shared HS256 secret for the session-cookie actor tests. Set on the
+/// process env under the `shared_env_lock` so `decode_session_cookie`
+/// (which reads `SKYCOT_AUTH_JWT_SECRET`) verifies the minted JWT.
+const TEST_JWT_SECRET: &str = "manual-run-audit-actor-test-secret";
+
+/// Minimal `__Host-session` claim shape — matches the fields the
+/// session resolver reads (`sub`, `email`, `tnt`, `exp`).
+#[derive(Serialize)]
+struct TestClaims<'a> {
+    sub: &'a str,
+    email: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tnt: Option<String>,
+    iat: i64,
+    exp: i64,
+}
+
+/// Mint a `__Host-session` cookie JWT carrying `email` + `tnt`, signed
+/// with [`TEST_JWT_SECRET`].
+fn mint_session(email: &str, tenant: &TenantId) -> String {
+    let now = Utc::now().timestamp();
+    jsonwebtoken::encode(
+        &Header::new(jsonwebtoken::Algorithm::HS256),
+        &TestClaims {
+            sub: "22222222-2222-2222-2222-222222222222",
+            email,
+            tnt: Some(tenant.to_string()),
+            iat: now - 10,
+            exp: now + 3600,
+        },
+        &EncodingKey::from_secret(TEST_JWT_SECRET.as_bytes()),
+    )
+    .expect("mint session jwt")
+}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -168,6 +207,43 @@ fn parse(body: &str) -> serde_json::Value {
     serde_json::from_str(body).unwrap_or_else(|_| panic!("invalid JSON: {body}"))
 }
 
+/// Build a run request carrying a `__Host-session` cookie (the signed-in
+/// path) and, optionally, a (possibly forged) `X-Argo-Principal` header —
+/// used to prove the server-resolved session identity wins over the
+/// client header.
+fn run_req_session(
+    id: &WorkerId,
+    role: Option<&str>,
+    body: &str,
+    cookie_jwt: &str,
+    principal_header: Option<&str>,
+) -> String {
+    let mut req = format!("POST /api/v1/workers/{id}/run HTTP/1.1\r\nHost: x\r\n");
+    if let Some(r) = role {
+        req.push_str(&format!("X-Argo-Role: {r}\r\n"));
+    }
+    if let Some(p) = principal_header {
+        req.push_str(&format!("X-Argo-Principal: {p}\r\n"));
+    }
+    req.push_str(&format!("Cookie: __Host-session={cookie_jwt}\r\n"));
+    req.push_str(&format!("Content-Length: {}\r\n\r\n{body}", body.len()));
+    req
+}
+
+/// Fetch the single emitted `worker.run` audit row as
+/// `(payload_json, principal_id)`. The principal column is `NULL` for
+/// genuinely anonymous calls.
+async fn fetch_run_row(store: &Arc<SessionStore>) -> (serde_json::Value, Option<String>) {
+    let (payload, principal): (String, Option<String>) = sqlx::query_as(
+        "SELECT payload_json, principal_id FROM audit_record \
+         WHERE payload_json LIKE '%worker.run%' ORDER BY created_at DESC LIMIT 1",
+    )
+    .fetch_one(store.pool())
+    .await
+    .expect("fetch worker.run audit row");
+    (parse(&payload), principal)
+}
+
 #[tokio::test]
 async fn run_with_capability_returns_200_with_action_id() {
     let (env, worker) = setup_with_worker("Mariah").await;
@@ -298,3 +374,9 @@ async fn run_no_store_returns_503() {
     assert_eq!(status, "503 Service Unavailable", "body: {body}");
     restore_env(&saved);
 }
+
+// Audit-honesty tests (kind/title, status, actor) live in a sibling file
+// to keep this module under the 500-LOC ceiling. It is a child module, so
+// `use super::*` there reuses every fixture defined above.
+#[path = "routes_worker_run_audit_tests.rs"]
+mod audit_tests;

@@ -51,7 +51,7 @@
 //!   (the worker-lifecycle path-dispatcher) for pattern consistency.
 
 use super::role_gate::{enforce_role, Action};
-use super::routes_auth_principal::principal_id_for_audit;
+use super::routes_auth_principal::session_principal_id_for_audit;
 use super::{body_from_request, store_unavailable};
 use argo_audit::{AuditKind, AuditSink};
 use argo_identity::{IdentityStore, Worker, WorkerId};
@@ -112,7 +112,7 @@ async fn finish_run(
     note: Option<&str>,
     outcome: &routes_worker_run_exec::RunOutcome,
 ) -> (&'static str, String) {
-    let actor = principal_id_for_audit(req).unwrap_or_else(|| "anonymous".to_string());
+    let actor = session_principal_id_for_audit(req).unwrap_or_else(|| "anonymous".to_string());
     let trigger_id = Uuid::now_v7().to_string();
     let queued_at = Utc::now();
     let payload = build_payload(
@@ -262,18 +262,47 @@ fn build_payload(
         }
     }
     json!({
+        // `verb` + `action_type` give the row a worker-run identity the
+        // /audit feed renders and the default meta-filter does NOT hide.
+        // Without them the row resolved its verb from the `http.request`
+        // kind column, so it was both mislabeled and meta-filtered out of
+        // the default feed (#2661). "worker.run" is not a metadata verb.
+        "verb": "ran a manual turn",
+        "action_type": "worker.run",
         "endpoint": "worker.run",
         "worker_id": worker.id.to_string(),
         "worker_name": worker.persona.name,
         "trigger_id": trigger_id,
         "trigger_source": trigger_source,
         "note": note.unwrap_or(""),
+        // `outcome_status` is the canonical badge value both readers
+        // normalize (`succeeded`/`failed`); the engine's raw `completed`
+        // stays in `status` for the response/decision-chain breadcrumb.
+        // Emitting only `completed` made a TRUE run render `Failed`
+        // (the web `normalizeStatus` default).
+        "outcome_status": canonical_outcome_status(outcome.status),
         "status": outcome.status,
         "session_id": outcome.session_id,
         "chars": outcome.chars,
         "queued_at": queued_at.to_rfc3339(),
         "decision_chain": [decision],
     })
+}
+
+/// Map the engine's `completed`/`failed` run outcome to the canonical
+/// audit status vocabulary the readers normalize (`succeeded`/`failed`).
+///
+/// The engine reports `"completed"`, but both audit readers — the feed's
+/// `routes_audit_feed::outcome_status` consumer and the web
+/// `web/lib/api/audit-detail.ts::normalizeStatus` — only recognize
+/// `"succeeded"`, defaulting anything else to `"failed"`. Stamping the
+/// canonical value at the emit means no reader has to guess, so a TRUE
+/// run never renders as `Failed`.
+fn canonical_outcome_status(engine_status: &str) -> &'static str {
+    match engine_status {
+        "completed" => "succeeded",
+        _ => "failed",
+    }
 }
 
 async fn write_audit(
@@ -287,7 +316,7 @@ async fn write_audit(
         None,
         AuditKind::HttpRequest,
         payload,
-        principal_id_for_audit(req),
+        session_principal_id_for_audit(req),
     )
     .await
 }

@@ -4,6 +4,7 @@
 //! optional caller identity into gateway audit payloads without changing
 //! the audit schema.
 
+use super::middleware_session_verify::{decode_session_bearer, decode_session_cookie, DecodeOutcome};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -80,6 +81,46 @@ pub(super) fn principal_payload(req: &str, mut payload: Value) -> Result<Value, 
 /// the anonymous path in practice).
 pub(super) fn principal_id_for_audit(req: &str) -> Option<String> {
     parse_principal_header(req).ok().and_then(|p| p.audit_id())
+}
+
+/// Resolve the audit principal for a **session-authenticated** work
+/// action (e.g. the manual "Run now"). Mirrors the WS1 JWT-first
+/// precedence of `super::resolve_tenant::resolve_tenant_for_request`:
+/// a signed-in operator's action attributes to THEIR server-resolved
+/// session identity, and a client-supplied `X-Argo-Principal` header can
+/// NEVER override it. The header stays as the fallback ONLY when there is
+/// no decodable session, so `None` (→ `"anonymous"` at the call site)
+/// survives for genuinely anonymous calls.
+///
+/// This is the honesty fix for the manual-run audit row: previously the
+/// row read "triggered by anonymous" even though the operator was signed
+/// in with a `__Host-session` JWT — the resolver only ever consulted the
+/// (absent) header. See `fix-manual-run-audit-row-kind-status-and-principal`.
+pub(super) fn session_principal_id_for_audit(req: &str) -> Option<String> {
+    session_human_principal(req).or_else(|| principal_id_for_audit(req))
+}
+
+/// The `human:<email|sub>` principal carried by a valid session JWT
+/// (`__Host-session` cookie preferred, then the forwarded
+/// `Authorization: Bearer` session JWT), or `None` when the request
+/// carries no decodable session. Uses the same signature+`exp` decode the
+/// tenant resolver trusts; a stale or client-forged cookie only ever names
+/// its OWN signed identity, so no principal escalation is possible here.
+fn session_human_principal(req: &str) -> Option<String> {
+    let claims = match decode_session_cookie(req) {
+        DecodeOutcome::Decoded(c) => c,
+        _ => match decode_session_bearer(req) {
+            DecodeOutcome::Decoded(c) => c,
+            _ => return None,
+        },
+    };
+    let email = claims.email.trim();
+    let who = if email.is_empty() {
+        claims.sub.trim()
+    } else {
+        email
+    };
+    (!who.is_empty()).then(|| GatewayPrincipal::Human(who.to_string()).as_payload_value())
 }
 
 fn principal_header_value(req: &str) -> Option<&str> {
