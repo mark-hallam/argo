@@ -441,6 +441,22 @@ fi
 
 [[ -x "$BIN" ]] || die "expected binary $BIN missing after build"
 
+# ---------- step 5b: stable codesign for durable macOS TCC grants ----
+#
+# An ad-hoc (linker-signed) binary is keyed in macOS TCC (Privacy &
+# Security permission DB) by its code hash, which changes on every
+# rebuild — so the operator's one-time Accessibility + Screen-Recording
+# grant to the gateway is orphaned each recompile (DEC-050 G4; confirmed
+# 2026-06-11 the 06:02 rebuild dropped the 2026-05-26 grant). Signing
+# with a STABLE identity (ARGO_CODESIGN_IDENTITY, sourced from
+# $ARGO_HOME/env.local above) makes TCC key the binary by its Designated
+# Requirement instead, so the grant survives. Opt-in + fail-soft: a no-op
+# when no identity is configured, and never blocks the launch on a
+# signing error. One-time setup: scripts/create-gateway-signing-identity.sh.
+log "[5b/8] Applying stable code signature (durable TCC grants)..."
+bash "$REPO_ROOT/scripts/codesign-gateway-binary.sh" "$BIN" \
+    || log "      codesign step returned non-zero (non-fatal) — continuing."
+
 # ---------- step 6: launch new gateway detached ----------------------
 
 log "[6/8] Launching $BIN gateway start --bind $HOST --port $PORT (detached)..."
