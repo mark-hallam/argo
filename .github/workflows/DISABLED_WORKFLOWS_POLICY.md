@@ -41,14 +41,26 @@ Per-workflow flip from `keep-disabled` to active requires ONE of:
 2. The workflow's underlying surface ships (e.g. release.yml needs a release process; deploy-prod.yml needs a deploy gate).
 3. Post-v1.0 launch (re-evaluate each as part of v1.x scoping).
 
-## Active workflows (for reference)
+## Currently active workflows: NONE
 
-The 5 actively-enabled workflows are:
+**ZERO workflows run today.** Every `*.yml` in this directory is suffixed
+`.yml.disabled` (verified) AND GitHub Actions is disabled at the repo level
+(Settings → Actions → "Disable actions"). Verification during v1.0 build is
+covered entirely by admin-merge + local gates (`scripts/conductor-pre-merge-gate.sh`
++ worker-side pre-push `cargo clippy` / `cargo test`). No CI runs on push.
 
-- `ci.yml` — fmt, clippy, test matrix, coverage, loc-budget, prepared-statements, error-variant-usage, config-callsite-audit, parallel-pub-types-enforce, audit-sink-tenant-guard.
-- `audit.yml` — cargo audit (RUSTSEC advisories).
-- `deny.yml` — cargo deny (advisories/bans/sources/licenses).
-- `deploy-smoke.yml` — `scripts/smoke-skycot.sh` + optional `--target-url` post-deploy.
-- `cli-reference-drift.yml` — CLI `--help` vs `docs/skycot/cli-reference.md` drift check.
+## Re-enable priority order (when GitHub Actions billing returns)
 
-All 5 currently fail at the runner level (operator-side billing). Conductor admin-merges bypass these failures with eyes-open per the v1 strategy.
+The 5 workflows that were active until 2026-05-21 are the ones to RE-ENABLE
+first, in this order (per the 2026-06-10 test-health audit, F9 — `ci.yml` first):
+
+1. `ci.yml` — fmt, clippy, test matrix, coverage, loc-budget, prepared-statements, error-variant-usage, config-callsite-audit, parallel-pub-types-enforce, audit-sink-tenant-guard. **Re-enable first** — it is the core merge gate.
+2. `audit.yml` — cargo audit (RUSTSEC advisories).
+3. `deny.yml` — cargo deny (advisories/bans/sources/licenses).
+4. `deploy-smoke.yml` — `scripts/smoke-skycot.sh` + optional `--target-url` post-deploy.
+5. `cli-reference-drift.yml` — CLI `--help` vs `docs/skycot/cli-reference.md` drift check.
+
+To re-enable a workflow: rename `<name>.yml.disabled` → `<name>.yml` AND
+re-enable Actions at the repo level. The remaining `keep-disabled (v1)`
+workflows in the table above stay disabled until their underlying surface
+ships (see "Re-enable trigger conditions").
