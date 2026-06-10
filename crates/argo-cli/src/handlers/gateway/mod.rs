@@ -154,6 +154,7 @@ mod routes_genesis_quiz;
 mod routes_genesis_rubric;
 mod routes_genesis_sop;
 mod routes_genesis_stream;
+mod routes_genesis_stream_boundaries;
 mod routes_genesis_stream_intake;
 mod routes_genesis_stream_llm;
 mod routes_genesis_stream_payload;

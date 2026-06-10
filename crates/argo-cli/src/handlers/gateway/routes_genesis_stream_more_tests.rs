@@ -391,3 +391,28 @@ async fn regeneration_does_not_invalidate_the_first_reviewed_contract() {
          not weakened by the unique-id fix"
     );
 }
+
+#[tokio::test]
+async fn over_cap_boundaries_spec_rejected_with_400_at_gateway() {
+    // WIRING tripwire: the `validate_input_bounds()` guard must reject an
+    // over-cap boundaries spec with 400 at the gateway, BEFORE synthesis. The
+    // unit tests in `policy_synth_bounds` cover the validator in isolation, so
+    // a revert of the gateway guard call would leave THOSE green — this test is
+    // what fails on such a revert.
+    let tmp = TempDir::new().unwrap();
+    let _env = EnvGuard::set(&[
+        (PROVIDER_KEY_ENV, "test-key"),
+        ("ARGO_VERTICALS_DIR", tmp.path().to_str().unwrap()),
+    ])
+    .await;
+    let store = mem_store().await;
+    let topics: Vec<String> = (0..70).map(|i| i.to_string()).collect();
+    let body = serde_json::json!({
+        "role_description": "A clearly long enough role description for the gate.",
+        "boundaries": { "escalation_topics": topics },
+    })
+    .to_string();
+    let raw = drive_handler(build_request(&body, Some("tenant-x")), Arc::clone(&store)).await;
+    assert!(raw.starts_with("HTTP/1.1 400 Bad Request"), "got: {raw}");
+    assert!(raw.contains("bad_request"));
+}

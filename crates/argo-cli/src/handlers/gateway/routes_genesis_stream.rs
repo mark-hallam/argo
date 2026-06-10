@@ -179,6 +179,24 @@ pub(super) async fn serve_genesis_stream(
         )
         .await;
     }
+    // Cap the operator-supplied boundaries spec server-side before any policy
+    // synthesis runs, so an adversarial/huge spec can't amplify allocation
+    // (escalation-topic count + per-topic length; see
+    // `argo_genesis::policy_synth_bounds`). Fail closed with an explicit 400.
+    if let Some(e) = parsed
+        .boundaries
+        .as_ref()
+        .and_then(|s| s.validate_input_bounds().err())
+    {
+        return write_one_shot_error(
+            out,
+            "400 Bad Request",
+            "bad_request",
+            &e.to_string(),
+            &cors_headers,
+        )
+        .await;
+    }
     let persona = persona_for(parsed.persona.as_deref(), &role_description);
     // DEC-025 #9 (single-tenant-per-cwd): write the manifest under the SAME
     // cwd-derived workspace tenant the hire-commit endpoint reads under, so the
@@ -359,7 +377,11 @@ pub(super) async fn serve_genesis_stream(
     // and best-effort persist the policy TOML next to the vertical when the
     // resolved tenant is a real UUID (the signed-in demo path). The echo always
     // reflects the synthesized policy so the SPA renders server truth at hire.
-    let boundaries_echo = persist_and_echo_boundaries(parsed.boundaries.as_ref(), &tenant_id, &vertical_dir);
+    let boundaries_echo = super::routes_genesis_stream_boundaries::persist_and_echo_boundaries(
+        parsed.boundaries.as_ref(),
+        &tenant_id,
+        &vertical_dir,
+    );
     let final_payload = super::routes_genesis_stream_payload::build_final_payload(
         &plan,
         &vertical_dir,
@@ -386,43 +408,6 @@ pub(super) async fn serve_genesis_stream(
     )
     .await;
     out.shutdown().await
-}
-
-/// Synthesize the boundaries echo for the `vertical_ready` payload and
-/// best-effort persist the policy TOML next to the vertical.
-///
-/// Returns `None` when no boundaries were configured. The echo is the
-/// server-truth summary of the synthesized truth-boundary policy (the SAME
-/// synthesis the persisted policy uses), so the SPA renders what the server
-/// produced, not its local form (no-theater). Disk persistence only happens
-/// when the resolved tenant is a real UUID (the signed-in path) — the
-/// anonymous/test fallback slug isn't a valid policy `tenant_id`, so we echo
-/// without persisting rather than fabricating a tenant. Per-worker RUNTIME
-/// loading of the persisted policy is a deferred follow-up (runtime loading is
-/// process-global via `ARGO_TRUTH_BOUNDARY_POLICY_PATH` today).
-fn persist_and_echo_boundaries(
-    spec: Option<&argo_genesis::policy_synth::BoundariesSpec>,
-    tenant_id: &str,
-    vertical_dir: &Path,
-) -> Option<serde_json::Value> {
-    let spec = spec?;
-    if spec.is_empty() {
-        return None;
-    }
-    if let Ok(uuid) = uuid::Uuid::parse_str(tenant_id) {
-        if let Err(e) = argo_genesis::policy_synth::persist_policy(
-            spec,
-            argo_types::TenantId(uuid),
-            vertical_dir,
-        ) {
-            tracing::warn!(
-                target: "gateway::genesis_stream",
-                error = %e,
-                "boundaries policy persist failed; echoing synthesized spec only",
-            );
-        }
-    }
-    Some(argo_genesis::policy_synth::boundaries_echo(spec))
 }
 
 fn provider_key_present() -> bool {

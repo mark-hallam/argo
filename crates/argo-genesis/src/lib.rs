@@ -66,6 +66,7 @@ pub mod onboarding_documents;
 pub mod pipeline;
 pub mod pipeline_seed;
 pub mod policy_synth;
+pub mod policy_synth_bounds;
 pub mod prompt_engineer;
 pub mod prompt_writer;
 pub mod quality;
@@ -145,6 +146,9 @@ pub use policy_synth::{
     boundaries_echo, gated_class_names, normalize_topic, persist_policy, synthesize_policy,
     smart_defaults as boundaries_smart_defaults, AccessLevel, AccessScope, BoundariesSpec,
     DataCategory, BOUNDARIES_POLICY_FILENAME, GENESIS_BOUNDARIES_POLICY_ID,
+};
+pub use policy_synth_bounds::{
+    BoundariesValidationError, MAX_ESCALATION_TOPICS, MAX_TOPIC_LEN,
 };
 pub use job_description::{
     genesis_from_job_description, genesis_from_job_description_with, GenesisDraft, JobDescInput,
