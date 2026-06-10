@@ -46,6 +46,8 @@
 import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { hasRealSession, isDemoLive } from "@/lib/skycot/demo-mode";
+import { publishHead, saveDraft } from "@/lib/api/workflows-save-publish";
+import { encodeStepsToToml } from "@/app/(app)/workflows/[verticalId]/[name]/build/step-encoder";
 import {
   SAMPLE_WORKFLOW_SPECS,
   SAMPLE_WORKFLOW_SUMMARIES,
@@ -567,4 +569,52 @@ export async function rollbackToVersion(
   return apiPost<RollbackToVersionResult>(rollbackPath(args.verticalId, args.name), {
     target_version_id: args.targetVersionId,
   });
+}
+
+// ── Seed publish-then-run bridge ───────────────────────────────
+
+/**
+ * Materialize a seed-source workflow as a real gateway row, then promote
+ * it to head, so a subsequent execute runs against actual persisted state
+ * rather than the bundled sample. The detail page's Run-now action calls
+ * this when `source !== "gateway"`: the gateway has no row for this
+ * workflow yet, so we serialize the seed steps to `workflow.toml`, POST
+ * them as a draft, and PUT that draft as head. Returns the canonical
+ * numeric head version the gateway recorded.
+ *
+ * This keeps the demo run honest (NO THEATER — DEC-007/DEC-029): the run
+ * the camera sees fires the two backends against a freshly-published row
+ * threaded with the operator's principal, never a mock dispatch. When a
+ * concurrent actor has already published the workflow the gateway reports
+ * a conflict and the live head is run as-is.
+ *
+ * @example
+ * const headVersion = await publishSeedWorkflowToHead("support", "approve_refund", spec);
+ */
+export async function publishSeedWorkflowToHead(
+  verticalId: string,
+  name: string,
+  workflow: Pick<WorkflowSpec, "steps" | "description">,
+): Promise<number> {
+  const definition_toml = encodeStepsToToml(workflow.steps, {
+    workflowName: name,
+    workflowDescription: workflow.description,
+  });
+  const saved = await saveDraft({
+    vertical_id: verticalId,
+    name,
+    definition_toml,
+  });
+  if (saved.kind === "conflict") {
+    // Head already advanced (another actor published this workflow in the
+    // meantime) — the live head IS the row we want to run, so skip the
+    // promote and report its version.
+    return saved.current_version;
+  }
+  const { head_version } = await publishHead({
+    vertical_id: verticalId,
+    name,
+    version_id: saved.version_id,
+  });
+  return head_version;
 }

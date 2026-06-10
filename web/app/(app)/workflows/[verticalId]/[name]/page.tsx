@@ -39,7 +39,11 @@ import {
   fetchWorkflowRuns,
   type FetchWorkflowRunsResult,
 } from "@/lib/api/workflow-runs";
-import { resolveWorkflowSubstrate, stepUsesSubstrate } from "@/lib/api/workflows";
+import {
+  resolveWorkflowSubstrate,
+  stepUsesSubstrate,
+  publishSeedWorkflowToHead,
+} from "@/lib/api/workflows";
 import { formatVersion } from "@/lib/format/version";
 import type { WorkflowStepKind } from "@/lib/sample-workflows";
 import { SubstrateChip } from "@/components/skycot/workflow/SubstrateChip";
@@ -106,6 +110,7 @@ function ViewerInner({
   const [editChatOpen, setEditChatOpen] = useState(false);
   const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false);
   const [running, setRunning] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [lastRunError, setLastRunError] = useState<string | null>(null);
   const stateFlag = searchParams?.get("state") ?? null;
 
@@ -171,6 +176,16 @@ function ViewerInner({
     setRunning(true);
     setLastRunError(null);
     try {
+      // Seed-source workflows (mock-offline / mock-bypass) have no gateway
+      // row yet — publish the seed TOML to this tenant first so the run
+      // executes a REAL persisted workflow (NO THEATER, DEC-007/DEC-029),
+      // not a mock dispatch. Any publish failure surfaces through the same
+      // describeRunNowError toast/chip layer below.
+      if (!isLive && workflow) {
+        setPublishing(true);
+        await publishSeedWorkflowToHead(verticalId, name, workflow);
+        setPublishing(false);
+      }
       const report = await executeWorkflow({ verticalId, name });
       toast.success(
         `Workflow run ${report.ok ? "succeeded" : "completed with failures"} · ${report.run_id.slice(0, 8)}`,
@@ -189,9 +204,10 @@ function ViewerInner({
         },
       });
     } finally {
+      setPublishing(false);
       setRunning(false);
     }
-  }, [running, verticalId, name, runsQuery]);
+  }, [running, isLive, workflow, verticalId, name, runsQuery]);
 
   const resetState = useCallback(() => {
     const next = new URLSearchParams(searchParams?.toString() ?? "");
@@ -251,12 +267,18 @@ function ViewerInner({
   const blockingConnector = connectorReferences.find(
     (ref) => (connectorStatusMap[ref.connectorId]?.status ?? "not_connected") !== "connected",
   );
-  const runDisabled = running || !isLive || !preflightHealthy;
-  const runTooltip = !isLive
+  // Seed-source workflows (mock-offline / mock-bypass) are runnable too:
+  // Run-now publishes the seed to the gateway then executes it. Only an
+  // unknown/absent source or a failing connector preflight disables it.
+  const runnableSource = isLive || isDemoRunHistory;
+  const runDisabled = running || !runnableSource || !preflightHealthy;
+  const runTooltip = !runnableSource
     ? "Available once this workflow is published to the gateway"
     : blockingConnector
       ? `Connect ${blockingConnector.displayName} to run this workflow → /settings/connectors/${blockingConnector.connectorId}`
-      : "Execute against the live gateway workflow";
+      : isLive
+        ? "Execute against the live gateway workflow"
+        : "Publish this workflow to your workspace, then run it";
 
   return (
     <>
@@ -314,7 +336,8 @@ function ViewerInner({
               disabled={runDisabled}
               title={runTooltip}
             >
-              <Play size={13} /> {running ? "Running…" : "Run now"}
+              <Play size={13} />{" "}
+              {running ? (publishing ? "Publishing…" : "Running…") : "Run now"}
             </button>
             <Link
               href={`/workflows/${workflow.vertical}/${workflow.name}/build`}

@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
   useWorkflow: vi.fn(),
+  publishSeedWorkflowToHead: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -45,6 +46,14 @@ vi.mock("@/lib/hooks/use-workflows", () => ({
 vi.mock("@/lib/api/workflow-execute", () => ({
   executeWorkflow: mocks.executeWorkflow,
 }));
+
+// Keep the real workflows module (the page also reads resolveWorkflowSubstrate
+// + stepUsesSubstrate from it); only stub the seed publish-then-run bridge so
+// the seed-source Run-now flow can be asserted without a live gateway.
+vi.mock("@/lib/api/workflows", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/api/workflows")>();
+  return { ...actual, publishSeedWorkflowToHead: mocks.publishSeedWorkflowToHead };
+});
 
 vi.mock("@/lib/api/workflow-runs", () => ({
   WORKFLOW_RUN_STATUSES: ["success", "failed", "running", "queued"],
@@ -140,6 +149,8 @@ describe("WorkflowDetailPage", () => {
     mocks.toastError.mockReset();
     mocks.toastSuccess.mockReset();
     mocks.useWorkflow.mockReset();
+    mocks.publishSeedWorkflowToHead.mockReset();
+    mocks.publishSeedWorkflowToHead.mockResolvedValue(2);
 
     mocks.executeWorkflow.mockResolvedValue({
       run_id: "run_1234567890",
@@ -289,4 +300,47 @@ describe("WorkflowDetailPage", () => {
       expect(mocks.fetchWorkflowRuns).not.toHaveBeenCalled();
     },
   );
+
+  // rebase-fix-workflow-detail-run-now-disabled-when-source-not-gateway:
+  // seed-source workflows are no longer hard-disabled. The Run-now button
+  // is enabled and clicking it publishes the seed to the gateway BEFORE
+  // executing it, so the demo run is real (NO THEATER) rather than a mock.
+  it.each(["mock-offline", "mock-bypass"] as const)(
+    "enables Run-now and publishes-then-runs the seed when source=%s",
+    async (source) => {
+      const user = userEvent.setup();
+      mocks.useWorkflow.mockReturnValue({
+        data: { workflow, source },
+        isError: false,
+        isLoading: false,
+      });
+      renderPage();
+
+      const runButton = await screen.findByTestId("wfd-run-workflow");
+      expect(runButton).toBeEnabled();
+
+      await user.click(runButton);
+
+      await waitFor(() =>
+        expect(mocks.publishSeedWorkflowToHead).toHaveBeenCalledWith(
+          "gtm-engineer",
+          "post_listing",
+          workflow,
+        ),
+      );
+      await waitFor(() => expect(mocks.executeWorkflow).toHaveBeenCalled());
+      expect(mocks.toastSuccess).toHaveBeenCalled();
+    },
+  );
+
+  it("does not publish before running when the workflow is gateway-source", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const runButton = await screen.findByTestId("wfd-run-workflow");
+    await user.click(runButton);
+
+    await waitFor(() => expect(mocks.executeWorkflow).toHaveBeenCalled());
+    expect(mocks.publishSeedWorkflowToHead).not.toHaveBeenCalled();
+  });
 });
