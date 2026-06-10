@@ -1,4 +1,9 @@
-# zero-caller-allowed: skill plugin SDK — consumed by external skill plugin authors, not workspace callers
+# zero-caller-allowed: skill plugin SDK — consumed by EXTERNAL skill plugin authors, not workspace callers
+# Not dead code: this is a published-surface SDK for third-party skill authors to
+# build Skycot Skill IR graphs out-of-tree. Zero in-workspace `use` callers is
+# the intended design, not drift — the consumers live in external plugin crates.
+# (Audit 2026-06-10 P2-6: orphan crate, no recorded reason — closed here, same
+# treatment DEC-047 gave argo-acp.)
 [package]
 name = "argo-skill-sdk"
 version.workspace = true

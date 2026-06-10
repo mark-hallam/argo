@@ -1,4 +1,11 @@
-# zero-caller-allowed: MCP connector subprocess (polyglot core invariant)
+# zero-caller-allowed: MCP connector subprocess (polyglot core invariant) — DEFERRED-v1.x
+# Deferral reason: enterprise connector stub kept but not v1-polished, per
+# DEC-001 (enterprise focus, not consumer — enterprise connector stubs stay as
+# DEFERRED-v1.x placeholders). OneDrive/Microsoft Graph is an enterprise surface;
+# the crate ships and is tested but has zero workspace callers by design until a
+# v1.x runtime wire-up. See docs/skycot/decisions/DEC-001-enterprise-not-consumer.md.
+# (Audit 2026-06-10 P2-6: orphan crate, no recorded reason — closed here, same
+# treatment DEC-047 gave argo-acp.)
 [package]
 name = "argo-mcp-connector-onedrive"
 version.workspace = true
