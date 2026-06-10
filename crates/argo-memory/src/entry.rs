@@ -48,6 +48,34 @@ impl MemoryFile {
             _ => None,
         }
     }
+
+    /// Whether this file is shared workspace-wide across every vertical
+    /// (the identity files `USER.md` / `SOUL.md` / `AGENTS.md`) rather
+    /// than vertical-scoped like `MEMORY.md`.
+    ///
+    /// Vertical-scoped reads ([`MemoryStore::list_for_vertical`]) exclude
+    /// legacy NULL-`vertical_id` rows by design (#680 default-deny). But
+    /// the identity files are seeded / authored workspace-global (NULL
+    /// `vertical_id`), so a vertical-bound teammate must still read them
+    /// or it loses its shared identity.
+    /// [`MemoryStore::list_for_vertical_or_shared`] uses this flag to route
+    /// identity files through the workspace-global read while keeping
+    /// `MEMORY.md` strictly vertical-isolated.
+    ///
+    /// ```
+    /// use argo_memory::MemoryFile;
+    /// assert!(MemoryFile::User.is_shared_identity());
+    /// assert!(MemoryFile::Soul.is_shared_identity());
+    /// assert!(MemoryFile::Agents.is_shared_identity());
+    /// assert!(!MemoryFile::Memory.is_shared_identity());
+    /// ```
+    ///
+    /// [`MemoryStore::list_for_vertical`]: crate::MemoryStore::list_for_vertical
+    /// [`MemoryStore::list_for_vertical_or_shared`]: crate::MemoryStore::list_for_vertical_or_shared
+    #[must_use]
+    pub fn is_shared_identity(self) -> bool {
+        matches!(self, Self::User | Self::Soul | Self::Agents)
+    }
 }
 
 /// One row in `memory_entry`.

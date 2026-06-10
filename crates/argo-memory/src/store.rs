@@ -413,7 +413,7 @@ fn sha256(body: &str) -> [u8; 32] {
 }
 
 #[derive(sqlx::FromRow)]
-struct RawEntry {
+pub(crate) struct RawEntry {
     id: Vec<u8>,
     workspace_id: Vec<u8>,
     file: String,

@@ -21,6 +21,16 @@ impl MemoryStore {
     /// bare `list_active` keeps the existing workspace-scoped
     /// behaviour for backward compat — gateway / CLI integration
     /// into the vertical-aware path is a follow-up.
+    ///
+    /// Defense-in-depth note: identity files
+    /// ([`MemoryFile::is_shared_identity`]: `USER.md` / `SOUL.md` /
+    /// `AGENTS.md`) are conceptually **workspace-global** and should be
+    /// authored NULL-`vertical_id` via [`Self::append`]. Tagging an
+    /// identity row with a non-NULL `vertical_id` here does NOT make it
+    /// cross-vertical-readable: the shared-identity read
+    /// ([`Self::list_for_vertical_or_shared`]) returns only NULL-vertical
+    /// identity rows, so such a row is reachable only by `list_for_vertical`
+    /// for that exact vertical — never another vertical.
     pub async fn append_for_vertical(
         &self,
         workspace_id: WorkspaceId,
@@ -194,6 +204,97 @@ impl MemoryStore {
             .into_iter()
             .filter_map(|e| crate::parse_skill_candidate(&e.body).map(|c| (e, c)))
             .collect())
+    }
+
+    /// Read active entries for a vertical-bound caller, honouring the
+    /// shared-identity exception (adversarial-review follow-up to the
+    /// vertical-scoped memory tool, #2787).
+    ///
+    /// `MEMORY.md` is strictly vertical-isolated: routed through
+    /// [`Self::list_for_vertical`], which returns only the bound
+    /// vertical's rows and excludes both other verticals' rows AND
+    /// legacy NULL-`vertical_id` rows (Rule 7 default-deny). The identity
+    /// files (`USER.md` / `SOUL.md` / `AGENTS.md`,
+    /// [`MemoryFile::is_shared_identity`]) are workspace-global —
+    /// seeded / authored with a NULL `vertical_id` — so a vertical-bound
+    /// teammate must still read them; they route through the
+    /// NULL-vertical-only [`Self::list_workspace_global`]. "Shared" means
+    /// workspace-global ONLY, never "any vertical": a USER.md tagged with a
+    /// non-NULL `vertical_id` via [`Self::append_for_vertical`] stays
+    /// invisible to other verticals, so this branch does NOT use the
+    /// all-vertical [`Self::list_active`]. Tenant scope is preserved in both
+    /// branches because a `workspace_id` belongs to exactly one tenant.
+    ///
+    /// This is the read primitive a vertical-bound agent-runtime memory
+    /// tool should call: shared identity stays readable without weakening
+    /// `MEMORY.md` isolation.
+    ///
+    /// ```
+    /// # use std::sync::Arc;
+    /// # async fn doc() -> argo_types::ArgoResult<()> {
+    /// use argo_memory::{MemoryFile, MemoryStore};
+    /// use argo_store::SessionStore;
+    /// let session = SessionStore::open(":memory:").await?;
+    /// session.migrate().await?;
+    /// let (_tenant, ws) = session.ensure_workspace("ws", "/tmp/ws").await?;
+    /// let store = MemoryStore::new(Arc::new(session));
+    /// // Shared identity authored workspace-global (NULL vertical):
+    /// store.append(ws, MemoryFile::User, "hello".into(), None).await?;
+    /// // A vertical-bound teammate can still read it:
+    /// let got = store
+    ///     .list_for_vertical_or_shared(ws, MemoryFile::User, "support")
+    ///     .await?;
+    /// assert_eq!(got.len(), 1);
+    /// # Ok(()) }
+    /// ```
+    pub async fn list_for_vertical_or_shared(
+        &self,
+        workspace_id: WorkspaceId,
+        file: MemoryFile,
+        vertical_id: &str,
+    ) -> ArgoResult<Vec<MemoryEntry>> {
+        if file.is_shared_identity() {
+            self.list_workspace_global(workspace_id, file).await
+        } else {
+            self.list_for_vertical(workspace_id, file, vertical_id)
+                .await
+        }
+    }
+
+    /// List active **workspace-global** entries for `(workspace, file)` —
+    /// i.e. `superseded_by IS NULL` AND `vertical_id IS NULL`, in insertion
+    /// order.
+    ///
+    /// This is the read backing the shared-identity branch of
+    /// [`Self::list_for_vertical_or_shared`]. It deliberately differs from
+    /// the all-vertical [`Self::list_active`]: filtering to
+    /// `vertical_id IS NULL` closes a cross-vertical identity-file read. A
+    /// USER.md written with a non-NULL `vertical_id` (via
+    /// [`Self::append_for_vertical`], reachable from the `--vertical` CLI
+    /// flag) is owned by that one vertical and must NOT be returned to a
+    /// teammate bound to a different vertical. "Shared" means
+    /// workspace-global, never "any vertical". Tenant scope is preserved
+    /// because `workspace_id` belongs to exactly one tenant.
+    async fn list_workspace_global(
+        &self,
+        workspace_id: WorkspaceId,
+        file: MemoryFile,
+    ) -> ArgoResult<Vec<MemoryEntry>> {
+        self.ensure_layer_schema().await?;
+        let rows = sqlx::query_as::<_, crate::store::RawEntry>(
+            "SELECT m.id, m.workspace_id, m.file, m.body, m.learned_in, \
+             m.learned_at, m.superseded_by, m.hash, l.lock, m.vertical_id \
+             FROM memory_entry m LEFT JOIN memory_lock l ON l.entry_id = m.id \
+             WHERE m.workspace_id = ? AND m.file = ? AND m.superseded_by IS NULL \
+               AND m.vertical_id IS NULL \
+             ORDER BY m.learned_at ASC",
+        )
+        .bind(workspace_id.0.as_bytes().as_slice())
+        .bind(file.filename())
+        .fetch_all(self.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("list_workspace_global memory: {e}")))?;
+        rows.into_iter().map(MemoryEntry::try_from).collect()
     }
 }
 
