@@ -87,8 +87,17 @@ while IFS= read -r line; do
     # Section markers wrap their first column in `**...**`. Skip those.
     [[ "$brief_id" == \*\** ]] && continue
     # Relocation check: brief-id still present somewhere in the current
-    # file? `grep -F` so kebab-case hyphens stay literal.
-    if printf '%s\n' "$current_content" | grep -qF "| $brief_id |"; then
+    # file? Pure-bash fixed-string substring match — no subprocess, so it
+    # is structurally immune to the SIGPIPE race that bit the old
+    # `printf … | grep -qF` form: under `set -o pipefail`, grep's
+    # first-match early-exit closed its stdin while printf was still
+    # streaming the 2.3 MB ledger, printf took SIGPIPE (exit 141), the
+    # pipeline reported 141, and the `if` evaluated FALSE — falsely
+    # refusing a valid in-place row edit (CLAIMED→IN_REVIEW). The quoted
+    # `*"..."*` pattern means even a hostile brief-id can't glob;
+    # kebab-case ids carry no glob metacharacters anyway. Newlines are
+    # irrelevant to fixed-string containment, so semantics match grep -F.
+    if [[ "$current_content" == *"| $brief_id |"* ]]; then
         continue
     fi
     dropped+=("$brief_id")

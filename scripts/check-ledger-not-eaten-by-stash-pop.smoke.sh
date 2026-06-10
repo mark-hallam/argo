@@ -2,12 +2,25 @@
 # Hermetic smoke harness for scripts/check-ledger-not-eaten-by-stash-pop.sh.
 #
 # Sets up a throw-away git repo under mktemp -d, plants a fake
-# BUILD_STATUS.md, commits it, then exercises four scenarios:
+# BUILD_STATUS.md, commits it, then exercises these scenarios:
 #   (A) TODO row deleted + not relocated         → expect exit 1
 #   (B) TODO row deleted but re-added elsewhere  → expect exit 0
 #   (C) MERGED row deleted                       → expect exit 0
 #   (D) no diff to the ledger                    → expect exit 0
-# A 5th sanity case exercises the --warn flag against scenario A → exit 0.
+#   (E) --staged variant detects a CLAIMED loss  → expect exit 1
+#   (F) 256 KB+ ledger, top CLAIMED row flipped  → expect exit 0
+#       CLAIMED→IN_REVIEW (id still present).
+# The --warn flag is exercised against scenario A (A2) → exit 0.
+#
+# Scenario (F) is the SIGPIPE regression guard: at real ledger size
+# (BUILD_STATUS.md is ~2.3 MB) the old `printf … | grep -qF` relocation
+# check raced — grep's first-match early-exit SIGPIPE'd the printf
+# producer (exit 141) under `set -o pipefail`, so a VALID in-place row
+# edit read as a dropped row and exit 1. The ~6-row fixtures in A–E are
+# far below the 64 KB pipe buffer and can never reproduce it; (F) plants
+# a >256 KB ledger with the row under test near the TOP so a first-match
+# early-exit leaves megabytes unwritten — the exact trigger. The pure-bash
+# substring relocation check has no subprocess and is immune by construction.
 
 set -euo pipefail
 
@@ -38,6 +51,28 @@ write_baseline() {
 LEDGER
     git add docs/build-plan/BUILD_STATUS.md
     git commit -q -m baseline
+}
+
+# Big-ledger fixture for scenario F. Plants the row-under-test near the
+# TOP of the file followed by ≥256 KB of filler MERGED rows, so the file
+# overflows the 64 KB pipe buffer many times over — the condition under
+# which the old `printf … | grep -qF` relocation check SIGPIPE-raced.
+write_big_baseline() {
+    {
+        echo "# Build status"
+        echo ""
+        echo "| Brief | Owner | Status | PR | Last update |"
+        echo "| --- | --- | --- | --- | --- |"
+        # Row under test, near the TOP: a first-match early-exit here in the
+        # OLD pipeline left the producer streaming megabytes → SIGPIPE.
+        echo "| big-brief-relocate | claude | CLAIMED | — | claimed near top |"
+        # ~5000 filler rows (~57 bytes each ≈ 285 KB) — well past 256 KB.
+        for i in $(seq 1 5000); do
+            printf '| filler-brief-%04d | claude | MERGED | #%04d | filler row |\n' "$i" "$i"
+        done
+    } >docs/build-plan/BUILD_STATUS.md
+    git add docs/build-plan/BUILD_STATUS.md
+    git commit -q -m big-baseline
 }
 
 run_check() {
@@ -112,5 +147,24 @@ run_check --staged
 printf '%s\n' "$OUT" | grep -q "beta-brief-claimed" || fail "E: CLAIMED brief-id not surfaced"
 pass "E --staged exit 1 + CLAIMED brief-id surfaced"
 
+# --- F: 256 KB+ ledger, top CLAIMED row flipped CLAIMED→IN_REVIEW -> exit 0 ---
+# Regression for the SIGPIPE false-positive. At >256 KB with the row near
+# the top, the OLD `printf … | grep -qF` form returned 141 and refused this
+# VALID in-place edit; the pure-bash substring check accepts it.
+echo "Scenario F: 256 KB+ ledger, top CLAIMED→IN_REVIEW flip (id present) → exit 0."
+# Clear any prior-scenario staging/working state before re-baselining.
+git reset -q HEAD docs/build-plan/BUILD_STATUS.md 2>/dev/null || true
+git checkout -q -- docs/build-plan/BUILD_STATUS.md 2>/dev/null || true
+write_big_baseline
+sz=$(wc -c <docs/build-plan/BUILD_STATUS.md)
+(( sz > 262144 )) || fail "F: fixture only $sz bytes; need >256 KB to exercise SIGPIPE"
+# In-place CLAIMED→IN_REVIEW flip; brief-id still present in the file.
+sed -i.bak 's/| big-brief-relocate | claude | CLAIMED |/| big-brief-relocate | claude | IN_REVIEW |/' docs/build-plan/BUILD_STATUS.md
+rm -f docs/build-plan/BUILD_STATUS.md.bak
+run_check
+[[ $RC -eq 0 ]] || fail "F: expected exit 0 (valid in-place flip on ${sz}-byte ledger), got $RC; out: $OUT"
+pass "F exit 0 (valid flip on ${sz}-byte ledger accepted — SIGPIPE regression held)"
+git checkout -q -- docs/build-plan/BUILD_STATUS.md
+
 echo ""
-echo "STATUS: GREEN — 5/5 scenarios PASS"
+echo "STATUS: GREEN — 6/6 scenarios PASS"
