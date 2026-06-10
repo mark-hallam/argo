@@ -1,4 +1,10 @@
-# zero-caller-allowed: Agent Coding Protocol SDK — consumed by external ACP clients
+# zero-caller-allowed: Agent Client Protocol (ACP) server library — consumed by
+# external ACP clients (VS Code / Cursor / Zed / JetBrains / Copilot CLI).
+# Intentionally PARKED / DEFERRED-v1.x per DEC-047 (operator-decided 2026-06-10):
+# complete + surface-pinned, but the `argo acp serve` CLI wire is deliberately
+# NOT added — editor/IDE integration is out of paying-ready-sprint scope and
+# wiring it would add an externally-reachable surface to secure for zero current
+# users. Do NOT wire and do NOT delete; un-park only per DEC-047 §3.
 [package]
 name = "argo-acp"
 version.workspace = true
