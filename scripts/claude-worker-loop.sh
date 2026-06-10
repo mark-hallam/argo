@@ -160,13 +160,35 @@ fi
 # below; wrapped in with_ledger_lock at each call site.
 ledger_commit_push() {  # $1 = commit message
   git -C "$REPO" add docs/build-plan/BUILD_STATUS.md
-  if ! git -C "$REPO" diff --cached --quiet; then
-    git -C "$REPO" commit -m "$1" 2>&1 | tail -1
-    git -C "$REPO" pull --rebase origin main 2>&1 | tail -2
-    git -C "$REPO" push origin main 2>&1 | tail -2
-  else
+  if git -C "$REPO" diff --cached --quiet; then
     echo "[$(date +%H:%M:%S)] Row already non-CLAIMED; skipping release commit."
+    return 0
   fi
+  git -C "$REPO" commit -m "$1" 2>&1 | tail -1
+  # DEC-042 B-1 (worker-ledger-lock refinement): push with bounded retry, and
+  # on TERMINAL failure RESET local main to origin so the commit NEVER strands.
+  # A stranded local commit (the old code masked the push exit with `| tail`,
+  # so a lost-race push left the commit local + main 1-ahead) diverges main and
+  # fails EVERY subsequent worker's `git pull --ff-only` with rc=128 — the cause
+  # of the 2026-06-10 swarm stall. Losing the commit is recoverable (the ship-
+  # check zombie-detection / conductor stale-sweep re-applies the release);
+  # stranding it is not. The shared checkout's only worker WIP lives in /tmp
+  # worktrees, never in main's tree, so reset --hard origin/main destroys nothing.
+  local _lcp_attempt _lcp_out _lcp_rc
+  for _lcp_attempt in 1 2 3; do
+    git -C "$REPO" fetch origin main 2>/dev/null
+    git -C "$REPO" pull --rebase origin main 2>&1 | tail -1
+    _lcp_out=$(git -C "$REPO" push origin main 2>&1); _lcp_rc=$?
+    echo "$_lcp_out" | tail -1
+    if [ "$_lcp_rc" -eq 0 ]; then
+      return 0
+    fi
+    echo "[$(date +%H:%M:%S)] B-1: ledger push attempt ${_lcp_attempt}/3 lost the race; retrying..."
+    sleep 1
+  done
+  echo "[$(date +%H:%M:%S)] ⚠️ B-1: ledger push failed 3×; resetting local main to origin/main so the commit does not strand (intent re-applied next cycle)."
+  git -C "$REPO" reset --hard origin/main
+  return 1
 }
 
 # --- Clean-stop trap (SIGHUP/SIGTERM/SIGINT) -------------------------------
@@ -265,7 +287,21 @@ while true; do
   if ! git pull --ff-only origin main 2>&1; then
     echo "[$(date +%H:%M:%S)] git pull failed; falling back to explicit fetch+merge"
     git fetch origin main
-    git merge --ff-only FETCH_HEAD
+    if ! git merge --ff-only FETCH_HEAD 2>&1; then
+      # DEC-042 B-1 self-heal backstop: pull AND ff-merge both failed → local
+      # main is DIVERGED (a prior worker's ledger commit stranded — ahead of
+      # origin). Without this, every worker fails here rc=128 and the swarm
+      # stalls (observed 2026-06-10). Recover by resetting to origin/main —
+      # but ONLY when there are no TRACKED working-tree changes (never destroy
+      # in-flight work; untracked operator files are fine). Worker brief CODE
+      # lives in /tmp worktrees, never in main's tree.
+      if [ -z "$(git status --porcelain --untracked-files=no)" ]; then
+        echo "[$(date +%H:%M:%S)] B-1 self-heal: main diverged + tree clean → git reset --hard origin/main"
+        git reset --hard origin/main
+      else
+        echo "[$(date +%H:%M:%S)] B-1 self-heal SKIPPED: tracked changes present — manual recovery needed (commit/stash first)."
+      fi
+    fi
   fi
 
   # Pick the first claimable TODO row whose may-touch ceiling check passes.
