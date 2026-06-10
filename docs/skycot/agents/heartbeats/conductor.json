@@ -1,31 +1,31 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-06-10T03:34:20Z",
+  "last_run_utc": "2026-06-10T04:18:49Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "loop-2026-06-10-gate-spine-and-perimeter",
-  "run_notes": "AUTONOMOUS /loop. TWO milestones + one integrity correction. (1) MERGE-GATE SPINE HARDENED: 3 audit invariants now ENFORCED on the merge path \u2014 parallel-pub-types --enforce (#2779), fn-LOC baseline-ratchet (#2782, step 5c), unwrap/expect-outside-cfg(test) (#2783, step 5d); + surface_contract pins for argo-types/store/audit (#2785). Audit P1+P2-4+P2-5+F4 all CLOSED. (2) PERIMETER 5 of 6 XFF-spoof limiters closed: signup/waitlist/enterprise/pitch (#2776) + signup_protection (#2784, conductor clippy-fixed+re-reviewed CONFIRMED-FIXED, verified on main). (3) NO-THEATER CORRECTION: #2780's verify-route fix NEVER integrated (stacked-squash drop; merge commit not an ancestor of main) \u2014 earlier 'class closed across 5 routes' was WRONG; corrected ledger, re-queued as fix-verify-route-xff-spoof-reland (P1, the 6th/last limiter), operator-pinged, + added CRANK guardrail (verify stacked-merge results on main, not the worktree). Conductor hand-applied 2 small low-risk fixes this session (flagged for operator eye): #2784 derive-Default clippy (identical values, re-reviewed) + #2783 gate-script append-conflict (kept both steps, verified on main). Everything else gate+review-verified. Open PRs: #2778 B-4 (operator-hold), #2773 voice (attended browser-verify). Swarm building 2 tenant-scoping fixes (agent-runtime-memory-tool, genesis-hired-worker-run-path). TODO=5+2 CLAIMED, drift 0. All ledger writes via isolated worktrees (shared-checkout race persists \u2014 B-1 worker-lock follow-up still recommended).",
-  "open_prs": 2,
+  "session_label": "loop-2026-06-10-tenant-isolation-cluster",
+  "run_notes": "AUTONOMOUS /loop. TENANT-ISOLATION CLUSTER 2 of 3 merged, each gate-PASS + adversarial-review CONFIRMED-FIXED + verified on main: #2786 (Genesis-hired teammates now RUNNABLE \u2014 worker-run path resolves vertical tenant-scoped, keyed on worker.tenant_id/JWT, miss fail-closed), #2788 (worker memory namespace bound server-authoritatively MemoryNs(tenant,worker,WorkerSelf); team-action honest graceful degrade; cross-tenant hard-error preserved). #2787 (memory-tool tenant+vertical scope) review CONFIRMED-FIXED BUT held NEEDS-FIX: the fn-LOC gate (#2782, added this session) correctly caught 2 NEW oversized isolation-TEST functions (95/85 LOC) \u2014 queued split-pr-2787-isolation-tests-under-80loc (conductor declined to hand-refactor security-proof tests solo after 2 hand-fixes earlier) + check-genesis-seed-user-md-vertical-id follow-up (review-flagged shared-USER.md readability). PATTERN worth operator attention: workers keep producing PRs that fail the NEW gates I added this session (clippy/fn-loc) because their pre-push checks don't run them \u2014 this is exactly the gap B-2 (stop-gate, default-OFF) + B-4 (#2778, separate verify agent) close. Tonight's gate-hardening surfaced a concrete case for prioritizing B-4. Queue replenished (web-api-client tests F5 + env-flags P3-7). Open PRs: #2787 (split pending), #2778 B-4 (operator), #2773 voice (attended verify). TODO=5+3 CLAIMED, drift 0. All ledger writes via isolated worktrees (shared-checkout race persists; B-1 worker-lock follow-up recommended).",
+  "open_prs": 3,
   "queue_state": {
     "todo": 5,
-    "claimed": 2,
-    "note": "fix-verify-route-xff-spoof-reland (P1) is the perimeter's last limiter; 2 tenant-scope fixes building"
+    "claimed": 3,
+    "note": "verify-route-reland (perimeter's last limiter) + audit-chain + web-tests building; #2787 split + USER.md follow-up queued"
   },
-  "the_gate": "Merge-gate spine materially hardened (3 invariants enforced + 3 core crates pinned). Perimeter 5/6 closed; verify-route re-land (P1) queued is the last. DEC-042 Stage-1 B-1/B-2/B-3 done, B-4 in #2778 (operator-hold). Live operator threads: review #2778; B-1 worker-ledger-lock follow-up (race recurred all session). NOTE: the #2780 stacked-squash drop is exactly the defect class B-4 (separate verify agent) + verify-on-main guardrail address.",
+  "the_gate": "Tenant-isolation: Genesis teammates runnable + memory tenant/namespace isolation (2/3 cluster in; #2787 split pending). Perimeter 5/6 (verify-route reland building). Gate spine: parallel-types + fn-loc + unwrap all enforced (catching real violations now). DEC-042 Stage-1 B-4 (#2778) is the operator's highest-leverage review \u2014 it's the mechanism that would auto-catch the worker-gate-gap pattern above. + B-1 worker-lock.",
   "quota_probe": "skip",
   "north_star_metrics": {
     "_schema": "dec042-north-star-v1",
     "_doc": "docs/skycot/decisions/DEC-042-continuous-self-improvement-loop.md#6",
-    "generated_utc": "2026-06-10T03:34:22Z",
+    "generated_utc": "2026-06-10T04:18:50Z",
     "build_loop": {
-      "merged_prs_per_day_7d": 15.71,
-      "merged_prs_last_7d": 110,
-      "merged_prs_last_24h": 35,
+      "merged_prs_per_day_7d": 16.14,
+      "merged_prs_last_7d": 113,
+      "merged_prs_last_24h": 38,
       "open_prs": 3,
       "drift_rows": 0,
       "queue_depth": {
         "todo": 5,
-        "claimed": 2,
-        "in_review": 2,
+        "claimed": 3,
+        "in_review": 3,
         "blocked": 28
       },
       "recurring_nit_count": 16,
