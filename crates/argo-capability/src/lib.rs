@@ -40,8 +40,8 @@ pub use worker_profile::{
 };
 pub use truth_boundary::{
     evaluate_claim, ChannelKind, ChannelScope, ClaimCandidate, ClaimClass, ClaimDisposition,
-    ClaimEvaluation, ClaimProvenance, EscalationKind, EscalationTarget, ProvenanceSource,
-    RefusalTemplate, TruthBoundaryPolicy,
+    ClaimEvaluation, ClaimProvenance, EscalationKind, EscalationTarget, PitchChannel,
+    ProvenanceSource, RefusalTemplate, TruthBoundaryPolicy,
 };
 pub use truth_boundary_policies::{
     load_policies_from_dir, load_policy, load_refusal_template, load_refusal_templates,

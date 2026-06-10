@@ -205,6 +205,58 @@ pub enum ChannelKind {
     Chat,
 }
 
+/// Operator-/wire-facing selector over the Pitch Agent channels.
+///
+/// Canonical home for the Pitch Agent channel selector. It deserializes
+/// the request wire-shape (PascalCase variant names) and projects onto
+/// the policy-layer [`ChannelKind`] via [`PitchChannel::as_channel_kind`].
+/// Both the eval suite (`argo-eval::pitch_runner`) and the gateway
+/// endpoint (`argo-cli` `routes_pitch_ask`) re-export this one
+/// definition so a 5th channel cannot be added to one side and silently
+/// diverge the truth-boundary routing on the other.
+///
+/// ```
+/// use argo_capability::truth_boundary::{ChannelKind, PitchChannel};
+///
+/// assert_eq!(PitchChannel::WebEmbed.as_channel_kind(), ChannelKind::WebEmbed);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub enum PitchChannel {
+    /// Private operator-only rehearsal loop.
+    Rehearsal,
+    /// Public web widget (e.g. skycot.com/pitch).
+    WebEmbed,
+    /// Joined live meeting (Zoom / Meet).
+    LiveMeeting,
+    /// Text-only channel (Slack, iMessage, email).
+    Chat,
+}
+
+impl PitchChannel {
+    /// Project onto the policy-layer [`ChannelKind`].
+    #[must_use]
+    pub fn as_channel_kind(self) -> ChannelKind {
+        match self {
+            Self::Rehearsal => ChannelKind::Rehearsal,
+            Self::WebEmbed => ChannelKind::WebEmbed,
+            Self::LiveMeeting => ChannelKind::LiveMeeting,
+            Self::Chat => ChannelKind::Chat,
+        }
+    }
+
+    /// Stable PascalCase label for audit rows and JSON responses.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Rehearsal => "Rehearsal",
+            Self::WebEmbed => "WebEmbed",
+            Self::LiveMeeting => "LiveMeeting",
+            Self::Chat => "Chat",
+        }
+    }
+}
+
 /// Where an `Escalate` disposition routes. Mirrors the address-shape
 /// of the existing approval routing — the `address` field is
 /// discriminated by `kind` (user_id, email, URL).

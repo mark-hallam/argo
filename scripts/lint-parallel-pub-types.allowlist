@@ -58,3 +58,33 @@ PrincipalOverride argo-memory argo-skill
 # Different lifecycle, different auth surface, different audit trail; folding
 # would conflate billing-trust with tool-call-trust.
 StripeClient argo-billing argo-mcp-connector-stripe
+
+# fix-parallel-pub-types-gate-enforce (2026-06-10) — adjudicated the 6 live
+# duplicates ahead of flipping gate 4 to --enforce. The two Track-P pairs
+# (PitchChannel, CanonicalQaIndex) were genuine duplicates and were
+# canonicalized in code, not allowlisted. The four below share only a generic
+# name; each pair is a different concept in a different domain.
+
+# ListQuery — argo-bluebubbles-client's is the iMessage-bridge REST list query
+# (limit/offset/include for a remote HTTP API). argo-store's is the
+# notifications-table pagination cursor (limit/before/exclude_dismissed over
+# SQLite). Different fields, different transport, no shared lifecycle.
+ListQuery argo-bluebubbles-client argo-store
+
+# SourceKind — argo-cli's (pub(super)) is the worker-overview KPI provenance
+# (Messages/ToolCalls/Pending/AnyAction/NotComputable). argo-genesis's is the
+# onboarding-intake modality (Document/Voice/Image/WikiUrl). Unrelated
+# vocabularies; folding would conflate KPI plumbing with intake ingestion.
+SourceKind argo-cli argo-genesis
+
+# StepOutcome — argo-cli's (pub(super)) is a workflow-step UI blob
+# ({status,message} strings for the wizard). argo-orchestrator's is the
+# settled team-run step result ({step_id, status: StepStatus, output}).
+# Different shapes, different layers (presentation vs orchestration).
+StepOutcome argo-cli argo-orchestrator
+
+# StepStatus — argo-cli's is the setup-checklist status (Ok/Fail/Skip).
+# argo-orchestrator's is the delegation-step lifecycle
+# (Completed/Failed/Skipped). Different state machines that happen to share a
+# name; merging would couple readiness checks to the run-graph executor.
+StepStatus argo-cli argo-orchestrator

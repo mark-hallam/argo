@@ -1,5 +1,5 @@
 use crate::pitch_runner::{
-    load_cases, CanonicalQaEntry, CanonicalQaIndex, GateStatus, PitchChannel, PitchEvalCase,
+    load_cases, CanonicalQaEntry, PitchCorpusIndex, GateStatus, PitchChannel, PitchEvalCase,
     PitchEvalRunner,
 };
 use argo_capability::{ChannelScope, ClaimClass, ClaimDisposition, TruthBoundaryPolicy};
@@ -31,7 +31,7 @@ fn test_runner() -> PitchEvalRunner {
             escalate_to: None,
         }],
     );
-    let index = CanonicalQaIndex::from_entries(vec![CanonicalQaEntry {
+    let index = PitchCorpusIndex::from_entries(vec![CanonicalQaEntry {
         id: "lindy-comparison".into(),
         prompts: vec![
             "How is Skycot different from Lindy?".into(),

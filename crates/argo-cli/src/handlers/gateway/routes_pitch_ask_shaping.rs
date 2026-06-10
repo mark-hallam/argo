@@ -16,7 +16,7 @@ pub(super) fn build_canonical_hit_payload(
 ) -> (Value, Value) {
     let evaluation = evaluate_claim(
         policy,
-        channel.as_capability(),
+        channel.as_channel_kind(),
         &ClaimCandidate {
             text: matched.answer.clone(),
             declared_classes: matched.declared_claim_classes.clone(),

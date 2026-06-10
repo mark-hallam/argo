@@ -20,7 +20,7 @@ fn channel_label_and_capability_are_aligned() {
         // Label is non-empty and unique enough to use in audit.
         assert!(!ch.label().is_empty());
         // Capability conversion is total.
-        let _ = ch.as_capability();
+        let _ = ch.as_channel_kind();
     }
 }
 

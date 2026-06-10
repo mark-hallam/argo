@@ -17,11 +17,11 @@
 use super::routes_pitch_ask_llm::{ask_with_llm, CompanyFacts};
 use super::routes_auth_principal;
 use argo_audit::{AuditKind, AuditSink};
-use argo_capability::{load_policy, ChannelKind, ClaimDisposition, TruthBoundaryPolicy};
+use argo_capability::{load_policy, ClaimDisposition, TruthBoundaryPolicy};
 use argo_skill::canonical_qa::CanonicalQaIndex;
 use argo_store::SessionStore;
 use argo_types::TenantId;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 use shaping::{bad_request, build_canonical_hit_payload, build_llm_payload, service_unavailable};
 use std::path::{Path, PathBuf};
@@ -33,35 +33,12 @@ use uuid::Uuid;
 #[path = "routes_pitch_ask_shaping.rs"]
 mod shaping;
 
-/// Channel selector mirrored from `argo_eval::PitchChannel`. Kept here
-/// so the gateway parses the wire-shape without pulling argo-eval into
-/// the gateway dep graph.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
-pub enum PitchChannel {
-    Rehearsal,
-    WebEmbed,
-    LiveMeeting,
-    Chat,
-}
-
-impl PitchChannel {
-    pub(super) fn as_capability(self) -> ChannelKind {
-        match self {
-            Self::Rehearsal => ChannelKind::Rehearsal,
-            Self::WebEmbed => ChannelKind::WebEmbed,
-            Self::LiveMeeting => ChannelKind::LiveMeeting,
-            Self::Chat => ChannelKind::Chat,
-        }
-    }
-    pub(super) fn label(self) -> &'static str {
-        match self {
-            Self::Rehearsal => "Rehearsal",
-            Self::WebEmbed => "WebEmbed",
-            Self::LiveMeeting => "LiveMeeting",
-            Self::Chat => "Chat",
-        }
-    }
-}
+/// Channel selector, canonicalized in `argo-capability` (next to the
+/// `ChannelKind` it projects onto). Re-exported here so the sibling
+/// gateway modules keep importing `super::routes_pitch_ask::PitchChannel`
+/// unchanged; `.as_channel_kind()` / `.label()` are inherent methods on
+/// the canonical type.
+pub use argo_capability::PitchChannel;
 
 #[derive(Debug, Deserialize)]
 struct PitchAskRequest {

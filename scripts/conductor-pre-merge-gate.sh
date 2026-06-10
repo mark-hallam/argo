@@ -165,7 +165,7 @@ fi
 
 # Gate 4: parallel-pub-types canonicalization
 log "[4/9] parallel-pub-types lint"
-if ! python3 scripts/lint-parallel-pub-types.py >/dev/null 2>&1; then
+if ! python3 scripts/lint-parallel-pub-types.py --enforce >/dev/null 2>&1; then
   fail "parallel-pub-types violation — run python3 scripts/lint-parallel-pub-types.py"
 fi
 

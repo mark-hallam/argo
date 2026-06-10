@@ -143,7 +143,7 @@ pub(super) fn finalize_outcome(
     let declared_classes = matched_class.iter().cloned().collect::<Vec<_>>();
     let evaluation = evaluate_claim(
         policy,
-        channel.as_capability(),
+        channel.as_channel_kind(),
         &ClaimCandidate {
             text: draft.to_string(),
             declared_classes,

@@ -7,7 +7,7 @@
 #![allow(missing_docs)]
 
 use argo_capability::{
-    evaluate_claim, load_policy, ChannelKind, ClaimCandidate, ClaimDisposition, TruthBoundaryPolicy,
+    evaluate_claim, load_policy, ClaimCandidate, ClaimDisposition, TruthBoundaryPolicy,
 };
 use argo_types::{ArgoError, ArgoResult};
 use serde::{Deserialize, Serialize};
@@ -34,20 +34,10 @@ impl PitchEvalConfig {
     }
 }
 
-#[rustfmt::skip]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub enum PitchChannel { Rehearsal, WebEmbed, LiveMeeting, Chat }
-
-#[rustfmt::skip]
-impl PitchChannel {
-    fn as_policy_channel(self) -> ChannelKind {
-        match self { Self::Rehearsal => ChannelKind::Rehearsal, Self::WebEmbed => ChannelKind::WebEmbed, Self::LiveMeeting => ChannelKind::LiveMeeting, Self::Chat => ChannelKind::Chat }
-    }
-    fn label(self) -> &'static str {
-        match self { Self::Rehearsal => "Rehearsal", Self::WebEmbed => "WebEmbed", Self::LiveMeeting => "LiveMeeting", Self::Chat => "Chat" }
-    }
-}
+// `PitchChannel` is canonicalized in `argo-capability` (next to the
+// `ChannelKind` it projects onto + the truth-boundary policy it feeds).
+// Re-exported so `argo_eval::PitchChannel` stays a stable public symbol.
+pub use argo_capability::PitchChannel;
 
 #[rustfmt::skip]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -95,7 +85,7 @@ pub struct PitchEvalRunner {
     template: PitchWorkerTemplate,
     public_policy: TruthBoundaryPolicy,
     private_policy: TruthBoundaryPolicy,
-    canonical_qa: CanonicalQaIndex,
+    canonical_qa: PitchCorpusIndex,
 }
 
 #[rustfmt::skip]
@@ -106,7 +96,7 @@ impl PitchEvalRunner {
         if public_policy.tenant_id != private_policy.tenant_id {
             return Err(schema("pitch policies must use the same tenant_id"));
         }
-        Ok(Self { canonical_qa: CanonicalQaIndex::load(&config.corpus_dir)?, template: PitchWorkerTemplate::load(&config.worker_template_path)?, public_policy, private_policy })
+        Ok(Self { canonical_qa: PitchCorpusIndex::load(&config.corpus_dir)?, template: PitchWorkerTemplate::load(&config.worker_template_path)?, public_policy, private_policy })
     }
     pub fn run_suite(&self, suite_dir: &Path, channel_filter: Option<PitchChannel>) -> ArgoResult<PitchEvalReport> {
         let mut results = Vec::new();
@@ -162,7 +152,7 @@ impl PitchEvalRunner {
         );
         let eval = evaluate_claim(
             self.policy_for(case.channel),
-            case.channel.as_policy_channel(),
+            case.channel.as_channel_kind(),
             &ClaimCandidate {
                 text: response.clone(),
                 declared_classes: Vec::new(),
@@ -231,7 +221,7 @@ impl PitchEvalRunner {
     fn evaluate_class(&self, case: &PitchEvalCase, class: &str) -> argo_capability::ClaimEvaluation {
         evaluate_claim(
             self.policy_for(case.channel),
-            case.channel.as_policy_channel(),
+            case.channel.as_channel_kind(),
             &ClaimCandidate {
                 text: case.prompt.clone(),
                 declared_classes: vec![class.to_string()],
@@ -243,7 +233,7 @@ impl PitchEvalRunner {
 #[cfg(test)]
 #[rustfmt::skip]
 impl PitchEvalRunner {
-    pub(crate) fn from_parts(template_id: impl Into<String>, public_policy: TruthBoundaryPolicy, private_policy: TruthBoundaryPolicy, canonical_qa: CanonicalQaIndex) -> Self {
+    pub(crate) fn from_parts(template_id: impl Into<String>, public_policy: TruthBoundaryPolicy, private_policy: TruthBoundaryPolicy, canonical_qa: PitchCorpusIndex) -> Self {
         Self { template: PitchWorkerTemplate { id: template_id.into() }, public_policy, private_policy, canonical_qa }
     }
 }
@@ -381,8 +371,13 @@ impl PitchWorkerTemplate {
     }
 }
 
+/// Eval-suite corpus index: a deliberately simple exact-match lookup
+/// over the pitch corpus. Distinct from `argo_skill::CanonicalQaIndex`
+/// (the production IDF-weighted, per-tenant similarity index); this one
+/// is crate-internal to keep the 111-case suite deterministic and free
+/// of the scoring heuristics, so it carries its own name.
 #[derive(Debug)]
-pub(crate) struct CanonicalQaIndex { entries: Vec<CanonicalQaEntry> }
+pub(crate) struct PitchCorpusIndex { entries: Vec<CanonicalQaEntry> }
 
 #[rustfmt::skip]
 #[derive(Debug, Clone, Deserialize)]
@@ -391,7 +386,7 @@ pub(crate) struct CanonicalQaEntry { pub(crate) id: String, pub(crate) prompts: 
 #[derive(Debug)]
 struct CanonicalQaMatch { entry_id: String, answer: String }
 
-impl CanonicalQaIndex {
+impl PitchCorpusIndex {
     fn load(corpus_dir: &Path) -> ArgoResult<Self> {
         let mut entries = Vec::new();
         for path in toml_paths(corpus_dir)? {
