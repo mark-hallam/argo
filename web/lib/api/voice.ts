@@ -116,6 +116,47 @@ export function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+/** Decoded response of one speech-to-text clip transcription. */
+export interface SttResponse {
+  /** The transcribed words for the posted audio clip. */
+  transcript: string;
+  /** STT confidence, when the provider reports one. */
+  confidence?: number;
+}
+
+/**
+ * Transcribe one recorded audio clip via `POST /api/v1/voice/stt` — the
+ * gateway's vendor-neutral speech-to-text route (base64 audio in →
+ * transcript out). Used by the `/genesis` mic-dictation flow to turn a
+ * spoken role description into editable text.
+ *
+ * This is dictation only: the route is clip-request/response (real provider
+ * in prod, `MockStt`-backed offline), NOT a streaming socket and NOT the
+ * truth-bounded pitch/conversation path — it never runs an LLM answer.
+ *
+ * Goes through `apiPost` so tenant headers + cookie auth are inherited; the
+ * server-side tenant scoping is pinned by `routes_voice_io_tests.rs`. Throws
+ * `ApiError` on any non-2xx (e.g. a 503 when the STT provider is
+ * unavailable — never a faked transcript) or a malformed payload.
+ */
+export async function sttTranscribe(audioBase64: string): Promise<SttResponse> {
+  const raw = await apiPost<unknown>("/api/v1/voice/stt", {
+    audio_base64: audioBase64,
+  });
+  const v = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!v || typeof v.transcript !== "string") {
+    throw new ApiError(
+      502,
+      "STT endpoint returned an unexpected payload",
+      "INVALID_STT_RESPONSE",
+    );
+  }
+  return {
+    transcript: v.transcript,
+    ...(typeof v.confidence === "number" ? { confidence: v.confidence } : {}),
+  };
+}
+
 /** Decoded response of the live-voice (WebRTC) session mint. */
 export interface RealtimeSession {
   /** Short-lived OpenAI Realtime ephemeral secret for the WebRTC handshake. */

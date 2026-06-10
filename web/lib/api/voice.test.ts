@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { blobToBase64, pitchTurn } from "./voice";
+import { blobToBase64, pitchTurn, sttTranscribe } from "./voice";
 import { ApiError } from "./types";
 
 const ORIGINAL_FETCH = globalThis.fetch;
@@ -155,6 +155,72 @@ describe("lib/api/voice — pitchTurn", () => {
     expect(captured).toContain('"audio_base64":"Zm9v"');
     expect(captured).not.toContain("voice_id");
     expect(captured).not.toContain("context");
+  });
+});
+
+describe("lib/api/voice — sttTranscribe", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
+    vi.stubEnv("NODE_ENV", "test");
+    delete process.env.NEXT_PUBLIC_ENV;
+    delete process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = ORIGINAL_FETCH;
+    process.env = { ...originalEnv };
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("posts audio_base64 to /api/v1/voice/stt via apiPost and returns the transcript", async () => {
+    let capturedUrl = "";
+    let capturedBody = "";
+    installMock((req) => {
+      capturedUrl = req.url;
+      void req
+        .clone()
+        .text()
+        .then((b) => {
+          capturedBody = b;
+        });
+      return makeResponse({
+        status: 200,
+        body: { transcript: "hire me a customer success lead", confidence: 0.94 },
+      });
+    });
+    const res = await sttTranscribe("Zm9v");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(res.transcript).toBe("hire me a customer success lead");
+    expect(res.confidence).toBe(0.94);
+    // The wrapper hits the deterministic /voice/stt route via apiPost (tenant
+    // headers + cookie auth inherited from client.ts).
+    expect(capturedUrl).toContain("/api/v1/voice/stt");
+    expect(capturedBody).toContain('"audio_base64":"Zm9v"');
+  });
+
+  it("omits confidence when the provider doesn't report one", async () => {
+    installMock(() => makeResponse({ status: 200, body: { transcript: "tier one tickets" } }));
+    const res = await sttTranscribe("Zm9v");
+    expect(res.transcript).toBe("tier one tickets");
+    expect(res.confidence).toBeUndefined();
+  });
+
+  it("throws ApiError on a failed chunk (503 — never a faked transcript)", async () => {
+    installMock(() =>
+      makeResponse({
+        status: 503,
+        body: { error: { code: "voice_unavailable", message: "stt provider: no key" } },
+      }),
+    );
+    await expect(sttTranscribe("Zm9v")).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it("throws ApiError when the payload has no transcript field", async () => {
+    installMock(() => makeResponse({ status: 200, body: { confidence: 0.5 } }));
+    await expect(sttTranscribe("Zm9v")).rejects.toBeInstanceOf(ApiError);
   });
 });
 

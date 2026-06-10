@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useRef, useState, type FormEvent } from "react";
-import { Sparkles, Wand2 } from "lucide-react";
+import { Mic, Sparkles, Square, Wand2 } from "lucide-react";
+import { useDictation } from "@/lib/api/use-dictation";
 
 /**
  * Genesis page hero input — large brand-loud textarea + "Generate
@@ -30,6 +31,20 @@ export interface HeroInputProps {
 export function HeroInput({ value, onChange, onSubmit, isBusy }: HeroInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [touched, setTouched] = useState(false);
+
+  // Mic dictation: each transcribed clip is appended to the controlled value
+  // via the existing `onChange` — `page.tsx` stays the sole state owner. A ref
+  // keeps the append based on the LATEST value (the hook callback is stable).
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const appendTranscript = useCallback(
+    (text: string) => {
+      const prev = valueRef.current.trimEnd();
+      onChange(prev.length > 0 ? `${prev} ${text}` : text);
+    },
+    [onChange],
+  );
+  const dictation = useDictation({ onChunk: appendTranscript });
 
   const trimmed = value.trim();
   const tooShort = trimmed.length < MIN_ROLE_LEN;
@@ -139,6 +154,52 @@ export function HeroInput({ value, onChange, onSubmit, isBusy }: HeroInputProps)
           font-size: 13px;
           color: #b91c1c;
         }
+        .gen-hero-mic {
+          min-height: 48px;
+          padding: 0 20px;
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          font-family: "Inter", sans-serif;
+          font-size: 14.5px;
+          font-weight: 600;
+          color: #6d28d9;
+          background: var(--card);
+          border: 1.5px solid var(--border);
+          border-radius: 14px;
+          cursor: pointer;
+          transition: border-color 0.15s, color 0.15s, opacity 0.15s;
+        }
+        .gen-hero-mic:hover:not(:disabled) {
+          border-color: #8b5cf6;
+        }
+        .gen-hero-mic:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+        .gen-hero-mic.is-recording {
+          color: #b91c1c;
+          border-color: #fca5a5;
+          background: rgba(254, 226, 226, 0.55);
+        }
+        .gen-hero-mic-dot {
+          width: 9px;
+          height: 9px;
+          border-radius: 50%;
+          background: #ef4444;
+          animation: gen-hero-pulse 1.1s ease-in-out infinite;
+        }
+        @keyframes gen-hero-pulse {
+          0%,
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.45;
+            transform: scale(0.7);
+          }
+        }
       `}</style>
       <form
         className="gen-hero-form"
@@ -170,6 +231,30 @@ export function HeroInput({ value, onChange, onSubmit, isBusy }: HeroInputProps)
             <Wand2 size={18} aria-hidden />
             {isBusy ? "Generating…" : "Generate worker"}
           </button>
+          <button
+            type="button"
+            className={`gen-hero-mic${dictation.isRecording ? " is-recording" : ""}`}
+            onClick={dictation.toggle}
+            disabled={isBusy}
+            aria-pressed={dictation.isRecording}
+            aria-label={
+              dictation.isRecording ? "Stop dictation" : "Describe the role by voice"
+            }
+            data-testid="genesis-mic-button"
+          >
+            {dictation.isRecording ? (
+              <>
+                <span className="gen-hero-mic-dot" aria-hidden />
+                <Square size={15} aria-hidden />
+                Listening…
+              </>
+            ) : (
+              <>
+                <Mic size={17} aria-hidden />
+                Dictate
+              </>
+            )}
+          </button>
           {showError ? (
             <p id="genesis-role-error" className="gen-hero-error">
               Please describe the role in at least {MIN_ROLE_LEN} characters.
@@ -181,6 +266,11 @@ export function HeroInput({ value, onChange, onSubmit, isBusy }: HeroInputProps)
             </p>
           )}
         </div>
+        {dictation.error ? (
+          <p className="gen-hero-error" role="status" data-testid="genesis-mic-error">
+            {dictation.error}
+          </p>
+        ) : null}
       </form>
     </>
   );
