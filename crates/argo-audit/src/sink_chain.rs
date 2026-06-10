@@ -9,7 +9,7 @@
 use crate::sink::{AuditEvent, AuditItem};
 use crate::sink_tx::parent_hash_in_tx;
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, SessionId};
+use argo_types::{ArgoError, ArgoResult};
 use sha2::{Digest, Sha256};
 use sqlx::{Pool, Sqlite, Transaction};
 use std::collections::HashMap;
