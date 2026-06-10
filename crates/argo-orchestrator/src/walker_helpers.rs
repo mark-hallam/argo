@@ -22,7 +22,7 @@ use argo_identity::WorkerId;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
-use sqlx::SqlitePool;
+use sqlx::{Sqlite, SqlitePool, Transaction};
 use std::str::FromStr;
 
 /// Cap on manager-chain hops walked by [`try_advance_via_org_chart`].
@@ -182,7 +182,14 @@ pub(crate) async fn write_escalation_exhausted_audit(
         .map_err(|e| ArgoError::Schema(format!("audit payload: {e}")))?;
     let session_blob = uuid::Uuid::parse_str(session_id.as_str())
         .map_err(|e| ArgoError::Schema(format!("session uuid: {e}")))?;
-    let parent_hash = last_session_hash(pool, &session_blob).await?;
+    // `BEGIN IMMEDIATE` serializes the read-then-insert so concurrent
+    // appends to this session chain can't fork it
+    // (fix-audit-chain-append-serialization).
+    let mut tx = pool
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|e| ArgoError::Provider(format!("audit tx begin: {e}")))?;
+    let parent_hash = last_session_hash(&mut tx, &session_blob).await?;
     let self_hash = compute_chain_hash(&parent_hash, kind_label, &canonical);
     let audit_id = uuid::Uuid::now_v7();
     sqlx::query(
@@ -196,9 +203,12 @@ pub(crate) async fn write_escalation_exhausted_audit(
     .bind(parent_hash.as_slice())
     .bind(self_hash.as_slice())
     .bind(Utc::now().timestamp_micros())
-    .execute(pool)
+    .execute(&mut *tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("audit insert: {e}")))?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("audit tx commit: {e}")))?;
     Ok(())
 }
 
@@ -280,13 +290,16 @@ pub(crate) async fn try_advance_via_org_chart(
     Ok(Some(EscalationStep::Worker(worker_id)))
 }
 
-async fn last_session_hash(pool: &SqlitePool, session: &uuid::Uuid) -> ArgoResult<[u8; 32]> {
+async fn last_session_hash(
+    tx: &mut Transaction<'_, Sqlite>,
+    session: &uuid::Uuid,
+) -> ArgoResult<[u8; 32]> {
     let row: Option<Vec<u8>> = sqlx::query_scalar(
         "SELECT self_hash FROM audit_record WHERE session_id = ? \
          ORDER BY seq DESC LIMIT 1",
     )
     .bind(session.as_bytes().as_slice())
-    .fetch_optional(pool)
+    .fetch_optional(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("audit last_hash: {e}")))?;
     let mut buf = [0u8; 32];

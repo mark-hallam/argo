@@ -16,7 +16,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use sqlx::Row;
+use sqlx::{Sqlite, Transaction};
 use uuid::Uuid;
 
 const AUDIT_KIND: &str = AuditKind::SkillRegressionDetected.label();
@@ -281,7 +281,14 @@ async fn emit_regression_audit(
     });
     let canonical = serde_json::to_string(&payload)
         .map_err(|e| ArgoError::Schema(format!("skill_reeval audit json: {e}")))?;
-    let parent = last_audit_hash(skills).await?;
+    // `BEGIN IMMEDIATE` serializes the read-then-insert so concurrent
+    // appends can't fork the chain (fix-audit-chain-append-serialization).
+    let mut tx = skills
+        .pool()
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|e| ArgoError::Provider(format!("skill_reeval audit tx begin: {e}")))?;
+    let parent = last_audit_hash(&mut tx).await?;
     let self_hash = chain_hash(&parent, AUDIT_KIND, &canonical);
     sqlx::query(
         "INSERT INTO audit_record (id, session_id, kind, payload_json, \
@@ -299,22 +306,23 @@ async fn emit_regression_audit(
     .bind(Utc::now().timestamp_micros())
     .bind(ACTION_TYPE)
     .bind("regressed")
-    .execute(skills.pool())
+    .execute(&mut *tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("skill_reeval audit insert: {e}")))?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("skill_reeval audit tx commit: {e}")))?;
     Ok(())
 }
 
-async fn last_audit_hash(skills: &SkillStore) -> ArgoResult<[u8; 32]> {
-    let row = sqlx::query("SELECT self_hash FROM audit_record ORDER BY seq DESC LIMIT 1")
-        .fetch_optional(skills.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("skill_reeval audit hash: {e}")))?;
+async fn last_audit_hash(tx: &mut Transaction<'_, Sqlite>) -> ArgoResult<[u8; 32]> {
+    let bytes: Option<Vec<u8>> =
+        sqlx::query_scalar("SELECT self_hash FROM audit_record ORDER BY seq DESC LIMIT 1")
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("skill_reeval audit hash: {e}")))?;
     let mut out = [0u8; 32];
-    if let Some(row) = row {
-        let bytes: Vec<u8> = row
-            .try_get("self_hash")
-            .map_err(|e| ArgoError::Provider(format!("skill_reeval audit hash decode: {e}")))?;
+    if let Some(bytes) = bytes {
         if bytes.len() == 32 {
             out.copy_from_slice(&bytes);
         }

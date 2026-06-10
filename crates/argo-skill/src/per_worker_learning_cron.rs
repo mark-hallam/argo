@@ -264,7 +264,14 @@ async fn append_learning_audit(
     });
     let canonical = serde_json::to_string(&payload)
         .map_err(|e| ArgoError::Schema(format!("per_worker_learning audit json: {e}")))?;
-    let parent = last_audit_hash(skills).await?;
+    // `BEGIN IMMEDIATE` serializes the read-then-insert so concurrent
+    // appends can't fork the chain (fix-audit-chain-append-serialization).
+    let mut tx = skills
+        .pool()
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|e| ArgoError::Provider(format!("per_worker_learning audit tx begin: {e}")))?;
+    let parent = last_audit_hash(&mut tx).await?;
     let self_hash = chain_hash(&parent, AUDIT_KIND, &canonical);
     let audit_id = Uuid::now_v7();
     sqlx::query(
@@ -284,17 +291,20 @@ async fn append_learning_audit(
     .bind(worker_id.to_string())
     .bind(LEARNING_ACTION)
     .bind("proposed")
-    .execute(skills.pool())
+    .execute(&mut *tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("per_worker_learning audit insert: {e}")))?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("per_worker_learning audit tx commit: {e}")))?;
     Ok(())
 }
 
-async fn last_audit_hash(skills: &SkillStore) -> ArgoResult<[u8; 32]> {
+async fn last_audit_hash(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> ArgoResult<[u8; 32]> {
     let row: Option<Vec<u8>> = sqlx::query_scalar(
         "SELECT self_hash FROM audit_record WHERE session_id IS NULL ORDER BY seq DESC LIMIT 1",
     )
-    .fetch_optional(skills.pool())
+    .fetch_optional(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("per_worker_learning audit hash: {e}")))?;
     let mut out = [0u8; 32];

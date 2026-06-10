@@ -39,7 +39,14 @@ pub async fn audit_worker_handoff(
     let canonical = canonical_payload(handoff)?;
     let sid = Uuid::parse_str(handoff.session_id.as_str())
         .map_err(|e| ArgoError::Schema(format!("handoff.session_id: {e}")))?;
-    let parent = last_session_hash(pool, &sid).await?;
+    // `BEGIN IMMEDIATE` serializes the read-then-insert so concurrent
+    // appends to this session chain can't fork it
+    // (fix-audit-chain-append-serialization).
+    let mut tx = pool
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|e| ArgoError::Provider(format!("audit tx begin: {e}")))?;
+    let parent = last_session_hash(&mut tx, &sid).await?;
     let self_hash = argo_audit::compute_chain_hash(&parent, WORKER_HANDOFF_KIND, &canonical);
     let id = Uuid::now_v7();
     sqlx::query(
@@ -53,9 +60,12 @@ pub async fn audit_worker_handoff(
     .bind(parent.as_slice())
     .bind(self_hash.as_slice())
     .bind(Utc::now().timestamp_micros())
-    .execute(pool)
+    .execute(&mut *tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("audit insert: {e}")))?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("audit tx commit: {e}")))?;
     Ok(())
 }
 
@@ -103,13 +113,16 @@ pub(crate) fn payload_hash(payload: &serde_json::Value) -> String {
 /// Returns the zero hash when no rows exist yet (start of chain).
 /// Duplicates `last_session_hash` in `persist.rs` to keep this
 /// module self-contained per the brief's may-touch boundary.
-async fn last_session_hash(pool: &sqlx::Pool<sqlx::Sqlite>, sid: &Uuid) -> ArgoResult<[u8; 32]> {
+async fn last_session_hash(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    sid: &Uuid,
+) -> ArgoResult<[u8; 32]> {
     let row: Option<Vec<u8>> = sqlx::query_scalar(
         "SELECT self_hash FROM audit_record WHERE session_id = ? \
          ORDER BY seq DESC LIMIT 1",
     )
     .bind(sid.as_bytes().as_slice())
-    .fetch_optional(pool)
+    .fetch_optional(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("audit last_hash: {e}")))?;
     let mut buf = [0u8; 32];

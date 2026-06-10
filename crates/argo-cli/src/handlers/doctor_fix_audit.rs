@@ -7,6 +7,7 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use chrono::Utc;
 use serde_json::json;
+use sqlx::{Sqlite, Transaction};
 use uuid::Uuid;
 
 pub(super) async fn append_audit(
@@ -18,10 +19,17 @@ pub(super) async fn append_audit(
         .map_err(|e| ArgoError::Io(format!("create {}: {e}", ctx.home.display())))?;
     let store = SessionStore::open(db_path(&ctx.home)).await?;
     store.migrate().await?;
-    let parent = last_global_hash(&store).await?;
     let payload = json!({"issue_id": report.id, "category": report.category, "status": report.status, "detail": report.detail, "path": report.path, "remediation": report.remediation, "auto": auto});
     let canonical = serde_json::to_string(&payload)
         .map_err(|e| ArgoError::Provider(format!("doctor fix audit JSON: {e}")))?;
+    // `BEGIN IMMEDIATE` serializes the read-then-insert so concurrent
+    // appends can't fork the chain (fix-audit-chain-append-serialization).
+    let mut tx = store
+        .pool()
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|e| ArgoError::Provider(format!("doctor fix audit tx begin: {e}")))?;
+    let parent = read_global_parent(&mut tx).await?;
     let self_hash = compute_chain_hash(&parent, AUDIT_KIND, &canonical);
     sqlx::query("INSERT INTO audit_record (id, session_id, kind, payload_json, parent_hash, self_hash, created_at) VALUES (?, NULL, ?, ?, ?, ?, ?)")
         .bind(Uuid::now_v7().as_bytes().as_slice())
@@ -30,17 +38,21 @@ pub(super) async fn append_audit(
         .bind(parent.as_slice())
         .bind(self_hash.as_slice())
         .bind(Utc::now().timestamp_micros())
-        .execute(store.pool())
+        .execute(&mut *tx)
         .await
         .map_err(|e| ArgoError::Provider(format!("doctor fix audit: {e}")))?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("doctor fix audit tx commit: {e}")))?;
     Ok(())
 }
 
-async fn last_global_hash(store: &SessionStore) -> ArgoResult<[u8; 32]> {
+/// Read the global chain tail inside the caller's transaction.
+async fn read_global_parent(tx: &mut Transaction<'_, Sqlite>) -> ArgoResult<[u8; 32]> {
     let bytes: Option<Vec<u8>> = sqlx::query_scalar(
         "SELECT self_hash FROM audit_record WHERE session_id IS NULL ORDER BY seq DESC LIMIT 1",
     )
-    .fetch_optional(store.pool())
+    .fetch_optional(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("doctor fix last audit hash: {e}")))?;
     let mut out = [0_u8; 32];

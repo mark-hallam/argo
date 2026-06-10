@@ -8,7 +8,7 @@ use argo_types::{ArgoError, ArgoResult};
 use chrono::Utc;
 use serde_json::json;
 use sha2::{Digest, Sha256};
-use sqlx::Row;
+use sqlx::{Row, Sqlite, Transaction};
 use std::io::{self, Write};
 use uuid::Uuid;
 
@@ -245,10 +245,17 @@ async fn append_erasure_event(
     subject_hash: &str,
     counts: GdprCounts,
 ) -> ArgoResult<()> {
-    let parent = last_global_hash(store).await?;
     let at = Utc::now();
     let payload = json!({"kind": ERASURE_PAYLOAD_KIND, "subject_hash": subject_hash, "affected_tables": affected_tables(counts), "at": at.to_rfc3339()});
     let canonical = serde_json::to_string(&payload).map_err(json_err)?;
+    // `BEGIN IMMEDIATE` serializes the read-then-insert so concurrent
+    // appends can't fork the chain (fix-audit-chain-append-serialization).
+    let mut tx = store
+        .pool()
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|e| ArgoError::Provider(format!("gdpr audit tx begin: {e}")))?;
+    let parent = read_global_parent(&mut tx).await?;
     let self_hash = compute_chain_hash(&parent, AUDIT_COLUMN_KIND, &canonical);
     sqlx::query(
         "INSERT INTO audit_record (id, session_id, kind, payload_json, parent_hash, self_hash, created_at)
@@ -260,17 +267,21 @@ async fn append_erasure_event(
     .bind(parent.as_slice())
     .bind(self_hash.as_slice())
     .bind(at.timestamp_micros())
-    .execute(store.pool())
+    .execute(&mut *tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("gdpr audit event: {e}")))?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("gdpr audit tx commit: {e}")))?;
     Ok(())
 }
 
-async fn last_global_hash(store: &SessionStore) -> ArgoResult<[u8; 32]> {
+/// Read the global chain tail inside the caller's transaction.
+async fn read_global_parent(tx: &mut Transaction<'_, Sqlite>) -> ArgoResult<[u8; 32]> {
     let bytes: Option<Vec<u8>> = sqlx::query_scalar(
         "SELECT self_hash FROM audit_record WHERE session_id IS NULL ORDER BY seq DESC LIMIT 1",
     )
-    .fetch_optional(store.pool())
+    .fetch_optional(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("gdpr audit last hash: {e}")))?;
     Ok(bytes.as_deref().map_or([0_u8; 32], hash32))

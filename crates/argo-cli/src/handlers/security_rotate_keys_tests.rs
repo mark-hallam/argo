@@ -171,7 +171,12 @@ async fn audit_key_age_returns_zero_when_every_key_is_fresh() {
 
 async fn insert_audit_at(store: &SessionStore, key_name: &str, when: DateTime<Utc>) {
     let entry = lookup(key_name).expect("registered");
-    let parent = last_global_hash(store).await.unwrap();
+    let mut tx = store
+        .pool()
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .unwrap();
+    let parent = read_global_parent(&mut tx).await.unwrap();
     let payload = json!({
         "actor": "test",
         "action": AUDIT_KIND,
@@ -196,9 +201,10 @@ async fn insert_audit_at(store: &SessionStore, key_name: &str, when: DateTime<Ut
     .bind(parent.as_slice())
     .bind(self_hash.as_slice())
     .bind(when.timestamp_micros())
-    .execute(store.pool())
+    .execute(&mut *tx)
     .await
     .unwrap();
+    tx.commit().await.unwrap();
 }
 
 // -----------------------------------------------------------------

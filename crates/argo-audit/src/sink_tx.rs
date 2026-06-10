@@ -178,7 +178,16 @@ impl AuditSink {
     }
 }
 
-async fn parent_hash_in_tx<'c>(
+/// Read the chain tail (`self_hash` of the latest row for `session_id`,
+/// or the global `session_id IS NULL` chain) using the caller's
+/// transaction so the read shares the transaction's lock/snapshot.
+///
+/// `pub(crate)` so [`crate::sink_chain::flush_audit`] can read the
+/// parent INSIDE its serialized writer transaction rather than on the
+/// bare pool — closing the read-then-insert fork window where two
+/// concurrent appends could observe the same parent hash and fork the
+/// chain.
+pub(crate) async fn parent_hash_in_tx<'c>(
     tx: &mut Transaction<'c, Sqlite>,
     session_id: Option<SessionId>,
 ) -> ArgoResult<[u8; 32]> {

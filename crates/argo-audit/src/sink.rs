@@ -15,7 +15,8 @@
 //! unchanged).
 use crate::event::AuditKind;
 use crate::filter_dims::{extract_filter_dims, FilterDims};
-use crate::sink_chain::{after_commit_fanout, chain_hash, flush_audit, insert_one_with_chain, last_hash_for};
+use crate::sink_chain::{after_commit_fanout, chain_hash, flush_audit, insert_one_with_chain_in_tx};
+use crate::sink_tx::parent_hash_in_tx;
 use crate::sink_tenant::{stamp_tenant_id, DEFAULT_AUDIT_TENANT_ID};
 use argo_security::pii_detect;
 use argo_store::batched_writer::{self, BatchedWriter};
@@ -232,10 +233,23 @@ impl AuditSink {
         if batched_writer::is_batching_enabled() {
             self.batched.submit(item).await
         } else {
-            // Fallback: single-row path with the original
-            // read-then-insert chain-hash semantics.
-            let parent_hash = last_hash_for(self.store.pool(), session_id).await?;
-            insert_one_with_chain(self.store.pool(), &item, &parent_hash).await?;
+            // Fallback single-row path (ARGO_STORE_BATCHED_WRITES=0). Wrap the
+            // read-then-insert in ONE `BEGIN IMMEDIATE` transaction so the
+            // parent-hash read + insert are atomic under the SQLite write lock —
+            // identical serialization to the batched writer and the converted
+            // side-doors. Closes the last fork window in the canonical writer
+            // (security re-review of #2805); the old bare-pool helpers are gone.
+            let mut tx = self
+                .store
+                .pool()
+                .begin_with("BEGIN IMMEDIATE")
+                .await
+                .map_err(|e| ArgoError::Provider(format!("audit begin: {e}")))?;
+            let parent_hash = parent_hash_in_tx(&mut tx, session_id).await?;
+            insert_one_with_chain_in_tx(&mut tx, &item, &parent_hash).await?;
+            tx.commit()
+                .await
+                .map_err(|e| ArgoError::Provider(format!("audit commit: {e}")))?;
             after_commit_fanout(&self.store, &self.broadcast, std::slice::from_ref(&item)).await?;
             Ok(())
         }

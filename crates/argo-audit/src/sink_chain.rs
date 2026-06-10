@@ -7,10 +7,11 @@
 //! `pub(crate)` and are re-imported from `sink.rs`; no public
 //! surface change.
 use crate::sink::{AuditEvent, AuditItem};
+use crate::sink_tx::parent_hash_in_tx;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, SessionId};
 use sha2::{Digest, Sha256};
-use sqlx::{Pool, Sqlite};
+use sqlx::{Pool, Sqlite, Transaction};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -56,38 +57,16 @@ fn worker_ids_in_payload(payload: &serde_json::Value) -> Vec<String> {
     out
 }
 
-pub(crate) async fn last_hash_for(
-    pool: &Pool<Sqlite>,
-    session_id: Option<SessionId>,
-) -> ArgoResult<[u8; 32]> {
-    let row: Option<Vec<u8>> = match session_id {
-        Some(s) => sqlx::query_scalar(
-            "SELECT self_hash FROM audit_record WHERE session_id = ? \
-             ORDER BY seq DESC LIMIT 1",
-        )
-        .bind(s.0.as_bytes().as_slice())
-        .fetch_optional(pool)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("audit last_hash: {e}")))?,
-        None => sqlx::query_scalar(
-            "SELECT self_hash FROM audit_record WHERE session_id IS NULL \
-             ORDER BY seq DESC LIMIT 1",
-        )
-        .fetch_optional(pool)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("audit last_hash: {e}")))?,
-    };
-    let mut buf = [0u8; 32];
-    if let Some(bytes) = row {
-        if bytes.len() == 32 {
-            buf.copy_from_slice(&bytes);
-        }
-    }
-    Ok(buf)
-}
-
-pub(crate) async fn insert_one_with_chain(
-    pool: &Pool<Sqlite>,
+/// Insert one chain-hashed row INSIDE an existing transaction. The caller
+/// opens the tx with `BEGIN IMMEDIATE` and reads the parent hash via
+/// [`crate::sink_tx::parent_hash_in_tx`] under that SAME lock, so the
+/// read-then-insert is atomic and two concurrent appends can never share a
+/// parent_hash (chain fork). There is intentionally NO bare-pool variant —
+/// the old `insert_one_with_chain`/`last_hash_for` pool helpers were the last
+/// non-serialized append path and have been removed (security re-review of
+/// #2805).
+pub(crate) async fn insert_one_with_chain_in_tx<'c>(
+    tx: &mut Transaction<'c, Sqlite>,
     item: &AuditItem,
     parent_hash: &[u8; 32],
 ) -> ArgoResult<()> {
@@ -115,7 +94,7 @@ pub(crate) async fn insert_one_with_chain(
     .bind(item.filter_dims.approver_id.as_deref())
     .bind(item.filter_dims.cost_band.as_deref())
     .bind(item.filter_dims.data_classification.as_deref())
-    .execute(pool)
+    .execute(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("audit insert: {e}")))?;
     Ok(())
@@ -125,6 +104,15 @@ pub(crate) async fn insert_one_with_chain(
 /// hashes in submit order per session_id, inserts every row in
 /// one transaction, then runs the post-commit fanout (worker
 /// presence + broadcast).
+///
+/// Serialization: the writer opens a `BEGIN IMMEDIATE` transaction so
+/// the SQLite write lock is acquired BEFORE the per-bucket parent-hash
+/// read. The read happens inside that transaction (via
+/// [`crate::sink_tx::parent_hash_in_tx`]), so a concurrent append
+/// (canonical or a formerly side-door path that now takes its own
+/// `BEGIN IMMEDIATE`) cannot slip a row in between this writer's read
+/// and its insert. `busy_timeout` (5s, set in `wal_tuning`) makes the
+/// second writer wait for the lock rather than fork the chain.
 pub(crate) async fn flush_audit(
     pool: Pool<Sqlite>,
     store: Arc<SessionStore>,
@@ -144,11 +132,19 @@ pub(crate) async fn flush_audit(
         buckets.entry(key).or_default().push(idx);
     }
 
+    // Acquire the write lock up front (`BEGIN IMMEDIATE`), THEN read
+    // each bucket's chain tail inside the transaction so the
+    // read-modify-write is atomic against concurrent appends.
+    let mut tx = pool
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|e| ArgoError::Provider(format!("audit tx begin: {e}")))?;
+
     let mut parent_hashes = vec![[0u8; 32]; batch.len()];
     let mut self_hashes = vec![[0u8; 32]; batch.len()];
     for indices in buckets.values() {
         let first = batch[indices[0]].session_id;
-        let mut parent = last_hash_for(&pool, first).await?;
+        let mut parent = parent_hash_in_tx(&mut tx, first).await?;
         for &idx in indices {
             let item = &batch[idx];
             let s = chain_hash(&parent, item.kind, &item.canonical);
@@ -158,10 +154,6 @@ pub(crate) async fn flush_audit(
         }
     }
 
-    let mut tx = pool
-        .begin()
-        .await
-        .map_err(|e| ArgoError::Provider(format!("audit tx begin: {e}")))?;
     for (idx, item) in batch.iter().enumerate() {
         sqlx::query(
             "INSERT INTO audit_record (id, session_id, kind, payload_json, \

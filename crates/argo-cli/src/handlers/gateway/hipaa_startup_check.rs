@@ -6,7 +6,7 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use chrono::Utc;
 use serde_json::{json, Value};
-use sqlx::Row;
+use sqlx::{Sqlite, Transaction};
 use std::path::Path;
 use uuid::Uuid;
 
@@ -64,7 +64,14 @@ fn feature(name: &str, status: &str, evidence: &str) -> Value {
 async fn append_audit_row(store: &SessionStore, payload: Value) -> ArgoResult<()> {
     let canonical = serde_json::to_string(&payload)
         .map_err(|e| ArgoError::Schema(format!("hipaa posture serialize: {e}")))?;
-    let parent_hash = last_hash_for_global_chain(store).await?;
+    // `BEGIN IMMEDIATE` serializes the read-then-insert so a concurrent
+    // append can't fork the chain (fix-audit-chain-append-serialization).
+    let mut tx = store
+        .pool()
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|e| ArgoError::Provider(format!("hipaa compliance audit tx begin: {e}")))?;
+    let parent_hash = read_global_parent(&mut tx).await?;
     let self_hash = compute_chain_hash(&parent_hash, KIND, &canonical);
     sqlx::query(
         "INSERT INTO audit_record (id, session_id, kind, payload_json, \
@@ -77,28 +84,28 @@ async fn append_audit_row(store: &SessionStore, payload: Value) -> ArgoResult<()
     .bind(parent_hash.as_slice())
     .bind(self_hash.as_slice())
     .bind(Utc::now().timestamp_micros())
-    .execute(store.pool())
+    .execute(&mut *tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("hipaa compliance audit insert: {e}")))?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("hipaa compliance audit tx commit: {e}")))?;
     Ok(())
 }
 
-async fn last_hash_for_global_chain(store: &SessionStore) -> ArgoResult<[u8; 32]> {
-    let row = sqlx::query(
+/// Read the global chain tail inside the caller's transaction.
+async fn read_global_parent(tx: &mut Transaction<'_, Sqlite>) -> ArgoResult<[u8; 32]> {
+    let bytes: Option<Vec<u8>> = sqlx::query_scalar(
         "SELECT self_hash FROM audit_record WHERE session_id IS NULL ORDER BY seq DESC LIMIT 1",
     )
-    .fetch_optional(store.pool())
+    .fetch_optional(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("hipaa compliance audit last_hash: {e}")))?;
-    let Some(row) = row else {
-        return Ok([0u8; 32]);
-    };
-    let bytes: Vec<u8> = row
-        .try_get("self_hash")
-        .map_err(|e| ArgoError::Provider(format!("hipaa compliance audit self_hash: {e}")))?;
     let mut out = [0u8; 32];
-    if bytes.len() == 32 {
-        out.copy_from_slice(&bytes);
+    if let Some(bytes) = bytes {
+        if bytes.len() == 32 {
+            out.copy_from_slice(&bytes);
+        }
     }
     Ok(out)
 }

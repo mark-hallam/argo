@@ -136,18 +136,31 @@ async fn write_handoff_cancelled_audit(
         .map_err(|e| ArgoError::Schema(format!("audit payload: {e}")))?;
     let sid = Uuid::parse_str(h.session_id.as_str())
         .map_err(|e| ArgoError::Schema(format!("handoff.session_id: {e}")))?;
-    let parent = last_session_hash(pool, &sid).await?;
+    // `BEGIN IMMEDIATE` serializes the read-then-insert so concurrent
+    // appends to this session chain can't fork it
+    // (fix-audit-chain-append-serialization).
+    let mut tx = pool
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|e| ArgoError::Provider(format!("audit tx begin: {e}")))?;
+    let parent = last_session_hash(&mut tx, &sid).await?;
     let hash = argo_audit::compute_chain_hash(&parent, kind, &canonical);
     let id = Uuid::now_v7();
-    sqlx::query("INSERT INTO audit_record (id, session_id, kind, payload_json, parent_hash, self_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(id.as_bytes().as_slice()).bind(sid.as_bytes().as_slice()).bind(kind).bind(canonical).bind(parent.as_slice()).bind(hash.as_slice()).bind(Utc::now().timestamp_micros()).execute(pool).await.map_err(|e| ArgoError::Provider(format!("audit insert: {e}")))?;
+    sqlx::query("INSERT INTO audit_record (id, session_id, kind, payload_json, parent_hash, self_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(id.as_bytes().as_slice()).bind(sid.as_bytes().as_slice()).bind(kind).bind(canonical).bind(parent.as_slice()).bind(hash.as_slice()).bind(Utc::now().timestamp_micros()).execute(&mut *tx).await.map_err(|e| ArgoError::Provider(format!("audit insert: {e}")))?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("audit tx commit: {e}")))?;
     Ok(())
 }
-async fn last_session_hash(pool: &sqlx::Pool<sqlx::Sqlite>, sid: &Uuid) -> ArgoResult<[u8; 32]> {
+async fn last_session_hash(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    sid: &Uuid,
+) -> ArgoResult<[u8; 32]> {
     let row: Option<Vec<u8>> = sqlx::query_scalar(
         "SELECT self_hash FROM audit_record WHERE session_id = ? ORDER BY seq DESC LIMIT 1",
     )
     .bind(sid.as_bytes().as_slice())
-    .fetch_optional(pool)
+    .fetch_optional(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("audit last_hash: {e}")))?;
     let mut buf = [0u8; 32];
@@ -449,7 +462,14 @@ async fn write_cross_tenant_attempt_audit(
     let kind = AuditKind::HandoffCrossTenantAttempt.label();
     let sid = Uuid::parse_str(victim_session_id.as_str())
         .map_err(|e| ArgoError::Schema(format!("handoff.session_id: {e}")))?;
-    let parent = last_session_hash(pool, &sid).await?;
+    // `BEGIN IMMEDIATE` serializes the read-then-insert so concurrent
+    // appends to this session chain can't fork it
+    // (fix-audit-chain-append-serialization).
+    let mut tx = pool
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|e| ArgoError::Provider(format!("audit tx begin: {e}")))?;
+    let parent = last_session_hash(&mut tx, &sid).await?;
     let self_hash = argo_audit::compute_chain_hash(&parent, kind, canonical);
     let id = Uuid::now_v7();
     sqlx::query(
@@ -463,8 +483,11 @@ async fn write_cross_tenant_attempt_audit(
     .bind(parent.as_slice())
     .bind(self_hash.as_slice())
     .bind(Utc::now().timestamp_micros())
-    .execute(pool)
+    .execute(&mut *tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("audit insert cross-tenant attempt: {e}")))?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("audit tx commit cross-tenant attempt: {e}")))?;
     Ok(())
 }

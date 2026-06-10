@@ -20,7 +20,7 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::Utc;
 use serde::Serialize;
-use sqlx::{Pool, Sqlite};
+use sqlx::{Pool, Sqlite, Transaction};
 use std::str::FromStr;
 use uuid::Uuid;
 
@@ -387,9 +387,19 @@ async fn write_audit_row(
     });
     let canonical = serde_json::to_string(&payload)
         .map_err(|e| ArgoError::Schema(format!("worker_promotion payload: {e}")))?;
-    let parent_hash = [0u8; 32];
-    let self_hash = argo_audit::compute_chain_hash(&parent_hash, WORKER_PROMOTION_KIND, &canonical);
+    // Chain onto the global tail inside a `BEGIN IMMEDIATE` transaction.
+    // Previously this hard-coded `parent_hash = [0u8; 32]`, so every
+    // promotion row claimed the genesis parent — the rows never threaded
+    // and the global chain forked on the second promotion. Read the real
+    // tail under the write lock so the read-then-insert is atomic
+    // (fix-audit-chain-append-serialization).
     let id = Uuid::now_v7();
+    let mut tx = pool
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|e| ArgoError::Provider(format!("audit tx begin: {e}")))?;
+    let parent_hash = read_global_parent(&mut tx).await?;
+    let self_hash = argo_audit::compute_chain_hash(&parent_hash, WORKER_PROMOTION_KIND, &canonical);
     sqlx::query(
         "INSERT INTO audit_record (id, session_id, kind, payload_json, \
          parent_hash, self_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -401,10 +411,32 @@ async fn write_audit_row(
     .bind(parent_hash.as_slice())
     .bind(self_hash.as_slice())
     .bind(Utc::now().timestamp_micros())
-    .execute(pool)
+    .execute(&mut *tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("audit insert: {e}")))?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("audit tx commit: {e}")))?;
     Ok(())
+}
+
+/// Read the global (`session_id IS NULL`) chain tail inside the
+/// caller's transaction so the parent-read shares the write lock with
+/// the subsequent insert.
+async fn read_global_parent(tx: &mut Transaction<'_, Sqlite>) -> ArgoResult<[u8; 32]> {
+    let bytes: Option<Vec<u8>> = sqlx::query_scalar(
+        "SELECT self_hash FROM audit_record WHERE session_id IS NULL ORDER BY seq DESC LIMIT 1",
+    )
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("worker_promotion parent read: {e}")))?;
+    let mut out = [0u8; 32];
+    if let Some(b) = bytes {
+        if b.len() == 32 {
+            out.copy_from_slice(&b);
+        }
+    }
+    Ok(out)
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -81,9 +81,13 @@ pub(crate) async fn execute(
     tenant: TenantId,
     dry_run: bool,
 ) -> ArgoResult<DeleteSummary> {
+    // `BEGIN IMMEDIATE`: the whole delete (tombstone rewrite + the
+    // breadcrumb append) holds the write lock from the start, so the
+    // audit-chain read-then-insert can't fork against a concurrent
+    // append (fix-audit-chain-append-serialization).
     let mut tx = store
         .pool()
-        .begin()
+        .begin_with("BEGIN IMMEDIATE")
         .await
         .map_err(|e| ArgoError::Provider(format!("compliance delete tx begin: {e}")))?;
     let mut summary = DeleteSummary {
@@ -305,7 +309,7 @@ async fn append_delete_audit(
     tenant: TenantId,
     summary: &DeleteSummary,
 ) -> ArgoResult<()> {
-    let parent = last_global_hash(tx).await?;
+    let parent = read_global_parent(tx).await?;
     let at = Utc::now();
     let payload = json!({
         "actor": "cli",
@@ -334,7 +338,8 @@ async fn append_delete_audit(
     Ok(())
 }
 
-async fn last_global_hash(tx: &mut Transaction<'_, Sqlite>) -> ArgoResult<[u8; 32]> {
+/// Read the global chain tail inside the caller's transaction.
+async fn read_global_parent(tx: &mut Transaction<'_, Sqlite>) -> ArgoResult<[u8; 32]> {
     let bytes: Option<Vec<u8>> = sqlx::query_scalar(
         "SELECT self_hash FROM audit_record WHERE session_id IS NULL ORDER BY seq DESC LIMIT 1",
     )

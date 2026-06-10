@@ -35,7 +35,7 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use chrono::Utc;
 use serde_json::{json, Map, Value};
-use sqlx::Row;
+use sqlx::{Sqlite, Transaction};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -277,7 +277,15 @@ async fn append_audit(store: &SessionStore, tenant: &str, theme: &Value) -> Argo
     });
     let canonical = serde_json::to_string(&payload)
         .map_err(|e| ArgoError::Schema(format!("theme audit serialize: {e}")))?;
-    let parent_hash = last_global_hash(store).await?;
+    // Serialize the read-then-insert with `BEGIN IMMEDIATE` so two
+    // concurrent theme writes can never read the same chain tail and
+    // fork the audit chain (see fix-audit-chain-append-serialization).
+    let mut tx = store
+        .pool()
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|e| ArgoError::Provider(format!("theme audit tx begin: {e}")))?;
+    let parent_hash = read_global_parent(&mut tx).await?;
     let self_hash = compute_chain_hash(&parent_hash, AUDIT_KIND, &canonical);
     sqlx::query(
         "INSERT INTO audit_record (id, session_id, kind, payload_json, \
@@ -290,29 +298,32 @@ async fn append_audit(store: &SessionStore, tenant: &str, theme: &Value) -> Argo
     .bind(parent_hash.as_slice())
     .bind(self_hash.as_slice())
     .bind(Utc::now().timestamp_micros())
-    .execute(store.pool())
+    .execute(&mut *tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("theme audit insert: {e}")))?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("theme audit tx commit: {e}")))?;
     Ok(())
 }
 
-async fn last_global_hash(store: &SessionStore) -> ArgoResult<[u8; 32]> {
-    let row = sqlx::query(
+/// Read the global (`session_id IS NULL`) chain tail inside the
+/// caller's transaction so the parent-read shares the write lock with
+/// the subsequent insert.
+async fn read_global_parent(tx: &mut Transaction<'_, Sqlite>) -> ArgoResult<[u8; 32]> {
+    let bytes: Option<Vec<u8>> = sqlx::query_scalar(
         "SELECT self_hash FROM audit_record WHERE session_id IS NULL ORDER BY seq DESC LIMIT 1",
     )
-    .fetch_optional(store.pool())
+    .fetch_optional(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("theme audit parent read: {e}")))?;
-    match row {
-        Some(r) => {
-            let bytes: Vec<u8> = r.get("self_hash");
-            let mut out = [0u8; 32];
-            let n = bytes.len().min(32);
-            out[..n].copy_from_slice(&bytes[..n]);
-            Ok(out)
+    let mut out = [0u8; 32];
+    if let Some(b) = bytes {
+        if b.len() == 32 {
+            out.copy_from_slice(&b);
         }
-        None => Ok([0u8; 32]),
     }
+    Ok(out)
 }
 
 fn bad_request(message: &str) -> (&'static str, String) {

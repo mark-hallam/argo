@@ -68,6 +68,8 @@ mod watchdog;
 #[cfg(test)]
 mod filter_dims_tests;
 #[cfg(test)]
+mod sink_concurrency_tests;
+#[cfg(test)]
 mod sink_tenant_tests;
 #[cfg(test)]
 mod tests;

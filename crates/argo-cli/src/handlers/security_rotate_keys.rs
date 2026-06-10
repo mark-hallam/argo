@@ -28,6 +28,7 @@ use argo_types::{ArgoError, ArgoResult};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::{json, Value};
+use sqlx::{Sqlite, Transaction};
 use uuid::Uuid;
 
 /// Canonical label persisted in `audit_record.kind` for rotation
@@ -377,7 +378,6 @@ async fn append_rotation_audit(
     rotation_id: &str,
     subprocess_result: Option<&SubprocessResult>,
 ) -> ArgoResult<Uuid> {
-    let parent = last_global_hash(store).await?;
     let at = Utc::now();
     let outcome = match subprocess_result {
         Some(r) if !r.succeeded => ROTATION_FAILED,
@@ -408,8 +408,16 @@ async fn append_rotation_audit(
     });
     let canonical = serde_json::to_string(&payload)
         .map_err(|e| ArgoError::Provider(format!("rotate-keys audit json: {e}")))?;
-    let self_hash = compute_chain_hash(&parent, AUDIT_KIND, &canonical);
     let id = Uuid::now_v7();
+    // `BEGIN IMMEDIATE` serializes the read-then-insert so concurrent
+    // appends can't fork the chain (fix-audit-chain-append-serialization).
+    let mut tx = store
+        .pool()
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|e| ArgoError::Provider(format!("rotate-keys audit tx begin: {e}")))?;
+    let parent = read_global_parent(&mut tx).await?;
+    let self_hash = compute_chain_hash(&parent, AUDIT_KIND, &canonical);
     sqlx::query(
         "INSERT INTO audit_record (id, session_id, kind, payload_json, parent_hash, self_hash, created_at) \
          VALUES (?, NULL, ?, ?, ?, ?, ?)",
@@ -420,17 +428,21 @@ async fn append_rotation_audit(
     .bind(parent.as_slice())
     .bind(self_hash.as_slice())
     .bind(at.timestamp_micros())
-    .execute(store.pool())
+    .execute(&mut *tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("rotate-keys audit insert: {e}")))?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("rotate-keys audit tx commit: {e}")))?;
     Ok(id)
 }
 
-async fn last_global_hash(store: &SessionStore) -> ArgoResult<[u8; 32]> {
+/// Read the global chain tail inside the caller's transaction.
+async fn read_global_parent(tx: &mut Transaction<'_, Sqlite>) -> ArgoResult<[u8; 32]> {
     let bytes: Option<Vec<u8>> = sqlx::query_scalar(
         "SELECT self_hash FROM audit_record WHERE session_id IS NULL ORDER BY seq DESC LIMIT 1",
     )
-    .fetch_optional(store.pool())
+    .fetch_optional(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("rotate-keys parent-hash query: {e}")))?;
     let mut out = [0_u8; 32];
