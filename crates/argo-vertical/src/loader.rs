@@ -90,6 +90,85 @@ fn load_one(root: &Path, manifest_path: &Path) -> ArgoResult<LoadedVertical> {
     })
 }
 
+/// Canonical tenant-id → on-disk slug mapping for the
+/// `verticals/.genesis/<slug>/` tree. Lowercases, keeps `[a-z0-9-]`,
+/// maps every other byte to `-`, trims leading/trailing `-`, and falls
+/// back to `anonymous` for an empty result.
+///
+/// This is the SINGLE source of truth for the slug a Genesis-generated
+/// vertical is written under and read back under. The gateway SSE
+/// writer, the hire gate, the run gate, and the agent-runner fence all
+/// converge here, so the write-slug can never drift from the read-slug.
+///
+/// ```
+/// assert_eq!(argo_vertical::sanitize_tenant("Op-ABC123"), "op-abc123");
+/// assert_eq!(argo_vertical::sanitize_tenant("a b!c"), "a-b-c");
+/// assert_eq!(argo_vertical::sanitize_tenant(""), "anonymous");
+/// ```
+#[must_use]
+pub fn sanitize_tenant(tenant_id: &str) -> String {
+    let cleaned: String = tenant_id
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let trimmed = cleaned.trim_matches('-');
+    if trimmed.is_empty() {
+        "anonymous".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+/// Resolve a single worker's vertical by `vertical_id`, **tenant-scoped**.
+///
+/// Looks first in the flat `root/<…>/` catalog (matched by manifest id,
+/// exactly as [`load_dir`] does — a dir name may differ from the id it
+/// declares), then in the tenant-scoped Genesis tree
+/// `root/.genesis/<sanitize_tenant(tenant_id)>/<vertical_id>/`. Returns
+/// the loaded vertical from whichever path resolves, or `None` when the
+/// id is unknown to BOTH.
+///
+/// **Fail-closed cross-tenant.** The Genesis lookup is scoped to the
+/// caller's OWN tenant segment only: a vertical materialized for a
+/// *different* tenant resolves to `None`, never another tenant's pack.
+/// This mirrors the gateway hire-gate's
+/// `genesis_vertical_dir_for_tenant` semantics so the run path can never
+/// resolve a teammate the caller was never allowed to hire.
+///
+/// ```no_run
+/// let dir = argo_vertical::default_dir();
+/// // Resolves a flat OR a `.genesis/<tenant>/<id>/` vertical, scoped to
+/// // `tenant_id`; `None` if unknown or owned by a different tenant.
+/// let loaded = argo_vertical::load_for_worker(&dir, "op-alice", "genesis-intern");
+/// assert!(loaded.is_none() || loaded.is_some());
+/// ```
+#[must_use]
+pub fn load_for_worker(root: &Path, tenant_id: &str, vertical_id: &str) -> Option<LoadedVertical> {
+    // Flat catalog first — preserves exact existing flat semantics
+    // (registry keys by the manifest's `id`, not the directory name).
+    if let Ok((registry, _errors)) = load_dir(root) {
+        if let Some(loaded) = registry.get(vertical_id) {
+            return Some(loaded.clone());
+        }
+    }
+    // Tenant-scoped Genesis tree. Exact dir — never a cross-tenant scan.
+    let slug = sanitize_tenant(tenant_id);
+    let dir = root.join(".genesis").join(slug).join(vertical_id);
+    let manifest_path = dir.join("vertical.toml");
+    if manifest_path.is_file() {
+        if let Ok(loaded) = load_one(&dir, &manifest_path) {
+            return Some(loaded);
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 #[path = "loader_edge_tests.rs"]
 mod edge_tests;
@@ -185,6 +264,64 @@ version = "0.1.0"
         assert_eq!(reg.len(), 1);
         assert_eq!(errs.len(), 1);
         assert!(format!("{}", errs[0].error).contains("system_prompt"));
+    }
+
+    fn write_genesis_vertical(root: &Path, tenant_slug: &str, id: &str) {
+        let dir = root.join(".genesis").join(tenant_slug).join(id);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("vertical.toml"), MIN_TOML.replace("{id}", id)).unwrap();
+    }
+
+    #[test]
+    fn sanitize_tenant_canonicalizes() {
+        assert_eq!(sanitize_tenant("Op-ABC123"), "op-abc123");
+        assert_eq!(sanitize_tenant("a b!c"), "a-b-c");
+        assert_eq!(sanitize_tenant("---"), "anonymous");
+        assert_eq!(sanitize_tenant(""), "anonymous");
+        assert_eq!(sanitize_tenant("-mid-"), "mid");
+    }
+
+    #[test]
+    fn load_for_worker_resolves_flat_vertical() {
+        let dir = tempdir().unwrap();
+        write_vertical(dir.path(), "customer-support");
+        let got = load_for_worker(dir.path(), "any-tenant", "customer-support");
+        assert!(got.is_some(), "flat vertical must resolve for any tenant");
+    }
+
+    #[test]
+    fn load_for_worker_resolves_genesis_vertical_for_own_tenant() {
+        let dir = tempdir().unwrap();
+        // Materialized under the OWN tenant's segment.
+        let slug = sanitize_tenant("op-alice");
+        write_genesis_vertical(dir.path(), &slug, "genesis-personal-019eaf");
+        let got = load_for_worker(dir.path(), "op-alice", "genesis-personal-019eaf");
+        assert!(got.is_some(), "genesis vertical must resolve for its own tenant");
+        assert_eq!(
+            got.unwrap().manifest.vertical.id,
+            "genesis-personal-019eaf"
+        );
+    }
+
+    #[test]
+    fn load_for_worker_fail_closed_cross_tenant() {
+        let dir = tempdir().unwrap();
+        // Materialized for op-alice only.
+        let slug = sanitize_tenant("op-alice");
+        write_genesis_vertical(dir.path(), &slug, "genesis-personal-019eaf");
+        // A DIFFERENT tenant must NOT resolve it — fail-closed.
+        let got = load_for_worker(dir.path(), "op-bob", "genesis-personal-019eaf");
+        assert!(
+            got.is_none(),
+            "another tenant's genesis pack must never resolve"
+        );
+    }
+
+    #[test]
+    fn load_for_worker_none_for_unknown_id() {
+        let dir = tempdir().unwrap();
+        write_vertical(dir.path(), "alpha");
+        assert!(load_for_worker(dir.path(), "t", "ghost").is_none());
     }
 
     #[test]

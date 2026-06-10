@@ -80,8 +80,6 @@ async fn add(vertical_id: &str, prompt: &str, json_out: bool) -> ArgoResult<()> 
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
 
-    validate_vertical(vertical_id)?;
-
     let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
     let name = cwd
@@ -89,7 +87,10 @@ async fn add(vertical_id: &str, prompt: &str, json_out: bool) -> ArgoResult<()> 
         .and_then(|s| s.to_str())
         .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
-    let (_tenant, workspace) = store.ensure_workspace(name, &root).await?;
+    // Resolve the cwd tenant BEFORE validating so a Genesis vertical
+    // (`.genesis/<tenant>/<vid>/`) is resolvable tenant-scoped.
+    let (tenant, workspace) = store.ensure_workspace(name, &root).await?;
+    validate_vertical(&tenant.to_string(), vertical_id)?;
     let store_arc = Arc::new(store);
     let memory = MemoryStore::new(store_arc.clone());
 
@@ -169,8 +170,6 @@ async fn serve(
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
 
-    validate_vertical(vertical_id)?;
-
     let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
     let name = cwd
@@ -178,7 +177,12 @@ async fn serve(
         .and_then(|s| s.to_str())
         .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
+    // Resolve the cwd tenant BEFORE validating so a scheduled/cron run
+    // of a Genesis-hired teammate (materialized under the tenant's
+    // `.genesis/<tenant>/<vid>/` segment) resolves tenant-scoped instead
+    // of being rejected by the flat-only loader.
     let (tenant, workspace) = store.ensure_workspace(name, &root).await?;
+    validate_vertical(&tenant.to_string(), vertical_id)?;
     let store_arc = Arc::new(store);
     let memory = MemoryStore::new(store_arc.clone());
 
@@ -300,14 +304,20 @@ fn pick_next_pending_job(entries: &[MemoryEntry]) -> Option<&MemoryEntry> {
     })
 }
 
-fn validate_vertical(vertical_id: &str) -> ArgoResult<()> {
+/// Validate that `vertical_id` resolves for `tenant_id` — flat in the
+/// `verticals/<vid>/` catalog OR tenant-scoped under
+/// `verticals/.genesis/<tenant>/<vid>/`. Threading `tenant_id` here is
+/// what lets `argo work serve` / scheduled runs drive a Genesis-hired
+/// teammate (materialized under the tenant's `.genesis` segment); the
+/// old flat-only loader rejected those with "not found". Fail-closed
+/// cross-tenant: another tenant's genesis pack never resolves.
+fn validate_vertical(tenant_id: &str, vertical_id: &str) -> ArgoResult<()> {
     let dir = resolve_verticals_dir();
-    let (registry, _errors) = argo_vertical::load_dir(&dir)?;
-    if registry.get(vertical_id).is_none() {
-        return Err(ArgoError::Provider(format!(
-            "vertical '{vertical_id}' not found in {} — run `argo vertical list` to see what's loaded",
-            dir.display()
-        )));
+    if argo_vertical::load_for_worker(&dir, tenant_id, vertical_id).is_some() {
+        return Ok(());
     }
-    Ok(())
+    Err(ArgoError::Provider(format!(
+        "vertical '{vertical_id}' not found in {} — run `argo vertical list` to see what's loaded",
+        dir.display()
+    )))
 }

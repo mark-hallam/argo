@@ -40,6 +40,7 @@ pub(crate) fn build_turn_start_payload(
 /// `denied` list, dispatch must be blocked even if the engine's
 /// role grants would otherwise permit it.
 pub(crate) fn build_vertical_deny_set(
+    tenant_id: &str,
     vertical_id: Option<&str>,
 ) -> std::collections::HashSet<String> {
     let mut out = std::collections::HashSet::new();
@@ -47,10 +48,7 @@ pub(crate) fn build_vertical_deny_set(
         return out;
     };
     let dir = argo_vertical::default_dir();
-    let Ok((registry, _errors)) = argo_vertical::load_dir(&dir) else {
-        return out;
-    };
-    let Some(loaded) = registry.get(vid) else {
+    let Some(loaded) = argo_vertical::load_for_worker(&dir, tenant_id, vid) else {
         return out;
     };
     if let Some(tools) = &loaded.manifest.tools {
@@ -78,6 +76,7 @@ pub(crate) fn build_vertical_deny_set(
 /// row + returns a synthetic-error tool result so the agent
 /// learns the boundary instead of seeing a silent no-op.
 pub(crate) fn build_vertical_approval_set(
+    tenant_id: &str,
     vertical_id: Option<&str>,
 ) -> std::collections::HashSet<String> {
     let mut out = std::collections::HashSet::new();
@@ -85,10 +84,7 @@ pub(crate) fn build_vertical_approval_set(
         return out;
     };
     let dir = argo_vertical::default_dir();
-    let Ok((registry, _errors)) = argo_vertical::load_dir(&dir) else {
-        return out;
-    };
-    let Some(loaded) = registry.get(vid) else {
+    let Some(loaded) = argo_vertical::load_for_worker(&dir, tenant_id, vid) else {
         return out;
     };
     if let Some(esc) = &loaded.manifest.escalation {
@@ -112,11 +108,13 @@ pub(crate) use crate::turn_vertical_grants::{
 ///
 /// All non-fatal — the agent loop falls back to skill-derived
 /// prompt rather than aborting.
-pub(crate) fn resolve_vertical_for_session(vertical_id: Option<&str>) -> Option<String> {
+pub(crate) fn resolve_vertical_for_session(
+    tenant_id: &str,
+    vertical_id: Option<&str>,
+) -> Option<String> {
     let vid = vertical_id?;
     let dir = argo_vertical::default_dir();
-    let (registry, _errors) = argo_vertical::load_dir(&dir).ok()?;
-    let loaded = registry.get(vid)?;
+    let loaded = argo_vertical::load_for_worker(&dir, tenant_id, vid)?;
     let role = loaded.manifest.role.as_ref()?;
     let p = loaded.root.join(&role.system_prompt);
     std::fs::read_to_string(&p).ok()
@@ -200,7 +198,7 @@ mod tests {
 
     #[test]
     fn resolve_vertical_returns_none_when_session_unbound() {
-        assert!(resolve_vertical_for_session(None).is_none());
+        assert!(resolve_vertical_for_session("t", None).is_none());
     }
 
     #[test]
@@ -208,7 +206,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_with_prompt(dir.path(), "you are demo agent");
         let _g = EnvGuard::new(dir.path());
-        let got = resolve_vertical_for_session(Some("demo"));
+        let got = resolve_vertical_for_session("t", Some("demo"));
         assert_eq!(got.as_deref(), Some("you are demo agent"));
     }
 
@@ -217,7 +215,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_with_prompt(dir.path(), "x");
         let _g = EnvGuard::new(dir.path());
-        let got = resolve_vertical_for_session(Some("ghost"));
+        let got = resolve_vertical_for_session("t", Some("ghost"));
         assert!(got.is_none());
     }
 
@@ -226,7 +224,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_no_role(dir.path());
         let _g = EnvGuard::new(dir.path());
-        let got = resolve_vertical_for_session(Some("noprompt"));
+        let got = resolve_vertical_for_session("t", Some("noprompt"));
         assert!(got.is_none());
     }
 
@@ -263,7 +261,7 @@ mod tests {
 
     #[test]
     fn deny_set_empty_for_unbound_session() {
-        let s = build_vertical_deny_set(None);
+        let s = build_vertical_deny_set("t", None);
         assert!(s.is_empty());
     }
 
@@ -277,7 +275,7 @@ mod tests {
             &["file_write", "terminal"],
         );
         let _g = EnvGuard::new(dir.path());
-        let s = build_vertical_deny_set(Some("ro"));
+        let s = build_vertical_deny_set("t", Some("ro"));
         assert!(s.contains("file_write"));
         assert!(s.contains("terminal"));
         assert!(!s.contains("file_read"));
@@ -289,7 +287,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_with_tools(dir.path(), "ro", &[], &["x"]);
         let _g = EnvGuard::new(dir.path());
-        let s = build_vertical_deny_set(Some("ghost"));
+        let s = build_vertical_deny_set("t", Some("ghost"));
         assert!(s.is_empty());
     }
 
@@ -298,7 +296,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_no_role(dir.path()); // no [tools] either
         let _g = EnvGuard::new(dir.path());
-        let s = build_vertical_deny_set(Some("noprompt"));
+        let s = build_vertical_deny_set("t", Some("noprompt"));
         assert!(s.is_empty());
     }
 
@@ -325,7 +323,7 @@ mod tests {
 
     #[test]
     fn approval_set_empty_for_unbound_session() {
-        let s = build_vertical_approval_set(None);
+        let s = build_vertical_approval_set("t", None);
         assert!(s.is_empty());
     }
 
@@ -334,7 +332,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_with_approval(dir.path(), "gated", &["delegate_task", "terminal"]);
         let _g = EnvGuard::new(dir.path());
-        let s = build_vertical_approval_set(Some("gated"));
+        let s = build_vertical_approval_set("t", Some("gated"));
         assert!(s.contains("delegate_task"));
         assert!(s.contains("terminal"));
         assert_eq!(s.len(), 2);
@@ -345,7 +343,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_with_approval(dir.path(), "gated", &["x"]);
         let _g = EnvGuard::new(dir.path());
-        let s = build_vertical_approval_set(Some("ghost"));
+        let s = build_vertical_approval_set("t", Some("ghost"));
         assert!(s.is_empty());
     }
 
@@ -354,7 +352,65 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_no_role(dir.path()); // no [escalation] either
         let _g = EnvGuard::new(dir.path());
-        let s = build_vertical_approval_set(Some("noprompt"));
+        let s = build_vertical_approval_set("t", Some("noprompt"));
         assert!(s.is_empty());
+    }
+
+    // ---- genesis tenant-scoped charter (this brief) ----------
+    //
+    // A Genesis-hired teammate is materialized under
+    // `.genesis/<tenant>/<vid>/`, NOT the flat catalog. These pin that
+    // its FULL charter (system prompt + tool deny-set + approval gates)
+    // loads for its OWN tenant — so the worker runs governed, not
+    // ungoverned (the NO-THEATER trap) — and loads NOTHING for another
+    // tenant (fail-closed cross-tenant).
+
+    fn write_genesis_vertical(dir: &std::path::Path, tenant: &str, id: &str) {
+        let slug = argo_vertical::sanitize_tenant(tenant);
+        let v = dir.join(".genesis").join(slug).join(id);
+        std::fs::create_dir_all(v.join("prompts")).unwrap();
+        std::fs::write(v.join("prompts/system.md"), "you are a genesis teammate").unwrap();
+        std::fs::write(
+            v.join("vertical.toml"),
+            format!(
+                "schema_version = \"1\"\n\
+                 [vertical]\nid = \"{id}\"\nname = \"G\"\nversion = \"0.1.0\"\n\
+                 [role]\nsystem_prompt = \"prompts/system.md\"\n\
+                 [tools]\nallowed = [\"file_read\"]\ndenied = [\"terminal\"]\n\
+                 [escalation]\nhuman_approval_required = [\"delegate_task\"]\n"
+            ),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn genesis_charter_loads_for_own_tenant() {
+        let dir = tempfile::tempdir().unwrap();
+        write_genesis_vertical(dir.path(), "op-alice", "genesis-personal-019eaf");
+        let _g = EnvGuard::new(dir.path());
+        assert_eq!(
+            resolve_vertical_for_session("op-alice", Some("genesis-personal-019eaf")).as_deref(),
+            Some("you are a genesis teammate"),
+            "own-tenant genesis system prompt must load",
+        );
+        let deny = build_vertical_deny_set("op-alice", Some("genesis-personal-019eaf"));
+        assert!(deny.contains("terminal"), "deny-set must carry the manifest denial");
+        let approval = build_vertical_approval_set("op-alice", Some("genesis-personal-019eaf"));
+        assert!(
+            approval.contains("delegate_task"),
+            "approval-set must carry the manifest gate"
+        );
+    }
+
+    #[test]
+    fn genesis_charter_fail_closed_cross_tenant() {
+        let dir = tempfile::tempdir().unwrap();
+        write_genesis_vertical(dir.path(), "op-alice", "genesis-personal-019eaf");
+        let _g = EnvGuard::new(dir.path());
+        // A DIFFERENT tenant sees NO charter at all — no prompt, no
+        // deny-set, no approval-set — so it can never run, governed or not.
+        assert!(resolve_vertical_for_session("op-bob", Some("genesis-personal-019eaf")).is_none());
+        assert!(build_vertical_deny_set("op-bob", Some("genesis-personal-019eaf")).is_empty());
+        assert!(build_vertical_approval_set("op-bob", Some("genesis-personal-019eaf")).is_empty());
     }
 }

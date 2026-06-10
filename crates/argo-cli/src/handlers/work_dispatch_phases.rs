@@ -69,11 +69,14 @@ pub(super) async fn create_session_with_bundle(
         .map_err(|e| ArgoError::Provider(format!("create_session: {e}")))?;
     let store_for_attach = Arc::clone(store);
     let dir = resolve_verticals_dir();
-    let (registry, _errors) = argo_vertical::load_dir(&dir)?;
-    if let Some(v) = registry.get(vertical_id) {
+    // Tenant-scoped resolve so a Genesis teammate's bundled skills
+    // (materialized under `.genesis/<tenant>/<vid>/`) attach too — the
+    // flat loader never descended into the genesis tree, so a hired
+    // teammate would have run with no skills installed.
+    if let Some(v) = argo_vertical::load_for_worker(&dir, &tenant.to_string(), vertical_id) {
         let _ = crate::handlers::vertical_attach::install_and_attach_bundle(
             &store_for_attach,
-            v,
+            &v,
             session_id,
         )
         .await;

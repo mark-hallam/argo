@@ -99,9 +99,15 @@ pub(crate) async fn run_turn_with_events_inner(
     // Also build the deny-set the dispatcher will consult per-call
     // (#655). Per-vertical load errors degrade gracefully — the
     // turn still runs; the prompt just falls back to skill-derived.
-    let vertical_ctx = resolve_vertical_for_session(session.vertical_id.as_deref());
-    let vertical_deny = build_vertical_deny_set(session.vertical_id.as_deref());
-    let vertical_approval = build_vertical_approval_set(session.vertical_id.as_deref());
+    // Tenant-scope the manifest reads so a Genesis teammate's charter
+    // (system prompt + tool deny-set + approval gates) materialized under
+    // `.genesis/<tenant>/<vid>/` actually loads — otherwise the worker
+    // would run UNGOVERNED (no prompt, no fence), which is theater.
+    let tenant_slug = session.tenant_id.to_string();
+    let vertical_ctx = resolve_vertical_for_session(&tenant_slug, session.vertical_id.as_deref());
+    let vertical_deny = build_vertical_deny_set(&tenant_slug, session.vertical_id.as_deref());
+    let vertical_approval =
+        build_vertical_approval_set(&tenant_slug, session.vertical_id.as_deref());
     // Operator-issued approvals from `argo session approve`
     // (#664) + one-shot grant tracking (#667). The approval gate
     // lets these through even when the vertical's manifest would

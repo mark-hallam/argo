@@ -288,3 +288,90 @@ async fn run_stamps_worker_id_onto_session() {
     );
     assert!(env.path().exists());
 }
+
+// ---- Genesis tenant-scoped run path (this brief) ---------------------
+//
+// A Genesis-hired teammate is materialized under
+// `verticals/.genesis/<tenant>/<vid>/`, NOT the flat catalog. Before this
+// brief the run gate used the flat-only loader, so EVERY genesis teammate
+// returned the honest-but-wrong 409 `no_runnable_role`. These pin that the
+// gate now resolves a genesis vertical for its OWN tenant (it runs) and
+// stays fail-closed for a DIFFERENT tenant (it blocks).
+
+/// Materialize a minimal genesis vertical under
+/// `<vroot>/.genesis/<sanitize_tenant(tenant_id)>/<vid>/`.
+fn write_genesis_vertical(vroot: &std::path::Path, tenant_id: &str, vid: &str) {
+    let slug = argo_vertical::sanitize_tenant(tenant_id);
+    let dir = vroot.join(".genesis").join(slug).join(vid);
+    std::fs::create_dir_all(&dir).expect("mkdir genesis");
+    std::fs::write(
+        dir.join("vertical.toml"),
+        format!("schema_version = \"1\"\n[vertical]\nid = \"{vid}\"\nname = \"G\"\nversion = \"0.1.0\"\n"),
+    )
+    .expect("write genesis manifest");
+}
+
+/// A Genesis worker whose pack lives under its OWN tenant's segment runs
+/// (no 409) — through the REAL `process_job` engine via the mock seam.
+#[tokio::test]
+async fn genesis_worker_runs_for_own_tenant() {
+    let env = RunEnv::new().await;
+    env.set("ANTHROPIC_API_KEY", "test-key-present");
+    env.set("ARGO_WORKER_RUN_PROVIDER", "mock");
+    // Point the loader at a genesis tree we control (NOT the repo's
+    // verticals/ dir, which must stay clean).
+    let vroot = env.path().join("vroot");
+    env.set("ARGO_VERTICALS_DIR", vroot.to_string_lossy().as_ref());
+    env.chdir_tmp();
+
+    let store = mem_store().await;
+    let tenant = fresh_tenant_workspace(&store, &env.root()).await;
+    let vid = "genesis-personal-019eaf2871121498";
+    write_genesis_vertical(&vroot, &tenant.to_string(), vid);
+    let worker = add_worker(&store, tenant, vid).await;
+
+    let outcome = run_worker_now(&store, &worker, "Do your next task.")
+        .await
+        .expect("no internal error")
+        .expect("genesis worker should run for its own tenant, not be blocked");
+    assert_eq!(outcome.status, "completed", "genesis turn completes via mock");
+    assert_eq!(session_count(&store).await, 1, "exactly one genesis turn ran");
+    assert!(env.path().exists());
+}
+
+/// A Genesis worker hired under tenant B cannot run tenant A's pack —
+/// fail-closed cross-tenant: honest 409, NO turn.
+#[tokio::test]
+async fn genesis_worker_blocked_cross_tenant() {
+    let env = RunEnv::new().await;
+    env.set("ANTHROPIC_API_KEY", "test-key-present");
+    let vroot = env.path().join("vroot");
+    env.set("ARGO_VERTICALS_DIR", vroot.to_string_lossy().as_ref());
+
+    let store = mem_store().await;
+    // Pack materialized for tenant ALICE...
+    let alice = fresh_tenant_workspace(&store, &env.root()).await;
+    let vid = "genesis-personal-019eaf2871121498";
+    write_genesis_vertical(&vroot, &alice.to_string(), vid);
+    // ...but the worker is hired under a DIFFERENT tenant BOB (distinct
+    // cwd root → distinct tenant).
+    let bob = store
+        .ensure_workspace("bob-ws", &format!("{}/bob", env.root()))
+        .await
+        .expect("ensure bob workspace")
+        .0;
+    let worker = add_worker(&store, bob, vid).await;
+
+    let result = run_worker_now(&store, &worker, "Do a thing")
+        .await
+        .expect("no internal error");
+    match result {
+        Err(RunBlocked::NoVertical) => {}
+        other => panic!("expected cross-tenant NoVertical block, got {other:?}"),
+    }
+    assert_eq!(
+        session_count(&store).await,
+        0,
+        "no cross-tenant genesis run should have started"
+    );
+}

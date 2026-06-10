@@ -29,24 +29,13 @@ use std::path::{Path, PathBuf};
 /// This MUST stay byte-identical to the slug the SSE writer
 /// (`routes_genesis_stream::resolve_vertical_dir`) writes under — both call
 /// this function, so they cannot drift.
+///
+/// Converged onto the canonical [`argo_vertical::sanitize_tenant`] so the
+/// gateway, the run path, and the agent-runner fence all share ONE slug map
+/// (rather than three byte-identical copies that could silently diverge).
 #[must_use]
 pub(super) fn sanitize_tenant(tenant_id: &str) -> String {
-    let cleaned: String = tenant_id
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || c == '-' {
-                c.to_ascii_lowercase()
-            } else {
-                '-'
-            }
-        })
-        .collect();
-    let trimmed = cleaned.trim_matches('-');
-    if trimmed.is_empty() {
-        "anonymous".to_string()
-    } else {
-        trimmed.to_string()
-    }
+    argo_vertical::sanitize_tenant(tenant_id)
 }
 
 /// Resolve a Genesis vertical's on-disk directory **scoped to `tenant_id`**:

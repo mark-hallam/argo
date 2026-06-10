@@ -106,7 +106,7 @@ pub use eval_score_judge::{
     JudgePolicy,
 };
 pub use isolation::check_isolation;
-pub use loader::{load_dir, LoadError};
+pub use loader::{load_dir, load_for_worker, sanitize_tenant, LoadError};
 pub use manifest::{
     parse, ActionDeclaration, ActionRetryPolicy, ActionRiskLevel, ActionsSection,
     EscalationSection, EvaluationSection, GatewaySection, KpiComparator, KpiDefinition, KpiGate,

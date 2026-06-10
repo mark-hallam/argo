@@ -159,9 +159,12 @@ pub(super) async fn run_worker_now(
     if !crate::handlers::gateway::startup_check::provider_key_present() {
         return Ok(Err(RunBlocked::NoProvider));
     }
-    // ── Validate-before-claim #2: the worker's vertical must load.
+    // ── Validate-before-claim #2: the worker's vertical must load,
+    // tenant-scoped — a Genesis-hired teammate lives under
+    // `.genesis/<tenant>/<vid>/`, NOT the flat catalog, and must resolve
+    // ONLY for its own tenant (fail-closed cross-tenant).
     let vertical_id = worker.vertical_id.as_str();
-    if !vertical_loads(vertical_id) {
+    if !vertical_loads(&worker.tenant_id.to_string(), vertical_id) {
         return Ok(Err(RunBlocked::NoVertical));
     }
 
@@ -198,15 +201,15 @@ pub(super) async fn run_worker_now(
     Ok(Ok(outcome))
 }
 
-/// `true` when `vertical_id` resolves to a loadable vertical in the
-/// registry. Mirrors the validation `argo work add` does, so a worker
-/// whose role was never materialized can't claim a run.
-fn vertical_loads(vertical_id: &str) -> bool {
+/// `true` when `vertical_id` resolves to a loadable vertical for
+/// `tenant_id` — flat in `verticals/<vid>/` OR tenant-scoped under
+/// `verticals/.genesis/<tenant>/<vid>/`. Mirrors the validation `argo
+/// work add` does, so a worker whose role was never materialized can't
+/// claim a run; a Genesis pack belonging to a *different* tenant
+/// resolves to `false` (fail-closed cross-tenant).
+fn vertical_loads(tenant_id: &str, vertical_id: &str) -> bool {
     let dir = crate::handlers::vertical::resolve_verticals_dir();
-    match argo_vertical::load_dir(&dir) {
-        Ok((registry, _errors)) => registry.get(vertical_id).is_some(),
-        Err(_) => false,
-    }
+    argo_vertical::load_for_worker(&dir, tenant_id, vertical_id).is_some()
 }
 
 /// Resolve the workspace that owns this worker's tenant. Prefers the
