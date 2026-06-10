@@ -188,6 +188,17 @@ if ! bash scripts/check-routes-catalog-complete.sh; then
   fail "routes-catalog drift — a dispatcher-registered /api/v1/* family is missing from routes_catalog.rs"
 fi
 
+# Gate 5c: fn-LOC budget — no NEW function over 80 LOC. Baseline ratchet
+# (scripts/fn-loc-baseline.txt allowlists the ~314 pre-existing offenders so
+# the gate fails only on NEW ones). Pure awk over crates/**, runs in ~1s, no
+# cargo build required. Enforces the CLAUDE.md "no fn > 80 LOC" invariant on
+# the merge path — previously this gate lived only in local-ci-check.sh and
+# was ABSENT here, so the invariant was unenforced where admin-merge fires.
+log "[5c/9] fn-LOC budget (no NEW fn > 80 LOC; baseline ratchet)"
+if ! bash scripts/check-fn-loc.sh; then
+  fail "fn-LOC budget — a NEW function exceeds 80 LOC; split it (see output above)"
+fi
+
 # Gate 6: test-compile (cargo check --workspace --tests). Honored
 # allowlist at scripts/pre-merge-test-carry-allowlist.txt permits
 # explicit carries. Runs BEFORE clippy so cross-crate test breakage

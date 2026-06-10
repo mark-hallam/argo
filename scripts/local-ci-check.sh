@@ -142,7 +142,9 @@ loc_budget_check() {
 }
 gate "loc-budget (≤500 LOC per .rs)" loc_budget_check
 
-# 5. Function LOC budget — no fn > 80 LOC. Approximate via brace-depth scan.
+# 5. Function LOC budget — no NEW fn > 80 LOC. Baseline ratchet via
+#    scripts/check-fn-loc.sh (allowlists pre-existing offenders in
+#    scripts/fn-loc-baseline.txt; fails only on new ones). Brace-depth scan.
 fn_budget_check() {
     local script="$REPO_ROOT/scripts/check-fn-loc.sh"
     if [[ -x "$script" ]]; then
