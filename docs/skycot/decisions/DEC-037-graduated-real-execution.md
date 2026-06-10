@@ -45,6 +45,29 @@ keeping the safety that makes Genesis trustworthy.
   approval requirement or the dangerous-autonomous-capability fence.
 - Brief: `uf-execution-graduation-and-promotion`.
 
+## ⛔ Before `ARGO_EXECUTION_GRADUATION` is flipped ON in production (added 2026-06-11)
+
+The gateway Run-now executor wiring (DEC-050 G2, #2814) is merged but ships
+**default-OFF** behind this flag. Adversarial review confirmed the execution path
+preserves the capability fence, tenant scoping, audit chain, and approvals. These
+are BINDING prerequisites on the operator flag-flip (NOT on the merged wiring):
+
+1. **Executor dispatch timeout.** `executor.dispatch` is a synchronous trait call
+   on the async gateway task with NO timeout/cancellation. Today's executors are
+   quick, but when the real computer-use / E2B run-loop lands behind this trait a
+   hung dispatch would block the gateway worker. Wrap in `tokio::time::timeout` +
+   `spawn_blocking` before the flip.
+2. **Inline-path tenant + fence tests.** Today the inline executor's tenant
+   scoping and worker-fence binding are proven by code-trace (MockExecutor), not
+   asserted. Add a test that a tenant-X Run-now cannot resolve/mutate a tenant-Y
+   action, and that the executor runs under the worker's least-privilege profile.
+3. **Close the `resolve_workspace` cwd fallback** (`routes_worker_run_exec.rs`):
+   when a tenant has zero workspaces it falls back to a cwd-derived workspace,
+   discarding `worker.tenant_id` — a tenant-binding smell to close when arming.
+
+Same posture as DEC-049's `ARGO_WORKER_SWARM` flip-gate: default-off, operator-only
+flip after these land + a fresh adversarial re-verify.
+
 Relates: [[DEC-025]] (#6 deliberate post-hire grant — operationalized here; #2
 probation), [[DEC-028]] (marketing draft-only stays), [[DEC-007]]/[[DEC-029]]
 (no theater / truth-bound). Phase B of the usefulness plan.
