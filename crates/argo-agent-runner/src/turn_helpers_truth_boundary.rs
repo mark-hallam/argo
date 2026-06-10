@@ -117,6 +117,31 @@ pub(super) fn genesis_default_truth_boundary_ctx(tenant_id: TenantId) -> TruthBo
     )
 }
 
+/// Build the truth-boundary gate for a Genesis-hired teammate, preferring the
+/// operator's SYNTHESIZED per-vertical policy over the conservative default
+/// (wire-genesis-policy-per-worker-runtime-loading — completes Genesis P5 (a)).
+///
+/// At session boot we try to load the policy the access-control panel persisted
+/// next to the worker's vertical, keyed on the server-authoritative
+/// `tenant_id` + `vertical_id` (NEVER a client field). When it loads, the
+/// operator's ACTUAL boundaries (e.g. a read-only financial scope, a configured
+/// dollar ceiling, a custom escalation topic) bite at runtime. When no
+/// per-vertical policy exists, we fall back to
+/// [`genesis_default_truth_boundary_ctx`] — the conservative default — so a
+/// Genesis-bound worker is never LESS guarded than before this wiring landed.
+#[must_use]
+pub(super) fn genesis_truth_boundary_ctx_for_worker(
+    tenant_id: TenantId,
+    vertical_id: Option<&str>,
+) -> TruthBoundaryTurnCtx {
+    match crate::turn_vertical_fence::load_synthesized_policy_for_worker(tenant_id, vertical_id) {
+        Some(policy) => {
+            TruthBoundaryTurnCtx::new(policy, ChannelKind::Chat, RefusalTemplateRegistry::empty())
+        }
+        None => genesis_default_truth_boundary_ctx(tenant_id),
+    }
+}
+
 #[cfg(test)]
 pub(super) async fn with_test_truth_boundary_ctx<F, Fut, T>(ctx: TruthBoundaryTurnCtx, f: F) -> T
 where

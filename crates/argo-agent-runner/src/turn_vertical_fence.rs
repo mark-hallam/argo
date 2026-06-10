@@ -41,10 +41,19 @@
 //!   `None` (no fence; historical `owner` binding). (A future tightening
 //!   can fence these too, but that is out of scope here.)
 
-use argo_capability::WorkerCapabilityProfile;
+use argo_capability::{TruthBoundaryPolicy, WorkerCapabilityProfile};
 use argo_store::SessionStore;
 use argo_types::TenantId;
 use std::path::{Path, PathBuf};
+
+/// Filename the synthesized boundaries policy is written under, next to the
+/// generated vertical. Mirrors `argo_genesis::policy_synth::
+/// BOUNDARIES_POLICY_FILENAME` BY VALUE — this crate does not depend on
+/// argo-genesis (same posture as [`sanitize_tenant`] below mirroring the
+/// argo-cli copy). The two MUST stay byte-identical: the gateway writes the
+/// policy under this exact name, and this fence reads it back under the same
+/// name. A drift would silently unbind every operator-configured policy.
+const BOUNDARIES_POLICY_FILENAME: &str = "truth-boundary-policy.toml";
 use std::sync::Arc;
 
 /// Genesis-provenance signal for a session, derived from the worker row
@@ -293,6 +302,48 @@ fn manifest_from_catalog(root: &Path, id: &str) -> Option<argo_vertical::Vertica
     registry.get(id).map(|loaded| loaded.manifest.clone())
 }
 
+/// Genesis P5 (a) per-worker RUNTIME loading: resolve the operator's
+/// SYNTHESIZED truth-boundary policy persisted next to the worker's Genesis
+/// vertical (`.genesis/<tenant_slug>/<vertical_id>/truth-boundary-policy.toml`
+/// — the artifact the access-control panel writes). This is what makes the
+/// operator's per-teammate guardrails actually bite at runtime instead of
+/// being a stored artifact a process-global env path would have to point at.
+///
+/// Keyed on the SERVER-AUTHORITATIVE `tenant_id` + `vertical_id` (never a
+/// client/spec field). Returns `None` when there is no per-vertical policy
+/// file (or it can't be read/parsed) — the caller then falls back to the
+/// conservative default. Production callers go through this wrapper, which
+/// passes [`argo_vertical::default_dir()`].
+#[must_use]
+pub(crate) fn load_synthesized_policy_for_worker(
+    tenant_id: TenantId,
+    vertical_id: Option<&str>,
+) -> Option<TruthBoundaryPolicy> {
+    load_synthesized_policy_in(&argo_vertical::default_dir(), tenant_id, vertical_id)
+}
+
+/// Root-parameterized core of [`load_synthesized_policy_for_worker`], so tests
+/// can point at a fixture verticals tree without mutating the process-global
+/// `$ARGO_VERTICALS_DIR`.
+///
+/// The dir lookup is already tenant-scoped (`genesis_vertical_dir_in` only
+/// resolves under THIS tenant's `.genesis/<slug>/` segment), so a worker can
+/// never reach another tenant's vertical dir. The trailing `tenant_id` match
+/// on the loaded policy is defense-in-depth: even a hand-edited file carrying
+/// a foreign `tenant_id` is refused rather than applied to the wrong tenant.
+#[must_use]
+pub(crate) fn load_synthesized_policy_in(
+    verticals_root: &Path,
+    tenant_id: TenantId,
+    vertical_id: Option<&str>,
+) -> Option<TruthBoundaryPolicy> {
+    let vid = vertical_id?;
+    let dir = genesis_vertical_dir_in(verticals_root, tenant_id, vid)?;
+    let path = dir.join(BOUNDARIES_POLICY_FILENAME);
+    let policy = argo_capability::load_policy(&path).ok()?;
+    (policy.tenant_id == tenant_id).then_some(policy)
+}
+
 /// Locate a Genesis-generated vertical's on-disk directory under the
 /// worker's OWN tenant segment `<verticals_root>/.genesis/<tenant_slug>/<id>/`
 /// (P5 (b) tenant-match enforcement). Mirrors the gateway hire-gate's
@@ -304,9 +355,34 @@ fn genesis_vertical_dir_in(
     tenant_id: TenantId,
     id: &str,
 ) -> Option<PathBuf> {
+    // Reject any id that could escape this tenant's `.genesis/<slug>/` segment
+    // before it is joined onto the path. `Path::join` does NOT normalize `..`,
+    // so a raw join of an attacker-shaped `id` (`../<victim>/<id>`, an absolute
+    // path, a NUL) physically resolves into a FOREIGN tenant's segment. The
+    // policy loader's `tenant_id` backstop catches the synthesized-policy read,
+    // but the manifest/profile path (`resolve_genesis_manifest`) has no such
+    // backstop — so the guard belongs HERE, at the shared resolver, closing
+    // every caller at once (security audit 2026-06-10).
+    if !is_safe_vertical_id(id) {
+        return None;
+    }
     let slug = sanitize_tenant(&tenant_id.to_string());
     let dir = verticals_root.join(".genesis").join(slug).join(id);
     dir.join("vertical.toml").is_file().then_some(dir)
+}
+
+/// A Genesis vertical id is a server-derived slug. Accept only
+/// `[A-Za-z0-9_-]` (every real catalog + synthesized id is of this shape) and
+/// reject anything that could traverse out of the tenant segment — a path
+/// separator, a `.` (and therefore `..`), an absolute prefix, or a NUL. Strict
+/// allow-list, not a blocklist, so a novel escape sequence cannot slip through.
+#[must_use]
+fn is_safe_vertical_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 128
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
 /// Canonical tenant-id → `.genesis/<slug>/` segment map. Mirrors
@@ -376,3 +452,7 @@ mod probation_tests;
 #[cfg(test)]
 #[path = "turn_vertical_fence_derive_tests.rs"]
 mod derive_tests;
+
+#[cfg(test)]
+#[path = "turn_vertical_fence_policy_load_tests.rs"]
+mod policy_load_tests;

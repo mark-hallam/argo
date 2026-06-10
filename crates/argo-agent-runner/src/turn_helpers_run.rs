@@ -133,18 +133,25 @@ pub(super) async fn build_turn_dispatch_ctx(
     //
     // DEC-025 #6 Genesis P5 (a) truth-boundary bound at birth: the SAME
     // worker-row read also yields whether the teammate carries the
-    // `truth_boundary_policy_id=` marker. When it does, bind the conservative
-    // default claim policy (Escalate on declared financial/legal/medical/
-    // factual claims) scoped to the worker's tenant — replacing env-var-only
+    // `truth_boundary_policy_id=` marker. When it does, bind the teammate's
+    // claim policy scoped to the worker's tenant — replacing env-var-only
     // activation so a generated teammate cannot over-claim to a customer.
+    //
+    // wire-genesis-policy-per-worker-runtime-loading: prefer the operator's
+    // SYNTHESIZED per-vertical policy (the access-control panel's output,
+    // persisted next to the vertical) when one exists for this server-resolved
+    // tenant + vertical, so the operator's per-teammate guardrails ACTUALLY
+    // bite at runtime. Falls back to the conservative default when no
+    // per-vertical policy is on disk.
     use crate::turn_vertical_fence as fence;
     let signals = fence::genesis_signals_for_worker(store, session.tenant_id, worker_id).await;
     if matches!(
         signals.truth_boundary,
         fence::TruthBoundaryBinding::Bound
     ) {
-        truth_boundary = super::turn_helpers_truth_boundary::genesis_default_truth_boundary_ctx(
+        truth_boundary = super::turn_helpers_truth_boundary::genesis_truth_boundary_ctx_for_worker(
             session.tenant_id,
+            vertical_scope,
         );
     }
     let worker_profile = fence::resolve_worker_profile_for_session(
