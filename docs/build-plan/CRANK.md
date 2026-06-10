@@ -91,7 +91,7 @@ the build moving, safely and verifiably.
 **Gate a Rust PR** (isolated, worker-safe):
 ```bash
 git fetch origin <branch> && git worktree add /tmp/gate-<PR> -B <branch> origin/<branch>
-ln -sfn "$PWD/web/node_modules" /tmp/gate-<PR>/web/node_modules   # until the gate-7 worktree fix ships
+# (gate-7 auto-links web/node_modules from the main checkout since #2772 — no manual step)
 cd /tmp/gate-<PR> && ARGO_CONDUCTOR_BUILD_WORKTREE=1 \
   bash scripts/conductor-pre-merge-gate.sh --pr <PR> > /tmp/gate-<PR>.log 2>&1
 echo "gate_exit=$?"   # judge THIS, then read the log
@@ -115,7 +115,7 @@ sentinels exist: `rm` sentinels; `launchctl load
 ~/Library/LaunchAgents/com.skycot.worker-supervisor.plist` (plist runs 3
 slots).
 
-**Ledger-guard false positive** (until the SIGPIPE fix merges): if
+**Ledger-guard false positive** (rare post-#2771; if it recurs): if
 `check-ledger-not-eaten-by-stash-pop.sh` refuses a valid in-place row edit,
 verify every deleted brief-id still greps in the file, then commit
 `--no-verify` and say so in the commit message.
