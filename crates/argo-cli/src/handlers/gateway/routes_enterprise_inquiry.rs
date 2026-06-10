@@ -28,6 +28,7 @@ use argo_audit::{AuditKind, AuditSink, ANONYMOUS_AUDIT_TENANT_ID};
 use argo_store::SessionStore;
 use serde::Deserialize;
 use serde_json::json;
+use std::net::IpAddr;
 use std::sync::Arc;
 
 const QUEUED_BODY: &str = r#"{"queued":true}"#;
@@ -58,14 +59,17 @@ pub(super) fn is_enterprise_inquiry_request(req: &str) -> bool {
 /// writes a hash-chained audit row.
 pub(super) async fn enterprise_inquiry_response(
     req: &str,
+    src_ip: IpAddr,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(s) = store else {
         return super::auth_magic_link::error_resp("500 Internal Server Error", "store_unavailable");
     };
-    // Hard per-IP cap (same bucket the magic-link signup + waitlist use).
-    let ip = super::auth_magic_link::signup_source_ip(req);
-    if let RateLimitIpCheckResult::Deny { retry_after_secs } = rate_limit_ip::signup_limiter().check(ip)
+    // Hard per-IP cap (same bucket the magic-link signup + waitlist use). Keyed
+    // on the trusted `src_ip` from the accept loop, never a spoofable
+    // `X-Forwarded-For` (fix-public-rate-limit-xff-spoof).
+    if let RateLimitIpCheckResult::Deny { retry_after_secs } =
+        rate_limit_ip::signup_limiter().check(src_ip)
     {
         return (
             "429 Too Many Requests",
@@ -135,7 +139,7 @@ pub(super) async fn enterprise_inquiry_response(
     // `enterprise_inquiry` row is the lead record of truth; the audit row is the
     // tamper-evident "a lead arrived" marker. Best-effort: a failed audit write
     // is logged but does NOT fail the request (the lead is already persisted).
-    write_inquiry_audit(s, &id, &company, &email, message.is_some(), ip).await;
+    write_inquiry_audit(s, &id, &company, &email, message.is_some(), src_ip).await;
     ("202 Accepted", QUEUED_BODY.to_string())
 }
 

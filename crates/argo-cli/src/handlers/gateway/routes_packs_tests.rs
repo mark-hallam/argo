@@ -3,7 +3,14 @@
 use super::super::{routes::dispatch_route, shutdown::ShutdownController};
 use super::{list_response_with_roots, MAX_LIMIT};
 use serde_json::Value;
+use std::net::{IpAddr, Ipv4Addr};
 use std::path::Path;
+
+/// Loopback source IP for `dispatch_route`'s `src_ip` arg — these tests
+/// exercise packs routing/auth, not the per-IP rate limiter.
+fn lo() -> IpAddr {
+    Ipv4Addr::LOCALHOST.into()
+}
 
 fn pack_toml(name: &str, version: &str, vertical_id: &str) -> String {
     format!(
@@ -173,6 +180,7 @@ async fn api_route_is_bearer_gated() {
 
     let (status, _) = dispatch_route(
         "GET /api/v1/packs HTTP/1.1\r\nHost: x\r\n\r\n",
+        lo(),
         None,
         &shutdown,
     )
@@ -181,6 +189,7 @@ async fn api_route_is_bearer_gated() {
 
     let (status, body) = dispatch_route(
         "GET /api/v1/packs?limit=1 HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer secret\r\n\r\n",
+        lo(),
         None,
         &shutdown,
     )

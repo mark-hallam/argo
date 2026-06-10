@@ -192,10 +192,15 @@ impl IpRateLimiter {
     }
 }
 
-/// Process-global limiter for `POST /api/v1/auth/signup`. Lazy-built
-/// on first use; trusts the first `X-Forwarded-For` hop because the
-/// signup endpoint sits behind the SPA + ingress proxy in every real
-/// deployment (mission-magic-link-v1x-hardening).
+/// Process-global limiter shared by the anonymous public routes
+/// (`POST /api/v1/auth/signup`, `/waitlist`, `/enterprise-inquiry`).
+/// Lazy-built on first use. `trust_xff = false`: callers pass the
+/// already-trusted `src_ip` extracted once at the accept loop
+/// (`boot_router::handle_connection` → `proxy_guard::extract_real_ip`),
+/// so this limiter never re-parses a client-supplied `X-Forwarded-For`
+/// itself. Re-deriving the IP in-handler from the raw header let an
+/// attacker rotate the header to defeat the cap
+/// (fix-public-rate-limit-xff-spoof; was mission-magic-link-v1x-hardening).
 pub(super) fn signup_limiter() -> &'static Arc<IpRateLimiter> {
     static INSTANCE: OnceLock<Arc<IpRateLimiter>> = OnceLock::new();
     INSTANCE.get_or_init(|| {
@@ -203,7 +208,7 @@ pub(super) fn signup_limiter() -> &'static Arc<IpRateLimiter> {
             SIGNUP_BUCKET_CAPACITY,
             SIGNUP_BUCKET_REFILL_PER_SEC,
             true,
-            true,
+            false,
         ))
     })
 }

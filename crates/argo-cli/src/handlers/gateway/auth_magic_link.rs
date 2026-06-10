@@ -53,7 +53,6 @@ pub(super) use auth_token::{mint_jwt, mint_token, sha256_hex, JWT_TTL_SECS};
 pub(super) use auth_verify::serve_verify_stream;
 #[cfg(test)]
 pub(super) use auth_verify::verify_outcome;
-#[cfg(test)]
 pub(super) use std::net::IpAddr;
 
 #[cfg(test)]
@@ -70,11 +69,12 @@ mod tests;
 /// [`super::boot_router::try_dispatch_gates`]).
 pub(super) async fn dispatch(
     req: &str,
+    src_ip: IpAddr,
     store: Option<&Arc<SessionStore>>,
 ) -> Option<(&'static str, String)> {
     if req.starts_with("POST /api/v1/auth/signup ") || req.starts_with("POST /api/v1/auth/signup?")
     {
-        return Some(signup_response(req, store).await);
+        return Some(signup_response(req, src_ip, store).await);
     }
     None
 }

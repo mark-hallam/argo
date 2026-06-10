@@ -169,6 +169,33 @@ fn extract_ip_falls_back_to_peer_on_invalid_xff() {
     assert_eq!(extract_ip(req, peer, true), ip(127, 0, 0, 1));
 }
 
+// fix-public-rate-limit-xff-spoof — when XFF is NOT trusted (no proxy
+// contract), two requests carrying DIFFERENT spoofed `X-Forwarded-For`
+// headers from the SAME socket peer must resolve to the SAME bucket key, so
+// rotating the header cannot defeat the cap.
+#[test]
+fn spoofed_xff_from_untrusted_peer_cannot_rotate_the_bucket() {
+    let peer = SocketAddr::new(ip(198, 51, 100, 7), 4444);
+    let req_a = "POST /x HTTP/1.1\r\nX-Forwarded-For: 1.1.1.1\r\n\r\n";
+    let req_b = "POST /x HTTP/1.1\r\nX-Forwarded-For: 2.2.2.2\r\n\r\n";
+    // trust_xff = false → both extractions ignore the header and key on peer.
+    let key_a = extract_ip(req_a, peer, false);
+    let key_b = extract_ip(req_b, peer, false);
+    assert_eq!(key_a, ip(198, 51, 100, 7));
+    assert_eq!(key_a, key_b, "different spoofed XFF must not change the key");
+    // A capacity-1 limiter therefore allows the first and denies the second.
+    let limiter = IpRateLimiter::new(1, 0.001, true, false);
+    let now = Instant::now();
+    assert_eq!(
+        limiter.check_with_now(key_a, now),
+        RateLimitIpCheckResult::Allow
+    );
+    assert!(matches!(
+        limiter.check_with_now(key_b, now),
+        RateLimitIpCheckResult::Deny { .. }
+    ));
+}
+
 #[test]
 fn parse_first_xff_hop_is_case_insensitive_and_handles_ipv6() {
     let req = "GET / HTTP/1.1\r\nx-forwarded-for: ::1, 5.6.7.8\r\n\r\n";

@@ -25,6 +25,14 @@ fn req(method_path: &str, ip: Option<&str>, body: &str) -> String {
     )
 }
 
+/// Stand in for the trusted `src_ip` the accept loop extracts. `signup_response`
+/// now keys its limiter on this passed value, never on the request's
+/// `X-Forwarded-For`; for these tests the two coincide (loopback peer).
+fn test_src_ip(req: &str) -> std::net::IpAddr {
+    crate::handlers::gateway::rate_limit_ip::parse_first_xff_hop(req)
+        .expect("test request must carry an X-Forwarded-For hop")
+}
+
 #[tokio::test]
 async fn signup_with_valid_email_returns_200() {
     let store = fresh_store().await;
@@ -33,7 +41,7 @@ async fn signup_with_valid_email_returns_200() {
         Some("203.0.113.10"),
         r#"{"email":"alice@example.com"}"#,
     );
-    let (status, body) = signup_response(&r, Some(&store)).await;
+    let (status, body) = signup_response(&r, test_src_ip(&r), Some(&store)).await;
     assert!(status.starts_with("200"), "status={status} body={body}");
     assert!(body.contains("\"status\":\"sent\""));
 }
@@ -46,7 +54,7 @@ async fn signup_rejects_bad_email() {
         Some("203.0.113.11"),
         r#"{"email":"not-an-email"}"#,
     );
-    let (status, _) = signup_response(&r, Some(&store)).await;
+    let (status, _) = signup_response(&r, test_src_ip(&r), Some(&store)).await;
     assert!(status.starts_with("400"));
 }
 
@@ -58,7 +66,7 @@ async fn signup_rejects_malformed_json() {
         Some("203.0.113.12"),
         "not json at all",
     );
-    let (status, _) = signup_response(&r, Some(&store)).await;
+    let (status, _) = signup_response(&r, test_src_ip(&r), Some(&store)).await;
     assert!(status.starts_with("400"));
 }
 
@@ -95,7 +103,7 @@ async fn signup_honeypot_is_silent_and_does_not_insert_token() {
         Some("203.0.113.13"),
         r#"{"email":"trap@example.com","honeypot_url":"https://spam.invalid"}"#,
     );
-    let (status, body) = signup_response(&r, Some(&store)).await;
+    let (status, body) = signup_response(&r, test_src_ip(&r), Some(&store)).await;
     assert!(status.starts_with("200"), "status={status} body={body}");
     assert!(body.contains("\"status\":\"sent\""));
 

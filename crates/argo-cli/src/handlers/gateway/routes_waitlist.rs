@@ -27,6 +27,7 @@
 use crate::handlers::gateway::rate_limit_ip::{self, RateLimitIpCheckResult};
 use argo_store::SessionStore;
 use serde::Deserialize;
+use std::net::IpAddr;
 use std::sync::Arc;
 
 const QUEUED_BODY: &str = r#"{"queued":true}"#;
@@ -54,14 +55,17 @@ pub(super) fn is_waitlist_request(req: &str) -> bool {
 /// controls, then performs an idempotent insert into `waitlist_signups`.
 pub(super) async fn waitlist_response(
     req: &str,
+    src_ip: IpAddr,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(s) = store else {
         return super::auth_magic_link::error_resp("500 Internal Server Error", "store_unavailable");
     };
-    // Hard per-IP cap (same bucket the magic-link signup uses).
-    let ip = super::auth_magic_link::signup_source_ip(req);
-    if let RateLimitIpCheckResult::Deny { retry_after_secs } = rate_limit_ip::signup_limiter().check(ip)
+    // Hard per-IP cap (same bucket the magic-link signup uses). Keyed on the
+    // trusted `src_ip` from the accept loop, never a spoofable
+    // `X-Forwarded-For` (fix-public-rate-limit-xff-spoof).
+    if let RateLimitIpCheckResult::Deny { retry_after_secs } =
+        rate_limit_ip::signup_limiter().check(src_ip)
     {
         return (
             "429 Too Many Requests",

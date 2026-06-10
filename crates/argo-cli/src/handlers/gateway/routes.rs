@@ -23,10 +23,12 @@ use super::routes_peer::dispatch as dispatch_peer;
 use super::routes_session_get::dispatch_session_get;
 use super::shutdown::{shutting_down_response, ShutdownController};
 use argo_store::SessionStore;
+use std::net::IpAddr;
 use std::sync::Arc;
 
 pub(super) async fn dispatch_route(
     req: &str,
+    src_ip: IpAddr,
     store: Option<&Arc<SessionStore>>,
     shutdown: &ShutdownController,
 ) -> (&'static str, String) {
@@ -45,7 +47,7 @@ pub(super) async fn dispatch_route(
     let result = if super::cors::is_preflight(req) {
         super::cors::preflight_response(req)
     } else {
-        apply_cors(req, dispatch_route_inner(req, store, shutdown).await)
+        apply_cors(req, dispatch_route_inner(req, src_ip, store, shutdown).await)
     };
     super::routes_request_audit::record(req, store, &result, started.elapsed()).await;
     result
@@ -68,6 +70,7 @@ fn apply_cors(
 
 async fn dispatch_route_inner(
     req: &str,
+    src_ip: IpAddr,
     store: Option<&Arc<SessionStore>>,
     shutdown: &ShutdownController,
 ) -> (&'static str, String) {
@@ -141,7 +144,7 @@ async fn dispatch_route_inner(
     // is handled by `boot_router::try_dispatch_gates` because it
     // owns its own TcpStream to emit `Set-Cookie: __Host-session=...`
     // (mission-magic-link-v1x-hardening).
-    if let Some(resp) = super::auth_magic_link::dispatch(req, store).await {
+    if let Some(resp) = super::auth_magic_link::dispatch(req, src_ip, store).await {
         return resp;
     }
     // Public early-access waitlist capture (WS6). Mounted in the same
@@ -150,7 +153,7 @@ async fn dispatch_route_inner(
     // token. Reuses the signup per-IP limiter + honeypot; persists to the
     // `waitlist_signups` table, deduped on email (idempotent 202).
     if super::routes_waitlist::is_waitlist_request(req) {
-        return super::routes_waitlist::waitlist_response(req, store).await;
+        return super::routes_waitlist::waitlist_response(req, src_ip, store).await;
     }
     // Public enterprise Expression-of-Interest capture (WS6-2). Same un-gated
     // lane as the waitlist so the /pricing + /contact enterprise form can POST
@@ -158,7 +161,20 @@ async fn dispatch_route_inner(
     // per-IP limiter + honeypot; appends to the `enterprise_inquiry` table and
     // writes a hash-chained audit row (the EOI→MOU→contract front door).
     if super::routes_enterprise_inquiry::is_enterprise_inquiry_request(req) {
-        return super::routes_enterprise_inquiry::enterprise_inquiry_response(req, store).await;
+        return super::routes_enterprise_inquiry::enterprise_inquiry_response(req, src_ip, store)
+            .await;
+    }
+    // ANONYMOUS public pitch front door behind the landing-page "Talk to
+    // Portia" widget (`POST /api/v1/pitch/ask/public`). Mounted here, in the
+    // same pre-bearer anonymous lane as the waitlist + enterprise-inquiry
+    // routes, so its per-IP limiter keys on the trusted accept-loop `src_ip`
+    // and cannot be defeated by a spoofed `X-Forwarded-For`
+    // (fix-public-rate-limit-xff-spoof). The authenticated `/api/v1/pitch/ask`
+    // (handled later in `dispatch_post`) is unchanged and stays bearer-gated.
+    if req.starts_with("POST /api/v1/pitch/ask/public ")
+        || req.starts_with("POST /api/v1/pitch/ask/public?")
+    {
+        return super::routes_pitch_ask_public::ask_public_response(req, src_ip, store).await;
     }
     // Demo-mode magic-link bypass
     // (demo-ops-add-magic-link-bypass-for-recording). Active only

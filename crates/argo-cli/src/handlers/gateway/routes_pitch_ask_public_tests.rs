@@ -26,13 +26,21 @@ fn public_req(ip: &str, body: &serde_json::Value) -> String {
     )
 }
 
+/// Stand in for the trusted `src_ip` the accept loop extracts. The handler
+/// now keys its limiter on this passed value, never on the request's
+/// `X-Forwarded-For`; for these tests the two coincide (loopback peer).
+fn test_src_ip(req: &str) -> std::net::IpAddr {
+    crate::handlers::gateway::rate_limit_ip::parse_first_xff_hop(req)
+        .expect("test request must carry an X-Forwarded-For hop")
+}
+
 #[tokio::test]
 async fn anonymous_in_corpus_question_returns_grounded_answer_not_401() {
     // No Authorization header — proves the public route bypasses the
     // bearer gate and reaches the truth-bounded answerer.
     let body = serde_json::json!({ "question": "What's the tech stack?" });
     let req = public_req("203.0.113.1", &body);
-    let (status, body) = ask_public_response(&req, None).await;
+    let (status, body) = ask_public_response(&req, test_src_ip(&req), None).await;
     assert_eq!(status, "200 OK", "status={status} body={body}");
     assert_ne!(status, "401 Unauthorized");
     assert_ne!(status, "403 Forbidden");
@@ -82,7 +90,7 @@ async fn over_the_per_ip_rate_limit_returns_429() {
     }
     let body = serde_json::json!({ "question": "What's the tech stack?" });
     let req = public_req(ip, &body);
-    let (status, body) = ask_public_response(&req, None).await;
+    let (status, body) = ask_public_response(&req, test_src_ip(&req), None).await;
     assert_eq!(status, "429 Too Many Requests", "status={status} body={body}");
     assert!(body.contains("rate_limited"), "expected rate_limited body, got {body}");
     assert!(body.contains("retry_after"), "expected retry_after in body, got {body}");
@@ -94,7 +102,7 @@ async fn oversized_question_is_rejected_with_400() {
     let huge = "a".repeat(MAX_PUBLIC_QUESTION_LEN + 1);
     let body = serde_json::json!({ "question": huge });
     let req = public_req("198.51.100.9", &body);
-    let (status, body) = ask_public_response(&req, None).await;
+    let (status, body) = ask_public_response(&req, test_src_ip(&req), None).await;
     assert_eq!(status, "400 Bad Request", "status={status} body={body}");
     assert!(body.contains("bad_request"), "expected bad_request envelope, got {body}");
 }
@@ -103,7 +111,7 @@ async fn oversized_question_is_rejected_with_400() {
 async fn empty_question_is_rejected_with_400() {
     let body = serde_json::json!({ "question": "   " });
     let req = public_req("198.51.100.11", &body);
-    let (status, body) = ask_public_response(&req, None).await;
+    let (status, body) = ask_public_response(&req, test_src_ip(&req), None).await;
     assert_eq!(status, "400 Bad Request", "status={status} body={body}");
 }
 
@@ -118,7 +126,7 @@ async fn off_corpus_question_with_llm_off_returns_miss_fallback_not_a_fabricatio
         "question": "Can you recite a haiku about arctic terns?",
     });
     let req = public_req("198.51.100.13", &body);
-    let (status, body) = ask_public_response(&req, None).await;
+    let (status, body) = ask_public_response(&req, test_src_ip(&req), None).await;
     assert_eq!(status, "200 OK", "status={status} body={body}");
     let parsed: serde_json::Value = serde_json::from_str(&body).expect("body is JSON");
     assert_eq!(parsed["matched"], false);

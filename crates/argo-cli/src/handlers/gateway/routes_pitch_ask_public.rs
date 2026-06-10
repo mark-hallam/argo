@@ -35,20 +35,23 @@
 //!    any corpus/LLM work.
 //! 3. **Strict public truth-boundary policy** (forced channel, above).
 //!
-//! # Sensible deviation from the brief
+//! # Source IP is the trusted accept-loop value
 //!
-//! The brief sketched `ask_public_response(req, store, peer_ip: &str)`.
-//! `preflight_dispatch` has no socket handle to thread a `peer_ip`
-//! through, so — exactly like `super::routes_enterprise_inquiry` and
-//! `super::routes_waitlist` — the source IP is recovered from the request
-//! via the shared `super::auth_magic_link::signup_source_ip` helper
-//! (X-Forwarded-For-aware). Same outcome, no new plumbing through the
-//! dispatch chain.
+//! The per-IP limiter keys on `src_ip`, the single authoritative source
+//! IP the accept loop extracts once via
+//! `super::proxy_guard::extract_real_ip` (honoring `X-Forwarded-For` ONLY
+//! from a trusted/loopback direct peer). It is threaded down through the
+//! dispatch chain — exactly like `super::routes_enterprise_inquiry` and
+//! `super::routes_waitlist`. The earlier design re-derived the IP from a
+//! client-supplied `X-Forwarded-For` header in-handler, which let an
+//! attacker rotate the header to defeat the cap
+//! (fix-public-rate-limit-xff-spoof).
 
 use super::rate_limit_ip::{IpRateLimiter, RateLimitIpCheckResult};
 use argo_store::SessionStore;
 use serde::Deserialize;
 use serde_json::json;
+use std::net::IpAddr;
 use std::sync::{Arc, OnceLock};
 
 /// Hard upper bound on a public question, in characters. Rejected with
@@ -78,9 +81,10 @@ struct PublicPitchBody {
 }
 
 /// Process-global per-IP limiter dedicated to the public pitch route.
-/// Lazily built on first use; trusts the first `X-Forwarded-For` hop
-/// because the route sits behind the SPA + ingress proxy in every real
-/// deployment (same rationale as `rate_limit_ip::signup_limiter`).
+/// Lazily built on first use. `trust_xff = false`: the caller passes the
+/// already-trusted `src_ip` (extracted once at the accept loop via
+/// `proxy_guard::extract_real_ip`), so this limiter never re-parses
+/// `X-Forwarded-For` itself (fix-public-rate-limit-xff-spoof).
 pub(super) fn public_pitch_limiter() -> &'static Arc<IpRateLimiter> {
     static INSTANCE: OnceLock<Arc<IpRateLimiter>> = OnceLock::new();
     INSTANCE.get_or_init(|| {
@@ -88,7 +92,7 @@ pub(super) fn public_pitch_limiter() -> &'static Arc<IpRateLimiter> {
             PUBLIC_PITCH_BUCKET_CAPACITY,
             PUBLIC_PITCH_BUCKET_REFILL_PER_SEC,
             true,
-            true,
+            false,
         ))
     })
 }
@@ -98,12 +102,13 @@ pub(super) fn public_pitch_limiter() -> &'static Arc<IpRateLimiter> {
 /// answerer. Returns the canonical gateway `(status, body)` tuple.
 pub(super) async fn ask_public_response(
     req: &str,
+    src_ip: IpAddr,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     // 1. Per-IP rate limit FIRST — a cheap reject before any parsing or
-    //    corpus/LLM work.
-    let ip = super::auth_magic_link::signup_source_ip(req);
-    if let RateLimitIpCheckResult::Deny { retry_after_secs } = public_pitch_limiter().check(ip) {
+    //    corpus/LLM work. Keyed on the trusted `src_ip` from the accept
+    //    loop, never a spoofable `X-Forwarded-For`.
+    if let RateLimitIpCheckResult::Deny { retry_after_secs } = public_pitch_limiter().check(src_ip) {
         return rate_limited(retry_after_secs);
     }
 

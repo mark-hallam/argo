@@ -2,7 +2,14 @@ use super::super::{routes::dispatch_route, shutdown::ShutdownController};
 use argo_store::SessionStore;
 use base64::Engine;
 use ed25519_dalek::SigningKey;
+use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
+
+/// Loopback source IP for `dispatch_route`'s `src_ip` arg — these tests
+/// exercise marketplace routing/authz, not the per-IP rate limiter.
+fn lo() -> IpAddr {
+    Ipv4Addr::LOCALHOST.into()
+}
 
 const TENANT_A: &str = "019aff00-0000-7000-8000-000000000101";
 const TENANT_B: &str = "019aff00-0000-7000-8000-000000000202";
@@ -38,12 +45,12 @@ async fn marketplace_install_authz_and_audit() {
     let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
     store.migrate().await.unwrap();
 
-    let (status, _) = dispatch_route("GET /marketplace HTTP/1.1\r\n\r\n", None, &shutdown).await;
+    let (status, _) = dispatch_route("GET /marketplace HTTP/1.1\r\n\r\n", lo(), None, &shutdown).await;
     assert!(status.contains("text/html"));
-    let (status, _) = dispatch_route("POST /marketplace/marketplace-listing-draft/install HTTP/1.1\r\n\r\n", Some(&store), &shutdown).await;
+    let (status, _) = dispatch_route("POST /marketplace/marketplace-listing-draft/install HTTP/1.1\r\n\r\n", lo(), Some(&store), &shutdown).await;
     assert_eq!(status, "401 Unauthorized");
 
-    let (status, _) = dispatch_route(&authed(&format!("/marketplace/marketplace-listing-draft/install?tenant={TENANT_A}"), ""), Some(&store), &shutdown).await;
+    let (status, _) = dispatch_route(&authed(&format!("/marketplace/marketplace-listing-draft/install?tenant={TENANT_A}"), ""), lo(), Some(&store), &shutdown).await;
     assert!(status.contains("text/html"));
 
     let signing_key = SigningKey::from_bytes(&[7; 32]);
@@ -57,12 +64,12 @@ async fn marketplace_install_authz_and_audit() {
         exp: now + 60,
     });
     let jwt_good = format!("POST /marketplace/marketplace-listing-draft/install?tenant={TENANT_A} HTTP/1.1\r\nAuthorization: Bearer {jwt}\r\nX-Tenant-Id: attacker\r\n\r\n");
-    let (status, _) = dispatch_route(&jwt_good, Some(&store), &shutdown).await;
+    let (status, _) = dispatch_route(&jwt_good, lo(), Some(&store), &shutdown).await;
     assert!(status.contains("text/html"));
 
-    let (status, _) = dispatch_route(&authed(&format!("/marketplace/marketplace-listing-draft/install?tenant={TENANT_B}"), ""), Some(&store), &shutdown).await;
+    let (status, _) = dispatch_route(&authed(&format!("/marketplace/marketplace-listing-draft/install?tenant={TENANT_B}"), ""), lo(), Some(&store), &shutdown).await;
     assert_eq!(status, "403 Forbidden");
-    let (status, body) = dispatch_route(&authed("/marketplace/marketplace-listing-draft/install", &format!("{{\"tenant_id\":\"{TENANT_B}\"}}")), Some(&store), &shutdown).await;
+    let (status, body) = dispatch_route(&authed("/marketplace/marketplace-listing-draft/install", &format!("{{\"tenant_id\":\"{TENANT_B}\"}}")), lo(), Some(&store), &shutdown).await;
     assert_eq!(status, "403 Forbidden");
     assert!(body.contains("tenant mismatch"));
 

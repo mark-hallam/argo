@@ -95,7 +95,7 @@ pub(super) async fn handle_connection(
     let req_status =
         match try_dispatch_gates(stream, peer, req, src_ip, &mut audit, &sec, ctx).await {
             Some(s) => s,
-            None => dispatch_routes(stream, req, &mut audit, &sec, ctx).await,
+            None => dispatch_routes(stream, req, src_ip, &mut audit, &sec, ctx).await,
         };
     let req_status_str = http_status_label(req_status);
     routes_openmetrics::brief_request_total()
@@ -233,6 +233,7 @@ async fn try_dispatch_gates(
 async fn dispatch_routes(
     stream: &mut TcpStream,
     req: &str,
+    src_ip: IpAddr,
     audit: &mut Option<RequestAuditDraft>,
     sec: &str,
     ctx: &ConnectionCtx<'_>,
@@ -259,7 +260,8 @@ async fn dispatch_routes(
         let _ = stream.shutdown().await;
         return parse_status_line(status_line);
     }
-    let (status_line, body) = routes::dispatch_route(req, ctx.store, ctx.shutdown_ctl).await;
+    let (status_line, body) =
+        routes::dispatch_route(req, src_ip, ctx.store, ctx.shutdown_ctl).await;
     let resp = format_response(status_line, &body, sec);
     let _ = stream.write_all(resp.as_bytes()).await;
     request_audit::spawn_record(audit.take(), ctx.store, status_line, body.len());

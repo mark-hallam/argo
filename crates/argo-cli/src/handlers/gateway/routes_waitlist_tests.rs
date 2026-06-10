@@ -24,6 +24,14 @@ fn req(ip: &str, body: &str) -> String {
     )
 }
 
+/// Stand in for the trusted `src_ip` the accept loop extracts. The handler
+/// now keys its limiter on this passed value, never on the request's
+/// `X-Forwarded-For`; for these tests the two coincide (loopback peer).
+fn test_src_ip(req: &str) -> std::net::IpAddr {
+    crate::handlers::gateway::rate_limit_ip::parse_first_xff_hop(req)
+        .expect("test request must carry an X-Forwarded-For hop")
+}
+
 async fn count_rows(store: &Arc<SessionStore>, email: &str) -> i64 {
     sqlx::query_scalar("SELECT COUNT(*) FROM waitlist_signups WHERE email = ?")
         .bind(email)
@@ -47,7 +55,7 @@ async fn valid_signup_returns_202_and_inserts_one_row() {
         "198.51.100.10",
         r#"{"email":"a@b.com","name":"A","company":"Acme","source":"landing-hero"}"#,
     );
-    let (status, body) = waitlist_response(&r, Some(&store)).await;
+    let (status, body) = waitlist_response(&r, test_src_ip(&r), Some(&store)).await;
     assert!(status.starts_with("202"), "status={status} body={body}");
     assert!(body.contains("\"queued\":true"), "body={body}");
     assert_eq!(count_rows(&store, "a@b.com").await, 1);
@@ -57,10 +65,10 @@ async fn valid_signup_returns_202_and_inserts_one_row() {
 async fn repeat_signup_is_idempotent_202_one_row() {
     let store = fresh_store().await;
     let r = req("198.51.100.11", r#"{"email":"dup@b.com"}"#);
-    let (s1, _) = waitlist_response(&r, Some(&store)).await;
+    let (s1, _) = waitlist_response(&r, test_src_ip(&r), Some(&store)).await;
     assert!(s1.starts_with("202"));
     // Same email again — dedupe via ON CONFLICT, still 202, still one row.
-    let (s2, b2) = waitlist_response(&r, Some(&store)).await;
+    let (s2, b2) = waitlist_response(&r, test_src_ip(&r), Some(&store)).await;
     assert!(s2.starts_with("202"), "repeat status={s2} body={b2}");
     assert_eq!(count_rows(&store, "dup@b.com").await, 1);
 }
@@ -69,14 +77,14 @@ async fn repeat_signup_is_idempotent_202_one_row() {
 async fn email_is_normalized_before_dedupe() {
     let store = fresh_store().await;
     let (s1, _) = waitlist_response(
-        &req("198.51.100.12", r#"{"email":"Mixed@Case.com"}"#),
+        &req("198.51.100.12", r#"{"email":"Mixed@Case.com"}"#), test_src_ip(&req("198.51.100.12", r#"{"email":"Mixed@Case.com"}"#)),
         Some(&store),
     )
     .await;
     assert!(s1.starts_with("202"));
     // Differently-cased + whitespace-padded — must dedupe to the same row.
     let (s2, _) = waitlist_response(
-        &req("198.51.100.13", r#"{"email":"  mixed@case.com  "}"#),
+        &req("198.51.100.13", r#"{"email":"  mixed@case.com  "}"#), test_src_ip(&req("198.51.100.13", r#"{"email":"  mixed@case.com  "}"#)),
         Some(&store),
     )
     .await;
@@ -88,7 +96,7 @@ async fn email_is_normalized_before_dedupe() {
 async fn malformed_email_rejected_400_no_row() {
     let store = fresh_store().await;
     let (status, _) = waitlist_response(
-        &req("198.51.100.14", r#"{"email":"not-an-email"}"#),
+        &req("198.51.100.14", r#"{"email":"not-an-email"}"#), test_src_ip(&req("198.51.100.14", r#"{"email":"not-an-email"}"#)),
         Some(&store),
     )
     .await;
@@ -100,21 +108,18 @@ async fn malformed_email_rejected_400_no_row() {
 async fn malformed_json_rejected_400() {
     let store = fresh_store().await;
     let (status, _) =
-        waitlist_response(&req("198.51.100.15", "not json at all"), Some(&store)).await;
+        waitlist_response(&req("198.51.100.15", "not json at all"), test_src_ip(&req("198.51.100.15", "not json at all")), Some(&store)).await;
     assert!(status.starts_with("400"), "status={status}");
 }
 
 #[tokio::test]
 async fn honeypot_filled_is_silently_accepted_no_row() {
     let store = fresh_store().await;
-    let (status, body) = waitlist_response(
-        &req(
-            "198.51.100.16",
-            r#"{"email":"bot@b.com","honeypot_url":"http://spam"}"#,
-        ),
-        Some(&store),
-    )
-    .await;
+    let r = req(
+        "198.51.100.16",
+        r#"{"email":"bot@b.com","honeypot_url":"http://spam"}"#,
+    );
+    let (status, body) = waitlist_response(&r, test_src_ip(&r), Some(&store)).await;
     // Silent OK so the bot can't detect the trap — 202, but no row written.
     assert!(status.starts_with("202"), "status={status} body={body}");
     assert_eq!(count_rows(&store, "bot@b.com").await, 0);
@@ -122,6 +127,6 @@ async fn honeypot_filled_is_silently_accepted_no_row() {
 
 #[tokio::test]
 async fn missing_store_returns_500() {
-    let (status, _) = waitlist_response(&req("198.51.100.17", r#"{"email":"a@b.com"}"#), None).await;
+    let (status, _) = waitlist_response(&req("198.51.100.17", r#"{"email":"a@b.com"}"#), test_src_ip(&req("198.51.100.17", r#"{"email":"a@b.com"}"#)), None).await;
     assert!(status.starts_with("500"), "status={status}");
 }

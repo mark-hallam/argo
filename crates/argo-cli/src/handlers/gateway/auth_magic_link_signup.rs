@@ -1,5 +1,5 @@
 use super::{deliver_magic_link, error_resp, looks_like_email, mint_token, sha256_hex};
-use super::{signup_source_ip, SessionStore};
+use super::{IpAddr, SessionStore};
 use crate::handlers::gateway::rate_limit_ip::{self, RateLimitIpCheckResult};
 use crate::handlers::gateway::signup_protection::{SignupFields, SignupProtectionOutcome};
 use argo_store::user_account;
@@ -19,13 +19,17 @@ struct SignupBody {
 
 pub(crate) async fn signup_response(
     req: &str,
+    src_ip: IpAddr,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(s) = store else {
         return error_resp("500 Internal Server Error", "store_unavailable");
     };
-    let ip = signup_source_ip(req);
-    match rate_limit_ip::signup_limiter().check(ip) {
+    // Trusted source IP, extracted once at the accept loop
+    // (`boot_router::handle_connection` → `proxy_guard::extract_real_ip`).
+    // The per-IP cap keys on THIS, never on a client-supplied
+    // `X-Forwarded-For` (fix-public-rate-limit-xff-spoof).
+    match rate_limit_ip::signup_limiter().check(src_ip) {
         RateLimitIpCheckResult::Deny { retry_after_secs } => {
             return (
                 "429 Too Many Requests",
