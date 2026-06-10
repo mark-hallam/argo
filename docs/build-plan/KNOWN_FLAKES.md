@@ -7,7 +7,7 @@ that test is OUTSIDE your brief's may-touch list, push the PR with a
 
 When a fix PR lands, remove the entry. Don't let this list rot.
 
-Last refreshed: 2026-05-22 against `origin/main` `204a0f9f1` (claude-known-flakes-list-refresh).
+Last refreshed: 2026-06-10 against `origin/main` `78b049318` (refresh-known-flakes-and-track-env-lock).
 
 ## How to verify a flake claim
 
@@ -26,8 +26,10 @@ pnpm test --run 2>&1 | tee /tmp/vitest.log
 grep -E "^( *× |❯ .*failed)" /tmp/vitest.log
 ```
 
-A full web vitest run cold takes ~5 min wall clock (1339 tests, 168
-files). Warm cache (`.next/`, `node_modules/.vite/`) ~2-3 min.
+A full web vitest run cold takes ~5 min wall clock (383 `*.test.ts(x)`
+files under `web/`, per `find web -name '*.test.ts*' -not -path
+'*/node_modules/*' | wc -l` on 2026-06-10). Warm cache (`.next/`,
+`node_modules/.vite/`) ~2-3 min.
 
 **Rust (cargo):**
 
@@ -51,27 +53,11 @@ it's a new flake — add an entry here in a separate doc-only brief.
 
 ### Web (vitest) — `pnpm -C web test --run`
 
-All four reproduce on clean `origin/main` `204a0f9f1` as of
-2026-05-22. They are stable pre-existing failures (always fail), not
-intermittent flakes. They surface as "pre-existing" in every recent
-web-PR boundary note (#2011, #2013, #2014, #2018, #2026, #2027,
-#2030, #2032).
-
-- `web/__tests__/a11y-contrast.test.ts > a11y color contrast (WCAG 2.1 AA, 1.4.3) > no hardcoded #71717a remains in web/ (regression guard — fails AA against #fafaff)`
-  — First observed: 2026-05-21 (#1914 introduced the regression
-  guard). Classification: stable. Failure: 2 offenders remain in
-  `web/app/(app)/workflows/[verticalId]/[name]/build/BuilderSidebarPalette.css:158,167`.
-- `web/__tests__/a11y-headings.test.ts > a11y heading order > no in-product page.tsx declares more than one own h1 in its own file`
-  — First observed: 2026-05-21 (#1917 heading-order sweep).
-  Classification: stable. Failure: `web/app/(setup)/accept-invite/page.tsx`
-  declares 4 `<h1>` tags (the test tolerates at most 2 in
-  mutually-exclusive branches).
-- `web/__tests__/brand-execution-polish.test.tsx > brand-execution polish (closes audit P1-2) > no hardcoded ease-out/ease-in/ease-linear in component files`
-  — First observed: 2026-05-18 (#1821 brand-drift sweep; partial fix
-  in #1952 wave-5). Classification: stable. Failure: hardcoded
-  `ease-out` in `web/components/skycot/builder/UnsavedBanner.tsx:65`
-  and `ease-in-out` in
-  `web/components/skycot/cohorts/CohortMagazineStyles.tsx:565`.
+None currently active. The three stable web failures listed here on
+2026-05-22 (a11y-contrast `#71717a` guard, a11y-headings `accept-invite`
+h1-count, brand-execution-polish hardcoded-easing) have all been FIXED on
+current main and moved to the Resolved section below — re-verified
+2026-06-10 (`npx vitest run` on the three files: 16/16 pass).
 
 ### Rust (cargo) — `cargo test --workspace`
 
@@ -104,7 +90,9 @@ The ~19-test parallel-flake class boundary-noted on PR #2752
 (`handlers::gateway::routes_approvals_json::*`, `resolve_tenant::*`,
 `routes_worker_overview/detail::*`, `routes_genesis_stream::*`,
 `routes_channels_voice::* / webinbox::*`, etc.) is **fixed** by
-`fix-gateway-tests-shared-env-lock-migration`: ~57 gateway test modules
+`fix-gateway-tests-shared-env-lock-migration` (merged as
+[#2781](https://github.com/mark-hallam/argo/pull/2781), commit
+`fb6347a9a`): ~57 gateway test modules
 that mutated process-global env/cwd under their OWN per-module lock now
 acquire the canonical gateway-wide `shared_env_lock()` /
 `shared_env_mutex()` (`gateway/mod.rs`), so cross-module tests serialize
@@ -167,6 +155,21 @@ that lands, treat them as pre-existing — do NOT mark BLOCKED.
 
 ## Resolved (kept for historical reference)
 
+- `web/__tests__/a11y-contrast.test.ts > … no hardcoded #71717a remains
+  in web/` — RESOLVED by 2026-06-10. The `#71717a` offenders in
+  `BuilderSidebarPalette.css` are gone (`grep -rn '#71717a' web/` returns
+  nothing), so the regression guard passes.
+- `web/__tests__/a11y-headings.test.ts > … no in-product page.tsx
+  declares more than one own h1` — RESOLVED by 2026-06-10.
+  `web/app/(setup)/accept-invite/page.tsx` now declares a single `<h1>`,
+  so the heading-order guard passes.
+- `web/__tests__/brand-execution-polish.test.tsx > … no hardcoded
+  ease-out/ease-in/ease-linear in component files` — RESOLVED by
+  2026-06-10. `UnsavedBanner.tsx:65` and `CohortMagazineStyles.tsx:559`
+  now use the `var(--motion-ease)` token instead of hardcoded easing.
+  (All three above re-verified together: `npx vitest run
+  __tests__/a11y-contrast.test.ts __tests__/a11y-headings.test.ts
+  __tests__/brand-execution-polish.test.tsx` → 16/16 pass.)
 - `gateway_smoke::*` — RESOLVED in [#858](https://github.com/mark-hallam/argo/pull/858)
   (codex-gateway-smoke-flake-fix, 2026-05-09). The hardened fixtures
   (TOCTOU port-handoff fix, isolated `ARGO_HOME` setup, gateway boot
