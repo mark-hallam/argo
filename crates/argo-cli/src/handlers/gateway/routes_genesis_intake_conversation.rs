@@ -117,6 +117,66 @@ async fn resolve_intake_tenant(req: &str, session_store: Option<&Arc<SessionStor
     }
 }
 
+/// Apply the operator's answer (if any) to the slot the previous question
+/// targeted — the persisted `pending_slot` when present (DEC-048: optional
+/// slots + follow-ups mean the target is no longer always the first unfilled
+/// slot), else the legacy first-unfilled fallback so pre-DEC-048 conversations
+/// on disk keep working. Returns `Ok(Some(envelope))` when DEC-048's quality
+/// bar wants ONE follow-up (the turn returns that "asking" envelope now, having
+/// persisted state), or `Ok(None)` to continue the turn.
+async fn apply_operator_answer(
+    store: &IntakeStore,
+    state: &mut IntakeState,
+    tenant: &str,
+    conversation_id: &str,
+    message: Option<&str>,
+    provider: Option<&str>,
+) -> Result<Option<(&'static str, Value)>, String> {
+    let Some(msg) = message.map(str::trim).filter(|m| !m.is_empty()) else {
+        return Ok(None);
+    };
+    let target = state.pending_slot.take().or_else(|| state.first_unfilled_slot());
+    state.record_operator(msg);
+    let Some(slot) = target else {
+        return Ok(None);
+    };
+    if IntakeSlot::OPTIONAL.contains(&slot) && is_skip(msg) {
+        // An explicit skip resolves the optional slot unfilled — the seeded
+        // defaults apply and the build is never wedged.
+        state.mark_optional_resolved(slot);
+        return Ok(None);
+    }
+    apply_answer(state, slot, msg, provider).await;
+    if IntakeSlot::OPTIONAL.contains(&slot) {
+        state.mark_optional_resolved(slot);
+    }
+    // DEC-048 quality bar: at most ONE follow-up per slot when the captured
+    // value is too vague to mint a useful teammate. Deterministic +
+    // provider-free; a second vague answer is accepted (the cap), so intake can
+    // never loop or stall.
+    if !state.followups_used.contains(&slot) {
+        if let Some(followup) = argo_genesis::needs_followup(state, slot) {
+            state.followups_used.push(slot);
+            state.pending_slot = Some(slot);
+            state.record_assistant(followup);
+            let envelope = json!({
+                "conversation_id": conversation_id,
+                "status": "asking",
+                "slot": slot.slug(),
+                "assistant_message": followup,
+                "can_confirm": false,
+                "captured": captured(state),
+                "transcript": transcript(state),
+            });
+            store
+                .save(tenant, conversation_id, state)
+                .map_err(|e| format!("persist intake: {e}"))?;
+            return Ok(Some(("200 OK", envelope)));
+        }
+    }
+    Ok(None)
+}
+
 /// Run one conversation turn against the persisted state. `provider` is
 /// `Some(id)` to enable the two bounded LLM calls, `None` for the pure wizard.
 async fn run_turn(
@@ -129,50 +189,13 @@ async fn run_turn(
 ) -> Result<(&'static str, Value), String> {
     let mut state = store.load(tenant, conversation_id).unwrap_or_default();
 
-    // Apply the operator's answer (if any) to the slot the previous question
-    // targeted — the persisted `pending_slot` when present (DEC-048: optional
-    // slots + follow-ups mean the target is no longer always the first
-    // unfilled slot), else the legacy first-unfilled fallback so pre-DEC-048
-    // conversations on disk keep working.
-    if let Some(msg) = message.map(str::trim).filter(|m| !m.is_empty()) {
-        let target = state.pending_slot.take().or_else(|| state.first_unfilled_slot());
-        state.record_operator(msg);
-        if let Some(slot) = target {
-            if IntakeSlot::OPTIONAL.contains(&slot) && is_skip(msg) {
-                // An explicit skip resolves the optional slot unfilled — the
-                // seeded defaults apply and the build is never wedged.
-                state.mark_optional_resolved(slot);
-            } else {
-                apply_answer(&mut state, slot, msg, provider).await;
-                if IntakeSlot::OPTIONAL.contains(&slot) {
-                    state.mark_optional_resolved(slot);
-                }
-                // DEC-048 quality bar: at most ONE follow-up per slot when the
-                // captured value is too vague to mint a useful teammate.
-                // Deterministic + provider-free; a second vague answer is
-                // accepted (the cap), so intake can never loop or stall.
-                if !state.followups_used.contains(&slot) {
-                    if let Some(followup) = argo_genesis::needs_followup(&state, slot) {
-                        state.followups_used.push(slot);
-                        state.pending_slot = Some(slot);
-                        state.record_assistant(followup);
-                        let envelope = json!({
-                            "conversation_id": conversation_id,
-                            "status": "asking",
-                            "slot": slot.slug(),
-                            "assistant_message": followup,
-                            "can_confirm": false,
-                            "captured": captured(&state),
-                            "transcript": transcript(&state),
-                        });
-                        store
-                            .save(tenant, conversation_id, &state)
-                            .map_err(|e| format!("persist intake: {e}"))?;
-                        return Ok(("200 OK", envelope));
-                    }
-                }
-            }
-        }
+    // Apply the operator's answer (if any) and, if DEC-048's quality bar wants
+    // ONE follow-up, return that "asking" envelope now.
+    if let Some(envelope) =
+        apply_operator_answer(store, &mut state, tenant, conversation_id, message, provider)
+            .await?
+    {
+        return Ok(envelope);
     }
 
     // Confirm requires the required set complete AND no quality follow-up
