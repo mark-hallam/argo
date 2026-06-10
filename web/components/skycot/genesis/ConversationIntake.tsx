@@ -34,9 +34,17 @@ import type { SuccessCriterion } from "@/lib/api/genesis";
 
 /** What the conversation hands to the parent's one-shot flow on confirm. */
 export interface ConversationGatheredSlots {
-  /** Composed free-text role description (charter + responsibilities + persona)
-   *  fed to `streamGenesis` exactly like the "Describe it" textarea. */
+  /** Composed free-text role description (charter + responsibilities)
+   *  fed to `streamGenesis` exactly like the "Describe it" textarea.
+   *  The persona NAME is NO LONGER embedded here — it rides the `persona`
+   *  field below so the namer treats it as an explicit name, not charter prose
+   *  (fix-genesis-conversation-persona-name-must-win-display-name). */
   roleDescription: string;
+  /** The name the operator gave the teammate in the "What would you like to
+   *  call them?" turn. Passed as the one-shot `persona` FIELD so the gateway's
+   *  `derive_display_name` mints THIS name (e.g. "Ivy") instead of scraping the
+   *  charter's first word. Empty when the operator skipped the naming slot. */
+  persona: string;
   cadence: string;
   exceptions: string[];
   successCriteria: SuccessCriterion[];
@@ -67,9 +75,9 @@ export function gatherSlotsFromCaptured(
       `Responsibilities:\n${c.responsibilities.map((r) => `- ${r}`).join("\n")}`,
     );
   }
-  if (c.persona.trim().length > 0) parts.push(`Persona: ${c.persona.trim()}`);
   return {
     roleDescription: parts.join("\n\n"),
+    persona: c.persona.trim(),
     cadence: c.cadence,
     exceptions: c.exceptions,
     successCriteria: c.success_criteria,

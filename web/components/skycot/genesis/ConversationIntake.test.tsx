@@ -35,7 +35,9 @@ function res(over: Partial<ConversationResponse>): ConversationResponse {
 
 const FILLED: ConversationCaptured = {
   charter: "Keep the dispatch board clear every morning.",
-  persona: "Calm, concise, proactive.",
+  // The Persona slot captures the NAME the operator gives ("What would you like
+  // to call them?"), not a voice blurb — see argo-genesis IntakeSlot::Persona.
+  persona: "Ivy",
   responsibilities: ["Triage inbound tickets", "Escalate blockers"],
   cadence: "every weekday at 9am",
   exceptions: ["never touch legal escalations"],
@@ -168,18 +170,28 @@ describe("ConversationIntake", () => {
 });
 
 describe("gatherSlotsFromCaptured", () => {
-  it("composes a role description from charter, responsibilities, and persona", () => {
+  it("composes a role description from charter + responsibilities only", () => {
     const g = gatherSlotsFromCaptured(FILLED);
     expect(g.roleDescription).toContain("dispatch board");
     expect(g.roleDescription).toContain("Triage inbound tickets");
-    expect(g.roleDescription).toContain("Persona:");
     expect(g.cadence).toBe("every weekday at 9am");
     expect(g.successCriteria).toEqual(FILLED.success_criteria);
   });
 
-  it("yields an empty description from an empty captured block", () => {
+  it("returns the captured name as the persona FIELD, never embedded in the role text", () => {
+    // The name must ride the `persona` field so the gateway's namer mints it,
+    // instead of being flattened into the charter where the charter-word
+    // heuristic wins (fix-genesis-conversation-persona-name-must-win-display-name).
+    const g = gatherSlotsFromCaptured(FILLED);
+    expect(g.persona).toBe("Ivy");
+    expect(g.roleDescription).not.toContain("Persona:");
+    expect(g.roleDescription).not.toContain("Ivy");
+  });
+
+  it("yields an empty description + empty persona from an empty captured block", () => {
     const g = gatherSlotsFromCaptured(EMPTY_CAPTURED);
     expect(g.roleDescription).toBe("");
+    expect(g.persona).toBe("");
     expect(g.exceptions).toEqual([]);
   });
 });

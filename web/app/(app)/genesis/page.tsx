@@ -142,6 +142,7 @@ export default function GenesisPage() {
           roleDescription: params.roleDescription,
           tenantId: tenantIdRef.current,
           overwrite: params.isRetry,
+          ...(params.persona?.trim() ? { persona: params.persona.trim() } : {}),
           // P6: attach the SOP (if any) so the teammate is ingested + quizzed
           // against the SPECIFIC document before it can be hired.
           ...(params.sopDocument
@@ -253,6 +254,7 @@ export default function GenesisPage() {
       });
       startStream({
         roleDescription: gathered.roleDescription,
+        persona: gathered.persona,
         cadence: gathered.cadence,
         exceptions: gathered.exceptions,
         successCriteria: gathered.successCriteria,

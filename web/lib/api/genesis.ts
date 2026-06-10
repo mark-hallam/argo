@@ -303,6 +303,12 @@ export interface RoleContract {
  *  DEC-039 convergence + the DEC-048 access/escalation slots. */
 export interface GenesisStartParams {
   roleDescription: string;
+  /** Explicit teammate name captured in the conversational "What would you like
+   *  to call them?" turn. Threaded to the gateway's `persona` field so the namer
+   *  mints this name rather than scraping the charter's first word
+   *  (fix-genesis-conversation-persona-name-must-win-display-name). Omitted from
+   *  the wire when absent, so the "Describe it" path is unchanged. */
+  persona?: string;
   cadence?: string;
   exceptions?: string[];
   successCriteria?: SuccessCriterion[];
