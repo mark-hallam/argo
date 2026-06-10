@@ -17,11 +17,18 @@
 # Exit codes:
 #   0 — tsc clean (or no web files touched in working tree vs origin/main)
 #   1 — tsc reported errors; gate must fail
+#
+# Worktree manual check (gate-6 smoke harness doesn't cover gate 7 cheaply):
+#   git worktree add /tmp/gate-wt origin/main
+#   cd /tmp/gate-wt && printf '\n' >> web/package.json   # make the diff touch web/
+#   bash scripts/pre-merge-web-typecheck.sh              # links node_modules, runs tsc
+#   # expect: "linked web/node_modules from main checkout" then a PASS/FAIL on
+#   # the CODE — never "Command tsc not found". cd "$REPO" && git worktree remove.
 
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 1
 
 QUIET=0
 [[ "${1:-}" == "--quiet" ]] && QUIET=1
@@ -55,6 +62,24 @@ fi
 
 if ! command -v pnpm >/dev/null 2>&1; then
   fail "pnpm not found; install with: npm install -g pnpm"
+  exit 1
+fi
+
+# Worktree support. `web/node_modules` is gitignored and NOT shared by git
+# worktrees, so a gate run from `git worktree add /tmp/<id> origin/main` (the
+# B-1 isolated-checkout pattern) finds no `.bin/tsc` and `pnpm exec tsc` fails
+# with a cryptic "Command tsc not found" (exit 254) — a false-FAIL on a green
+# PR, which pushes conductors toward gate-overrides. If the main checkout (the
+# git common-dir's sibling) has an installed node_modules, link it in
+# (worktree-local, gitignored path, idempotent). Honest FAIL if neither the
+# worktree nor the main checkout has tsc installed.
+main_nm="$(git rev-parse --path-format=absolute --git-common-dir)/../web/node_modules"
+if [[ ! -x web/node_modules/.bin/tsc && -x "$main_nm/.bin/tsc" ]]; then
+  ln -sfn "$main_nm" web/node_modules
+  warn "linked web/node_modules from main checkout (worktree run)"
+fi
+if [[ ! -x web/node_modules/.bin/tsc ]]; then
+  fail "web/node_modules/.bin/tsc not found — run 'pnpm install' in web/"
   exit 1
 fi
 
