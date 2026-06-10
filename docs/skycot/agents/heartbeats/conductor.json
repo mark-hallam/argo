@@ -1,39 +1,35 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-06-09T22:41:20Z",
+  "last_run_utc": "2026-06-10T01:01:21Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "crank-2026-06-10-INTERACTIVE-morning-batch",
-  "run_notes": "INTERACTIVE crank tick 2026-06-10 morning (DEC-034). VERIFIED THIS TURN: swarm alive (supervisor PID 4688, workers respawned 08:40 local after queue-empty standdown; 2 loops running); sentinels absent; drift 0 (fixed 3 dup rows at tick start). MERGED 9 of 10 open PRs: #2758 #2768 #2762 #2767 #2769 #2764(rebased) #2763 web/deploy batch; #2765 + #2770 via FULL pre-merge gate in isolated B-1 worktrees (test-compile + workspace clippy + anti-theater PASS; gate-3 LOC fails = pre-existing 8-file main-tree debt, split brief queued; gate-7 false-fail = worktree node_modules gap, manually re-run tsc exit 0, ops brief queued). #2756 (B-3) rebased (DEC-043 html conflict dropped) \u2192 MERGEABLE, HELD for operator review per its brief; B-4 brief authored BLOCKED on it. DEC-044 browser-verify on landing (preview server, demo-live profile): #2767 CTA renders + routes to /genesis VERIFIED; #2769 chips VERIFIED after REAL Genesis describe\u2192generate run (all 7 SSE phases, live LLM); #2762 real duty row (morning reconcile cron) VERIFIED; #2764 live rules + honest-empty history VERIFIED; #2758 copy-fix good but loopback canonicalization RUNTIME-DEAD (nextUrl.hostname never 127.0.0.1; curl proof in brief) \u2192 fix-brief queued P1. #2768 destination verified live; empty-state unreachable in seeded profile (vitest covers). QUEUE replenished 0\u21927 TODO via verify-then-author fan-out (5 new: split-eight-over-loc P1, loopback-runtime P1, ledger-guard-sigpipe P1, gate-worktree-tsc P2, env-lock-migration P2) + 2 Genesis Phase-2 revives (voice-input, access-controls \u2014 deps merged, briefs refreshed in place). Launch items: task_341a020b STILL OPEN (loopback fix-brief is the closure path); task #159 SPA JWT fail-closed CLOSED-as-already-done (code evidence in agent report + DEPLOY-READINESS \u00a76); pitch tenant-scope was already MERGED #2754; LAUNCH-1 SES = operator creds. Shared-checkout race NOTE: a worker claim-with-retry stash transiently unstaged my ledger batch mid-commit (recovered; committed under with-ledger-lock). gh-merge exit-masking trap hit twice via |tail \u2014 used explicit captures after.",
-  "open_prs": 1,
+  "session_label": "loop-2026-06-10-autonomous-merge-drive",
+  "run_notes": "AUTONOMOUS /loop tick (DEC-034, operator away). VERIFIED THIS SESSION: swarm alive (supervisor + 9 worker loops; workers building fix-audit-chain + fix-parallel-pub-types audit briefs in /private/tmp worktrees); sentinels absent; drift 0. MERGED 4 PRs, each conductor-VERIFIED: #2771 ledger-guard SIGPIPE fix (own smoke 6/6 incl. 305KB scenario-F), #2772 gate-7 worktree node_modules (verified in exact failure scenario), #2774 the 8-file LOC split (FULL gate PASS \u2014 unblocks gate-3 for every Rust PR), #2777 Genesis/voice tenant-isolation P1 (FULL gate PASS + adversarial review CONFIRMED-FIXED = DEC-034 WS1 bar). HELD with evidence (NO THEATER): #2776 perimeter XFF \u2014 adversarial review verdict INCOMPLETE (4 routes fixed but magic-link VERIFY route still feeds its 60/IP/min brute-force throttle from the spoofable helper) \u2192 completion brief fix-magic-link-verify-xff-spoof-and-retire-helper queued P1, #2776 not merged so the matrix can't badge 'perimeter fixed' falsely. #2778 B-4 separate-verify-agents \u2014 HELD for operator review (governance-touching, B-3 precedent). #2773 voice dictation \u2014 HELD for attended browser-verify (mic round-trip can't be exercised unattended, DEC-044). #2775 env-lock migration \u2014 needs worker rebase on #2774's split (structural conflict). INCIDENT (recovered, no work lost): a worker left the shared checkout on #2777's branch, so a ledger `git push origin main` silently no-op'd and the commit stranded on the feature branch; recovered by cherry-picking onto main in a throwaway worktree + restoring the local branch ref to origin. New CRANK guardrail added: verify `git branch --show-current`=main before any ledger commit.",
+  "open_prs": 4,
   "queue_state": {
-    "claude_todo": 7,
-    "codex_todo": 0,
-    "claude_claimed": 1,
-    "claude_in_review": 1,
-    "blocked": 28
+    "note": "see BUILD_STATUS.md header; TODO ~3 + active worker claims, topping up next tick per DEC-046"
   },
-  "the_gate": "9 PRs merged + browser-verified per DEC-044 (1 runtime gap found \u2192 P1 fix-brief). DEC-042 Stage-1: B-1 \u2705 B-2 \u2705 B-3 #2756 REBASED+MERGEABLE awaiting OPERATOR review (the one human action this tick surfaces) \u2192 B-4 brief ready BLOCKED on it. Queue refilled 0\u21927 verified rows; workers respawned and feeding. Staging item A (gated preview) remains operator-owed (AWS/DNS/cert/secrets per MORNING-STAGING-RUNBOOK).",
+  "the_gate": "4 PRs merged this /loop incl. tenant-isolation P1 (#2777, full bar) + the LOC-gate-unblock split (#2774). 3 PRs HELD with evidence for operator/attended review (#2776 incomplete+completion-queued, #2778 B-4 governance, #2773 voice browser-verify). DEC-042 Stage-1: B-1\u2705 B-2\u2705 B-3\u2705(#2756) B-4 in PR #2778 (operator-hold). Next tick: replenish queue toward 10-15 (DEC-046), process worker output from the audit briefs.",
   "quota_probe": "skip",
   "north_star_metrics": {
     "_schema": "dec042-north-star-v1",
     "_doc": "docs/skycot/decisions/DEC-042-continuous-self-improvement-loop.md#6",
-    "generated_utc": "2026-06-09T22:41:21Z",
+    "generated_utc": "2026-06-10T01:01:22Z",
     "build_loop": {
-      "merged_prs_per_day_7d": 13.57,
-      "merged_prs_last_7d": 95,
-      "merged_prs_last_24h": 20,
-      "open_prs": 1,
+      "merged_prs_per_day_7d": 14.71,
+      "merged_prs_last_7d": 103,
+      "merged_prs_last_24h": 28,
+      "open_prs": 4,
       "drift_rows": 0,
       "queue_depth": {
-        "todo": 4,
-        "claimed": 4,
-        "in_review": 1,
+        "todo": 3,
+        "claimed": 2,
+        "in_review": 4,
         "blocked": 28
       },
+      "recurring_nit_count": 17,
       "pct_done_claims_pass_cold_reverify": null,
       "mean_time_to_green_ci": null,
-      "defect_escape_rate": null,
-      "recurring_nit_count": null
+      "defect_escape_rate": null
     },
     "product_loop": {
       "teammate_task_success_rate": null,
@@ -47,8 +43,7 @@
       "build_loop": {
         "pct_done_claims_pass_cold_reverify": "B-2/B-4: needs a cold re-verify ledger (the NO-THEATER metric)",
         "mean_time_to_green_ci": "needs per-PR CI-start\u2192green timestamps",
-        "defect_escape_rate": "needs a main-branch defect tracker (bugs that reached main)",
-        "recurring_nit_count": "B-3: needs the automated rule-capture tally"
+        "defect_escape_rate": "needs a main-branch defect tracker (bugs that reached main)"
       },
       "product_loop": {
         "teammate_task_success_rate": "needs eval-harness graded-run rollup",
