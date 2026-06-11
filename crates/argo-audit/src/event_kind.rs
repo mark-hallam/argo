@@ -308,4 +308,14 @@ pub enum AuditKind {
     /// only the forensic breadcrumb that a question was asked and whether the
     /// uploaded knowledge could answer it.
     WorkerOnboardingQuizExchange,
+    /// A durable per-worker capability grant was loosened or tightened via
+    /// `POST|DELETE /api/v1/workers/<id>/capability-grants` (tg3 / tg3b). A
+    /// dedicated kind (rather than the generic [`Self::HttpRequest`]) so a SIEM
+    /// feed can isolate fence-changing events — this is the after-the-fact
+    /// control on a least-privilege-loosening surface. Tenant-scoped. Payload
+    /// carries `worker_id`, `tool`, `access`, `outcome`
+    /// (`granted`|`revoked`|`not_granted`), optional `request_id`, and the
+    /// verified `granted_by`/`revoked_by` session identity (never the raw
+    /// header). Denials keep [`Self::RbacDeny`]; this kind is success only.
+    WorkerCapabilityGrantChanged,
 }

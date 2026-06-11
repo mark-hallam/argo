@@ -4,46 +4,39 @@
 //!
 //! ## Why this exists
 //!
-//! Granting today is ONE-SHOT only: `POST .../run` with `approve_tools` mints
-//! session grants via `filter_to_worker_tool_set`
-//! ([`super::routes_worker_run_exec`]) that die with the session. The locked
-//! G2-Elevated grant card promises a DURABLE decision ("Nora can now read
-//! Contacts — revocable any time"). Re-approving every run is the
-//! assistant-not-teammate failure mode. This route makes the card's
-//! **Connect** durable, and adds revoke.
-//!
-//! ## How the grant becomes durable (zero new runtime wiring)
-//!
-//! The grant rewrites the worker's tenant-scoped Genesis manifest on disk,
-//! appending the granted tool to `[tools].allowed`. The runtime already reads
-//! that manifest each run via `argo_vertical::load_for_worker` →
-//! `argo_capability::WorkerCapabilityProfile::derive` → `permits_tool`, so a
-//! previously-fenced tool simply passes on the NEXT run. We REUSE that exact
-//! derivation rather than inventing a parallel grant store.
+//! Granting today is ONE-SHOT: `POST .../run` with `approve_tools` mints
+//! session grants ([`super::routes_worker_run_exec`]) that die with the
+//! session. The locked G2-Elevated card promises a DURABLE decision ("Nora can
+//! now read Contacts — revocable any time"); re-approving every run is the
+//! assistant-not-teammate failure mode. This route makes Connect durable + adds
+//! revoke by rewriting the worker's tenant-scoped Genesis manifest's
+//! `[tools].allowed`. The runtime already reads that manifest each run
+//! (`load_for_worker` → `WorkerCapabilityProfile::derive` → `permits_tool`), so
+//! a previously-fenced tool passes on the NEXT run — no parallel grant store.
 //!
 //! ## Safety invariants
 //!
-//! - **Owner only** ([`Action::WorkerCapabilityGrant`]) — it loosens the
-//!   least-privilege fence, so it is as sensitive as executor-promotion.
-//! - **Tenant-scoped, fail-closed** — the worker loads via the uniform-404
-//!   `IdentityStore::get_worker`, and the manifest resolves via
-//!   `load_for_worker` (which never crosses tenants). Only the per-tenant
-//!   Genesis pack (`verticals/.genesis/<tenant>/<vid>/`) is writable; a flat
-//!   SHARED vertical is refused (rewriting it would leak the grant to every
-//!   tenant using that role).
+//! - **Owner only** ([`Action::WorkerCapabilityGrant`]) — loosens the
+//!   least-privilege fence, as sensitive as executor-promotion.
+//! - **Tenant-scoped, fail-closed** — uniform-404 `IdentityStore::get_worker`;
+//!   the manifest resolves via `load_for_worker` (never cross-tenant). Only the
+//!   per-tenant Genesis pack (`verticals/.genesis/<tenant>/<vid>/`) is writable;
+//!   a flat SHARED vertical is refused. **tg3b**: before any write the resolved
+//!   root is canonicalized + asserted under the tenant subtree
+//!   ([`assert_tenant_contained`]) so a future free-text `vertical_id` can't
+//!   `..`-traverse into another tenant's pack.
 //! - **Deny-wins, never bypassable** — an [`argo_genesis::ALWAYS_DENIED_RUNTIME_TOOLS`]
-//!   tool (`code_execute` / `delegate_task` / `file_patch` / `process` /
-//!   `send_message` / `terminal`) is refused with an explicit error even when
-//!   requested, and after the append the always-denied strip is re-applied so
-//!   a colliding entry can never resurrect one. Tier-3 (computer-use) stays
-//!   the `executor_promotion` path (DEC-051) — this route never touches it.
-//! - **Audited both ways** — grant + revoke each emit an audit row carrying
-//!   the grantor principal + scope (tool + access), never a secret.
+//!   tool is refused even when requested, and the strip is re-applied after the
+//!   append. Tier-3 (computer-use) stays the `executor_promotion` path
+//!   (DEC-051) — this route never touches it.
+//! - **Audited both ways, audit-first** — grant + revoke emit a dedicated
+//!   [`AuditKind::WorkerCapabilityGrantChanged`] row carrying grantor + scope,
+//!   never a secret. **tg3b**: the row is written BEFORE the manifest mutates,
+//!   and a sink error fails the request (no silent fence-loosening).
 
 use super::role_gate::{enforce_role, resolve_role, Action};
-use super::routes_auth_principal::session_principal_id_for_audit;
 use super::{body_from_request, store_unavailable};
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::AuditKind;
 use argo_identity::user_tenant::UserTenantRole;
 use argo_identity::{IdentityStore, Worker, WorkerId};
 use argo_store::SessionStore;
@@ -76,7 +69,7 @@ pub(super) async fn post_capability_grant(
     // Security pin: an always-denied tool is refused with an explicit error,
     // never silently appended.
     if argo_genesis::ALWAYS_DENIED_RUNTIME_TOOLS.contains(&tool.to_ascii_lowercase().as_str()) {
-        emit_grant_audit(store, req, &worker, AuditKind::RbacDeny, "denied", &tool, grant.access, grant.request_id.as_deref()).await;
+        let _ = emit_grant_audit(store, req, &worker, AuditKind::RbacDeny, "denied", &tool, grant.access, grant.request_id.as_deref()).await;
         return always_denied(&tool);
     }
     let mut loaded = match load_genesis_pack(tenant, &worker).await {
@@ -86,13 +79,19 @@ pub(super) async fn post_capability_grant(
     // Deny-wins: a tool the manifest explicitly denies (always-denied set OR a
     // structural sensitive verb) can never be granted via this route.
     if manifest_denies(&loaded, &tool) {
-        emit_grant_audit(store, req, &worker, AuditKind::RbacDeny, "denied", &tool, grant.access, grant.request_id.as_deref()).await;
+        let _ = emit_grant_audit(store, req, &worker, AuditKind::RbacDeny, "denied", &tool, grant.access, grant.request_id.as_deref()).await;
         return always_denied(&tool);
+    }
+    // tg3b hardening 2 — audit is a HARD prerequisite, ordered BEFORE the write
+    // on this fence-LOOSENING surface: a sink error fails the request with NO
+    // grant written (fence stays closed). The converse (row written, rarer disk
+    // persist then fails) is fail-safe — the row over-records, never under.
+    if let Err(e) = emit_grant_audit(store, req, &worker, AuditKind::WorkerCapabilityGrantChanged, "granted", &tool, grant.access, grant.request_id.as_deref()).await {
+        return server_error(&format!("audit grant: {e}"));
     }
     if let Err(e) = append_and_persist(&mut loaded, &tool) {
         return server_error(&format!("persist grant: {e}"));
     }
-    emit_grant_audit(store, req, &worker, AuditKind::HttpRequest, "granted", &tool, grant.access, grant.request_id.as_deref()).await;
     ("200 OK", grant_response(&worker, &tool, grant.access, "granted"))
 }
 
@@ -119,12 +118,17 @@ pub(super) async fn delete_capability_grant(
         Ok(l) => l,
         Err(resp) => return resp,
     };
-    let removed = match remove_and_persist(&mut loaded, tool) {
-        Ok(r) => r,
-        Err(e) => return server_error(&format!("persist revoke: {e}")),
-    };
-    let outcome = if removed { "revoked" } else { "not_granted" };
-    emit_revoke_audit(store, req, &worker, tool, outcome).await;
+    // tg3b hardening 2 — audit-before-persist (same ordering as grant): compute
+    // the outcome, write the row, only then mutate. Sink error → request fails.
+    let outcome = if grant_present(&loaded, tool) { "revoked" } else { "not_granted" };
+    if let Err(e) = emit_revoke_audit(store, req, &worker, tool, outcome).await {
+        return server_error(&format!("audit revoke: {e}"));
+    }
+    if outcome == "revoked" {
+        if let Err(e) = remove_and_persist(&mut loaded, tool) {
+            return server_error(&format!("persist revoke: {e}"));
+        }
+    }
     ("200 OK", revoke_response(&worker, tool, outcome))
 }
 
@@ -250,7 +254,7 @@ async fn enforce_grant_role(
             "role": role,
             "capability": "worker.capability_grant",
         });
-        write_audit(store, req, worker, AuditKind::RbacDeny, payload).await;
+        let _ = write_audit(store, req, worker, AuditKind::RbacDeny, payload).await;
         return Err(resp);
     }
     Ok(())
@@ -283,6 +287,7 @@ async fn load_genesis_pack(
             .to_string(),
         ));
     }
+    assert_tenant_contained(&dir, tenant, &loaded.root)?;
     Ok(loaded)
 }
 
@@ -291,6 +296,39 @@ async fn load_genesis_pack(
 fn is_genesis_pack(root: &Path) -> bool {
     root.components()
         .any(|c| c.as_os_str() == std::ffi::OsStr::new(".genesis"))
+}
+
+/// tg3b hardening 1 — write-path containment. [`is_genesis_pack`] is only a
+/// substring check for a `.genesis` component, NOT containment: were
+/// `vertical_id` ever free text, a `..`-traversal still carrying `.genesis`
+/// could resolve `root` into ANOTHER tenant's subtree (cross-tenant manifest
+/// WRITE). Canonicalize `root` and this tenant's `<verticals>/.genesis/
+/// <sanitize(tenant)>/` subtree and refuse unless the former lives under the
+/// latter. Fail-closed: any canonicalize error refuses the write.
+fn assert_tenant_contained(
+    verticals_dir: &Path,
+    tenant: TenantId,
+    root: &Path,
+) -> Result<(), (&'static str, String)> {
+    let subtree = verticals_dir
+        .join(".genesis")
+        .join(argo_vertical::sanitize_tenant(&tenant.to_string()));
+    let canon_root = std::fs::canonicalize(root)
+        .map_err(|e| containment_refused(&format!("canonicalize manifest root: {e}")))?;
+    let canon_subtree = std::fs::canonicalize(&subtree)
+        .map_err(|e| containment_refused(&format!("canonicalize tenant subtree: {e}")))?;
+    if !canon_root.starts_with(&canon_subtree) {
+        return Err(containment_refused("manifest root escapes the tenant subtree"));
+    }
+    Ok(())
+}
+
+fn containment_refused(detail: &str) -> (&'static str, String) {
+    error_envelope(
+        "409 Conflict",
+        "manifest_root_out_of_tenant",
+        &format!("durable grant refused: {detail}"),
+    )
 }
 
 /// `true` when the manifest's `[tools].denied` already lists `tool` — deny
@@ -312,6 +350,16 @@ fn append_and_persist(loaded: &mut LoadedVertical, tool: &str) -> ArgoResult<()>
     }
     strip_always_denied(tools);
     persist(loaded)
+}
+
+/// `true` when `tool` is in `[tools].allowed` — lets the revoke path compute +
+/// audit its outcome BEFORE mutating the manifest (tg3b hardening 2).
+fn grant_present(loaded: &LoadedVertical, tool: &str) -> bool {
+    loaded
+        .manifest
+        .tools
+        .as_ref()
+        .is_some_and(|t| t.allowed.iter().any(|a| a == tool))
 }
 
 /// Remove `tool` from `[tools].allowed` and persist. Returns `true` if a grant
@@ -344,65 +392,9 @@ fn persist(loaded: &LoadedVertical) -> ArgoResult<()> {
         .map_err(|e| ArgoError::Io(format!("write vertical.toml: {e}")))
 }
 
-#[allow(clippy::too_many_arguments)]
-async fn emit_grant_audit(
-    store: &Arc<SessionStore>,
-    req: &str,
-    worker: &Worker,
-    kind: AuditKind,
-    outcome: &str,
-    tool: &str,
-    access: Access,
-    request_id: Option<&str>,
-) {
-    let payload = json!({
-        "endpoint": "worker.capability_granted",
-        "worker_id": worker.id.to_string(),
-        "tool": tool,
-        "access": access.as_str(),
-        "outcome": outcome,
-        "request_id": request_id,
-        "granted_by": session_principal_id_for_audit(req),
-    });
-    write_audit(store, req, worker, kind, payload).await;
-}
-
-async fn emit_revoke_audit(
-    store: &Arc<SessionStore>,
-    req: &str,
-    worker: &Worker,
-    tool: &str,
-    outcome: &str,
-) {
-    let payload = json!({
-        "endpoint": "worker.capability_revoked",
-        "worker_id": worker.id.to_string(),
-        "tool": tool,
-        "outcome": outcome,
-        "revoked_by": session_principal_id_for_audit(req),
-    });
-    write_audit(store, req, worker, AuditKind::HttpRequest, payload).await;
-}
-
-async fn write_audit(
-    store: &Arc<SessionStore>,
-    req: &str,
-    worker: &Worker,
-    kind: AuditKind,
-    payload: Value,
-) {
-    let sink = AuditSink::new_with_tenant(Arc::clone(store), worker.tenant_id.to_string());
-    if let Err(e) = sink
-        .write(None, kind, payload, session_principal_id_for_audit(req))
-        .await
-    {
-        tracing::warn!(
-            target: "gateway::worker_capability_grant",
-            error = %e,
-            "worker.capability_grant audit write failed"
-        );
-    }
-}
+#[path = "routes_worker_capability_grant_audit.rs"]
+mod audit;
+use audit::{emit_grant_audit, emit_revoke_audit, write_audit};
 
 fn grant_response(worker: &Worker, tool: &str, access: Access, outcome: &str) -> String {
     json!({

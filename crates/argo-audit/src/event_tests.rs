@@ -23,8 +23,8 @@ fn all_kind_count_tracks_declared_variants() {
     // VoiceTranscriptTurn (live-voice transcript persistence),
     // EnterpriseInquiryReceived (WS6-2 enterprise EOI capture), and
     // WorkerOnboardingQuizExchange (Genesis Phase 2 sandbox-quiz gate),
-    // and ApprovalVoteRecorded (N-of-M threshold per-vote ledger event).
-    assert_eq!(AuditKind::all().len(), 88);
+    // ApprovalVoteRecorded, and WorkerCapabilityGrantChanged (tg3b grant).
+    assert_eq!(AuditKind::all().len(), 89);
 }
 
 #[test]

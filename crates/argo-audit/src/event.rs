@@ -102,6 +102,7 @@ impl AuditKind {
             Self::VoiceTranscriptTurn => "voice.transcript_turn",
             Self::EnterpriseInquiryReceived => "enterprise.inquiry_received",
             Self::WorkerOnboardingQuizExchange => "worker.onboarding_quiz_exchange",
+            Self::WorkerCapabilityGrantChanged => "worker.capability_grant_changed",
         }
     }
 
@@ -199,6 +200,7 @@ impl AuditKind {
             "voice.transcript_turn" => Self::VoiceTranscriptTurn,
             "enterprise.inquiry_received" => Self::EnterpriseInquiryReceived,
             "worker.onboarding_quiz_exchange" => Self::WorkerOnboardingQuizExchange,
+            "worker.capability_grant_changed" => Self::WorkerCapabilityGrantChanged,
             _ => return None,
         })
     }
@@ -296,6 +298,7 @@ impl AuditKind {
             Self::VoiceTranscriptTurn,
             Self::EnterpriseInquiryReceived,
             Self::WorkerOnboardingQuizExchange,
+            Self::WorkerCapabilityGrantChanged,
         ];
         v.sort_by_key(|k| k.label());
         v

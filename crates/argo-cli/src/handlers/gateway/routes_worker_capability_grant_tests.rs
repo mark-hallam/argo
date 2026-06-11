@@ -292,6 +292,78 @@ async fn shared_catalog_role_is_refused() {
     assert_eq!(parse(&resp)["error"]["code"], "shared_role_not_grantable");
 }
 
+// ── tg3b hardening 1: write-path containment. A worker whose `vertical_id`
+//    `..`-traverses into ANOTHER tenant's `.genesis` subtree (still carrying a
+//    `.genesis` component, so the substring `is_genesis_pack` check passes) is
+//    refused BEFORE any write — the crafted root escapes the authenticated
+//    tenant's subtree.
+
+#[tokio::test]
+async fn manifest_root_escaping_tenant_subtree_is_refused_before_write() {
+    let (env, _own) = setup().await;
+    // A victim pack under a DIFFERENT tenant's slug.
+    let victim_tenant = TenantId::new();
+    let victim_slug = argo_vertical::sanitize_tenant(&victim_tenant.to_string());
+    let victim_dir = env
+        .verticals
+        .join(".genesis")
+        .join(&victim_slug)
+        .join("victim-vid");
+    std::fs::create_dir_all(&victim_dir).expect("victim dir");
+    let victim_manifest = victim_dir.join("vertical.toml");
+    std::fs::write(&victim_manifest, FENCED_MANIFEST.replace(VID, "victim-vid"))
+        .expect("write victim");
+    let before = std::fs::read_to_string(&victim_manifest).expect("read before");
+
+    // A worker under OUR tenant whose vertical_id traverses out of our slug into
+    // the victim's. `load_for_worker` resolves it (the genesis-tree branch loads
+    // the manifest at the computed path); `is_genesis_pack` passes (the path
+    // still contains `.genesis`); containment must catch the escape.
+    let traversal_vid = format!("../{victim_slug}/victim-vid");
+    let worker = Worker::draft(
+        env.tenant,
+        &traversal_vid,
+        Persona::named("Trav", "human:mark"),
+        Role::new("x"),
+    );
+    IdentityStore::new(&env.store)
+        .create_worker(&worker)
+        .await
+        .expect("create");
+    let body = format!(r#"{{"tool_or_connector":"{FENCED_TOOL}","access":"write"}}"#);
+    let req = grant_req(&worker.id, Some("owner"), &body);
+    let (status, resp) =
+        post_capability_grant(&worker.id.to_string(), &req, Some(&env.store)).await;
+    assert_eq!(status, "409 Conflict", "body: {resp}");
+    assert_eq!(parse(&resp)["error"]["code"], "manifest_root_out_of_tenant");
+    let after = std::fs::read_to_string(&victim_manifest).expect("read after");
+    assert_eq!(before, after, "the cross-tenant manifest must be untouched");
+}
+
+// ── tg3b hardening 2: audit is a hard prerequisite. When the sink errors the
+//    grant request FAILS (500) and the manifest on disk is unchanged — a grant
+//    can never persist without its audit row.
+
+#[tokio::test]
+async fn audit_sink_error_fails_grant_and_leaves_manifest_unchanged() {
+    let (env, worker) = setup().await;
+    assert!(!permits_on_next_run(&env, FENCED_TOOL), "tool starts fenced");
+    // Force the audit sink to error via the cfg(test) seam (process env is held
+    // under the shared env lock acquired in setup()).
+    std::env::set_var("SKYCOT_TEST_FORCE_AUDIT_SINK_ERROR", "1");
+    let body = format!(r#"{{"tool_or_connector":"{FENCED_TOOL}","access":"read"}}"#);
+    let req = grant_req(&worker.id, Some("owner"), &body);
+    let (status, resp) =
+        post_capability_grant(&worker.id.to_string(), &req, Some(&env.store)).await;
+    std::env::remove_var("SKYCOT_TEST_FORCE_AUDIT_SINK_ERROR");
+    assert_eq!(status, "500 Internal Server Error", "body: {resp}");
+    assert_eq!(parse(&resp)["error"]["code"], "internal_error");
+    assert!(
+        !permits_on_next_run(&env, FENCED_TOOL),
+        "no grant may persist when the audit row could not be written"
+    );
+}
+
 // ── Bad bodies.
 
 #[tokio::test]
