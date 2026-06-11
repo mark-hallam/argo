@@ -40,3 +40,8 @@ docs/personal-site/
 # PRs — root-fixed by gitignoring it (DEC-043). Regenerate locally to view:
 #   python3 scripts/render-feature-matrix.py
 docs/skycot/feature-matrix.html
+
+# Generated teammate-run artifact bundles (gateway worker-outputs tests + live
+# runs write .skycot/outputs/<job>/ relative to cwd). Never commit; stray
+# crate-level droppings poisoned the worker dirty-tree claim guard 2026-06-12.
+.skycot/
