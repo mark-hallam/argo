@@ -148,3 +148,20 @@ Re-ran the journey against the rebuilt gateway. VERIFIED LIVE (screenshots in tr
 Clicking **Run again** mints a **NEW session**, so the grants from the just-approved session do not apply, and the SAME tools are held again — an approve-A → run-B(held) → approve-B → run-C(held) cycle that never completes the work. Root cause: probation tool grants are **session-scoped** (`session_grants.allows`) while **every run creates a fresh session**. The day-1 fix made the dead-end *honest and one-click* but did not make it *converge*.
 
 **Root fix (the true day-1 closer):** the run-now request must accept the operator's pre-approved tool list and mint those one-shot session grants on the new run's session BEFORE the turn executes — so "Approve & run" is ONE atomic operator action that actually produces work. (RBAC unchanged: owner-gated; only the worker's own currently-held tools are grantable.) This is the `approve_tools` run-param seam noted in §Root-causes #1; the response side (`held_tools`) shipped, the request side is the remaining mile.
+
+---
+
+## 🔑🔑 THE ROOT CAUSE behind the root cause (found driving the converged loop live, 2026-06-11 PM)
+
+Even with the approve_tools loop converging, the live run showed `terminal` + `memory` **still held** and `actions_emitted: 0`. Ground truth from the run transcript: the teammate's tools were probation-held, the grant cleared nothing, because **there was nothing valid to grant**.
+
+**Root cause — Genesis materializes the WRONG tool vocabulary.** `crates/argo-genesis/src/materialize.rs:214-215` `build_tools`:
+```rust
+fn build_tools(actions: &ActionsSection) -> ToolsSection {
+    let allowed: Vec<String> = actions.actions.keys().cloned().collect();  // ACTION names!
+```
+It sets `[tools].allowed` to the teammate's **action names** (`scan_invoice`, `draft_reminder`, `classify_overdue`, …) — the business verbs. But `[tools].allowed` is the **runtime tool** allow-list the capability fence enforces (the in-core tools: `file_read`, `memory`, `web_search`, `terminal`, `code_execute`, `clarify`, …). A hand-authored vertical does it right: `bookkeeping-assistant/vertical.toml` → `allowed = ["file_read","web_search","web_extract"]`, `denied = ["terminal","file_patch","delegate_task"]`.
+
+**Consequence:** a Genesis-minted teammate's `WorkerCapabilityProfile` grants `ToolDispatch{scan_invoice}` (meaningless — no such runtime tool) and **does NOT grant `file_read`/`memory`/`web_search`** (the real tools the agent calls). The teammate can only ever use the 4 `MINIMAL_TEAMMATE_TOOLS` (clarify/memory/skill_view/skills_list). It is structurally incapable of reading a file, searching the web, or doing its job — regardless of probation, approvals, or fs_root. **This is THE mission blocker; everything above it (probation UX, approve_tools, fs_root) is necessary but not sufficient until this is fixed.**
+
+**Fix:** `build_tools` must emit the **runtime tools** the teammate's actions require (a conservative safe baseline — e.g. `file_read` + `memory` + `clarify` always; `web_search`/`web_extract` for research roles; `file_write` only when the role writes), with the dangerous tools denied by default (`terminal`, `file_patch`, `delegate_task`, `code_execute`) — matching the hand-authored pattern and the existing `MINIMAL_TEAMMATE_TOOLS`/deny-list machinery. This is a capability-fence change → must be adversarially reviewed (it must NEVER over-grant: deny-wins, no `terminal`/shell, no `delegate_task`, no write outside fs_root).
