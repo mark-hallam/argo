@@ -37,6 +37,7 @@ import { CompareMatrix, type Dimension } from "@/app/compare/CompareMatrix";
 import PricingPage from "@/app/pricing/page";
 import SecurityLayout from "@/app/security/layout";
 import SecurityPage from "@/app/security/page";
+import { renderWithProviders } from "@/test-utils/render";
 
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(THIS_DIR, "..", "..");
@@ -106,7 +107,7 @@ describe("public page polish", () => {
 
   it("renders pricing matrix and FAQ controls with accessible labels", () => {
     mockState.pathname = "/pricing";
-    render(<PricingPage />);
+    renderWithProviders(<PricingPage />);
 
     const table = screen.getByRole("table", { name: /pricing feature availability/i });
     expect(within(table).getByRole("columnheader", { name: "Enterprise" })).toBeInTheDocument();

@@ -94,6 +94,7 @@ vi.mock("@/components/ui/Avatar", () => ({
 
 import WorkspaceSettingsPage from "@/app/(app)/settings/workspace/page";
 import { UserPill } from "@/components/skycot/UserPill";
+import { renderWithProviders } from "@/test-utils/render";
 
 function stubClipboard() {
   const writeText = vi.fn().mockResolvedValue(undefined);
@@ -170,7 +171,7 @@ describe("UserPill tenant chip", () => {
   it("renders a tenant chip in the popover and copies the id on click", async () => {
     const writeText = stubClipboard();
     await act(async () => {
-      render(<UserPill />);
+      renderWithProviders(<UserPill />);
     });
 
     const trigger = screen.getByTestId("appshell-user-menu-trigger");
@@ -194,7 +195,7 @@ describe("UserPill tenant chip", () => {
     sessionRef.current = { ...sessionRef.current, tenantId: null };
     stubClipboard();
     await act(async () => {
-      render(<UserPill />);
+      renderWithProviders(<UserPill />);
     });
 
     const trigger = screen.getByTestId("appshell-user-menu-trigger");

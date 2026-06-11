@@ -36,6 +36,26 @@ vi.mock("@/lib/hooks/use-worker", () => ({
   useWorker: () => useWorkerMock(),
 }));
 
+// The escalation page reads its rule set from `useWorkerEscalations`
+// (a react-query hook). Tests render the page without a QueryClientProvider,
+// so the real hook threw "No QueryClient set". Mock it to resolve
+// synchronously from the page's own per-worker fallback seed (calling the
+// `fallbackRules` closure the page passes), tagged `mock-bypass` so the page
+// takes its anonymous-dev path and renders the sample history + trust series.
+vi.mock("@/lib/hooks/use-worker-escalations", () => ({
+  useWorkerEscalations: (
+    _workerId: string,
+    fallbackRules?: () => unknown,
+  ) => ({
+    data: {
+      policy: { rules: fallbackRules ? fallbackRules() : [] },
+      source: "mock-bypass",
+    },
+    isPending: false,
+    error: null,
+  }),
+}));
+
 import WorkerEscalationPage from "@/app/(app)/workers/[workerId]/escalation/page";
 
 const MARIAH: Worker = {
