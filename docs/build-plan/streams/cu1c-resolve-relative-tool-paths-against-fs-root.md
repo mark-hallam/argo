@@ -2,8 +2,29 @@
 
 **Owner**: claude — **SECURITY / capability-fence-adjacent → adversarial-review before merge, do NOT self-merge.**
 **Depends on**: cu1 (#2812, merged) + cu1b (dispatch-cwd jail alignment).
-**Authored against**: origin/main `31b8b56e8` on `2026-06-11`.
+**Authored against**: origin/main `31b8b56e8` on `2026-06-11`. **RE-SCOPED against `f9eb6bec3` on `2026-06-12`** (conductor: unblocked the 2026-06-11 BLOCK — see "Re-scope" below).
 **Validate before claim**: bash scripts/check-brief-freshness.sh cu1c-resolve-relative-tool-paths-against-fs-root
+
+## Re-scope 2026-06-12 (conductor — resolves the 2026-06-11 BLOCK)
+
+The original design assumed `required_capabilities(&self, args)` had a `ctx`
+param — it does not (`Tool` trait, `crates/argo-tool/src/tool.rs:210`; sole
+prod caller `registry.rs:207` passes args only). Threading `ctx` into the
+existing method = ~13 impls + ~34 call sites — out of scope. **Approved
+design instead: an ADDITIVE trait method with a default impl.**
+
+- Add `required_capabilities_in_ctx(&self, args, ctx) -> ...` to the `Tool`
+  trait with a default body that delegates to `required_capabilities(args)` —
+  every existing tool compiles untouched.
+- Switch the capability-check call site in `registry.rs` (:207 region) to the
+  `_in_ctx` variant (it has ctx there).
+- ONLY the three file tools (`file_read` / `file_write` / `file_patch`)
+  override it, applying the resolve-against-`ctx.workspace_root` logic below.
+
+May-touch is widened accordingly: + `crates/argo-tool/src/tool.rs` (additive
+trait method only) + `crates/argo-tool/src/registry.rs` (call-site swap only).
+Everything else in the original brief (the resolve semantics, deny-by-default,
+acceptance) stands unchanged.
 
 ## Goal (DEC-050 G1 polish)
 

@@ -1,8 +1,8 @@
 # fix-routing-decision-persist-wire
 
-**Owner**: codex.
-**Depends on**: `fix-routing-decision-tenant-scoping` MERGED (this brief threads the now-tenant-aware context through the sole production caller).
-**Authored against**: origin/main `0bf75c1a1` on `2026-05-25`.
+**Owner**: claude or codex (broadened from codex-only by conductor 2026-06-12 — claude pool is the active one).
+**Depends on**: `fix-routing-decision-tenant-scoping` — **MERGED #2264 on 2026-05-25 (squash `2f7b5df75`); dependency SATISFIED.**
+**Authored against**: origin/main `0bf75c1a1` on `2026-05-25`. **REVALIDATED against `f9eb6bec3` on `2026-06-12`** — conductor re-verified the premise by direct read: `turn_routing.rs:87` is still `let router = TieredRouter::new(classifier);` with zero `PersistingRouter` references in the file, and `PersistingRouter` still exists at `crates/argo-routing/src/persist.rs:14`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh fix-routing-decision-persist-wire`.
 
 🟡 **P1 CLAIM-5 RUNTIME.** Wrap `TieredRouter::new(classifier)` in `PersistingRouter` at the only production caller so `routing_decision` rows actually land in the database. Source: `eval-argo-routing-crate-surface` audit (#2115) — pinned FINDINGS-ONLY (b).
