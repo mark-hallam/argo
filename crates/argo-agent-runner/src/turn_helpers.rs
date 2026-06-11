@@ -207,7 +207,14 @@ pub(super) async fn run_turn_with_tools(
             dispatch_one_tool_call(
                 &ctx,
                 store,
-                cwd,
+                // cu1b (DEC-050 G1): jail the file tools to the worker's sandbox
+                // root (`ctx.dispatch_cwd` = `fs_root` when set, else the home
+                // `cwd`) so `path_guard::confine_path` admits exactly the paths
+                // the `Fs*{fs_root/**}` grant covers. cu1 redirected only the
+                // build-time cwd; the dispatch-time ToolContext kept the repo
+                // `cwd`, so every fs_root path was refused "outside the
+                // workspace root". Manifest/memory still load from home `cwd`.
+                &ctx.dispatch_cwd,
                 session_id,
                 audit,
                 spend,

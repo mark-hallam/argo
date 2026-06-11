@@ -51,6 +51,13 @@ pub(super) struct TurnDispatchCtx {
     /// its probation window. Resolved once at session boot; consulted on
     /// every tool dispatch to force approval-gating during probation.
     pub(super) probation: crate::turn_vertical_fence::ProbationStatus,
+    /// cu1b (DEC-050 G1): the file-tool jail root for this turn — `fs_root`
+    /// when the worker has a sandbox, else the home `cwd`. cu1 redirected the
+    /// build-time cwd (registry/engine) to this; the DISPATCH-time ToolContext
+    /// (what `path_guard::confine_path` checks) must use the SAME root, or the
+    /// granted `Fs*{fs_root/**}` capability is unreachable behind a repo-cwd
+    /// jail. Manifest/memory/truth-boundary still load from the home `cwd`.
+    pub(super) dispatch_cwd: std::path::PathBuf,
 }
 
 /// Assemble the dispatch registry, system prompt, tools, and
@@ -173,6 +180,7 @@ pub(super) async fn build_turn_dispatch_ctx(
     // default is unchanged. `cwd` is still used above for manifest / memory /
     // truth-boundary loading (those live in the home dir, not the sandbox).
     let dispatch_cwd: &Path = fs_root_path.unwrap_or(cwd);
+    let dispatch_cwd_owned = dispatch_cwd.to_path_buf();
     let (registry, engine, principal) = build_dispatch_ctx(
         dispatch_cwd,
         memory_ctx,
@@ -218,6 +226,7 @@ pub(super) async fn build_turn_dispatch_ctx(
         orch_session_id,
         current_handoff_id,
         probation: signals.probation,
+        dispatch_cwd: dispatch_cwd_owned,
     })
 }
 
