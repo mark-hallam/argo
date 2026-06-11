@@ -88,6 +88,8 @@ fn run_request(tenant_id: TenantId, worker_id: argo_identity::WorkerId) -> Macos
         system_prompt: "noop".into(),
         audit_dir: PathBuf::from("/tmp/cross-tenant-audit-never-written"),
         anthropic_api_key: "test-key-never-used".into(),
+        // Tenant gate refuses before the loop runs; value is immaterial.
+        act_approved: false,
     }
 }
 

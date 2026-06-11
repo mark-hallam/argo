@@ -93,6 +93,16 @@ fn dispatch_on_platform(
         system_prompt: build_system_prompt(action, decl),
         audit_dir: bundle_path.clone(),
         anthropic_api_key: anthropic_api_key()?,
+        // Risk-tiered floor (DEC-051): the auto-dispatch path never
+        // pre-approves ACT operations. The executor runs AUTONOMOUS ops
+        // (observe + STAGE input — screenshot, scroll, cursor-move,
+        // `type`) on its own, and holds at the first ACT op — the
+        // committing primitives click/`key`(incl Enter-as-submit)/drag/
+        // navigate/app-launch — returning HumanHandoff (mapped to a
+        // handoff bundle below) regardless of the manifest's
+        // `requires_approval` / `risk`.
+        // The operator's "Approve & run" (#2818) is the only grant.
+        act_approved: false,
     };
     let outcome = run_blocking(exec, req)?;
     map_macos_outcome(action, cwd, decl, outcome)

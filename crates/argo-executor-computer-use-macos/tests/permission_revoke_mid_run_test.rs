@@ -143,6 +143,9 @@ fn run_request(audit_dir: std::path::PathBuf) -> MacosCuRunRequest {
         system_prompt: "Type two notes; the second is doomed.".into(),
         audit_dir,
         anthropic_api_key: "test-key".into(),
+        // Approved run: this test exercises the permission-revoke audit
+        // chain across ACT ops, not the risk-tiered approval floor.
+        act_approved: true,
     }
 }
 

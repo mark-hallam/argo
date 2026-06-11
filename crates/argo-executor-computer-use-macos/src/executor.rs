@@ -59,6 +59,17 @@ pub struct MacosCuRunRequest {
     pub system_prompt: String,
     pub audit_dir: PathBuf,
     pub anthropic_api_key: String,
+    /// Risk-tiered computer-use floor (DEC-051): when `false` (the
+    /// default), the executor holds at the FIRST ACT operation (click,
+    /// type, key, drag, scroll, mouse input, app launch, mutating
+    /// osascript) and returns [`MacosCuOutcome::HumanHandoff`] — even
+    /// when the manifest stamped `requires_approval = false`. OBSERVE
+    /// operations (screenshots, etc.) run autonomously regardless. The
+    /// operator's "Approve & run" (#2818) sets this `true` and re-runs,
+    /// resuming past the floor. `#[serde(default)]` keeps the floor
+    /// fail-closed for any payload authored before this field existed.
+    #[serde(default)]
+    pub act_approved: bool,
 }
 
 /// Outcome polarity matches the E2B executor.

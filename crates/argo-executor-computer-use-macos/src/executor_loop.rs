@@ -33,7 +33,11 @@ where
     A: AnthropicCall + ?Sized,
 {
     runner.preflight().await?;
-    let mut state = LoopState::new(req.system_prompt.clone(), runner.warm_up(session).await?);
+    let mut state = LoopState::new(
+        req.system_prompt.clone(),
+        runner.warm_up(session).await?,
+        req.act_approved,
+    );
     audit.save_screenshot(0, &state.screenshot)?;
     loop {
         let responses = anthropic.step(step_request(profile, &state)).await?;
@@ -54,15 +58,20 @@ pub(crate) struct LoopState {
     steps: Vec<MacosStepRecord>,
     screenshot: Vec<u8>,
     system_prompt: String,
+    /// Risk-tiered floor (DEC-051): once `true` (operator's "Approve &
+    /// run"), ACT operations execute; while `false`, the loop holds at
+    /// the first ACT op and returns `HumanHandoff`.
+    act_approved: bool,
 }
 
 impl LoopState {
-    fn new(system_prompt: String, screenshot: Vec<u8>) -> Self {
+    fn new(system_prompt: String, screenshot: Vec<u8>, act_approved: bool) -> Self {
         Self {
             prior_actions: Vec::new(),
             steps: Vec::new(),
             screenshot,
             system_prompt,
+            act_approved,
         }
     }
 }
@@ -145,6 +154,26 @@ async fn handle_tool_call<R>(
 where
     R: CuStepRunner + ?Sized,
 {
+    // Risk-tiered computer-use floor (DEC-051, operator-locked). ACT
+    // operations (click, double_click, `key`/hold_key incl Enter-as-
+    // submit, drag, navigate, app launch, mutating osascript) are
+    // approval-gated regardless of the manifest's self-asserted
+    // `requires_approval` / `risk`. AUTONOMOUS operations — observe
+    // (screenshot/OCR/enumerate/wait) plus navigate/STAGE input
+    // (scroll, cursor-move, `type`) — fall through and execute; typed
+    // text only commits once the gated submit (`key`/click) is approved.
+    // Unknown → Act (fail closed). The held screenshots captured before
+    // this point are NOT wasted — they inform the operator's review.
+    if crate::cu_risk::classify(&action).is_act() && !state.act_approved {
+        return Ok(Some(MacosCuExecutor::handoff(
+            format!(
+                "computer-use floor: ACT operation `{}` held for operator approval \
+                 (risk-tiered floor, DEC-051) — Approve & run to resume",
+                action_kind(&action)
+            ),
+            state.steps.clone(),
+        )));
+    }
     if let BudgetVerdict::Exhausted { reason } = tracker.charge_step(tokens_used) {
         return Ok(Some(MacosCuExecutor::handoff(reason, state.steps.clone())));
     }

@@ -65,16 +65,23 @@ are BINDING prerequisites on the operator flag-flip (NOT on the merged wiring):
    when a tenant has zero workspaces it falls back to a cwd-derived workspace,
    discarding `worker.tenant_id` — a tenant-binding smell to close when arming.
 
-4. **Computer-use approval floor (DEC-050 G3 / #2816 review, 2026-06-11).** The
-   inline auto-execution gate (`!requires_approval && risk==low`) stamps those
-   fields verbatim from the manifest declaration — so a manifest can self-declare
-   an autonomous, no-approval `computer_use_native_macos` action, which would
-   drive the host Mac with NO approval the moment this flag flips. Platform-enforce
-   a floor BEFORE the flip: at validation require `requires_approval=true` for the
-   `computer_use*` executor family, AND make `is_auto_eligible_with_flag` treat any
-   computer-use executor as never-auto-eligible (belt-and-suspenders), + a negative
-   test. No real manifest declares autonomous computer-use today, so the floor is
-   non-breaking. (cu3/#2816 — register the macOS executor — is HELD pending this.)
+4. **Computer-use approval floor — ✅ RESOLVED via [[DEC-051]] (cu-risk-tiered-computer-use-floor).**
+   The risk was: the inline auto-execution gate (`!requires_approval && risk==low`)
+   stamps those fields verbatim from the manifest, so a manifest could self-declare
+   an autonomous, no-approval `computer_use_native_macos` action and drive the host
+   Mac with NO approval the moment this flag flips. The operator chose risk-tiering
+   (DEC-051) over manifest-validation: the floor is now bound to the OPERATION's
+   reversibility and enforced **in the macOS CU run loop** (`cu_risk::classify` +
+   the `act_approved` gate in `executor_loop.rs`). OBSERVE ops (screenshot/cursor/
+   read/wait) run autonomously; the loop returns `HumanHandoff` at the FIRST ACT op
+   (click/type/key/drag/scroll/mouse/launch/mutating-osascript) unless the request
+   is explicitly approved — regardless of the manifest's `requires_approval`/`risk`.
+   Both the CLI auto-dispatch path and the gateway inline cu-macos path construct
+   the request with `act_approved=false`, so neither can self-approve host control.
+   Unblocks cu3/#2816 (register the macOS executor). **Residual (smaller follow-up,
+   NOT a flip-blocker):** non-macOS computer-use executors (E2B) are not on the v1
+   path and are not yet covered by an `is_auto_eligible_with_flag` belt-and-suspenders;
+   add that floor if/when an E2B cu executor is wired to the inline run path.
 5. **Tenant-blind cu-macos audit (pre-existing).** The inline path runs cu-macos
    via `MacosCuExecutor::new_unguarded` with `TenantId(nil)`, so its audit rows
    land under the nil tenant rather than the real one. Single-host, limited blast

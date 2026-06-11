@@ -54,6 +54,7 @@
 
 pub mod a11y;
 pub mod config;
+pub mod cu_risk;
 pub mod error;
 pub mod events;
 pub mod executor;
@@ -66,6 +67,7 @@ pub mod screenshot;
 pub mod tenant;
 
 pub use config::{MacosCuConfig, ScreenshotCompression};
+pub use cu_risk::{classify, classify_kind, CuRiskTier};
 pub use error::MacosCuError;
 pub use executor::MacosStepRecord as StepRecord;
 pub use executor::{
