@@ -35,7 +35,7 @@
 
 mod common;
 use common::listener_signal::{await_listener_signal, StderrDrain};
-use common::{argo_bin, http_get, pick_free_port};
+use common::{argo_bin, pick_free_port};
 
 use base64::Engine;
 use jsonwebtoken::{EncodingKey, Header};
@@ -50,6 +50,14 @@ const NAME: &str = "csrf-pin";
 const EDITOR: &str = "human:csrf-pin@example.com";
 const JWT_SECRET: &str = "csrf-pin-secret-do-not-use-in-prod";
 const SMOKE_DB_KEY_B64: &str = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=";
+// Operator bearer token configured on the gateway boot so the readiness
+// probe + the two *mutating setup* requests can authenticate at the WS5
+// fail-closed perimeter (`require_identity`) via `Authorization: Bearer`
+// WITHOUT a `__Host-session` cookie — which keeps the CSRF gate inert on
+// those setup steps (it only fires for cookie-session callers). See the
+// auth-transport note in the brief
+// `fix-workflow-execute-csrf-test-auth-post-ws5`.
+const OPERATOR_BEARER: &str = "csrf-pin-operator-bearer-token-do-not-use-in-prod";
 
 const SAMPLE_TOML: &str = r#"schema_version = "1"
 [workflow]
@@ -105,6 +113,24 @@ fn boot_with_jwt_secret(port: u16, max_requests: u32) -> (Child, StderrDrain) {
         .env("ANTHROPIC_API_KEY", "sk-ant-csrf-pin")
         .env("SKYCOT_DB_KEY_BASE64", SMOKE_DB_KEY_B64)
         .env("SKYCOT_AUTH_JWT_SECRET", JWT_SECRET)
+        // Configure an operator bearer token so the readiness probe + the
+        // mutating setup requests can clear the WS5 fail-closed perimeter
+        // (`require_identity`) via `Authorization: Bearer` without a session
+        // cookie. The cookie-session execute requests are unaffected:
+        // `require_identity` accepts a valid `__Host-session` cookie before
+        // it ever reaches the bearer check.
+        .env("ARGO_GATEWAY_BEARER_TOKEN", OPERATOR_BEARER)
+        // The operator bearer token clears the perimeter but is not a
+        // session JWT, so it carries no role. Explicitly trust the
+        // `X-Argo-Role` header (the documented reverse-proxy-stamped-role
+        // opt-in) so the bearer-authed setup requests resolve to `owner`
+        // for the `workflow.edit` RBAC gate. The spawned gateway is a
+        // release binary (`cfg!(test)` is false in the child process), so
+        // without this opt-in the header is ignored and the role falls
+        // through to Guest → 403. The cookie-session execute requests are
+        // unaffected: their role comes from the verified JWT claims, which
+        // `resolve_role` reads ahead of any header.
+        .env("ARGO_GATEWAY_TRUST_ROLE_HEADER", "1")
         .args([
             "gateway",
             "start",
@@ -122,7 +148,16 @@ fn boot_with_jwt_secret(port: u16, max_requests: u32) -> (Child, StderrDrain) {
         std::env::set_var("ARGO_TEST_LISTENER_DEADLINE_MS", "60000");
     }
     let drain = await_listener_signal(stderr).expect("gateway listener signal");
-    let resp = http_get(port, "/sessions");
+    // `/sessions` is a protected GET (not on the public allowlist), so the
+    // probe must authenticate at the perimeter. Bearer-auth it (no cookie)
+    // exactly like the mutating setup requests below.
+    let bearer_header = format!("Bearer {OPERATOR_BEARER}");
+    let resp = http(
+        port,
+        "GET /sessions HTTP/1.1",
+        "",
+        &[("Authorization", bearer_header.as_str())],
+    );
     assert!(
         resp.contains("HTTP/1.1 200 OK"),
         "gateway store not ready: {resp}"
@@ -189,7 +224,15 @@ fn workflow_execute_csrf_gate() {
     let (mut child, _drain) = boot_with_jwt_secret(port, 4);
 
     // ── Setup: create a workflow definition + set head via bearer ──
+    // `Authorization: Bearer {operator-token}` clears the WS5 perimeter
+    // without a session cookie, so the CSRF gate stays inert on these
+    // mutating setup steps (it only fires for `__Host-session` callers).
+    // The `X-Argo-Principal` / `X-Argo-Role` headers are still honored by
+    // the workflow route to stamp the editor identity — they are not
+    // cross-checked against the bearer token on this route.
+    let bearer_header = format!("Bearer {OPERATOR_BEARER}");
     let bearer = [
+        ("Authorization", bearer_header.as_str()),
         ("X-Argo-Principal", EDITOR),
         ("X-Argo-Role", "owner"),
     ];
