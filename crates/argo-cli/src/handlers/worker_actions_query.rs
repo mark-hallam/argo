@@ -165,9 +165,91 @@ pub(crate) async fn collect_latest_actions(
             registry.list().map(|(id, _)| id.to_string()).collect()
         }
     };
+    latest_actions_in(&memory, workspace, &vertical_ids).await
+}
 
+/// cu1g (DEC-050): tenant-aware variant for gateway surfaces. The
+/// cwd+flat-only [`collect_latest_actions`] can never see a Genesis
+/// teammate's actions — the rows live in the TENANT's workspace (not the
+/// cwd/demo one) under a `.genesis/<tenant>/<vid>` vertical id the flat
+/// registry never enumerates. Resolves the tenant's workspace (cwd
+/// fallback for the demo/anonymous path, mirroring
+/// `routes_worker_run_exec::resolve_workspace`) and scans flat + the
+/// tenant's own genesis vertical ids.
+pub(crate) async fn collect_latest_actions_for_tenant(
+    store: &Arc<SessionStore>,
+    tenant_id: argo_types::TenantId,
+    vertical: Option<&str>,
+) -> ArgoResult<Vec<ActionRecord>> {
+    let workspace = workspace_for_tenant(store, tenant_id).await?;
+    let memory = MemoryStore::new(Arc::clone(store));
+    let vertical_ids: Vec<String> = match vertical {
+        Some(v) => vec![v.to_string()],
+        None => {
+            let dir = resolve_verticals_dir();
+            let mut ids: Vec<String> = match argo_vertical::load_dir(&dir) {
+                Ok((registry, _errors)) => {
+                    registry.list().map(|(id, _)| id.to_string()).collect()
+                }
+                Err(_) => Vec::new(),
+            };
+            ids.extend(genesis_vertical_ids_for_tenant(
+                &dir,
+                &tenant_id.to_string(),
+            ));
+            ids
+        }
+    };
+    latest_actions_in(&memory, workspace, &vertical_ids).await
+}
+
+/// Resolve the workspace a tenant's action rows live in: the tenant's
+/// own workspace when one is registered, else the cwd workspace (the
+/// demo / anonymous path, where the caller's tenant IS the cwd tenant).
+pub(crate) async fn workspace_for_tenant(
+    store: &Arc<SessionStore>,
+    tenant_id: argo_types::TenantId,
+) -> ArgoResult<argo_types::WorkspaceId> {
+    if let Some(ws) = store.first_workspace_for_tenant(tenant_id).await? {
+        return Ok(ws);
+    }
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let (_tenant, ws) = store
+        .ensure_workspace(name, &cwd.to_string_lossy())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("ensure_workspace: {e}")))?;
+    Ok(ws)
+}
+
+/// List the vertical ids materialized under the tenant's OWN
+/// `.genesis/<sanitized-tenant>/` segment (exact dir — never a
+/// cross-tenant scan). Empty when the tenant has no genesis tree.
+pub(crate) fn genesis_vertical_ids_for_tenant(dir: &std::path::Path, tenant_id: &str) -> Vec<String> {
+    let seg = dir
+        .join(".genesis")
+        .join(argo_vertical::sanitize_tenant(tenant_id));
+    let Ok(entries) = std::fs::read_dir(&seg) else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().join("vertical.toml").is_file())
+        .filter_map(|e| e.file_name().to_str().map(str::to_string))
+        .collect()
+}
+
+/// Shared latest-wins fold over `(workspace, vertical_ids)` memory rows.
+async fn latest_actions_in(
+    memory: &MemoryStore,
+    workspace: argo_types::WorkspaceId,
+    vertical_ids: &[String],
+) -> ArgoResult<Vec<ActionRecord>> {
     let mut latest: HashMap<String, ActionRecord> = HashMap::new();
-    for vid in &vertical_ids {
+    for vid in vertical_ids {
         let entries = memory
             .list_for_vertical(workspace, MemoryFile::Memory, vid)
             .await?;

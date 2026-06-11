@@ -33,10 +33,11 @@ use super::routes_approvals_json_helpers::{
 };
 use super::routes_auth_principal::principal_id_for_audit;
 use crate::handlers::worker_actions::{ActionRecord, ActionState};
-use crate::handlers::worker_actions_auto_approval::draft_content_from_payload;
-use crate::handlers::worker_actions_query::collect_latest_actions;
+use crate::handlers::worker_actions_query::{
+    collect_latest_actions, collect_latest_actions_for_tenant, workspace_for_tenant,
+};
 use crate::handlers::worker_actions_transitions::{
-    self, find_action, open_workspace_memory, open_workspace_memory_with_store,
+    self, find_action_for_tenant, open_workspace_memory_with_store,
 };
 use argo_audit::{AuditKind, AuditSink};
 use argo_memory::MemoryFile;
@@ -82,9 +83,26 @@ pub(super) async fn list_response(
         Err(resp) => return resp,
     };
     let cursor = parse_query(tail, "cursor").and_then(|c| decode_cursor(&c));
-    let actions = match collect_latest_actions(None).await {
-        Ok(v) => v,
-        Err(e) => return server_error(&format!("collect actions: {e}")),
+    // cu1g (DEC-050): read the CALLER's tenant workspace (genesis-aware)
+    // when a store is available — the cwd+flat-only collect can never see
+    // a Genesis teammate's held actions (wrong workspace AND its
+    // `.genesis/<tenant>/<vid>` id is never enumerated). No store (legacy
+    // test harness path) keeps the old behavior.
+    let actions = match store {
+        Some(s) => {
+            let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, s).await {
+                Ok(t) => t,
+                Err(e) => return server_error(&format!("resolve tenant: {e}")),
+            };
+            match collect_latest_actions_for_tenant(s, tenant, None).await {
+                Ok(v) => v,
+                Err(e) => return server_error(&format!("collect actions: {e}")),
+            }
+        }
+        None => match collect_latest_actions(None).await {
+            Ok(v) => v,
+            Err(e) => return server_error(&format!("collect actions: {e}")),
+        },
     };
     let pending: Vec<ActionRecord> = actions
         .into_iter()
@@ -201,14 +219,28 @@ pub(super) async fn decide_response(approval_id: &str, req: &str) -> (&'static s
         "refuse" => "refuse",
         _ => return bad_request("decision must be \"approve\" or \"refuse\""),
     };
-    let (memory, ws, store) = match open_workspace_memory_with_store().await {
+    let (memory, _cwd_ws, store) = match open_workspace_memory_with_store().await {
         Ok(p) => p,
         Err(e) => return server_error(&format!("open workspace: {e}")),
     };
-    let Some(located) = (match find_action(&memory, ws, approval_id).await {
-        Ok(v) => v,
-        Err(e) => return server_error(&format!("find_action: {e}")),
-    }) else {
+    // cu1g (DEC-050): decide in the CALLER's tenant workspace with the
+    // genesis-aware lookup — a Genesis teammate's held action lives in
+    // the tenant workspace under a `.genesis` vertical id, both invisible
+    // to the cwd+flat-only pair this handler used before.
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, &store).await {
+        Ok(t) => t,
+        Err(e) => return server_error(&format!("resolve tenant: {e}")),
+    };
+    let ws = match workspace_for_tenant(&store, tenant).await {
+        Ok(w) => w,
+        Err(e) => return server_error(&format!("workspace: {e}")),
+    };
+    let Some(located) =
+        (match find_action_for_tenant(&memory, ws, approval_id, &tenant.to_string()).await {
+            Ok(v) => v,
+            Err(e) => return server_error(&format!("find_action: {e}")),
+        })
+    else {
         return not_found(approval_id);
     };
     if !located.record.requires_approval {
@@ -306,14 +338,26 @@ pub(super) async fn undo_response(approval_id: &str, req: &str) -> (&'static str
     if let Some(deny) = enforce_role(req, RbacAction::ApprovalUndo) {
         return deny;
     }
-    let (memory, ws) = match open_workspace_memory().await {
+    let (memory, _cwd_ws, store) = match open_workspace_memory_with_store().await {
         Ok(p) => p,
         Err(e) => return server_error(&format!("open workspace: {e}")),
     };
-    let Some(located) = (match find_action(&memory, ws, approval_id).await {
-        Ok(v) => v,
-        Err(e) => return server_error(&format!("find_action: {e}")),
-    }) else {
+    // cu1g (DEC-050): same tenant-aware resolution as decide — undo must
+    // find (and write back) the row in the caller's tenant workspace.
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, &store).await {
+        Ok(t) => t,
+        Err(e) => return server_error(&format!("resolve tenant: {e}")),
+    };
+    let ws = match workspace_for_tenant(&store, tenant).await {
+        Ok(w) => w,
+        Err(e) => return server_error(&format!("workspace: {e}")),
+    };
+    let Some(located) =
+        (match find_action_for_tenant(&memory, ws, approval_id, &tenant.to_string()).await {
+            Ok(v) => v,
+            Err(e) => return server_error(&format!("find_action: {e}")),
+        })
+    else {
         return not_found(approval_id);
     };
     if located.record.state == ActionState::Pending.as_str() {
@@ -355,108 +399,11 @@ pub(super) async fn undo_response(approval_id: &str, req: &str) -> (&'static str
     )
 }
 
-fn approval_row_json(rec: &ActionRecord) -> Value {
-    // The frontend `ApprovalItem` shape (web/lib/sample-approvals.ts)
-    // carries UX-specific fields (verb / detail / consequences / reason)
-    // that don't yet exist on `ActionRecord`. v1 derives placeholders
-    // from the record fields available; J3+ ship the structured prompt
-    // pack that feeds these directly.
-    let action_type = rec.action_type.replace('_', " ");
-    let detail = rec
-        .payload
-        .as_object()
-        .and_then(|m| m.get("summary").or_else(|| m.get("text")))
-        .and_then(Value::as_str)
-        .map(str::to_string)
-        .unwrap_or_else(|| short_payload(&rec.payload));
-    let draft_content = draft_content_from_payload(&rec.payload)
-        .map(Value::String)
-        .unwrap_or(Value::Null);
-    json!({
-        "id": rec.action_id,
-        "worker": {
-            "id": rec.worker_id.to_string(),
-            "name": rec.worker_id.to_string(),
-            "avatar_url": Value::Null,
-        },
-        "verb": format!("wants to {action_type}"),
-        "detail": detail,
-        "consequence_if_yes": "",
-        "consequence_if_no": "",
-        "reason": Value::Null,
-        "draft_content": draft_content,
-        "channel": "web",
-        "received_at": rec.created_at,
-        "decision": Value::Null,
-        "risk_level": rec.risk_level,
-    })
-}
-
-fn decision_from_record(rec: &ActionRecord) -> Option<String> {
-    // An approval-gated action that was approved carries `approved_by`,
-    // and the cu5 approve-and-run path then advances it through
-    // executing → completed|failed — transitions that PRESERVE
-    // `approved_by`. Treat any `approved_by`-stamped row as an "approve"
-    // decision so a re-decide stays idempotent (200, not a spurious 409)
-    // and undo still recognises the row as JSON-API-decided even after it
-    // has executed.
-    if rec.approved_by.is_some() {
-        return Some("approve".to_string());
-    }
-    match rec.state.as_str() {
-        s if s == ActionState::Cancelled.as_str() => rec
-            .result
-            .as_ref()
-            .and_then(|r| r.pointer("/cancellation/note"))
-            .and_then(Value::as_str)
-            .and_then(|n| {
-                // Structured form (post-RBAC-role-gate brief): JSON
-                // string with `"decision":"refuse"` and the
-                // `decider_role` claim.
-                if let Ok(v) = serde_json::from_str::<Value>(n) {
-                    if v.get("decision").and_then(Value::as_str) == Some("refuse") {
-                        return Some("refuse".to_string());
-                    }
-                }
-                // Legacy form: plain `"decision:refuse"` prefix.
-                n.starts_with("decision:refuse")
-                    .then(|| "refuse".to_string())
-            }),
-        _ => None,
-    }
-}
-
-/// Extract the recorded decider role from an action's audit memory row.
-///
-/// Returns `None` for legacy rows that pre-date the
-/// `mission-rbac-approvals-decide-role-gate` audit stamp (where the
-/// `approval_note` / `cancellation.note` field carried only a
-/// free-form string). New rows carry a JSON-encoded note containing
-/// `decider_role`; this helper deserialises that field for the
-/// audit-feed and SPA caller layers.
+#[path = "routes_approvals_json_format.rs"]
+mod fmt;
+use fmt::{approval_row_json, decision_from_record};
 #[cfg(test)]
-pub(super) fn decider_role_from_record(rec: &ActionRecord) -> Option<String> {
-    let note = match rec.state.as_str() {
-        s if s == ActionState::Approved.as_str() => rec
-            .result
-            .as_ref()
-            .and_then(|r| r.get("approval_note"))
-            .and_then(Value::as_str)?,
-        s if s == ActionState::Cancelled.as_str() => rec
-            .result
-            .as_ref()
-            .and_then(|r| r.pointer("/cancellation/note"))
-            .and_then(Value::as_str)?,
-        _ => return None,
-    };
-    serde_json::from_str::<Value>(note)
-        .ok()
-        .and_then(|v| {
-            v.get("decider_role")
-                .and_then(Value::as_str)
-                .map(String::from)
-        })
-}
+use fmt::decider_role_from_record;
 
 #[cfg(test)]
 #[path = "routes_approvals_json_tests.rs"]

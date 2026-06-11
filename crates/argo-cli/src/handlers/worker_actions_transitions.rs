@@ -46,7 +46,7 @@ use serde_json::Value;
 use std::sync::Arc;
 
 pub(crate) use super::worker_actions_transitions_lookup::{
-    find_action, full_history, LocatedAction,
+    find_action, find_action_for_tenant, full_history, LocatedAction,
 };
 
 /// Workspace bootstrap shared by every transition handler. Opens

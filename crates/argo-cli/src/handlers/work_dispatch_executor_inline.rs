@@ -167,14 +167,18 @@ async fn resolve_for(
     rec: &ActionRecord,
 ) -> ArgoResult<Box<dyn Executor>> {
     let dir = super::vertical::resolve_verticals_dir();
-    let (registry, _errors) = argo_vertical::load_dir(&dir)?;
-    let loaded = registry.get(vertical_id).ok_or_else(|| {
-        argo_types::ArgoError::Provider(format!(
-            "inline dispatch: vertical '{vertical_id}' not loaded — cannot resolve executor for \
-             action_type '{}'",
-            rec.action_type
-        ))
-    })?;
+    // cu1g (DEC-050): genesis-aware resolve — flat catalog first, then the
+    // tenant's own `.genesis/<tenant>/<vid>/` (fail-closed cross-tenant).
+    // The flat-only registry lookup made every approved Genesis action
+    // fail dispatch with "vertical not loaded".
+    let loaded = argo_vertical::load_for_worker(&dir, &tenant.to_string(), vertical_id)
+        .ok_or_else(|| {
+            argo_types::ArgoError::Provider(format!(
+                "inline dispatch: vertical '{vertical_id}' not loadable for tenant '{tenant}' — \
+                 cannot resolve executor for action_type '{}'",
+                rec.action_type
+            ))
+        })?;
     resolve_executor_with_promotion(
         store,
         tenant,
