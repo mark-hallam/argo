@@ -139,6 +139,14 @@ async fn finish_run(
         }
         Err(e) => return server_error(&format!("audit lookup: {e}")),
     };
+    // Day-1 unblock fix 2 (additive): surface probation holds to the SPA.
+    // `held_tools` is derived from the ProbationHold audit rows the
+    // dispatch gate wrote for THIS run's session (the honest source —
+    // never the model's say-so); `probation` reports whether the worker
+    // was inside its probation window for this run.
+    let held_tools = held_tools_for_session(store, tenant, &outcome.session_id).await;
+    let probation =
+        argo_identity::is_in_probation(&worker.persona.provenance_chain, Utc::now());
     let body = json!({
         "action_id": audit_hex,
         "audit_id": audit_hex,
@@ -147,8 +155,48 @@ async fn finish_run(
         "status": outcome.status,
         "chars": outcome.chars,
         "queued_at": queued_at.to_rfc3339(),
+        "held_tools": held_tools,
+        "probation": probation,
     });
     ("200 OK", body.to_string())
+}
+
+/// Unique tool names the probation gate held during `session_id`'s run,
+/// in first-hold order — read back from the `probation.hold` audit rows
+/// [`argo_agent_runner`]'s dispatch gate wrote (`emit_probation_hold`).
+/// Empty when nothing was held, when the run recorded no session, or on
+/// any read error (additive response field — never fails the response).
+async fn held_tools_for_session(
+    store: &Arc<SessionStore>,
+    tenant: &TenantId,
+    session_id: &str,
+) -> Vec<String> {
+    let Ok(session_uuid) = Uuid::parse_str(session_id) else {
+        return Vec::new();
+    };
+    let rows: Vec<String> = sqlx::query_scalar(
+        "SELECT payload_json FROM audit_record \
+         WHERE tenant_id = ? AND session_id = ? AND kind = 'probation.hold' \
+         ORDER BY created_at ASC",
+    )
+    .bind(tenant.to_string())
+    .bind(session_uuid.as_bytes().as_slice())
+    .fetch_all(store.pool())
+    .await
+    .unwrap_or_default();
+    let mut tools: Vec<String> = Vec::new();
+    for raw in rows {
+        let Some(tool) = serde_json::from_str::<Value>(&raw)
+            .ok()
+            .and_then(|v| v.get("tool").and_then(Value::as_str).map(str::to_string))
+        else {
+            continue;
+        };
+        if !tools.contains(&tool) {
+            tools.push(tool);
+        }
+    }
+    tools
 }
 
 /// The turn prompt: the operator's `note` when it carries text, else a

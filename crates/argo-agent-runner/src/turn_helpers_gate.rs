@@ -179,10 +179,13 @@ pub(super) async fn emit_probation_hold(
         )
         .await?;
     emit_event(events, "ProbationHold", payload);
+    // Remediation copy is UI-first (the operator hiring from the SPA is
+    // a web user, not a CLI user); the CLI command stays as the
+    // parenthesised alternative so terminal operators keep their path.
     Ok(argo_tool::error_text(
         call.id,
         format!(
-            "tool '{}' is held: this teammate is in its Genesis probation window, so every action requires human approval until probation ends. Run `argo session approve <session-id> --tool {}` (add --once for a single-dispatch grant) and re-issue the turn, or wait for probation to clear.",
+            "tool '{}' is held: this teammate is in its probation window, so every action requires human approval until probation ends. Approve its tools from the teammate's page in the app (or run: `argo session approve <session-id> --tool {}`, add --once for a single-dispatch grant) and re-issue the turn, or wait for probation to clear.",
             call.name, call.name
         ),
         0,
