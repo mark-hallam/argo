@@ -132,3 +132,19 @@ SPA probation card + approve path, decide-toast execution outcome, done-page
 truth, schedules disarmed hint. The `approve_tools` run-param seam lands at
 integration (this file's §Root-causes #1). Everything else above is queued as
 follow-up briefs with this document as the evidence base.
+
+---
+
+## Live re-verification after the day-1 merge (`cf2b199`, 2026-06-11 PM)
+
+Re-ran the journey against the rebuilt gateway. VERIFIED LIVE (screenshots in transcript):
+
+- **Fix 4 (name)** ✅ — re-minted teammate's review header reads **"Ava"** (the persona), not "Chase" (charter first word).
+- **Fix 4b (honest schedules)** ✅ — worker page now reads "Schedules run automatically once the platform's scheduler is armed — to get work moving today, use Run now."
+- **Fix 2 (held_tools/probation) + SPA card** ✅ — Run now on a probationary teammate now shows a **"24h probation" chip** + a **"Needs your approval"** card listing the exact held tools (`terminal`, `memory`) with a one-click **[Approve tools]**, replacing the old false-green "running" toast and the CLI-command remediation.
+- **In-SPA approve path** ✅ — `POST /api/sessions/<id>/approve` 200 per tool (no CLI); card flips to "Tools approved → Run again".
+
+### 🔑 KEYSTONE GAP found by the live re-run (loop does not converge)
+Clicking **Run again** mints a **NEW session**, so the grants from the just-approved session do not apply, and the SAME tools are held again — an approve-A → run-B(held) → approve-B → run-C(held) cycle that never completes the work. Root cause: probation tool grants are **session-scoped** (`session_grants.allows`) while **every run creates a fresh session**. The day-1 fix made the dead-end *honest and one-click* but did not make it *converge*.
+
+**Root fix (the true day-1 closer):** the run-now request must accept the operator's pre-approved tool list and mint those one-shot session grants on the new run's session BEFORE the turn executes — so "Approve & run" is ONE atomic operator action that actually produces work. (RBAC unchanged: owner-gated; only the worker's own currently-held tools are grantable.) This is the `approve_tools` run-param seam noted in §Root-causes #1; the response side (`held_tools`) shipped, the request side is the remaining mile.
