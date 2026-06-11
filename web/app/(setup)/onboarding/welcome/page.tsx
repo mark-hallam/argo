@@ -38,8 +38,8 @@ export default function OnboardingWelcomePage() {
       ]}
       sub={
         <>
-          A guided interview so your teammate starts right the first time &mdash;
-          with your role, playbook, and guardrails ready before they start.
+          A guided interview to onboard your first AI teammate &mdash; your role,
+          playbook, and guardrails ready before they start.
         </>
       }
     >
@@ -62,7 +62,7 @@ export default function OnboardingWelcomePage() {
             <p className="ob-pillar-body">
               Describe the role in plain English; Skycot synthesises charter,
               action vocabulary, memory schema, and eval suites &mdash; a real
-              teammate ready to start work.
+              teammate ready to start work in minutes.
             </p>
           </li>
           <li className="ob-pillar" data-testid="onboarding-step-preview-hire">

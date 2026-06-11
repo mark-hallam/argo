@@ -373,7 +373,7 @@ export function AuthEditorialShell({
         .form-error {
           font-size: 13px;
           /* A11Y-3: error TEXT uses the darker --brand-coral-text (>=4.5:1 on
-             the #fafaff page); decorative --coral (#ff6b6b) stays elsewhere. */
+             the --background page); decorative --coral stays elsewhere. */
           color: var(--brand-coral-text);
           margin: -8px 0 8px;
         }
@@ -384,7 +384,7 @@ export function AuthEditorialShell({
           background: var(--gradient);
           color: var(--brand-gradient-foreground);
           /* QA A11Y-4 (operator call): lift the white label on the gradient. */
-          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+          text-shadow: 0 1px 2px color-mix(in oklab, black 35%, transparent);
           border: none;
           font-size: 15px;
           font-weight: 700;
@@ -444,8 +444,8 @@ export function AuthEditorialShell({
           justify-content: center;
           font-family: var(--font-mono);
           font-size: 11px;
-          /* A11Y-P2-4: trust-strip caption TEXT routed from --ink-4 (#a1a1aa,
-             ~2.46:1) to --ink-3 (#52525b, 7.43:1). --ink-4 stays for hairlines. */
+          /* A11Y-P2-4: trust-strip caption TEXT routed from --ink-4 (~2.46:1)
+             to --ink-3 (7.43:1). --ink-4 stays for hairlines. */
           color: var(--ink-3);
           letter-spacing: 0.06em;
           text-transform: uppercase;

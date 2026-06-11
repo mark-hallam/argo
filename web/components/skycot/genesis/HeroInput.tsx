@@ -187,7 +187,7 @@ export function HeroInput({ value, onChange, onSubmit, isBusy }: HeroInputProps)
           height: 9px;
           border-radius: 50%;
           background: #ef4444;
-          animation: gen-hero-pulse 1.1s ease-in-out infinite;
+          animation: gen-hero-pulse 1.1s var(--motion-ease) infinite;
         }
         @keyframes gen-hero-pulse {
           0%,

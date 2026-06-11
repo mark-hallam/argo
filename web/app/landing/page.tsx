@@ -191,6 +191,9 @@ export default function MarketingLandingPage() {
               truth-bounded, enterprise-grade.
             </p>
             <div className="land-hero-waitlist">
+              <p className="land-hero-waitlist-label">
+                Hire your first teammate
+              </p>
               <WaitlistForm source="landing-hero" size="lg" />
             </div>
             <div className="land-hero-actions">

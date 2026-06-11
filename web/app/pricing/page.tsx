@@ -109,8 +109,8 @@ const TIERS: TierCard[] = [
       "On-prem / single-binary deploy",
     ],
     cta: "Talk to sales",
-    signedOutHref: "#enterprise-inquiry",
-    signedInHref: "#enterprise-inquiry",
+    signedOutHref: "mailto:hello@skycot.com?subject=Skycot%20Enterprise%20inquiry",
+    signedInHref: "mailto:hello@skycot.com?subject=Skycot%20Enterprise%20inquiry",
   },
 ];
 

@@ -808,6 +808,15 @@
 .land-hero-waitlist {
   margin: 4px 0 18px;
 }
+.land-hero-waitlist-label {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
 .land-final-sub {
   max-width: 540px;
   margin: 0 auto 24px;
@@ -1022,7 +1031,7 @@
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.05em;
-  color: #fff;
+  color: var(--brand-gradient-foreground);
   background: rgba(0,0,0,0.32);
   backdrop-filter: blur(6px);
   border: 1px solid rgba(255,255,255,0.22);
