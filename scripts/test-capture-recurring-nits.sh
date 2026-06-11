@@ -98,6 +98,47 @@ assert written==[], f"unexpected drafts_written: {written}"
 '
 check "idempotence: captured pattern no longer emitted" $?
 
+# --- Test 4: resolved patterns excluded from findings, listed under `resolved` --
+# A pattern whose fixing `fix-*` row has MERGED must NOT count toward
+# recurring_nit_count (the append-only ledger would otherwise ratchet it up
+# forever); an unresolved pattern with no fix row must still surface.
+RES_LEDGER="$TMP/BUILD_STATUS_resolved.md"
+RES_STREAMS="$TMP/streams_resolved"
+mkdir -p "$RES_STREAMS"
+cat > "$RES_LEDGER" <<'EOF'
+| Brief | Owner | Status | PR | Last update |
+|---|---|---|---|---|
+| brief-r1 | claude | MERGED | #10 | feature. Boundary: pre-existing legacy_resolved_nit clippy blocker, outside diff. |
+| brief-r2 | claude | MERGED | #11 | feature. pre-existing legacy_resolved_nit clippy error remains. |
+| brief-r3 | codex | MERGED | #12 | boundary note: pre-existing legacy_resolved_nit flake in untouched file. |
+| fix-legacy-resolved-nit-cleanup | claude | MERGED | #13 | shipped the fix for legacy_resolved_nit; lint now clean. |
+| brief-u1 | claude | MERGED | #14 | feature. Boundary: pre-existing still_recurring_nit clippy blocker, outside diff. |
+| brief-u2 | claude | MERGED | #15 | feature. pre-existing still_recurring_nit clippy error remains. |
+| brief-u3 | codex | MERGED | #16 | boundary note: pre-existing still_recurring_nit flake in untouched file. |
+EOF
+
+OUT4="$(python3 "$CAPTURE" --no-git --ledger "$RES_LEDGER" --streams-dir "$RES_STREAMS" \
+  --known-flakes "$KNOWN" --threshold 3 2>/dev/null)"
+
+echo "$OUT4" | python3 -c '
+import json,sys
+d=json.load(sys.stdin)
+finds={f["pattern"] for f in d["findings"]}
+res={r["pattern"] for r in d.get("resolved",[])}
+assert "legacy_resolved_nit" not in finds, f"resolved pattern leaked into findings: {finds}"
+assert "legacy_resolved_nit" in res, f"resolved pattern missing from resolved: {res}"
+assert "still_recurring_nit" in finds, f"unresolved pattern missing from findings: {finds}"
+assert "still_recurring_nit" not in res, f"unresolved pattern wrongly resolved: {res}"
+assert d["recurring_nit_count"]==len(d["findings"]), "count must exclude resolved"
+'
+check "resolved: MERGED fix-* row excludes its nit from findings; unresolved still surfaces" $?
+
+# --quiet count drops to 1 (only the unresolved nit), not 2
+QC4="$(python3 "$CAPTURE" --no-git --ledger "$RES_LEDGER" --streams-dir "$RES_STREAMS" \
+  --known-flakes "$KNOWN" --threshold 3 --quiet 2>/dev/null)"
+[[ "$QC4" == "1" ]]
+check "resolved: --quiet count excludes the resolved nit (got '$QC4', want 1)" $?
+
 # --- summary -------------------------------------------------------------------
 echo ""
 echo "capture-recurring-nits self-test: $PASS passed, $FAIL failed"

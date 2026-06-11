@@ -48,6 +48,13 @@ NIT_MARKER = re.compile(r"pre-existing|boundary.?note|known.?flake|\bflake\b", r
 TOKEN = re.compile(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)+")
 TRAILING_TEST = re.compile(r"_tests?$")
 
+# A nit is RESOLVED once a brief that fixes/captures it has MERGED. Such a brief
+# is named `fix-…<slug>…` or `capture-<slug>` (slug = pattern with `-` for `_`).
+# Resolved patterns are split out of `findings` (and `recurring_nit_count`) so
+# the append-only ledger's history can't keep counting a nit after its fix
+# ships — without this, the B-3 metric is an up-only ratchet (the brief premise).
+RESOLVED_PREFIXES = ("fix-", "capture-", "rebase-")
+
 # Process / infrastructure vocabulary that shows up *inside* nit notes but is
 # not itself a recurring nit. Kept deliberately small: real test/file/lint
 # identifiers must NOT be suppressed (those are the nits we want to surface).
@@ -126,6 +133,51 @@ def ledger_notes(ledger: Path) -> list[str]:
     return notes
 
 
+def ledger_rows(ledger: Path) -> list[tuple[str, str]]:
+    """`(brief_id, status)` for real (non-header) BUILD_STATUS.md rows.
+
+    Columns are `| Brief | Owner | Status | PR | Last update |`, so the brief-id
+    is `cells[1]` and the status is `cells[3]`. The note cell can itself contain
+    `|`, which is why callers must not rely on a fixed `cells[5]`; here we only
+    need the first three fixed columns.
+    """
+    rows: list[tuple[str, str]] = []
+    try:
+        text = ledger.read_text(encoding="utf-8")
+    except OSError:
+        return rows
+    for line in text.splitlines():
+        if not line.startswith("| "):
+            continue
+        cells = line.split("|")
+        if len(cells) < 7:
+            continue
+        brief = cells[1].strip()
+        if not brief or brief.startswith("**"):
+            continue
+        rows.append((brief, cells[3].strip().upper()))
+    return rows
+
+
+def resolved_patterns(patterns: set[str], ledger: Path) -> set[str]:
+    """Patterns whose fixing `fix-*`/`capture-*` ledger row is already MERGED.
+
+    A pattern `p` is resolved when a MERGED row's brief-id starts with a
+    `RESOLVED_PREFIXES` value AND carries `p`'s hyphen-slug as a whole `-`-bounded
+    segment (so `await_holding_lock` matches `fix-await-holding-lock-…` but a
+    short slug can't spuriously match an unrelated brief mid-word).
+    """
+    merged = [b for (b, st) in ledger_rows(ledger) if st == "MERGED" and b.startswith(RESOLVED_PREFIXES)]
+    resolved: set[str] = set()
+    for pattern in patterns:
+        needle = "-" + pattern.replace("_", "-") + "-"
+        for brief in merged:
+            if needle in "-" + brief + "-":
+                resolved.add(pattern)
+                break
+    return resolved
+
+
 def pr_body_notes(count: int) -> list[str]:
     """Last `count` merged-PR commit bodies on origin/main (best-effort)."""
     raw = _run(["git", "log", f"-n{count}", "--format=%B%x1e", "origin/main"])
@@ -142,8 +194,15 @@ def already_captured(pattern: str, streams: Path, known_text: str) -> bool:
 
 
 def collect_findings(
-    notes: list[str], threshold: int, streams: Path, known_text: str
-) -> list[dict]:
+    notes: list[str], threshold: int, streams: Path, known_text: str, ledger: Path
+) -> tuple[list[dict], list[dict]]:
+    """`(findings, resolved)` — actionable nits and ones whose fix has MERGED.
+
+    Resolved patterns are split out so they no longer pollute `findings` or
+    `recurring_nit_count`; they are still surfaced (count-only) under `resolved`
+    for visibility. Without this split the append-only ledger keeps counting a
+    nit forever after its fix ships, making the B-3 metric an up-only ratchet.
+    """
     counts: Counter[str] = Counter()
     examples: dict[str, list[str]] = defaultdict(list)
     for note in notes:
@@ -151,11 +210,24 @@ def collect_findings(
             counts[tok] += 1
             if len(examples[tok]) < 3:
                 examples[tok].append(" ".join(note.split())[:160])
+    candidates = [
+        (pattern, count)
+        for pattern, count in counts.most_common()
+        if count >= threshold and not already_captured(pattern, streams, known_text)
+    ]
+    resolved_set = resolved_patterns({p for p, _ in candidates}, ledger)
     findings: list[dict] = []
-    for pattern, count in counts.most_common():
-        if count < threshold:
-            continue
-        if already_captured(pattern, streams, known_text):
+    resolved: list[dict] = []
+    for pattern, count in candidates:
+        if pattern in resolved_set:
+            resolved.append(
+                {
+                    "pattern": pattern,
+                    "count": count,
+                    "slug": slug_for(pattern),
+                    "resolved_by": "MERGED fix-*/capture-* ledger row",
+                }
+            )
             continue
         findings.append(
             {
@@ -170,7 +242,7 @@ def collect_findings(
                 ),
             }
         )
-    return findings
+    return findings, resolved
 
 
 def draft_body(finding: dict, threshold: int, sha: str, today: str) -> str:
@@ -251,7 +323,9 @@ def main(argv: list[str]) -> int:
     except OSError:
         known_text = ""
 
-    findings = collect_findings(notes, args.threshold, args.streams_dir, known_text)
+    findings, resolved = collect_findings(
+        notes, args.threshold, args.streams_dir, known_text, args.ledger
+    )
 
     written: list[str] = []
     if args.draft:
@@ -268,6 +342,7 @@ def main(argv: list[str]) -> int:
         "threshold": args.threshold,
         "recurring_nit_count": len(findings),
         "findings": findings,
+        "resolved": resolved,
         "drafts_written": written,
     }
     print(json.dumps(payload, indent=2))
