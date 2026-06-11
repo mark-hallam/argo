@@ -32,14 +32,15 @@ use serde_json::json;
 use std::sync::Arc;
 
 /// Finalise an approve / refuse decision after the worker-action
-/// state-machine transition has succeeded: resolve the request tenant,
-/// then either audit the decline (refuse) or audit the grant + execute
-/// the held action (approve, cu5 · DEC-050 G5). Factored out of
+/// state-machine transition has succeeded: using the request tenant
+/// resolved by the caller, either audit the decline (refuse) or audit
+/// the grant + execute the held action (approve, cu5 · DEC-050 G5).
+/// Factored out of
 /// [`super::routes_approvals_json::decide_response`] to keep that handler
 /// under the 80-LOC function budget.
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn finalize_decision(
-    req: &str,
+    tenant: TenantId,
     store: &Arc<SessionStore>,
     memory: &MemoryStore,
     workspace: WorkspaceId,
@@ -49,10 +50,9 @@ pub(super) async fn finalize_decision(
     actor: &str,
     approval_id: &str,
 ) -> (&'static str, String) {
-    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store.as_ref()).await {
-        Ok(t) => t,
-        Err(e) => return server_error(&format!("resolve tenant: {e}")),
-    };
+    // cu1h (DEC-050 #6): the request tenant is resolved once in
+    // `decide_response` and threaded in here — this path previously
+    // re-resolved it from `req`, a redundant (and fallible) second pass.
     if decision == "refuse" {
         if let Err(e) =
             emit_approval_declined(store, &tenant.to_string(), actor, &located.record, decided).await

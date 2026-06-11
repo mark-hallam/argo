@@ -232,7 +232,11 @@ pub(super) async fn decide_response(approval_id: &str, req: &str) -> (&'static s
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
     let ws = match workspace_for_tenant(&store, tenant).await {
-        Ok(w) => w,
+        // cu1h (DEC-050 #1): no workspace for this tenant → the action
+        // cannot live anywhere this caller may touch. Fail closed as a
+        // not-found rather than falling through to the demo workspace.
+        Ok(Some(w)) => w,
+        Ok(None) => return not_found(approval_id),
         Err(e) => return server_error(&format!("workspace: {e}")),
     };
     let Some(located) =
@@ -288,7 +292,7 @@ pub(super) async fn decide_response(approval_id: &str, req: &str) -> (&'static s
         // resolve the request tenant first.
         Ok(decided) => {
             super::routes_approvals_execute::finalize_decision(
-                req, &store, &memory, ws, decision, &located, &decided, &actor, approval_id,
+                tenant, &store, &memory, ws, decision, &located, &decided, &actor, approval_id,
             )
             .await
         }
@@ -349,7 +353,11 @@ pub(super) async fn undo_response(approval_id: &str, req: &str) -> (&'static str
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
     let ws = match workspace_for_tenant(&store, tenant).await {
-        Ok(w) => w,
+        // cu1h (DEC-050 #1): no workspace for this tenant → the action
+        // cannot live anywhere this caller may touch. Fail closed as a
+        // not-found rather than falling through to the demo workspace.
+        Ok(Some(w)) => w,
+        Ok(None) => return not_found(approval_id),
         Err(e) => return server_error(&format!("workspace: {e}")),
     };
     let Some(located) =

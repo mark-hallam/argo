@@ -152,9 +152,23 @@ pub fn sanitize_tenant(tenant_id: &str) -> String {
 pub fn load_for_worker(root: &Path, tenant_id: &str, vertical_id: &str) -> Option<LoadedVertical> {
     // Flat catalog first — preserves exact existing flat semantics
     // (registry keys by the manifest's `id`, not the directory name).
-    if let Ok((registry, _errors)) = load_dir(root) {
-        if let Some(loaded) = registry.get(vertical_id) {
-            return Some(loaded.clone());
+    // cu1h (DEC-050 #5): the flat catalog is best-effort here (a Genesis
+    // tree below may still resolve the worker), but surface a `load_dir`
+    // failure to stderr rather than swallowing it — the old non-worker
+    // path logged it, and a silent flat-catalog failure otherwise looks
+    // identical to "vertical simply not present." Matches the crate's
+    // documented `eprintln!`-on-load-error idiom (see lib.rs).
+    match load_dir(root) {
+        Ok((registry, _errors)) => {
+            if let Some(loaded) = registry.get(vertical_id) {
+                return Some(loaded.clone());
+            }
+        }
+        Err(e) => {
+            eprintln!(
+                "load_for_worker: flat catalog at {} failed to load: {e}",
+                root.display()
+            );
         }
     }
     // Tenant-scoped Genesis tree. Exact dir — never a cross-tenant scan.

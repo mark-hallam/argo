@@ -181,7 +181,11 @@ pub(crate) async fn collect_latest_actions_for_tenant(
     tenant_id: argo_types::TenantId,
     vertical: Option<&str>,
 ) -> ArgoResult<Vec<ActionRecord>> {
-    let workspace = workspace_for_tenant(store, tenant_id).await?;
+    // Fail closed: an authenticated tenant with no workspace of its own
+    // sees an empty action list, never the shared cwd/demo workspace's.
+    let Some(workspace) = workspace_for_tenant(store, tenant_id).await? else {
+        return Ok(Vec::new());
+    };
     let memory = MemoryStore::new(Arc::clone(store));
     let vertical_ids: Vec<String> = match vertical {
         Some(v) => vec![v.to_string()],
@@ -209,25 +213,44 @@ pub(crate) async fn collect_latest_actions_for_tenant(
 }
 
 /// Resolve the workspace a tenant's action rows live in: the tenant's
-/// own workspace when one is registered, else the cwd workspace (the
-/// demo / anonymous path, where the caller's tenant IS the cwd tenant).
+/// own provisioned workspace when one is registered, else the cwd
+/// workspace **only when the caller IS the cwd/anonymous tenant** (the
+/// demo path). Returns `None` for any other tenant with no workspace.
+///
+/// cu1h (DEC-050 #1, fail-open fix): the old version fell straight
+/// through to the cwd/demo workspace for ANY tenant with no provisioned
+/// row, so a session-authenticated tenant whose provisioning row was
+/// (theoretically) missing would read/decide the demo workspace's held
+/// actions — a cross-tenant read, contrary to fail-closed doctrine. The
+/// cwd workspace is legitimate ONLY for the cwd tenant itself (the
+/// anonymous/demo path, where the caller's tenant IS the cwd tenant), so
+/// the fallback is now gated on a tenant-identity match. Provisioning
+/// always writes a workspace row today (`tenant_provision.rs`), so this
+/// is fail-closed defence in depth, not a live-bug fix.
 pub(crate) async fn workspace_for_tenant(
     store: &Arc<SessionStore>,
     tenant_id: argo_types::TenantId,
-) -> ArgoResult<argo_types::WorkspaceId> {
+) -> ArgoResult<Option<argo_types::WorkspaceId>> {
     if let Some(ws) = store.first_workspace_for_tenant(tenant_id).await? {
-        return Ok(ws);
+        return Ok(Some(ws));
     }
+    // No provisioned row. Resolve the cwd workspace AND its owning tenant
+    // in one `ensure_workspace` call; only hand it back when the caller is
+    // that same cwd tenant. Any other (authenticated) tenant fails closed
+    // to `None` — never the shared demo workspace.
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let name = cwd
         .file_name()
         .and_then(|s| s.to_str())
         .unwrap_or("workspace");
-    let (_tenant, ws) = store
+    let (cwd_tenant, cwd_ws) = store
         .ensure_workspace(name, &cwd.to_string_lossy())
         .await
         .map_err(|e| ArgoError::Provider(format!("ensure_workspace: {e}")))?;
-    Ok(ws)
+    if cwd_tenant == tenant_id {
+        return Ok(Some(cwd_ws));
+    }
+    Ok(None)
 }
 
 /// Shared latest-wins fold over `(workspace, vertical_ids)` memory rows.
@@ -283,4 +306,62 @@ async fn lookup_max_attempts(action_type: &str) -> Option<u32> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn migrated_store() -> Arc<SessionStore> {
+        let store = SessionStore::open_unencrypted_for_tests(":memory:")
+            .await
+            .expect("open test store");
+        store.migrate().await.expect("migrate");
+        Arc::new(store)
+    }
+
+    /// cu1h (DEC-050 #1, fail-open fix): a session-authenticated tenant
+    /// with NO provisioned workspace resolves to `None` — never the
+    /// shared cwd/demo workspace. This is the cross-read the old fall-open
+    /// allowed.
+    #[tokio::test]
+    async fn workspace_for_tenant_authenticated_no_workspace_is_none() {
+        let store = migrated_store().await;
+        let stranger = argo_types::TenantId::new();
+        let ws = workspace_for_tenant(&store, stranger)
+            .await
+            .expect("resolve");
+        assert!(
+            ws.is_none(),
+            "a tenant with no workspace must not borrow the cwd/demo workspace"
+        );
+    }
+
+    /// A tenant that owns a provisioned workspace still resolves to its
+    /// own — the fail-closed gate only suppresses the cwd fallback, it
+    /// does not change the happy path.
+    #[tokio::test]
+    async fn workspace_for_tenant_returns_own_provisioned_workspace() {
+        let store = migrated_store().await;
+        // `ensure_workspace` mints a fresh tenant for a new root_path and
+        // inserts the row; `first_workspace_for_tenant` then finds it.
+        let (tenant, ws) = store
+            .ensure_workspace("own", "tenant://cu1h/own")
+            .await
+            .expect("ensure workspace");
+        let got = workspace_for_tenant(&store, tenant).await.expect("resolve");
+        assert_eq!(got, Some(ws));
+    }
+
+    /// And the action collector returns an empty list (not the cwd
+    /// workspace's actions) for the stranger tenant.
+    #[tokio::test]
+    async fn collect_latest_actions_for_stranger_tenant_is_empty() {
+        let store = migrated_store().await;
+        let stranger = argo_types::TenantId::new();
+        let actions = collect_latest_actions_for_tenant(&store, stranger, None)
+            .await
+            .expect("collect");
+        assert!(actions.is_empty());
+    }
 }
