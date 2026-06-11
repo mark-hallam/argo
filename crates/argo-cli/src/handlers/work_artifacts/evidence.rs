@@ -15,22 +15,37 @@
 //!
 //! ## Heuristics (deliberately conservative)
 //!
-//! For the gate to PASS (i.e. evidence is sufficient):
-//!   * at least one `web_search` call returned ≥ 1 hit, AND
-//!   * `web_extract` cumulatively returned ≥ 200 chars of
-//!     readable body across all calls.
+//! For the gate to PASS (i.e. evidence is sufficient), EITHER:
+//!   * web evidence — at least one `web_search` call returned ≥ 1
+//!     hit AND `web_extract` cumulatively returned ≥ 200 chars of
+//!     readable body across all calls; OR
+//!   * file evidence — at least one successful `file_read` call
+//!     returned ≥ 100 chars cumulatively
+//!     (`cu1e-evidence-gate-accept-file-evidence-for-fs-scoped-workers`:
+//!     evidence requirements must be keyed to the evidence-producing
+//!     tools the worker can actually use — an fs-scoped AR clerk that
+//!     read the real invoice file IS grounded; forcing it to web-search
+//!     to "prove" the invoice it just read is theater, DEC-029).
 //!
-//! That bar is low — one search hit + one fetched article is
-//! enough to count as "we did SOMETHING". Below that, we
-//! conclude the worker was guessing.
+//! Either bar is low — one search hit + one fetched article, or one
+//! real file read, is enough to count as "we worked from SOMETHING".
+//! Below both, we conclude the worker was guessing; an approval-gated
+//! action with zero grounding still lands `blocked`.
 //!
-//! Tool-result bodies are recognised by their JSON shape (the
+//! Web tool-result bodies are recognised by their JSON shape (the
 //! actual web tools serialise `{"backend":..,"result_count":..}`
-//! / `{"url":..,"char_count":..}` payloads). We pattern-match
-//! on those keys rather than threading tool name through the
-//! session, which keeps this module standalone.
+//! / `{"url":..,"char_count":..}` payloads). `file_read` results are
+//! raw file text with no self-describing shape, so those are attributed
+//! via the assistant rows' `tool_use` blocks (`{"type":"tool_use",
+//! "id":..,"name":"file_read"}`) matched to their `tool_result` ids.
 
 use serde_json::Value;
+use std::collections::HashSet;
+
+/// Minimum cumulative chars a successful `file_read` must return for
+/// file evidence to count (one short-but-real document clears it; an
+/// empty/whitespace read does not).
+const FILE_EVIDENCE_MIN_CHARS: u32 = 100;
 
 #[derive(Debug, Clone, Default, serde::Serialize)]
 pub(super) struct EvidenceSummary {
@@ -45,21 +60,38 @@ pub(super) struct EvidenceSummary {
     pub web_extract_failed: u32,
     /// Sum of `char_count` across all successful extracts.
     pub web_extract_total_chars: u32,
+    /// Successful `file_read` calls (attributed via tool_use ids).
+    pub file_read_calls: u32,
+    /// `file_read` calls whose tool_result carried `is_error: true`.
+    pub file_read_failed: u32,
+    /// Cumulative chars across all successful `file_read` results.
+    pub file_read_total_chars: u32,
 }
 
 impl EvidenceSummary {
-    /// Sufficient research = at least one search hit AND at
-    /// least 200 chars of fetched content. The thresholds are
-    /// intentionally low — they catch the "everything failed
-    /// and the model guessed" case without rejecting workers
-    /// who only needed one source.
+    /// Sufficient research = web evidence (≥ 1 search hit AND ≥ 200
+    /// chars of fetched content) OR file evidence (≥ 1 successful
+    /// `file_read` returning ≥ [`FILE_EVIDENCE_MIN_CHARS`] chars
+    /// cumulatively). Either threshold is intentionally low — they
+    /// catch the "everything failed and the model guessed" case
+    /// without rejecting workers who only needed one source, and
+    /// without bricking fs-scoped workers that have no web tools.
     pub(super) fn is_sufficient(&self) -> bool {
+        self.web_sufficient() || self.file_sufficient()
+    }
+
+    fn web_sufficient(&self) -> bool {
         self.total_search_hits >= 1 && self.web_extract_total_chars >= 200
+    }
+
+    fn file_sufficient(&self) -> bool {
+        self.file_read_calls >= 1 && self.file_read_total_chars >= FILE_EVIDENCE_MIN_CHARS
     }
 
     /// Reason string surfaced into the BLOCKED preamble of
     /// `approval_checklist.md` and `result.json`. Empty when
-    /// research was sufficient.
+    /// research was sufficient. Honest about WHICH evidence type
+    /// was missing — web counters AND the file-read tally.
     pub(super) fn insufficiency_reason(&self) -> String {
         if self.is_sufficient() {
             return String::new();
@@ -83,6 +115,16 @@ impl EvidenceSummary {
                 ));
             }
         }
+        if self.file_read_calls == 0 && self.file_read_failed == 0 {
+            bits.push("no file_read calls were made".to_string());
+        } else {
+            bits.push(format!(
+                "{} file_read call(s) yielded only {} chars total ({} failed)",
+                self.file_read_calls + self.file_read_failed,
+                self.file_read_total_chars,
+                self.file_read_failed,
+            ));
+        }
         bits.join("; ")
     }
 }
@@ -90,10 +132,17 @@ impl EvidenceSummary {
 /// Walk every persisted `tool_result` block and tally what
 /// landed. Operates on `(content_json, role)` pairs so the
 /// caller doesn't need to depend on a specific MessageRow type.
+///
+/// Two passes: pass 1 collects the `tool_use` call ids issued to
+/// `file_read` (those results are raw file text with no self-
+/// describing JSON shape); pass 2 classifies every `tool_result` —
+/// file-read ids by attribution, web tools by payload shape.
 pub(super) fn summarize_evidence<'a, I>(rows: I) -> EvidenceSummary
 where
     I: IntoIterator<Item = (&'a str, &'a str)>,
 {
+    let rows: Vec<(&str, &str)> = rows.into_iter().collect();
+    let file_read_ids = collect_file_read_call_ids(&rows);
     let mut s = EvidenceSummary::default();
     for (role, content_json) in rows {
         // Tool results land in a "tool" role row in the v1+
@@ -123,10 +172,56 @@ where
                         .find_map(|c| c.get("text").and_then(|t| t.as_str()))
                 })
                 .unwrap_or("");
-            classify(&mut s, text, is_error);
+            let call_id = block.get("tool_use_id").or_else(|| block.get("id"));
+            let is_file_read = call_id
+                .and_then(Value::as_str)
+                .is_some_and(|id| file_read_ids.contains(id));
+            if is_file_read {
+                classify_file_read(&mut s, text, is_error);
+            } else {
+                classify(&mut s, text, is_error);
+            }
         }
     }
     s
+}
+
+/// Pass 1 — every `tool_use` block id the assistant issued to
+/// `file_read`, so the (shapeless raw-text) results can be attributed.
+fn collect_file_read_call_ids(rows: &[(&str, &str)]) -> HashSet<String> {
+    let mut ids = HashSet::new();
+    for (role, content_json) in rows {
+        if *role != "assistant" {
+            continue;
+        }
+        let Ok(Value::Array(arr)) = serde_json::from_str::<Value>(content_json) else {
+            continue;
+        };
+        for block in arr {
+            if block.get("type").and_then(Value::as_str) != Some("tool_use") {
+                continue;
+            }
+            if block.get("name").and_then(Value::as_str) != Some("file_read") {
+                continue;
+            }
+            if let Some(id) = block.get("id").and_then(Value::as_str) {
+                ids.insert(id.to_string());
+            }
+        }
+    }
+    ids
+}
+
+/// Tally one attributed `file_read` result: errors count as failed;
+/// a successful read contributes its full text length.
+fn classify_file_read(s: &mut EvidenceSummary, text: &str, is_error: bool) {
+    if is_error {
+        s.file_read_failed += 1;
+        return;
+    }
+    s.file_read_calls += 1;
+    let n = u32::try_from(text.chars().count()).unwrap_or(u32::MAX);
+    s.file_read_total_chars = s.file_read_total_chars.saturating_add(n);
 }
 
 fn classify(s: &mut EvidenceSummary, text: &str, is_error: bool) {
@@ -182,6 +277,11 @@ fn pluck_u32(text: &str, key: &str) -> u32 {
         .collect();
     digits.parse().unwrap_or(0)
 }
+
+// File-evidence tests (cu1e) live in a sibling file for LOC headroom.
+#[cfg(test)]
+#[path = "evidence_file_tests.rs"]
+mod file_tests;
 
 #[cfg(test)]
 mod tests {

@@ -417,7 +417,7 @@ pub(crate) fn emit_actions_from_text(
                 rec.blocked_reason = Some(
                     "research evidence insufficient — see result.json's `evidence` \
                      summary; approval-gated action cannot proceed without verified \
-                     sources."
+                     sources (web research or files the worker actually read)."
                         .to_string(),
                 );
             }
