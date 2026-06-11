@@ -257,10 +257,55 @@ pub async fn distill_and_propose_judged(
     session_id: SessionId,
     judge: Option<&dyn Judge>,
 ) -> ArgoResult<(Skill, DistillationResult)> {
+    distill_and_propose_judged_for_tenant(
+        cohort,
+        caller,
+        store,
+        session_id,
+        judge,
+        crate::store::PLACEHOLDER_TENANT_ID,
+    )
+    .await
+}
+
+/// Tenant-aware variant of [`distill_and_propose_judged`] (DEC-042
+/// Stage-2 P-1, dec042-p1a-distilled-skill-tenant-binding).
+///
+/// The self-improve tick reads its traces tenant-scoped, so the
+/// distilled proposal it lands must carry the SAME tenant — otherwise
+/// tenant X's self-improve output lands under the migration placeholder
+/// and is invisible to X's strict reads. This threads `tenant_id`
+/// through to
+/// [`SkillStore::propose_for_review_judged_with_evals_for_tenant`] so
+/// "installed, audited, draft-only" means *within the originating
+/// tenant*.
+///
+/// [`distill_and_propose_judged`] delegates here with
+/// [`crate::store::PLACEHOLDER_TENANT_ID`] for legacy (non-tenant-aware)
+/// callers.
+///
+/// # Errors
+/// - Propagates [`distill_cohort`] errors (cohort too small, caller failure).
+/// - Propagates the propose-for-review errors (schema, db).
+pub async fn distill_and_propose_judged_for_tenant(
+    cohort: &Cohort,
+    caller: &dyn SkillDistillationCaller,
+    store: &SkillStore,
+    session_id: SessionId,
+    judge: Option<&dyn Judge>,
+    tenant_id: &str,
+) -> ArgoResult<(Skill, DistillationResult)> {
     let (candidate, result) = distill_cohort(cohort, caller).await?;
     let raw = render_dreams_skill_md(&candidate, &result);
     let skill = store
-        .propose_for_review_judged(&raw, session_id, &cohort.vertical_id, judge)
+        .propose_for_review_judged_with_evals_for_tenant(
+            &raw,
+            session_id,
+            &cohort.vertical_id,
+            judge,
+            None,
+            tenant_id,
+        )
         .await?;
     Ok((skill, result))
 }

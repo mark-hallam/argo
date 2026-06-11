@@ -301,6 +301,38 @@ impl SkillStore {
         judge: Option<&dyn Judge>,
         evals_executor: Option<&dyn EvalExecutor>,
     ) -> ArgoResult<Skill> {
+        self.propose_for_review_judged_with_evals_for_tenant(
+            raw,
+            learned_in,
+            vertical_id,
+            judge,
+            evals_executor,
+            crate::store::PLACEHOLDER_TENANT_ID,
+        )
+        .await
+    }
+
+    /// Tenant-aware propose-for-review (DEC-042 Stage-2 P-1,
+    /// dec042-p1a-distilled-skill-tenant-binding). Identical to
+    /// [`Self::propose_for_review_judged_with_evals`] but binds the
+    /// caller-provided `tenant_id` on the new row instead of the
+    /// migration placeholder, so a tenant-scoped self-improve tick's
+    /// distilled proposal lands under the originating tenant and is
+    /// visible only to that tenant's strict reads (e.g.
+    /// [`super::SkillStore::available_for_worker`]).
+    ///
+    /// The 5-arg [`Self::propose_for_review_judged_with_evals`]
+    /// delegates here with [`crate::store::PLACEHOLDER_TENANT_ID`], so
+    /// every existing (non-tenant-aware) caller compiles unchanged.
+    pub async fn propose_for_review_judged_with_evals_for_tenant(
+        &self,
+        raw: &str,
+        learned_in: SessionId,
+        vertical_id: &str,
+        judge: Option<&dyn Judge>,
+        evals_executor: Option<&dyn EvalExecutor>,
+        tenant_id: &str,
+    ) -> ArgoResult<Skill> {
         let (frontmatter, body) = parse_skill_md(raw)?;
         let existing = self.find_active_by_name(&frontmatter.name).await?;
         if existing.is_some() {
@@ -353,7 +385,7 @@ impl SkillStore {
             Some(learned_in),
             Some(vertical_id),
             lifecycle,
-            crate::store::PLACEHOLDER_TENANT_ID,
+            tenant_id,
         )
         .await
     }

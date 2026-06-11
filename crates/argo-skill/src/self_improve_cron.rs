@@ -46,15 +46,15 @@
 
 use crate::ab_eval::run_ab_eval;
 use crate::ab_test::{create_run, ensure_ab_schema, promote_with_regression_gate};
-use crate::dreams_distillation::{distill_and_propose_judged, Cohort, DistillationResult,
+use crate::dreams_distillation::{distill_and_propose_judged_for_tenant, Cohort, DistillationResult,
     SkillDistillationCaller};
 use crate::self_improve_loop::{
     cluster_to_cohort, decide_promotion, PromotionDecision, PromotionPolicy, TraceMember,
 };
 use crate::store::SkillStore;
 use crate::trace_cluster::{
-    cluster_traces, distillation_candidates, TraceFingerprint, DEFAULT_MIN_CLUSTER_SIZE,
-    DEFAULT_MIN_MEAN_SUCCESS, DEFAULT_MIN_SIMILARITY,
+    cluster_traces, distillation_candidates, TraceCluster, TraceFingerprint,
+    DEFAULT_MIN_CLUSTER_SIZE, DEFAULT_MIN_MEAN_SUCCESS, DEFAULT_MIN_SIMILARITY,
 };
 use argo_judge::Judge;
 use argo_types::{ArgoError, ArgoResult, SessionId, TenantId};
@@ -263,23 +263,24 @@ pub async fn self_improve_tick_with(
         let Some(rep) = traces.iter().find(|t| t.id == cluster.representative_id) else {
             continue;
         };
-        let members: Vec<TraceMember> = cluster
-            .member_ids
-            .iter()
-            .filter_map(|id| traces.iter().find(|t| &t.id == id))
-            .map(SelfImproveTrace::member)
-            .collect();
-        let cohort =
-            match cluster_to_cohort(cluster, &members, &rep.vertical_id, &rep.action_type) {
-                Ok(c) => c,
-                Err(err) => {
-                    tracing::debug!(target: "argo_skill::self_improve_cron", error = %err, "cluster skipped: cohort bridge");
-                    continue;
-                }
-            };
-        let proposed_skill_id =
-            match distill_and_propose_judged(&cohort, caller, skills, SessionId::new(), judge).await
-            {
+        let Some(cohort) = cohort_for_cluster(cluster, &traces, rep) else {
+            continue;
+        };
+        // Bind the distilled proposal to the SAME tenant the trace was
+        // read under (DEC-042 Stage-2 P-1). `rep.tenant_id` is the audit
+        // row's tenant column, so the proposal lands under the
+        // originating tenant even when the tick runs cross-tenant
+        // (config.tenant_id = None) — per-trace binding, not config-level.
+        let proposed_skill_id = match distill_and_propose_judged_for_tenant(
+            &cohort,
+            caller,
+            skills,
+            SessionId::new(),
+            judge,
+            &rep.tenant_id,
+        )
+        .await
+        {
                 Ok((skill, _)) => Some(skill.id.to_string()),
                 Err(err) => {
                     tracing::warn!(target: "argo_skill::self_improve_cron", error = %err, "cluster skipped: distill/propose");
@@ -314,6 +315,41 @@ pub async fn self_improve_tick_with(
         });
     }
     Ok(report)
+}
+
+/// Resolve a cluster's member traces and bridge them into a distillation
+/// cohort. `None` skips the cluster — a bridge failure is non-fatal to
+/// the tick (logged at debug, matching the prior inline behavior).
+///
+/// Tenant-purity guard: similarity clustering is tenant-blind
+/// (`TraceFingerprint` carries no tenant), so an UNSCOPED tick
+/// (`config.tenant_id = None`) can group traces from different tenants
+/// into one cluster. Distilling such a cohort would feed one tenant's
+/// trace content into a skill bound (and visible) to another — the same
+/// wrong-tenant class this brief closes. A cluster whose members span
+/// more than one tenant is skipped entirely.
+fn cohort_for_cluster(
+    cluster: &TraceCluster,
+    traces: &[SelfImproveTrace],
+    rep: &SelfImproveTrace,
+) -> Option<Cohort> {
+    let member_traces: Vec<&SelfImproveTrace> = cluster
+        .member_ids
+        .iter()
+        .filter_map(|id| traces.iter().find(|t| &t.id == id))
+        .collect();
+    if member_traces.iter().any(|t| t.tenant_id != rep.tenant_id) {
+        tracing::debug!(target: "argo_skill::self_improve_cron", "cluster skipped: members span multiple tenants");
+        return None;
+    }
+    let members: Vec<TraceMember> = member_traces.iter().map(|t| t.member()).collect();
+    match cluster_to_cohort(cluster, &members, &rep.vertical_id, &rep.action_type) {
+        Ok(c) => Some(c),
+        Err(err) => {
+            tracing::debug!(target: "argo_skill::self_improve_cron", error = %err, "cluster skipped: cohort bridge");
+            None
+        }
+    }
 }
 
 /// Apply a promotion through the existing regression gate. Creates the

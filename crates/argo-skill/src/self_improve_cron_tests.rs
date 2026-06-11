@@ -242,6 +242,81 @@ async fn no_improvement_holds_and_does_not_promote() {
     assert_eq!(rows[0]["outcome_status"], "hold");
 }
 
+/// Pending-review (distilled-proposal) skill rows scoped to a tenant —
+/// mirrors the strict `tenant_id = ?` predicate the per-tenant reads use,
+/// so it proves the row is structurally invisible to any other tenant.
+async fn pending_review_tenants(skills: &SkillStore) -> Vec<String> {
+    sqlx::query_scalar::<_, String>(
+        "SELECT tenant_id FROM skill \
+         WHERE lifecycle_state = 'pending_review' AND superseded_by IS NULL",
+    )
+    .fetch_all(skills.pool())
+    .await
+    .expect("pending-review tenant rows")
+}
+
+/// DEC-042 Stage-2 P-1 (dec042-p1a): the self-improve tick reads traces
+/// tenant-scoped, so the distilled proposal it lands must carry the SAME
+/// tenant — NOT the migration placeholder.
+#[tokio::test]
+async fn distilled_skill_row_is_bound_to_originating_tenant() {
+    let skills = skills().await;
+    let tenant = TenantId::new().to_string();
+    seed_winner_family(&skills, "refund-skill", "refund window is 30 days").await;
+    seed_cluster(&skills, &tenant, "refund-skill").await;
+
+    let report = self_improve_tick(&skills).await.expect("tick runs");
+    assert!(
+        report.outcomes[0].proposed_skill_id.is_some(),
+        "distillation proposed a skill to bind"
+    );
+
+    // The single distilled (pending_review) row is bound to T, not the
+    // placeholder.
+    let pending = pending_review_tenants(&skills).await;
+    assert_eq!(pending.len(), 1, "one distilled proposal: {pending:?}");
+    assert_eq!(pending[0], tenant, "distilled row bound to originating tenant");
+    assert_ne!(
+        pending[0],
+        crate::store::PLACEHOLDER_TENANT_ID,
+        "must NOT land under the migration placeholder"
+    );
+}
+
+/// Cross-tenant negative pin: tenant B's tick lands B's distilled
+/// proposal under B; tenant A NEVER sees a pending row under A's id (and
+/// vice-versa). The strict per-tenant read filter (`tenant_id = ?`) makes
+/// each tenant's distilled proposal invisible to the other.
+#[tokio::test]
+async fn distilled_proposal_never_leaks_across_tenants() {
+    let skills = skills().await;
+    let tenant_a = TenantId::new();
+    let tenant_b = TenantId::new();
+    seed_winner_family(&skills, "family-b", "beta guidance").await;
+    seed_cluster(&skills, &tenant_b.to_string(), "family-b").await;
+
+    // Run the tick scoped to tenant B only.
+    let config = SelfImproveConfig {
+        tenant_id: Some(tenant_b),
+        ..SelfImproveConfig::default()
+    };
+    self_improve_tick_with(&skills, config, None, &DeterministicDistillationCaller)
+        .await
+        .expect("tick runs");
+
+    let pending = pending_review_tenants(&skills).await;
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0], tenant_b.to_string(), "bound to B");
+    assert!(
+        !pending.iter().any(|t| t == &tenant_a.to_string()),
+        "tenant A must never see B's distilled proposal: {pending:?}"
+    );
+    assert!(
+        !pending.iter().any(|t| t == crate::store::PLACEHOLDER_TENANT_ID),
+        "no placeholder-bound leak: {pending:?}"
+    );
+}
+
 #[tokio::test]
 async fn empty_audit_log_is_a_clean_noop() {
     let skills = skills().await;
@@ -250,4 +325,33 @@ async fn empty_audit_log_is_a_clean_noop() {
     assert_eq!(report.candidate_clusters, 0);
     assert_eq!(report.promoted, 0);
     assert!(report.outcomes.is_empty());
+}
+
+/// Tenant-purity guard (adversarial finding 2026-06-12): on an UNSCOPED
+/// tick (`tenant_id = None`, the shipped default) similarity clustering is
+/// tenant-blind — tenants A and B seeding the same trajectory shape land in
+/// ONE cluster. The guard must skip the mixed cluster entirely: one
+/// tenant's trace content must never distill into a skill bound (and
+/// visible) to another tenant.
+#[tokio::test]
+async fn unscoped_tick_skips_clusters_spanning_multiple_tenants() {
+    let skills = skills().await;
+    let tenant_a = TenantId::new().to_string();
+    let tenant_b = TenantId::new().to_string();
+    seed_winner_family(&skills, "mix-skill", "shared guidance").await;
+    seed_cluster(&skills, &tenant_a, "mix-skill").await;
+    seed_cluster(&skills, &tenant_b, "mix-skill").await;
+
+    let report = self_improve_tick(&skills).await.expect("tick runs");
+
+    assert_eq!(report.traces_read, 6, "unscoped tick reads both tenants");
+    assert!(
+        report.outcomes.is_empty(),
+        "mixed-tenant cluster must be skipped, not distilled: {:?}",
+        report.outcomes
+    );
+    assert!(
+        pending_review_tenants(&skills).await.is_empty(),
+        "no distilled proposal may land from a mixed-tenant cluster"
+    );
 }

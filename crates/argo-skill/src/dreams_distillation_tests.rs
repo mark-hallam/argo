@@ -364,3 +364,55 @@ async fn distill_and_propose_unavailable_fails_open_to_pending() {
         .expect("transport error fails OPEN");
     assert_eq!(skill.lifecycle_state, LifecycleState::PendingReview);
 }
+
+/// Fetch the `tenant_id` column of one skill row by id.
+async fn row_tenant(store: &SkillStore, skill: &Skill) -> String {
+    sqlx::query_scalar::<_, String>("SELECT tenant_id FROM skill WHERE id = ?")
+        .bind(skill.id.0.as_bytes().as_slice())
+        .fetch_one(store.pool())
+        .await
+        .expect("tenant_id column")
+}
+
+/// DEC-042 Stage-2 P-1 (dec042-p1a): the tenant-aware variant binds the
+/// proposed row to the caller-provided tenant.
+#[tokio::test]
+async fn distill_and_propose_for_tenant_binds_the_tenant() {
+    let caller = StubCaller::new("polished body", 750_000);
+    let (store, sid) = fresh_store().await;
+    let judge = StubJudge {
+        verdict: JudgeVerdict::Success,
+    };
+    let cohort = three_member_cohort("post_listing_tenant", "marketplace");
+    let (skill, _) = distill_and_propose_judged_for_tenant(
+        &cohort,
+        &caller,
+        &store,
+        sid,
+        Some(&judge),
+        "tenant-xyz",
+    )
+    .await
+    .expect("tenant-bound path");
+    assert_eq!(skill.lifecycle_state, LifecycleState::PendingReview);
+    assert_eq!(row_tenant(&store, &skill).await, "tenant-xyz");
+}
+
+/// Back-compat: the legacy non-tenant-aware entry point still lands the
+/// row under the migration placeholder (delegation preserved behaviour).
+#[tokio::test]
+async fn distill_and_propose_judged_keeps_placeholder_tenant() {
+    let caller = StubCaller::new("polished body", 750_000);
+    let (store, sid) = fresh_store().await;
+    let judge = StubJudge {
+        verdict: JudgeVerdict::Success,
+    };
+    let cohort = three_member_cohort("post_listing_legacy", "marketplace");
+    let (skill, _) = distill_and_propose_judged(&cohort, &caller, &store, sid, Some(&judge))
+        .await
+        .expect("legacy path");
+    assert_eq!(
+        row_tenant(&store, &skill).await,
+        crate::store::PLACEHOLDER_TENANT_ID
+    );
+}
