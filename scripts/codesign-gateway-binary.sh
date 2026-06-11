@@ -85,8 +85,36 @@ log "codesign: signing $BIN as '$IDENTITY' (identifier $IDENTIFIER)..."
 # --force replaces the existing (ad-hoc) signature. --identifier pins a
 # stable bundle id so the Designated Requirement doesn't drift. No secure
 # timestamp (local dev cert; avoids a network round-trip / offline hang).
-if ! codesign --force --sign "$IDENTITY" --identifier "$IDENTIFIER" \
-        --timestamp=none "$BIN" 2>&1 | sed 's/^/        /'; then
+#
+# Bounded by a watchdog: when the signing key's keychain ACL hasn't been
+# approved yet, codesign blocks on a GUI keychain prompt FOREVER — which
+# would hang a headless relaunch at this step (fail-soft catches a
+# failure exit, not a hang; hit live 2026-06-11). 30s is enough for a
+# present operator to click "Always Allow"; an unattended run falls
+# through to ad-hoc, same as the no-identity path.
+CS_LOG="${TMPDIR:-/tmp}/codesign.$$.log"
+codesign --force --sign "$IDENTITY" --identifier "$IDENTIFIER" \
+    --timestamp=none "$BIN" > "$CS_LOG" 2>&1 &
+CS_PID=$!
+CS_WAITED=0
+while kill -0 "$CS_PID" 2>/dev/null && [ "$CS_WAITED" -lt 30 ]; do
+    sleep 1
+    CS_WAITED=$((CS_WAITED + 1))
+done
+if kill -0 "$CS_PID" 2>/dev/null; then
+    kill "$CS_PID" 2>/dev/null
+    log "codesign: TIMED OUT after 30s (keychain prompt not approved?) —"
+    log "codesign: leaving prior signature; TCC grant may not survive."
+    log "codesign: approve the keychain prompt once, then re-run:"
+    log "codesign:   bash scripts/codesign-gateway-binary.sh <binary>"
+    rm -f "$CS_LOG"
+    exit 0   # fail-soft: never block the gateway launch on signing.
+fi
+CS_RC=0
+wait "$CS_PID" || CS_RC=$?
+sed 's/^/        /' "$CS_LOG" 2>/dev/null
+rm -f "$CS_LOG"
+if [ "$CS_RC" -ne 0 ]; then
     log "codesign: signing FAILED — leaving prior signature; TCC grant may not survive."
     exit 0   # fail-soft: never block the gateway launch on signing.
 fi

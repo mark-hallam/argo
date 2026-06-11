@@ -48,7 +48,12 @@ KEYCHAIN="${ARGO_CODESIGN_KEYCHAIN:-$HOME/Library/Keychains/login.keychain-db}"
     || die "macOS only — TCC durability is a macOS feature (uname=$(uname -s))."
 
 identity_exists() {
-    security find-identity -v -p codesigning 2>/dev/null | grep -qF "$IDENTITY"
+    # NOT `-v` (valid-only): a freshly-imported self-signed cert reports
+    # CSSMERR_TP_NOT_TRUSTED until the operator trusts it, and `-v`
+    # would hide it — making this script die on a SUCCESSFUL import
+    # (hit live 2026-06-11). Presence in the keychain is what we create;
+    # trust is the separate, possibly-interactive step below.
+    security find-identity -p codesigning 2>/dev/null | grep -qF "$IDENTITY"
 }
 
 if [[ "$CHECK_ONLY" -eq 1 ]]; then
@@ -89,13 +94,20 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
     -keyout "$TMP/key.pem" -out "$TMP/cert.pem" -config "$TMP/req.cnf" 2>/dev/null \
     || die "openssl certificate generation failed."
 
+# Transient random password + SHA1/3DES PBE: macOS `security import`
+# rejects an EMPTY-password PKCS12 from modern OpenSSL with "MAC
+# verification failed" (hit live 2026-06-11), and AES-PBES2 bundles can
+# fail the same way. The password only protects the bundle for the
+# lifetime of $TMP (deleted on exit) — the key lands in the keychain.
+P12_PW="$(openssl rand -hex 16)"
 openssl pkcs12 -export -name "$IDENTITY" \
     -inkey "$TMP/key.pem" -in "$TMP/cert.pem" \
-    -out "$TMP/identity.p12" -passout pass: 2>/dev/null \
+    -out "$TMP/identity.p12" -passout "pass:$P12_PW" \
+    -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 2>/dev/null \
     || die "openssl pkcs12 bundle failed."
 
 log "Importing identity into keychain: $KEYCHAIN"
-security import "$TMP/identity.p12" -k "$KEYCHAIN" -P "" \
+security import "$TMP/identity.p12" -k "$KEYCHAIN" -P "$P12_PW" \
     -T /usr/bin/codesign -T /usr/bin/security \
     || die "security import failed."
 
