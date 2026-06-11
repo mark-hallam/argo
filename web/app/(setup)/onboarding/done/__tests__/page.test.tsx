@@ -127,6 +127,25 @@ describe("/onboarding/done celebration page", () => {
     expect(routerMock.replace).toHaveBeenCalledWith("/workers/worker-123");
   });
 
+  // FIX 3 (day-1 unblock): the sub-copy must only claim what verifiably
+  // happens. The old copy promised "She'll Slack-message you in a few
+  // seconds" (no Slack message is ever sent on this path), used a
+  // gendered pronoun, and claimed "Your draft is saved here" (it isn't).
+  it("tells the truth in the sub-copy — no Slack promise, no gendered pronouns", () => {
+    searchParamsMock.set("worker=worker-123&name=Maya");
+
+    const { container } = render(<OnboardingDonePage />);
+    const text = container.textContent ?? "";
+
+    expect(text).not.toMatch(/Slack-message/i);
+    expect(text).not.toMatch(/draft is saved/i);
+    expect(text).not.toMatch(/\bShe\b|\bshe\b|\bher\b|\bhe\b|\bhis\b/);
+    // What verifiably happens: on the team, Run now, approvals + audit.
+    expect(text).toContain("Run now");
+    expect(text).toMatch(/approvals inbox/i);
+    expect(text).toMatch(/audit trail/i);
+  });
+
   it("falls back to a generic name and /team when no worker id is supplied", () => {
     searchParamsMock.set("");
 

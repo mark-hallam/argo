@@ -101,9 +101,15 @@ function OnboardingDoneContent() {
       ]}
       sub={
         <>
-          She&rsquo;ll Slack-message you in a few seconds with her first
-          questions. <strong>Your draft is saved here</strong> while she settles
-          in.
+          {/* Truth-bounded copy (NO THEATER): say only what verifiably
+              happens after a hire — the teammate is on /team, you can
+              Run now from their page, and their work lands in the
+              approvals inbox + audit trail. No promised Slack message,
+              no gendered pronouns. */}
+          {displayName} is on your team now. Open their page and hit{" "}
+          <strong>Run now</strong> to put them to work — anything that
+          needs your sign-off lands in your approvals inbox, and every
+          action is recorded in the audit trail.
         </>
       }
     >
