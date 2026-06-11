@@ -34,7 +34,8 @@ use super::worker_actions_executor::{resolve_executor, Executor};
 use super::worker_actions_executor_stubs::McpExecutor;
 use super::worker_actions_executor_timing::TimedExecutor;
 use argo_store::executor_promotion::{
-    self, PromotionRecord, PROMOTABLE_KIND_DOCUMENT, PROMOTABLE_KIND_MCP,
+    self, PromotionRecord, PROMOTABLE_KIND_CU_MACOS, PROMOTABLE_KIND_DOCUMENT,
+    PROMOTABLE_KIND_MCP,
 };
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
@@ -94,6 +95,23 @@ pub(crate) async fn resolve_executor_with_promotion(
     .await
 }
 
+/// Resolve for an OPERATOR-APPROVED action (the cu5 "Approve & run"
+/// path): promotions are honoured regardless of
+/// `ARGO_EXECUTION_GRADUATION`, because the operator's explicit,
+/// authenticated approval IS the authorization — the same principle
+/// #2818 merged for executing the manifest executor. The DEC-051
+/// risk-tiered floor still gates committing computer-use operations
+/// inside the run loop, so this never grants unattended host control.
+pub(crate) async fn resolve_executor_for_approved(
+    store: &SessionStore,
+    tenant: TenantId,
+    worker_id: &str,
+    vertical: &VerticalManifest,
+    action_type: &str,
+) -> ArgoResult<Box<dyn Executor>> {
+    resolve_with_graduation(store, tenant, worker_id, vertical, action_type, true).await
+}
+
 /// Inner resolve with the graduation flag passed explicitly. Keeps the
 /// honour/dormant decision deterministically testable without touching
 /// `std::env`.
@@ -132,6 +150,16 @@ async fn resolve_with_graduation(
         Some(p) if p.executor_kind == PROMOTABLE_KIND_DOCUMENT => Ok(Box::new(
             TimedExecutor::new(Box::new(super::worker_actions_executor_document::DocumentExecutor::new())),
         )),
+        // DEC-050/DEC-051: graduate onto the native-macOS computer-use
+        // executor driving the granted bundle id. Safe-by-construction:
+        // the CU run loop's risk-tiered floor (#2822) holds every
+        // committing operation (click / key / launch) for operator
+        // approval regardless of this grant, and dispatch only reaches
+        // here per-action after the operator recorded the promotion.
+        Some(p) if p.executor_kind == PROMOTABLE_KIND_CU_MACOS => {
+            let base = lookup_action_decl(vertical, action_type)?;
+            Ok(promoted_cu_macos_executor(&p, base))
+        }
         _ => resolve_executor(vertical, action_type),
     }
 }
@@ -157,6 +185,23 @@ fn promoted_mcp_executor(
     Box::new(TimedExecutor::new(Box::new(McpExecutor::with_manifest(
         decl, servers,
     ))))
+}
+
+/// Build the native-macOS computer-use executor a promoted action
+/// dispatches through. Clones the manifest's base declaration and
+/// overrides only the `executor` field with the cu-macos tagged form +
+/// the granted `target_app`, exactly mirroring what a manifest-declared
+/// `computer_use_native_macos` action resolves to (cu3 #2816).
+fn promoted_cu_macos_executor(promo: &PromotionRecord, base: &ActionDeclaration) -> Box<dyn Executor> {
+    let mut decl = base.clone();
+    decl.executor = ExecutorDeclaration::Tagged(ExecutorTagged {
+        kind: PROMOTABLE_KIND_CU_MACOS.to_string(),
+        target_app: promo.target_app.clone(),
+        ..Default::default()
+    });
+    Box::new(TimedExecutor::new(Box::new(
+        super::worker_actions_executor_cu_macos::ComputerUseMacOSExecutor::with_declaration(decl),
+    )))
 }
 
 fn lookup_action_decl<'a>(

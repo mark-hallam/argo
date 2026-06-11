@@ -29,6 +29,7 @@
 //!         executor_kind: "mcp".into(),
 //!         mcp_server: Some("gmail".into()),
 //!         mcp_tool: Some("drafts.send".into()),
+//!         target_app: None,
 //!         promoted_by: "principal:owner".into(),
 //!     },
 //! )
@@ -62,6 +63,10 @@ pub struct PromotionRecord {
     pub mcp_server: Option<String>,
     /// MCP tool name within the server.
     pub mcp_tool: Option<String>,
+    /// macOS bundle id the computer-use promotion drives (required when
+    /// `executor_kind = "computer_use_native_macos"`, e.g.
+    /// `com.apple.Notes`); `None` for MCP / document promotions.
+    pub target_app: Option<String>,
     /// Principal id that granted the promotion.
     pub promoted_by: String,
     /// RFC3339 timestamp the promotion was granted.
@@ -84,6 +89,10 @@ pub struct PromotionGrant {
     pub mcp_server: Option<String>,
     /// MCP tool name within the server.
     pub mcp_tool: Option<String>,
+    /// macOS bundle id the computer-use promotion drives (required when
+    /// `executor_kind = "computer_use_native_macos"`, e.g.
+    /// `com.apple.Notes`); `None` for MCP / document promotions.
+    pub target_app: Option<String>,
     /// Principal id that granted the promotion.
     pub promoted_by: String,
 }
@@ -98,6 +107,13 @@ pub const PROMOTABLE_KIND_MCP: &str = "mcp";
 /// Needs NO external server/tool binding (the artifact is the deliverable),
 /// so `mcp_server`/`mcp_tool` are `None` for this kind.
 pub const PROMOTABLE_KIND_DOCUMENT: &str = "document";
+
+/// Native-macOS computer-use executor kind (DEC-050 cu3 spelling). A
+/// promotion of this kind graduates the action onto the macOS CU run
+/// loop driving `target_app`; the DEC-051 risk-tiered floor still holds
+/// every committing operation (click / key / launch) for operator
+/// approval inside that loop regardless of this grant.
+pub const PROMOTABLE_KIND_CU_MACOS: &str = "computer_use_native_macos";
 
 /// Insert or refresh a promotion row for one
 /// `(tenant_id, worker_id, action_type)`. Re-promoting the same action
@@ -129,10 +145,15 @@ pub async fn promote(pool: &Pool<Sqlite>, grant: &PromotionGrant) -> ArgoResult<
             // Internal document executor (DEC-041 A) — side-effect-free, no
             // external server/tool binding. Persisted with NULL mcp_server/tool.
         }
+        PROMOTABLE_KIND_CU_MACOS => {
+            // Native-macOS computer-use — needs the bundle id to drive.
+            require_binding("target_app", grant.target_app.as_deref())?;
+        }
         other => {
             return Err(ArgoError::Schema(format!(
-                "executor_promotion: only '{PROMOTABLE_KIND_MCP}' or \
-                 '{PROMOTABLE_KIND_DOCUMENT}' are promotable, got '{other}'"
+                "executor_promotion: only '{PROMOTABLE_KIND_MCP}', \
+                 '{PROMOTABLE_KIND_DOCUMENT}' or '{PROMOTABLE_KIND_CU_MACOS}' \
+                 are promotable, got '{other}'"
             )));
         }
     }
@@ -141,12 +162,13 @@ pub async fn promote(pool: &Pool<Sqlite>, grant: &PromotionGrant) -> ArgoResult<
     sqlx::query(
         "INSERT INTO executor_promotion \
             (tenant_id, worker_id, action_type, executor_kind, mcp_server, mcp_tool, \
-             promoted_by, promoted_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?) \
+             target_app, promoted_by, promoted_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) \
          ON CONFLICT (tenant_id, worker_id, action_type) DO UPDATE SET \
             executor_kind = excluded.executor_kind, \
             mcp_server = excluded.mcp_server, \
             mcp_tool = excluded.mcp_tool, \
+            target_app = excluded.target_app, \
             promoted_by = excluded.promoted_by, \
             promoted_at = excluded.promoted_at",
     )
@@ -156,6 +178,7 @@ pub async fn promote(pool: &Pool<Sqlite>, grant: &PromotionGrant) -> ArgoResult<
     .bind(&grant.executor_kind)
     .bind(grant.mcp_server.as_deref())
     .bind(grant.mcp_tool.as_deref())
+    .bind(grant.target_app.as_deref())
     .bind(&grant.promoted_by)
     .bind(&promoted_at)
     .execute(pool)
@@ -189,7 +212,7 @@ pub async fn get(
 
     let row = sqlx::query_as::<_, PromotionTuple>(
         "SELECT tenant_id, worker_id, action_type, executor_kind, mcp_server, mcp_tool, \
-                promoted_by, promoted_at \
+                target_app, promoted_by, promoted_at \
          FROM executor_promotion \
          WHERE tenant_id = ? AND worker_id = ? AND action_type = ?",
     )
@@ -219,7 +242,7 @@ pub async fn list_for_worker(
 
     let rows = sqlx::query_as::<_, PromotionTuple>(
         "SELECT tenant_id, worker_id, action_type, executor_kind, mcp_server, mcp_tool, \
-                promoted_by, promoted_at \
+                target_app, promoted_by, promoted_at \
          FROM executor_promotion \
          WHERE tenant_id = ? AND worker_id = ? \
          ORDER BY promoted_at DESC, action_type ASC",
@@ -270,13 +293,23 @@ type PromotionTuple = (
     String,
     Option<String>,
     Option<String>,
+    Option<String>,
     String,
     String,
 );
 
 fn tuple_to_record(row: PromotionTuple) -> PromotionRecord {
-    let (tenant_id, worker_id, action_type, executor_kind, mcp_server, mcp_tool, promoted_by, promoted_at) =
-        row;
+    let (
+        tenant_id,
+        worker_id,
+        action_type,
+        executor_kind,
+        mcp_server,
+        mcp_tool,
+        target_app,
+        promoted_by,
+        promoted_at,
+    ) = row;
     PromotionRecord {
         tenant_id,
         worker_id,
@@ -284,6 +317,7 @@ fn tuple_to_record(row: PromotionTuple) -> PromotionRecord {
         executor_kind,
         mcp_server,
         mcp_tool,
+        target_app,
         promoted_by,
         promoted_at,
     }
@@ -302,7 +336,7 @@ fn require_binding<'a>(name: &str, value: Option<&'a str>) -> ArgoResult<&'a str
     match value {
         Some(v) if !v.trim().is_empty() => Ok(v),
         _ => Err(ArgoError::Schema(format!(
-            "executor_promotion: {name} is required when executor_kind = 'mcp'"
+            "executor_promotion: {name} is required for this executor_kind"
         ))),
     }
 }

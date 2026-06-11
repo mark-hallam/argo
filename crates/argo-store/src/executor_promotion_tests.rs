@@ -18,6 +18,7 @@ fn mcp_grant(tenant: &str, worker: &str, action: &str) -> PromotionGrant {
         executor_kind: PROMOTABLE_KIND_MCP.into(),
         mcp_server: Some("gmail".into()),
         mcp_tool: Some("drafts.send".into()),
+        target_app: None,
         promoted_by: "principal:owner".into(),
     }
 }
@@ -52,6 +53,7 @@ async fn document_grant_persists_with_null_mcp_binding() {
         executor_kind: PROMOTABLE_KIND_DOCUMENT.into(),
         mcp_server: None,
         mcp_tool: None,
+        target_app: None,
         promoted_by: "principal:owner".into(),
     };
     let rec = promote(store.pool(), &grant)
@@ -185,4 +187,40 @@ async fn empty_required_field_is_rejected() {
         format!("{err}").contains("worker_id must not be empty"),
         "blank worker_id rejected: {err}"
     );
+}
+
+#[tokio::test]
+async fn cu_macos_grant_requires_and_persists_target_app() {
+    // DEC-050/DEC-051: a computer-use promotion needs the bundle id it
+    // drives; it persists with NULL mcp bindings + the target_app.
+    let store = migrated_pool().await;
+    let grant = PromotionGrant {
+        tenant_id: "tenant-a".into(),
+        worker_id: "worker-1".into(),
+        action_type: "update_summary".into(),
+        executor_kind: PROMOTABLE_KIND_CU_MACOS.into(),
+        mcp_server: None,
+        mcp_tool: None,
+        target_app: Some("com.apple.Notes".into()),
+        promoted_by: "principal:owner".into(),
+    };
+    let rec = promote(store.pool(), &grant).await.expect("cu promote");
+    assert_eq!(rec.executor_kind, PROMOTABLE_KIND_CU_MACOS);
+    assert_eq!(rec.target_app.as_deref(), Some("com.apple.Notes"));
+    assert!(rec.mcp_server.is_none());
+
+    let fetched = get(store.pool(), "tenant-a", "worker-1", "update_summary")
+        .await
+        .expect("get")
+        .expect("row present");
+    assert_eq!(fetched, rec);
+
+    // Missing target_app → Schema error, fail closed.
+    let missing = PromotionGrant {
+        target_app: None,
+        action_type: "draft_reminder".into(),
+        ..grant
+    };
+    let err = promote(store.pool(), &missing).await;
+    assert!(err.is_err(), "cu promotion without target_app must be rejected");
 }

@@ -76,6 +76,7 @@ fn mcp_grant(tenant: &TenantId, worker_id: &str) -> PromotionGrant {
         executor_kind: "mcp".into(),
         mcp_server: Some("echo".into()),
         mcp_tool: Some("echo".into()),
+        target_app: None,
         promoted_by: "principal:owner".into(),
     }
 }
@@ -245,6 +246,7 @@ async fn promoted_action_performs_real_mcp_side_effect() {
         executor_kind: grant.executor_kind.clone(),
         mcp_server: grant.mcp_server.clone(),
         mcp_tool: grant.mcp_tool.clone(),
+        target_app: None,
         promoted_by: grant.promoted_by.clone(),
         promoted_at: "2026-06-06T00:00:00+00:00".into(),
     };
@@ -269,4 +271,53 @@ async fn promoted_action_performs_real_mcp_side_effect() {
         }
         other => panic!("expected Completed from the echo server, got {other:?}"),
     }
+}
+
+fn cu_grant(tenant: &TenantId, worker_id: &str) -> PromotionGrant {
+    PromotionGrant {
+        tenant_id: tenant.to_string(),
+        worker_id: worker_id.into(),
+        action_type: "send_email".into(),
+        executor_kind: "computer_use_native_macos".into(),
+        mcp_server: None,
+        mcp_tool: None,
+        target_app: Some("com.apple.Notes".into()),
+        promoted_by: "principal:owner".into(),
+    }
+}
+
+/// DEC-050/DEC-051: the operator-approved path honours a computer-use
+/// promotion even while `ARGO_EXECUTION_GRADUATION` is off — approval IS
+/// the authorization (#2818) — and resolves the SAME cu executor kind a
+/// manifest-declared cu action would (no parallel path).
+#[tokio::test]
+async fn approved_path_honours_cu_promotion_with_flag_off() {
+    let Some(python) = python3() else { return };
+    let s = store().await;
+    let tenant = TenantId::new();
+    let worker = "worker-cu";
+    let manifest = echo_manifest(&python);
+    executor_promotion::promote(s.pool(), &cu_grant(&tenant, worker))
+        .await
+        .expect("cu promote");
+
+    // The approved resolver honours the grant…
+    let exec = resolve_executor_for_approved(&s, tenant, worker, &manifest, "send_email")
+        .await
+        .expect("approved resolve");
+    assert_eq!(
+        exec.kind(),
+        ExecutorKind::ComputerUseMacOS,
+        "approved path must resolve the promoted cu executor"
+    );
+
+    // …while the dormant default-OFF auto path still resolves human.
+    let dormant = resolve_with_graduation(&s, tenant, worker, &manifest, "send_email", false)
+        .await
+        .expect("dormant resolve");
+    assert_eq!(
+        dormant.kind(),
+        ExecutorKind::Human,
+        "flag-off auto path must stay draft-only"
+    );
 }

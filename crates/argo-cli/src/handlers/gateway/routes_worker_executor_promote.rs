@@ -39,14 +39,19 @@ use super::{body_from_request, store_unavailable};
 use argo_audit::{AuditKind, AuditSink};
 use argo_identity::user_tenant::UserTenantRole;
 use argo_identity::{is_in_probation, IdentityStore, Worker, WorkerId};
-use argo_store::executor_promotion::{self, PromotionGrant, PromotionRecord, PROMOTABLE_KIND_MCP};
+use argo_store::executor_promotion::{
+    self, PromotionGrant, PromotionRecord, PROMOTABLE_KIND_CU_MACOS, PROMOTABLE_KIND_MCP,
+};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use serde_json::{json, Value};
 use std::sync::Arc;
 
 /// `POST /api/v1/workers/<id>/actions/<action>/executor`.
-/// Body shape: `{ "kind": "mcp", "server": "<name>", "tool": "<tool>" }`.
+/// Body shapes: `{ "kind": "mcp", "server": "<name>", "tool": "<tool>" }`
+/// or `{ "kind": "computer_use_native_macos", "target_app": "<bundle-id>" }`
+/// (DEC-050/DEC-051 — the CU run loop's risk-tiered floor still holds
+/// every committing operation for approval regardless of this grant).
 pub(super) async fn post_executor_promote(
     worker_id_raw: &str,
     action_type: &str,
@@ -82,8 +87,9 @@ pub(super) async fn post_executor_promote(
         worker_id: worker.id.to_string(),
         action_type: action_type.to_string(),
         executor_kind: binding.kind,
-        mcp_server: Some(binding.server),
-        mcp_tool: Some(binding.tool),
+        mcp_server: binding.server,
+        mcp_tool: binding.tool,
+        target_app: binding.target_app,
         promoted_by: actor,
     };
     let record = match executor_promotion::promote(store.pool(), &grant).await {
@@ -95,10 +101,11 @@ pub(super) async fn post_executor_promote(
     ("200 OK", promotion_response(&record))
 }
 
-struct McpBinding {
+struct ExecutorBinding {
     kind: String,
-    server: String,
-    tool: String,
+    server: Option<String>,
+    tool: Option<String>,
+    target_app: Option<String>,
 }
 
 async fn preflight(
@@ -157,13 +164,16 @@ async fn enforce_promote(
     Ok(())
 }
 
-/// Parse + validate the `{ kind, server, tool }` body. Only the `mcp`
-/// kind is promotable in v1, and it requires a non-empty server + tool.
-fn parse_binding(req: &str) -> Result<McpBinding, (&'static str, String)> {
+/// Parse + validate the executor-binding body. Promotable kinds:
+/// `mcp` (requires non-empty `server` + `tool`) and
+/// `computer_use_native_macos` (requires non-empty `target_app`).
+fn parse_binding(req: &str) -> Result<ExecutorBinding, (&'static str, String)> {
     let body = body_from_request(req);
     let body_trim = body.trim();
     if body_trim.is_empty() {
-        return Err(bad_request("missing JSON body { kind, server, tool }"));
+        return Err(bad_request(
+            "missing JSON body { kind, server, tool } or { kind, target_app }",
+        ));
     }
     let parsed: Value = serde_json::from_str(body_trim)
         .map_err(|e| bad_request(&format!("invalid JSON body: {e}")))?;
@@ -173,14 +183,29 @@ fn parse_binding(req: &str) -> Result<McpBinding, (&'static str, String)> {
         .unwrap_or(PROMOTABLE_KIND_MCP)
         .trim()
         .to_string();
-    if kind != PROMOTABLE_KIND_MCP {
-        return Err(bad_request(&format!(
-            "only '{PROMOTABLE_KIND_MCP}' is promotable in v1, got '{kind}'"
-        )));
+    if kind == PROMOTABLE_KIND_MCP {
+        let server = required_field(&parsed, "server")?;
+        let tool = required_field(&parsed, "tool")?;
+        return Ok(ExecutorBinding {
+            kind,
+            server: Some(server),
+            tool: Some(tool),
+            target_app: None,
+        });
     }
-    let server = required_field(&parsed, "server")?;
-    let tool = required_field(&parsed, "tool")?;
-    Ok(McpBinding { kind, server, tool })
+    if kind == PROMOTABLE_KIND_CU_MACOS {
+        let target_app = required_field(&parsed, "target_app")?;
+        return Ok(ExecutorBinding {
+            kind,
+            server: None,
+            tool: None,
+            target_app: Some(target_app),
+        });
+    }
+    Err(bad_request(&format!(
+        "only '{PROMOTABLE_KIND_MCP}' or '{PROMOTABLE_KIND_CU_MACOS}' are \
+         promotable, got '{kind}'"
+    )))
 }
 
 fn required_field(parsed: &Value, field: &str) -> Result<String, (&'static str, String)> {

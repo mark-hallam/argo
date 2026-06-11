@@ -45,7 +45,7 @@ use super::worker_actions::ActionRecord;
 use super::worker_actions_auto_approval;
 use super::worker_actions_executor::{ActionOutcome, Executor};
 use super::worker_actions_executor_promotion::{
-    execution_graduation_enabled, resolve_executor_with_promotion,
+    execution_graduation_enabled, resolve_executor_for_approved, resolve_executor_with_promotion,
 };
 use super::worker_actions_transitions;
 use argo_memory::MemoryStore;
@@ -102,7 +102,11 @@ pub(crate) async fn dispatch_emitted_actions_inline(
             );
             continue;
         }
-        let executor = match resolve_for(store, tenant, vertical_id, rec).await {
+        // operator_approved=false: the resolver re-checks ARGO_EXECUTION_GRADUATION
+        // itself, so the flag-off safety of this autonomous host-control path is
+        // guarded BOTH here (the early-return above) AND inside the resolver —
+        // two independent guards, not one (adversarial-review hardening 2026-06-11).
+        let executor = match resolve_for(store, tenant, vertical_id, rec, false).await {
             Ok(ex) => ex,
             Err(e) => {
                 eprintln!(
@@ -151,7 +155,10 @@ pub(crate) async fn execute_approved_action_inline(
     worker_actions_auto_approval::ensure_circuit_allows_dispatch(memory, workspace, &rec.action_id)
         .await?;
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
-    let executor = resolve_for(store, tenant, vertical_id, rec).await?;
+    // operator_approved=true: the operator cleared this action in /approvals,
+    // so promotions are honoured regardless of ARGO_EXECUTION_GRADUATION
+    // (approval IS the authorization, #2818).
+    let executor = resolve_for(store, tenant, vertical_id, rec, true).await?;
     run_one(memory, workspace, rec, executor.as_ref(), &cwd).await
 }
 
@@ -165,6 +172,7 @@ async fn resolve_for(
     tenant: TenantId,
     vertical_id: &str,
     rec: &ActionRecord,
+    operator_approved: bool,
 ) -> ArgoResult<Box<dyn Executor>> {
     let dir = super::vertical::resolve_verticals_dir();
     // cu1g (DEC-050): genesis-aware resolve — flat catalog first, then the
@@ -179,14 +187,20 @@ async fn resolve_for(
                 rec.action_type
             ))
         })?;
-    resolve_executor_with_promotion(
-        store,
-        tenant,
-        &rec.worker_id.to_string(),
-        &loaded.manifest,
-        &rec.action_type,
-    )
-    .await
+    let worker_id = rec.worker_id.to_string();
+    if operator_approved {
+        // cu5 approve path: the operator cleared the action, so promotions
+        // are honoured regardless of ARGO_EXECUTION_GRADUATION (#2818).
+        resolve_executor_for_approved(store, tenant, &worker_id, &loaded.manifest, &rec.action_type)
+            .await
+    } else {
+        // Autonomous path: defense-in-depth — the resolver re-checks the
+        // graduation flag itself, so honouring a promotion flag-off would
+        // require BOTH this guard AND the caller's early-return to fail
+        // (adversarial-review hardening 2026-06-11).
+        resolve_executor_with_promotion(store, tenant, &worker_id, &loaded.manifest, &rec.action_type)
+            .await
+    }
 }
 
 /// Drive one already-eligible record through the executor: transition

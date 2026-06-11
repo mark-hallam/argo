@@ -58,6 +58,7 @@ pub(super) async fn auto_graduate_safe_tier(
             executor_kind: PROMOTABLE_KIND_DOCUMENT.to_string(),
             mcp_server: None,
             mcp_tool: None,
+            target_app: None,
             promoted_by: AUTO_GRADUATION_PRINCIPAL.to_string(),
         };
         match promote(store.pool(), &grant).await {
