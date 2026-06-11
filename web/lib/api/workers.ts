@@ -379,14 +379,33 @@ export interface WorkerRunResult {
   held_tools?: string[];
   /** True while the worker is inside its 24h probation window. */
   probation?: boolean;
+  /**
+   * "Approve & run": the requested `approve_tools` that passed the
+   * gateway's worker-tool-set membership filter and were minted as
+   * ONE-SHOT grants on this run's session before the turn (additive
+   * field; absent on older gateways). Requested-but-refused tools are
+   * simply missing from this list.
+   */
+  approved_tools?: string[];
 }
 
+/**
+ * Trigger a run. `approveTools` is the one-action "Approve & run"
+ * pre-approval list: the gateway mints a ONE-SHOT grant per listed
+ * tool on the NEW run's session before the turn, so a probationary
+ * teammate's held tools clear in the same call that runs them —
+ * instead of approving a dead session and watching the next run hold
+ * the same tools again. Tools the worker doesn't legitimately hold are
+ * skipped server-side (never granted).
+ */
 export async function triggerWorkerRun(
   workerId: string,
   note?: string,
+  approveTools?: string[],
 ): Promise<WorkerRunResult> {
   const body: Record<string, unknown> = { trigger_source: "manual_run_now" };
   if (note && note.trim()) body.note = note.trim();
+  if (approveTools && approveTools.length > 0) body.approve_tools = approveTools;
   return postProxy<WorkerRunResult>(
     `/api/workers/${encodeURIComponent(workerId)}/run`,
     body,

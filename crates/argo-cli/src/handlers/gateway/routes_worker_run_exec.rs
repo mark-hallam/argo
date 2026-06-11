@@ -89,7 +89,12 @@ const MAX_TOOL_ROUNDS: usize = 8;
 /// Example (crate-internal type, shown rather than doc-tested):
 ///
 /// ```text
-/// let ok = RunOutcome { session_id: "abc".into(), status: "completed", chars: 42 };
+/// let ok = RunOutcome {
+///     session_id: "abc".into(),
+///     status: "completed",
+///     chars: 42,
+///     approved_tools: vec!["file_read".into()],
+/// };
 /// // ok.status == "completed"; ok.chars == 42
 /// ```
 #[derive(Debug)]
@@ -102,6 +107,12 @@ pub(super) struct RunOutcome {
     /// Length in characters of the assistant's reply preview the
     /// engine persisted. `0` on the failed path.
     pub chars: usize,
+    /// Tools the operator pre-approved for this run that survived the
+    /// worker-tool-set membership filter and were minted as ONE-SHOT
+    /// session grants before the turn. Requested tools OUTSIDE the
+    /// worker's declared tool set are silently absent (skipped, never
+    /// granted). Empty when the request carried no `approve_tools`.
+    pub approved_tools: Vec<String>,
 }
 
 /// Why a real run could not even start. Maps to an honest `409
@@ -150,10 +161,24 @@ impl RunBlocked {
 /// `prompt` is the operator's note when non-empty, else a generic
 /// standing-task nudge — see [`super::routes_worker_run`] for how the
 /// caller derives it. We never fabricate task specifics.
+///
+/// `approve_tools` is the operator's "Approve & run" pre-approval list
+/// (keystone fix): each requested tool that passes the worker-tool-set
+/// membership filter ([`filter_to_worker_tool_set`]) is minted as a
+/// ONE-SHOT session grant on the new run's session BEFORE the turn, so
+/// a probationary teammate's held tools clear in the same operator
+/// action that triggers the run. Tools outside the worker's declared
+/// tool set are skipped (never granted, never an error) — the request
+/// cannot mint a capability the worker doesn't legitimately hold.
+/// `approved_by` is the audit principal stamped on each grant's
+/// `ApprovalGranted` row. No new auth path: the caller is the run
+/// handler, which has already enforced the run capability.
 pub(super) async fn run_worker_now(
     store: &Arc<SessionStore>,
     worker: &Worker,
     prompt: &str,
+    approve_tools: &[String],
+    approved_by: Option<&str>,
 ) -> ArgoResult<Result<RunOutcome, RunBlocked>> {
     // ── Validate-before-claim #1: a real provider must be configured.
     if !crate::handlers::gateway::startup_check::provider_key_present() {
@@ -164,9 +189,19 @@ pub(super) async fn run_worker_now(
     // `.genesis/<tenant>/<vid>/`, NOT the flat catalog, and must resolve
     // ONLY for its own tenant (fail-closed cross-tenant).
     let vertical_id = worker.vertical_id.as_str();
-    if !vertical_loads(&worker.tenant_id.to_string(), vertical_id) {
+    let Some(loaded) = load_worker_vertical(&worker.tenant_id.to_string(), vertical_id) else {
         return Ok(Err(RunBlocked::NoVertical));
-    }
+    };
+
+    // Filter the operator's pre-approval list to the worker's declared
+    // tool set (no privilege escalation through `approve_tools`).
+    let approved_tools = filter_to_worker_tool_set(&loaded.manifest, approve_tools);
+    let pre_approved = (!approved_tools.is_empty()).then(|| {
+        crate::handlers::work_dispatch::PreApprovedTools {
+            tools: approved_tools.clone(),
+            approved_by: approved_by.map(str::to_string),
+        }
+    });
 
     // Both preconditions pass — it is now honest to start a turn.
     let memory = MemoryStore::new(Arc::clone(store));
@@ -192,24 +227,79 @@ pub(super) async fn run_worker_now(
         MAX_STEPS,
         MAX_TOOL_ROUNDS,
         /* json_out = */ true,
+        pre_approved.as_ref(),
     )
     .await?;
 
     // Read back the completion row the engine wrote. It only exists if
     // the turn genuinely completed, so its presence IS the evidence.
-    let outcome = read_completion(&memory, workspace, vertical_id, &job.id.to_string()).await?;
+    let mut outcome =
+        read_completion(&memory, workspace, vertical_id, &job.id.to_string()).await?;
+    outcome.approved_tools = approved_tools;
     Ok(Ok(outcome))
 }
 
-/// `true` when `vertical_id` resolves to a loadable vertical for
-/// `tenant_id` — flat in `verticals/<vid>/` OR tenant-scoped under
+/// Resolve `vertical_id` to its loaded vertical for `tenant_id` — flat
+/// in `verticals/<vid>/` OR tenant-scoped under
 /// `verticals/.genesis/<tenant>/<vid>/`. Mirrors the validation `argo
 /// work add` does, so a worker whose role was never materialized can't
 /// claim a run; a Genesis pack belonging to a *different* tenant
-/// resolves to `false` (fail-closed cross-tenant).
-fn vertical_loads(tenant_id: &str, vertical_id: &str) -> bool {
+/// resolves to `None` (fail-closed cross-tenant).
+fn load_worker_vertical(
+    tenant_id: &str,
+    vertical_id: &str,
+) -> Option<argo_vertical::LoadedVertical> {
     let dir = crate::handlers::vertical::resolve_verticals_dir();
-    argo_vertical::load_for_worker(&dir, tenant_id, vertical_id).is_some()
+    argo_vertical::load_for_worker(&dir, tenant_id, vertical_id)
+}
+
+/// Keep only the requested tools the worker would legitimately hold —
+/// the membership filter under `approve_tools` (no privilege
+/// escalation; the adversarial bar).
+///
+/// "Legitimately hold" mirrors the runtime's own least-privilege
+/// derivation (`argo_agent_runner`'s `derive_profile_from_manifest` +
+/// `WorkerCapabilityProfile::to_capability_set`): the manifest's
+/// declared `[actions]` names + `[tools].allowed`, with `[tools].denied`
+/// always winning, plus the always-safe
+/// [`argo_capability::MINIMAL_TEAMMATE_TOOLS`] (unless denied). A
+/// requested tool outside that set is SKIPPED — silently dropped, never
+/// granted, and never an error that would fail the run.
+///
+/// Output is de-duplicated, preserving first-request order.
+fn filter_to_worker_tool_set(
+    manifest: &argo_vertical::VerticalManifest,
+    requested: &[String],
+) -> Vec<String> {
+    let declared_actions: Vec<String> = manifest
+        .actions
+        .as_ref()
+        .map(|a| a.actions.keys().cloned().collect())
+        .unwrap_or_default();
+    let (allowed, denied): (Vec<String>, Vec<String>) = manifest
+        .tools
+        .as_ref()
+        .map(|t| (t.allowed.clone(), t.denied.clone()))
+        .unwrap_or_default();
+    let profile = argo_capability::WorkerCapabilityProfile::derive(
+        declared_actions,
+        allowed,
+        denied.clone(),
+        Vec::<String>::new(),
+    );
+    let mut out: Vec<String> = Vec::new();
+    for raw in requested {
+        let tool = raw.trim();
+        if tool.is_empty() || out.iter().any(|t| t == tool) {
+            continue;
+        }
+        let minimal_safe = argo_capability::MINIMAL_TEAMMATE_TOOLS.contains(&tool)
+            && !denied.iter().any(|d| d == tool);
+        if profile.permits_tool(tool) || minimal_safe {
+            out.push(tool.to_string());
+        }
+    }
+    out
 }
 
 /// Resolve the workspace that owns this worker's tenant. Prefers the
@@ -271,6 +361,7 @@ async fn read_completion(
             session_id,
             status: "completed",
             chars,
+            approved_tools: Vec::new(),
         });
     }
     // No completion row — the turn did not finish. Report it honestly.
@@ -278,6 +369,7 @@ async fn read_completion(
         session_id: String::new(),
         status: "failed",
         chars: 0,
+        approved_tools: Vec::new(),
     })
 }
 

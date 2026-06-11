@@ -1,18 +1,21 @@
 /**
- * Day-1 unblock FIX 1 — probation visibility + in-SPA tool approval.
+ * Probation visibility + the ONE-action "Approve & run" flow
+ * (keystone fix — the old approve-then-run-again two-step minted
+ * grants on a dead session and never converged).
  *
  * Behavior pins on WorkerOverviewContent:
  *  - a run response with `held_tools` renders the "Needs your
  *    approval" card (honest warning toast, NOT the green success
  *    toast);
- *  - approve success flips the card to the [Run again] affordance,
- *    which re-invokes Run now;
- *  - approve failure surfaces the gateway error message destructively
- *    and stays retryable;
+ *  - [Approve & run] makes a SINGLE run call carrying
+ *    `approve_tools = heldTools` — no separate session-approve call;
+ *  - a converged run (no `held_tools` in the response) clears the card
+ *    and shows the "did the work — see the audit trail" success state;
+ *  - a run that reaches a DIFFERENT held set re-renders the card with
+ *    the new tools (progressive approval);
+ *  - run failure surfaces destructively and the card stays for retry;
  *  - `probation: true` on the run response renders the 24h-probation
- *    chip (derived from the run envelope only — the worker detail
- *    payload doesn't expose probation);
- *  - a response without the additive fields keeps the previous
+ *    chip; a response without the additive fields keeps the previous
  *    success-toast behavior (no card, no chip).
  *
  * Sibling cards are stubbed — this file tests the run-now wiring and
@@ -30,13 +33,11 @@ const {
   toastErrorMock,
   toastWarningMock,
   triggerWorkerRunMock,
-  approveSessionToolsMock,
 } = vi.hoisted(() => ({
   toastSuccessMock: vi.fn(),
   toastErrorMock: vi.fn(),
   toastWarningMock: vi.fn(),
   triggerWorkerRunMock: vi.fn(),
-  approveSessionToolsMock: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -53,10 +54,6 @@ vi.mock("sonner", () => ({
 
 vi.mock("@/lib/api/workers", () => ({
   triggerWorkerRun: triggerWorkerRunMock,
-}));
-
-vi.mock("@/lib/api/session-approvals", () => ({
-  approveSessionTools: approveSessionToolsMock,
 }));
 
 vi.mock("@/lib/hooks/use-worker", () => ({
@@ -129,21 +126,20 @@ function runEnvelope(over: Record<string, unknown> = {}) {
   };
 }
 
-function heldEnvelope() {
+function heldEnvelope(tools: string[] = ["send_email", "web_search"]) {
   return runEnvelope({
     session_id: SID,
-    held_tools: ["send_email", "web_search"],
+    held_tools: tools,
     probation: true,
   });
 }
 
-describe("WorkerOverviewContent — probation visibility + in-SPA approval", () => {
+describe("WorkerOverviewContent — probation + one-action Approve & run", () => {
   beforeEach(() => {
     toastSuccessMock.mockReset();
     toastErrorMock.mockReset();
     toastWarningMock.mockReset();
     triggerWorkerRunMock.mockReset();
-    approveSessionToolsMock.mockReset();
   });
 
   it("renders the Needs-your-approval card + honest toast when the run is held", async () => {
@@ -171,63 +167,91 @@ describe("WorkerOverviewContent — probation visibility + in-SPA approval", () 
     expect(screen.getByTestId("worker-probation-chip")).toBeInTheDocument();
   });
 
-  it("approve success → Run again affordance → re-invokes run-now", async () => {
-    triggerWorkerRunMock.mockResolvedValue(heldEnvelope());
-    approveSessionToolsMock.mockResolvedValue([
-      { ok: true, grant_id: "g1", session_id: SID, tool: "send_email", one_shot: false },
-      { ok: true, grant_id: "g2", session_id: SID, tool: "web_search", one_shot: false },
-    ]);
+  it("Approve & run sends ONE run call carrying approve_tools = the held tools", async () => {
+    triggerWorkerRunMock.mockResolvedValueOnce(heldEnvelope());
     const user = userEvent.setup();
     render(<WorkerOverviewContent workerId="w-1" />);
 
     await user.click(screen.getByTestId("worker-overview-run-now"));
-    await user.click(await screen.findByTestId("probation-approve-tools"));
 
-    expect(approveSessionToolsMock).toHaveBeenCalledWith(
-      SID,
-      ["send_email", "web_search"],
-      expect.objectContaining({ note: expect.any(String) }),
+    // Converged second run: tools granted on the new session, no holds.
+    triggerWorkerRunMock.mockResolvedValueOnce(
+      runEnvelope({
+        probation: true,
+        approved_tools: ["send_email", "web_search"],
+      }),
     );
+    await user.click(await screen.findByTestId("probation-approve-and-run"));
 
-    const runAgain = await screen.findByTestId("probation-run-again");
-    expect(screen.queryByTestId("probation-approve-tools")).toBeNull();
+    // THE keystone pin: a single run call with approve_tools — never a
+    // separate approve-this-session round trip.
+    expect(triggerWorkerRunMock).toHaveBeenCalledTimes(2);
+    expect(triggerWorkerRunMock).toHaveBeenLastCalledWith("w-1", undefined, [
+      "send_email",
+      "web_search",
+    ]);
 
-    // Second run succeeds clean → card clears, success toast fires.
-    triggerWorkerRunMock.mockResolvedValue(runEnvelope({ probation: true }));
-    await user.click(runAgain);
-
+    // Converged → card clears + "did the work" success state.
     await waitFor(() =>
       expect(screen.queryByTestId("probation-approval-card")).toBeNull(),
     );
-    expect(triggerWorkerRunMock).toHaveBeenCalledTimes(2);
-    expect(toastSuccessMock).toHaveBeenCalled();
-    expect(String(toastSuccessMock.mock.calls.at(-1)?.[0])).toMatch(
-      /Ava is running now/,
+    expect(toastSuccessMock).toHaveBeenCalledTimes(1);
+    expect(String(toastSuccessMock.mock.calls[0]?.[0])).toMatch(
+      /Ava did the work/,
     );
+    expect(
+      String(
+        (toastSuccessMock.mock.calls[0]?.[1] as { description?: string })
+          ?.description,
+      ),
+    ).toMatch(/audit trail/);
   });
 
-  it("approve failure → destructive toast with the gateway envelope message, still retryable", async () => {
-    triggerWorkerRunMock.mockResolvedValue(heldEnvelope());
-    approveSessionToolsMock.mockRejectedValue(
-      new ApiError(404, `no session with id '${SID}'`),
-    );
+  it("a run that reaches NEW held tools re-renders the card with the new set", async () => {
+    triggerWorkerRunMock.mockResolvedValueOnce(heldEnvelope(["send_email"]));
     const user = userEvent.setup();
     render(<WorkerOverviewContent workerId="w-1" />);
 
     await user.click(screen.getByTestId("worker-overview-run-now"));
-    await user.click(await screen.findByTestId("probation-approve-tools"));
+    expect(await screen.findByTestId("held-tool-send_email")).toBeInTheDocument();
+
+    // The approved run gets further, then a DIFFERENT tool is held.
+    triggerWorkerRunMock.mockResolvedValueOnce(
+      heldEnvelope(["close_ticket"]),
+    );
+    await user.click(screen.getByTestId("probation-approve-and-run"));
+
+    expect(await screen.findByTestId("held-tool-close_ticket")).toBeInTheDocument();
+    expect(screen.queryByTestId("held-tool-send_email")).toBeNull();
+    // Progressive-approval copy, still honest (warning, not success).
+    expect(String(toastWarningMock.mock.calls.at(-1)?.[0])).toMatch(
+      /got further, but reached more held tools/,
+    );
+    expect(toastSuccessMock).not.toHaveBeenCalled();
+  });
+
+  it("Approve & run failure surfaces destructively and the card stays for retry", async () => {
+    triggerWorkerRunMock.mockResolvedValueOnce(heldEnvelope());
+    const user = userEvent.setup();
+    render(<WorkerOverviewContent workerId="w-1" />);
+
+    await user.click(screen.getByTestId("worker-overview-run-now"));
+
+    triggerWorkerRunMock.mockRejectedValueOnce(
+      new ApiError(503, "gateway store unavailable"),
+    );
+    await user.click(await screen.findByTestId("probation-approve-and-run"));
 
     await waitFor(() => expect(toastErrorMock).toHaveBeenCalled());
     const [title, opts] = toastErrorMock.mock.calls[0] as [
       string,
       { description?: string },
     ];
-    expect(title).toMatch(/Couldn't approve the tools/);
-    expect(opts.description).toBe(`no session with id '${SID}'`);
+    expect(title).toMatch(/Couldn't trigger a run/);
+    expect(opts.description).toBe("gateway store unavailable");
 
     // The card stays in the approvable state for a retry.
-    expect(screen.getByTestId("probation-approve-tools")).toBeInTheDocument();
-    expect(screen.queryByTestId("probation-run-again")).toBeNull();
+    expect(screen.getByTestId("probation-approve-and-run")).toBeInTheDocument();
   });
 
   it("keeps the previous success behavior when the envelope has no probation fields", async () => {

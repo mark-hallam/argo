@@ -73,6 +73,7 @@ async fn run_during_probation_reports_held_tools_and_probation_true() {
         session_id: session.0.to_string(),
         status: "completed",
         chars: 12,
+        approved_tools: Vec::new(),
     };
     let req = run_req(&worker.id, Some("owner"), "{}");
     let (status, resp) = super::super::finish_run(

@@ -9,6 +9,7 @@ use crate::handlers::vertical::resolve_verticals_dir;
 use crate::handlers::work_artifacts::ArtifactOutput;
 use crate::handlers::work_steps::StepRunOutput;
 use crate::handlers::worker_actions::ActionRecord;
+use argo_audit::{AuditKind, AuditSink};
 use argo_memory::{MemoryEntry, MemoryFile, MemoryStore};
 use argo_store::{SessionCreate, SessionStore, WorkerId};
 use argo_types::{ArgoError, ArgoResult, SessionId, TenantId, WorkspaceId};
@@ -83,6 +84,52 @@ pub(super) async fn create_session_with_bundle(
         .await;
     }
     Ok(session_id)
+}
+
+/// Mint the operator's pre-approved ONE-SHOT tool grants on the run's
+/// freshly created session, plus one `ApprovalGranted` audit row per
+/// grant — the same audit kind the standalone approve endpoint emits,
+/// so the forensic chain shows WHO approved WHAT for THIS turn.
+///
+/// Called by [`super::work_dispatch::process_job`] between session
+/// creation and the turn ("Approve & run" keystone fix). Every grant is
+/// `one_shot = true`: the dispatch gate consumes it on first matching
+/// dispatch (`consume_one_shot_grant`), so the approval is spent by the
+/// turn and can never permanently elevate the teammate. The caller has
+/// already filtered the tool list to the worker's declared tool set.
+pub(super) async fn mint_pre_approved_grants(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    session_id: SessionId,
+    pre: &super::work_dispatch::PreApprovedTools,
+) -> ArgoResult<()> {
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
+    for tool in &pre.tools {
+        let grant_id = store
+            .add_session_grant(
+                session_id,
+                tool,
+                "run_now_approve",
+                Some("approved with run (Approve & run)"),
+                /* one_shot = */ true,
+                None,
+            )
+            .await?;
+        sink.write(
+            Some(session_id),
+            AuditKind::ApprovalGranted,
+            json!({
+                "tool": tool,
+                "grant_id": grant_id.to_string(),
+                "source": "run_now_approve",
+                "one_shot": true,
+                "approved_with_run": true,
+            }),
+            pre.approved_by.clone(),
+        )
+        .await?;
+    }
+    Ok(())
 }
 
 /// Drive the per-job step loop — mock provider short-circuits to a

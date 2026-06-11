@@ -11,8 +11,13 @@
 //! 3. Capability check: re-use [`Action::WorkerLifecycle`] (the same
 //!    admin-floor capability that gates pause/resume) per the brief's
 //!    "`permissions.can_pause_resume` is a reasonable proxy" guidance.
-//! 4. Parse body (`{ note?: string, trigger_source?: string }`, both
-//!    optional).
+//! 4. Parse body (`{ note?: string, trigger_source?: string,
+//!    approve_tools?: string[] }`, all optional). `approve_tools` is
+//!    the operator's one-action "Approve & run" pre-approval list: the
+//!    exec layer filters it to the worker's declared tool set and mints
+//!    ONE-SHOT session grants on the new run's session before the turn,
+//!    so a probationary teammate's held tools clear in the same click
+//!    that triggers the run (the approve→run loop converges).
 //! 5. **Run a REAL turn** via [`routes_worker_run_exec::run_worker_now`]
 //!    — validate-before-claim (worker has a loadable vertical + a
 //!    provider key is present, else an honest `409 Conflict`), then run
@@ -90,10 +95,33 @@ pub(super) async fn post_run(
         .and_then(Value::as_str)
         .unwrap_or("manual_run_now")
         .to_string();
+    // "Approve & run" (keystone fix): optional operator pre-approval
+    // list. Absent / non-array → empty (existing callers unaffected).
+    // The exec layer filters it to the worker's declared tool set and
+    // mints ONE-SHOT grants on the new run's session before the turn.
+    let approve_tools: Vec<String> = body
+        .get("approve_tools")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
     // Run a REAL turn (validate-before-claim inside). A blocked
     // precondition returns an honest 409 — no turn, no marker.
     let prompt = run_prompt(&worker, note.as_deref());
-    let outcome = match routes_worker_run_exec::run_worker_now(store, &worker, &prompt).await {
+    let approver = session_principal_id_for_audit(req);
+    let outcome = match routes_worker_run_exec::run_worker_now(
+        store,
+        &worker,
+        &prompt,
+        &approve_tools,
+        approver.as_deref(),
+    )
+    .await
+    {
         Ok(Ok(o)) => o,
         Ok(Err(blocked)) => return conflict(blocked.code(), blocked.message()),
         Err(e) => return server_error(&format!("run worker: {e}")),
@@ -157,6 +185,11 @@ async fn finish_run(
         "queued_at": queued_at.to_rfc3339(),
         "held_tools": held_tools,
         "probation": probation,
+        // "Approve & run": the requested tools that passed the
+        // worker-tool-set membership filter and were minted as ONE-SHOT
+        // grants on this run's session. Requested-but-skipped tools are
+        // absent — the SPA can diff to see what was refused.
+        "approved_tools": outcome.approved_tools,
     });
     ("200 OK", body.to_string())
 }
