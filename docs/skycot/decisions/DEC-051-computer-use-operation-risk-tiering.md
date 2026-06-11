@@ -25,24 +25,39 @@ exactly DEC-041's.
 
 ## Decision
 
-A computer-use action's autonomy is decided **per-operation by real risk, NOT by a
-self-asserted manifest field**:
+A computer-use action's autonomy is decided **per-operation by whether the
+operation COMMITS a consequential action, NOT by a self-asserted manifest
+field**:
 
-- **OBSERVE tier — autonomous-eligible (safe, per DEC-041).** Pure reads with no
-  host mutation: `screenshot`, `cursor_position`, **cursor/mouse move**, **scroll**, screen
-  read / OCR, window/app enumeration, `wait`. These only change where the pointer
-  is or what is in view — no persistent change, trivially reversible — so they may
-  run autonomously (within DEC-041's envelope:
-  spend cap, rate limit, scope, hash-chained audit).
-- **ACT tier — approval-gated (sensitive, per DEC-041), REGARDLESS of the
-  manifest's claimed `risk`/`requires_approval`.** Any host input/mutation:
-  `left_click`/`right_click`/`middle_click`/`double_click`, `left_click_drag`,
-  `type`, `key`/`hold_key`, `scroll`, mouse-button input, app launch, and any
-  `osascript` that performs (not just reads). The platform FLOORS these to
-  approval-required — a manifest cannot downgrade an act-op to autonomous.
+- **AUTONOMOUS tier — eligible to run without approval (safe, per DEC-041).**
+  Operations that observe, navigate, or STAGE input but cannot, on their own,
+  commit a consequential or irreversible effect: `screenshot`,
+  `cursor_position`, screen read / OCR, window/app enumeration, `wait`,
+  **cursor/mouse move**, **scroll**, and **`type` (entering text into a
+  field)**. Run within DEC-041's envelope (spend cap, rate limit, scope,
+  hash-chained audit). **Typing is autonomous ONLY because the operation that
+  SUBMITS typed text — a key press (Enter/Return) or a click — stays gated
+  (below).** Typed text is staged and reviewable before that gated commit; on
+  its own, filling a field changes nothing irreversibly.
+- **GATED tier — approval-required (sensitive, per DEC-041), REGARDLESS of the
+  manifest's claimed `risk`/`requires_approval`.** Operations that COMMIT or
+  trigger an action: `left_click`/`right_click`/`middle_click`/`double_click`,
+  `left_click_drag`, `key`/`hold_key` (Enter/Return/Tab/shortcuts =
+  submit/save/close/destructive), app launch, and any `osascript` that performs
+  (not just reads). The platform FLOORS these to approval-required — a manifest
+  cannot downgrade them. These are the operations that turn staged work (typed
+  text, a filled form) into a real, often irreversible effect.
 
-**Fails closed:** an unrecognized / unclassifiable computer-use operation is
-treated as ACT (sensitive → gated), per DEC-041 boundary 4.
+**Fails closed:** an unrecognized / unclassifiable operation is treated as GATED
+(sensitive), per DEC-041 boundary 4.
+
+**Residual edge (accepted):** in a command-interpreting app (a modal editor, a
+single-keystroke-shortcut UI), individual typed characters can themselves BE
+commands rather than text entry, so autonomous `type` could trigger an action
+there. `type` is autonomous on the assumption of text-entry contexts (forms,
+search boxes, message bodies — the "real work" case). A teammate meant to drive
+a command-mode app should be hired with `type` denied/gated in its manifest;
+this floor governs the platform default.
 
 ## Enforcement (where the floor lives)
 

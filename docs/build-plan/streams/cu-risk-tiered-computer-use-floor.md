@@ -5,11 +5,15 @@
 
 ## Goal (DEC-051 — operator-locked)
 
-Enforce the risk-tiered computer-use floor: OBSERVE operations (screenshot,
-cursor_position, screen read, wait) run autonomously; ACT operations (click,
-type, key, drag, app launch, mutating osascript) are approval-gated
-**regardless of the manifest's self-asserted `requires_approval`/`risk`**.
-Closes the cu3/#2816 self-assertion hole; unblocks #2816.
+Enforce the risk-tiered computer-use floor by whether an op COMMITS an action.
+AUTONOMOUS ops (screenshot, cursor_position, cursor/mouse move, scroll, **type**,
+screen read, wait — observe / navigate / STAGE input) run without approval;
+GATED ops (any click, `key`/`hold_key` — incl Enter/Return-as-submit, drag, app
+launch, mutating osascript — the ops that COMMIT) are approval-gated **regardless
+of the manifest's self-asserted `requires_approval`/`risk`**. Typing is
+autonomous ONLY because the submit (a key press or click) stays gated, so typed
+text is staged + reviewable before the gated commit. Unknown → Gated (fail
+closed). Closes the cu3/#2816 self-assertion hole; unblocks #2816.
 
 ## Why (DEC-051 + #2816 review)
 
@@ -24,12 +28,15 @@ reversibility, enforced in the executor.
 
 1. **Classify cu operations** (a small `enum`/fn in
    `crates/argo-executor-computer-use-macos`, or a shared spot the run loop
-   uses): `Observe` { screenshot, cursor_position, cursor/mouse move, scroll, wait, read/OCR, enumerate }
-   vs `Act` { left/right/middle/double click, click_drag, type, key, hold_key,
-   mouse-BUTTON click (NOT a bare cursor move), app launch, mutating osascript }. **Unknown → Act**
-   (fail closed, DEC-041 boundary 4). Map the Anthropic CU action vocabulary the
-   run loop already parses (grep `action_kind` in `run_loop*.rs`).
-2. **Gate in the run loop**: Observe ops execute. Before the FIRST Act op, if the
+   uses): `Autonomous` { screenshot, cursor_position, cursor/mouse move, scroll,
+   `type`, wait, read/OCR, enumerate } vs `Gated` { left/right/middle/double
+   click, click_drag, `key`/`hold_key` (incl Enter/Return/Tab — these SUBMIT
+   typed text), app launch, mutating osascript }. **Unknown → Gated** (fail
+   closed, DEC-041 boundary 4). Note: `type` is Autonomous BUT `key` is Gated —
+   that pairing is load-bearing (typed text only commits via a gated key/click).
+   Map the Anthropic CU action vocabulary the run loop already parses (grep
+   `action_kind` in `run_loop*.rs`).
+2. **Gate in the run loop**: Autonomous ops execute (incl typing into fields). Before the FIRST Gated op, if the
    action is not approved-for-acting, return `ActionOutcome::HumanHandoff` (HELD)
    — the operator's cu5 "Approve & run" (#2818) grants + resumes. Observe ops
    before that point are NOT wasted (their screenshots inform the held review).
@@ -48,8 +55,8 @@ reversibility, enforced in the executor.
 ## Acceptance / verifier
 1. An observe-only cu action (only screenshots) runs to completion autonomously
    (flag on) — no approval row.
-2. A cu action that reaches a click/type op returns `HumanHandoff` (held) at the
-   first act op, EVEN with manifest `requires_approval=false`; operator Approve &
+2. A cu action that reaches a click or key-press (Enter/submit) op returns `HumanHandoff`
+   (held) at the first GATED op, EVEN with manifest `requires_approval=false`; operator Approve &
    run resumes + the act executes.
 3. An unknown/unclassified op → treated as Act → held.
 4. `cargo test -p argo-executor-computer-use-macos` green; gate green.
