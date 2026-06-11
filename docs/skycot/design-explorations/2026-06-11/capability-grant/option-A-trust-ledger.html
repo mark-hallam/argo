@@ -1,0 +1,832 @@
+<!--
+DESIGN LANGUAGE — "Trust Ledger" (Option A, brand-RESTRAINED pole).
+An enterprise security-console register in the spirit of Etherscan or a serious SIEM: calm, dense,
+hairline-ruled rows, monospace identifiers, explicit READ/WRITE badges, and an unmistakable
+"everything here is logged and signed" undertone. Inter carries all body and UI text; JetBrains Mono
+carries worker ids, audit hashes, scopes and timestamps; Audiowide appears exactly once, in the
+SKYCOT wordmark. The purple→pink gradient is used only on the wordmark and a single hairline accent
+on the connect-on-demand hero card — everywhere else trust is built through clarity: a tiered
+capability ledger (built-in → connected apps → computer-use), read = calm neutral, write = a
+deliberate warning-tinted second step, and every grant carrying its own tamper-evident audit entry.
+The intended feeling: a tool a CISO signs off on without a meeting.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SKYCOT — Capability Ledger · Nora — Option A: Trust Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple:#8b5cf6; --purple-deep:#6d28d9; --pink:#ec4899; --coral:#ff6b6b; --teal:#14b8a6; --yellow:#fcd34d;
+    --ink:#1e1b4b; --ink2:#3f3f46; --ink3:#52525b; --ink4:#a1a1aa;
+    --bg:#fafaff; --paper:#ffffff; --paper2:#f4f4f4; --line:#ece9f5; --line-strong:#d1d1d1;
+    --gradient:linear-gradient(135deg,#8b5cf6,#ec4899); --gradient3:linear-gradient(135deg,#8b5cf6,#ec4899,#ff6b6b);
+    --success:#16a34a; --warning:#d97706; --destructive:#dc2626; --info:#2563eb;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{font-size:16px}
+  body{
+    font-family:var(--sans);
+    background:var(--bg);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    font-feature-settings:'cv11','ss01';
+    line-height:1.45;
+  }
+  a{color:var(--purple-deep);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .mono{font-family:var(--mono)}
+
+  /* ───── Top chrome ───── */
+  .topbar{
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    height:56px;
+    display:flex;align-items:center;
+    padding:0 32px;
+    gap:28px;
+    position:sticky;top:0;z-index:50;
+  }
+  .wordmark{
+    font-family:'Audiowide',var(--sans);
+    font-size:17px;
+    letter-spacing:.14em;
+    background:var(--gradient);
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;color:transparent;
+    user-select:none;
+  }
+  .topnav{display:flex;gap:4px;margin-left:8px}
+  .topnav a{
+    font-size:13px;font-weight:500;color:var(--ink3);
+    padding:6px 12px;border-radius:6px;
+  }
+  .topnav a:hover{background:var(--paper2);color:var(--ink);text-decoration:none}
+  .topnav a.active{color:var(--purple-deep);background:#f3effd;font-weight:600}
+  .topbar-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+  .env-chip{
+    font-family:var(--mono);font-size:11px;color:var(--ink3);
+    border:1px solid var(--line);border-radius:5px;padding:3px 9px;background:var(--paper2);
+  }
+  .env-chip .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--success);margin-right:6px;vertical-align:1px}
+
+  /* ───── Page shell ───── */
+  .shell{max-width:1120px;margin:0 auto;padding:28px 32px 80px}
+  .breadcrumb{
+    font-size:12.5px;color:var(--ink4);margin-bottom:18px;
+  }
+  .breadcrumb a{color:var(--ink3)}
+  .breadcrumb .sep{margin:0 7px;color:var(--line-strong)}
+  .breadcrumb .here{color:var(--ink);font-weight:500}
+
+  /* ───── Teammate identity row ───── */
+  .identity{
+    display:flex;align-items:center;gap:16px;
+    padding-bottom:22px;margin-bottom:22px;
+    border-bottom:1px solid var(--line);
+  }
+  .avatar{
+    width:48px;height:48px;border-radius:10px;flex:none;
+    background:#f3effd;
+    border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:18px;color:var(--purple-deep);
+    letter-spacing:.02em;
+  }
+  .identity-main h1{font-size:20px;font-weight:700;letter-spacing:-.015em;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .identity-sub{font-size:13px;color:var(--ink3);margin-top:3px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .wid{
+    font-family:var(--mono);font-size:11.5px;color:var(--ink3);
+    background:var(--paper2);border:1px solid var(--line);border-radius:5px;
+    padding:2px 8px;
+  }
+  .chip-probation{
+    font-size:11.5px;font-weight:600;color:var(--warning);
+    background:#fef6e9;border:1px solid #f3dcb6;border-radius:999px;
+    padding:3px 11px;display:inline-flex;align-items:center;gap:6px;
+    white-space:nowrap;
+  }
+  .chip-probation::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--warning)}
+  .identity-right{margin-left:auto;text-align:right}
+  .identity-right .kv{font-size:11.5px;color:var(--ink4);text-transform:uppercase;letter-spacing:.07em;font-weight:600}
+  .identity-right .vv{font-family:var(--mono);font-size:13px;color:var(--ink2);margin-top:2px}
+
+  /* ───── Connect-on-demand HERO ───── */
+  .ondemand{
+    position:relative;
+    background:var(--paper);
+    border:1px solid var(--line-strong);
+    border-radius:10px;
+    margin-bottom:34px;
+    overflow:hidden;
+    box-shadow:0 1px 2px rgba(30,27,75,.04),0 8px 28px rgba(30,27,75,.05);
+  }
+  .ondemand::before{ /* the ONE gradient accent of the page body */
+    content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:var(--gradient);
+  }
+  .ondemand-head{
+    display:flex;align-items:center;gap:10px;
+    padding:14px 24px 13px 27px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#fdfcff,#fafaff);
+  }
+  .ondemand-head .pulse{
+    width:8px;height:8px;border-radius:50%;background:var(--purple);
+    box-shadow:0 0 0 0 rgba(139,92,246,.45);
+    animation:pulse 2.2s infinite;
+    flex:none;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(139,92,246,.40)}
+    70%{box-shadow:0 0 0 9px rgba(139,92,246,0)}
+    100%{box-shadow:0 0 0 0 rgba(139,92,246,0)}
+  }
+  .ondemand-head .label{
+    font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--purple-deep);
+  }
+  .ondemand-head .when{font-family:var(--mono);font-size:11px;color:var(--ink4);margin-left:auto}
+  .ondemand-body{padding:22px 26px 24px 27px}
+  .ondemand-title{font-size:17px;font-weight:600;letter-spacing:-.01em;line-height:1.45;max-width:760px}
+  .ondemand-title b{font-weight:700}
+  .ondemand-title .blocked{color:var(--ink3);font-weight:400}
+
+  .proposed{
+    margin-top:16px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--bg);
+    overflow:hidden;
+    max-width:640px;
+  }
+  .proposed-cap{
+    font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink4);
+    padding:8px 14px 7px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:8px;
+  }
+  .proposed-cap .sf-mark{
+    width:14px;height:14px;border-radius:4px;background:#e8f4fb;border:1px solid #cfe6f5;
+    color:#0a6da8;font-size:8px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;
+    font-family:var(--sans);
+  }
+  .proposed table{width:100%;border-collapse:collapse}
+  .proposed td{
+    padding:7px 14px;font-size:13px;border-bottom:1px solid var(--line);vertical-align:top;
+  }
+  .proposed tr:last-child td{border-bottom:none}
+  .proposed td.k{
+    width:130px;color:var(--ink4);font-size:11.5px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.05em;padding-top:9px;
+  }
+  .proposed td.v{font-family:var(--mono);font-size:12.5px;color:var(--ink2)}
+  .proposed td.v .arrow{color:var(--ink4);margin:0 7px}
+  .proposed td.v .new{color:var(--purple-deep);font-weight:600}
+
+  .ladder{
+    display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;align-items:stretch;
+  }
+  .grant-opt{
+    flex:1 1 250px;max-width:330px;
+    text-align:left;cursor:pointer;
+    border-radius:8px;padding:14px 16px 13px;
+    border:1px solid var(--line-strong);
+    background:var(--paper);
+    font-family:var(--sans);
+    transition:border-color .12s,box-shadow .12s,background .12s;
+    position:relative;
+  }
+  .grant-opt:focus-visible{outline:2px solid var(--purple);outline-offset:2px}
+  .grant-opt .opt-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;color:var(--ink)}
+  .grant-opt .opt-sub{font-size:12.5px;color:var(--ink3);margin-top:5px;line-height:1.5}
+  .grant-opt .tick{
+    position:absolute;top:12px;right:12px;width:18px;height:18px;border-radius:50%;
+    border:1.5px solid var(--line-strong);background:var(--paper);
+    transition:all .12s;
+  }
+  /* read option — calm */
+  .grant-read{border-color:#c9bcf2}
+  .grant-read:hover{border-color:var(--purple);box-shadow:0 2px 10px rgba(139,92,246,.12)}
+  .grant-read.selected{
+    border-color:var(--purple);background:#faf8ff;
+    box-shadow:0 0 0 1px var(--purple),0 2px 12px rgba(139,92,246,.14);
+  }
+  .grant-read.selected .tick{border-color:var(--purple);background:var(--purple)}
+  .grant-read.selected .tick::after{
+    content:'';position:absolute;left:5.5px;top:2.5px;width:4px;height:8px;
+    border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);
+  }
+  /* write option — deliberate, warning-tinted */
+  .grant-write{border-color:#ecd9b8;background:#fffdf8}
+  .grant-write:hover{border-color:var(--warning);box-shadow:0 2px 10px rgba(217,119,6,.13)}
+  .grant-write.selected{
+    border-color:var(--warning);background:#fff9ef;
+    box-shadow:0 0 0 1px var(--warning),0 2px 12px rgba(217,119,6,.16);
+  }
+  .grant-write.selected .tick{border-color:var(--warning);background:var(--warning)}
+  .grant-write.selected .tick::after{
+    content:'';position:absolute;left:5.5px;top:2.5px;width:4px;height:8px;
+    border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);
+  }
+  .notnow{
+    align-self:center;flex:none;
+    background:none;border:none;cursor:pointer;
+    font-family:var(--sans);font-size:13px;font-weight:500;color:var(--ink3);
+    padding:10px 14px;border-radius:7px;
+  }
+  .notnow:hover{background:var(--paper2);color:var(--ink)}
+
+  /* what-she-could-do preview */
+  .could{
+    margin-top:18px;max-width:692px;
+    border-radius:8px;border:1px solid var(--line);
+    background:var(--bg);
+    padding:13px 16px 12px;
+    transition:border-color .15s,background .15s;
+  }
+  .could.write-mode{border-color:#ecd9b8;background:#fffbf2}
+  .could-cap{
+    font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink4);
+    margin-bottom:8px;
+  }
+  .could ul{list-style:none}
+  .could li{
+    font-size:13px;color:var(--ink2);padding:3.5px 0 3.5px 22px;position:relative;
+  }
+  .could li::before{
+    content:'';position:absolute;left:2px;top:9px;width:10px;height:10px;border-radius:3px;
+  }
+  .could li.can::before{background:#e5f5ec;border:1px solid #bfe3cd}
+  .could li.can::after{
+    content:'';position:absolute;left:5px;top:11px;width:3px;height:6px;
+    border:solid var(--success);border-width:0 1.5px 1.5px 0;transform:rotate(45deg);
+  }
+  .could li.cannot{color:var(--ink4)}
+  .could li.cannot::before{background:var(--paper2);border:1px solid var(--line-strong)}
+  .could li.cannot::after{
+    content:'×';position:absolute;left:4.5px;top:2px;color:var(--ink4);font-size:11px;font-weight:700;
+  }
+  .could li.asks{color:var(--ink2)}
+  .could li.asks::before{background:#fef6e9;border:1px solid #f3dcb6}
+  .could li.asks::after{
+    content:'?';position:absolute;left:5px;top:3px;color:var(--warning);font-size:10px;font-weight:800;
+  }
+  .could .asks b{color:var(--warning)}
+  .could-act{margin-top:12px;display:flex;align-items:center;gap:14px}
+  .confirm-grant{
+    border:none;cursor:pointer;border-radius:7px;
+    font-family:var(--sans);font-size:13.5px;font-weight:600;
+    padding:9px 20px;color:#fff;background:var(--purple);
+    transition:background .12s;
+  }
+  .confirm-grant:hover{background:var(--purple-deep)}
+  .confirm-grant.write{background:var(--warning)}
+  .confirm-grant.write:hover{background:#b45f05}
+  .could-note{font-size:12px;color:var(--ink4)}
+  .could-note .mono{font-size:11px}
+
+  /* ───── Ledger ───── */
+  .ledger-head{
+    display:flex;align-items:baseline;gap:14px;margin-bottom:6px;
+  }
+  .ledger-head h2{font-size:15px;font-weight:700;letter-spacing:-.01em}
+  .ledger-head .count{font-family:var(--mono);font-size:11.5px;color:var(--ink4)}
+  .ledger-head .export{margin-left:auto;font-size:12.5px;font-weight:500}
+
+  .tier{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:9px;
+    margin-top:14px;
+    overflow:hidden;
+  }
+  .tier-cap{
+    display:flex;align-items:center;gap:10px;
+    padding:11px 18px 10px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#fdfdff,#fbfaff);
+  }
+  .tier-num{
+    font-family:var(--mono);font-size:10.5px;font-weight:600;color:var(--ink3);
+    border:1px solid var(--line-strong);border-radius:4px;padding:1px 7px;background:var(--paper);
+    letter-spacing:.04em;flex:none;
+  }
+  .tier-cap h3{font-size:13.5px;font-weight:700;letter-spacing:-.005em}
+  .tier-cap .tier-sub{font-size:12px;color:var(--ink4);margin-left:2px}
+  .tier-cap .tier-meta{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink4)}
+
+  .cap-row{
+    display:grid;
+    grid-template-columns:230px 200px 1fr auto;
+    gap:12px;align-items:center;
+    padding:12px 18px;
+    border-bottom:1px solid var(--line);
+    transition:background .1s;
+    position:relative;
+  }
+  .cap-row:last-child{border-bottom:none}
+  .cap-row:hover{background:#fcfbff}
+  .cap-name{display:flex;align-items:center;gap:10px;min-width:0}
+  .cap-ico{
+    width:26px;height:26px;border-radius:6px;flex:none;
+    display:flex;align-items:center;justify-content:center;
+    font-size:10px;font-weight:700;
+    border:1px solid var(--line);
+    background:var(--paper2);color:var(--ink3);
+  }
+  .cap-ico.gm{background:#fdeeee;border-color:#f6d4d4;color:#c5221f}
+  .cap-ico.sl{background:#f3eaf3;border-color:#e3cfe3;color:#611f69}
+  .cap-ico.sf{background:#e8f4fb;border-color:#cfe6f5;color:#0a6da8}
+  .cap-ico.st{background:#eeeafd;border-color:#dcd2f8;color:#635bff}
+  .cap-ico.qb{background:#e9f5ee;border-color:#c8e6d4;color:#2ca01c}
+  .cap-ico.cu{background:#fef6e9;border-color:#f3dcb6;color:var(--warning)}
+  .cap-name .nm{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cap-name .nm small{display:block;font-size:11px;font-weight:400;color:var(--ink4);font-family:var(--mono);margin-top:1px;letter-spacing:0}
+
+  .badges{display:flex;gap:6px;flex-wrap:wrap}
+  .badge{
+    font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.06em;
+    border-radius:4px;padding:2.5px 8px;white-space:nowrap;
+  }
+  .b-read{background:#eef6f5;color:#0f766e;border:1px solid #c8e6e2}
+  .b-post{background:#fef6e9;color:var(--warning);border:1px solid #f3dcb6}
+  .b-off{background:var(--paper2);color:var(--ink4);border:1px solid var(--line)}
+  .b-never{background:#fdf0f0;color:var(--destructive);border:1px solid #f4d2d2}
+
+  .cap-meta{font-size:12px;color:var(--ink4);min-width:0}
+  .cap-meta .since{color:var(--ink3)}
+  .cap-meta .aud{
+    font-family:var(--mono);font-size:10.5px;color:var(--ink4);
+    background:var(--paper2);border:1px solid var(--line);border-radius:4px;padding:1px 6px;margin-left:8px;
+    white-space:nowrap;
+  }
+  .cap-act{display:flex;align-items:center;gap:14px;justify-content:flex-end;min-width:128px}
+  .lnk-revoke{font-size:12.5px;font-weight:500;color:var(--ink3)}
+  .lnk-revoke:hover{color:var(--destructive);text-decoration:none}
+  .revoke-confirm{display:none;align-items:center;gap:8px;font-size:12px;color:var(--ink2)}
+  .revoke-confirm.show{display:inline-flex}
+  .revoke-confirm .yes{
+    border:1px solid #f4d2d2;background:#fdf0f0;color:var(--destructive);
+    font-family:var(--sans);font-size:11.5px;font-weight:600;border-radius:5px;padding:3px 10px;cursor:pointer;
+  }
+  .revoke-confirm .yes:hover{background:#fbe2e2}
+  .revoke-confirm .no{
+    border:1px solid var(--line-strong);background:var(--paper);color:var(--ink3);
+    font-family:var(--sans);font-size:11.5px;font-weight:500;border-radius:5px;padding:3px 10px;cursor:pointer;
+  }
+  .btn-connect{
+    border:1px solid var(--line-strong);background:var(--paper);cursor:pointer;
+    font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--purple-deep);
+    border-radius:6px;padding:5px 14px;transition:all .12s;
+  }
+  .btn-connect:hover{border-color:var(--purple);background:#faf8ff}
+  .btn-grant-cu{
+    border:1px solid #ecd9b8;background:#fffaf1;cursor:pointer;
+    font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--warning);
+    border-radius:6px;padding:5px 14px;transition:all .12s;
+  }
+  .btn-grant-cu:hover{border-color:var(--warning);background:#fff4e2}
+  .cap-row.dimmed .cap-name .nm,.cap-row.dimmed .cap-name .nm small{color:var(--ink4)}
+  .cap-row.dimmed .cap-ico{opacity:.55}
+  .cap-row.revoked{opacity:.45}
+  .cap-row.revoked .cap-act .lnk-revoke{display:none}
+  .revoked-note{font-family:var(--mono);font-size:11px;color:var(--destructive)}
+
+  /* hover-reveal detail strip */
+  .cap-detail{
+    grid-column:1 / -1;
+    max-height:0;overflow:hidden;
+    transition:max-height .18s ease,margin .18s ease,opacity .15s ease;
+    opacity:0;
+  }
+  .cap-row:hover .cap-detail,.cap-row:focus-within .cap-detail{
+    max-height:64px;opacity:1;margin-top:4px;
+  }
+  .cap-detail-inner{
+    display:flex;gap:26px;flex-wrap:wrap;
+    border-top:1px dashed var(--line);
+    padding:9px 2px 2px 36px;
+    font-size:11.5px;color:var(--ink4);
+  }
+  .cap-detail-inner .dk{font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:10px;display:block;margin-bottom:1px}
+  .cap-detail-inner .dv{font-family:var(--mono);font-size:11px;color:var(--ink3)}
+
+  /* tier 3 explainer row */
+  .cu-explain{
+    grid-template-columns:230px 200px 1fr auto;
+  }
+  .cu-note{font-size:12.5px;color:var(--ink3);line-height:1.55;max-width:520px}
+  .cu-note b{color:var(--ink)}
+
+  /* ───── Footer legend ───── */
+  .legend{
+    margin-top:36px;padding-top:18px;border-top:1px solid var(--line);
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    font-size:12px;color:var(--ink4);
+  }
+  .legend .shield{
+    width:15px;height:15px;flex:none;color:var(--ink4);
+  }
+  .legend .sep{color:var(--line-strong)}
+  .legend .hash{
+    margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink4);
+    background:var(--paper2);border:1px solid var(--line);border-radius:4px;padding:2px 8px;
+  }
+
+  /* toast */
+  .toast{
+    position:fixed;bottom:26px;left:50%;transform:translate(-50%,16px);
+    background:var(--ink);color:#fff;font-size:13px;font-weight:500;
+    border-radius:8px;padding:11px 18px;
+    box-shadow:0 8px 30px rgba(30,27,75,.30);
+    opacity:0;pointer-events:none;transition:all .22s ease;
+    display:flex;align-items:center;gap:10px;max-width:90vw;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .toast .t-hash{font-family:var(--mono);font-size:10.5px;color:#c4b5fd;white-space:nowrap}
+
+  @media (max-width:980px){
+    .cap-row{grid-template-columns:1fr;gap:8px}
+    .cap-act{justify-content:flex-start}
+    .identity-right{display:none}
+    .cap-detail-inner{padding-left:2px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ░░ Top chrome ░░ -->
+<header class="topbar">
+  <span class="wordmark">SKYCOT</span>
+  <nav class="topnav" aria-label="Primary">
+    <a href="#">Workers</a>
+    <a href="#" class="active">Capabilities</a>
+    <a href="#">Approvals</a>
+    <a href="#">Audit</a>
+    <a href="#">Settings</a>
+  </nav>
+  <div class="topbar-right">
+    <span class="env-chip"><span class="dot"></span>tenant: acme-finance</span>
+    <span class="env-chip">ledger v81 · verified</span>
+  </div>
+</header>
+
+<main class="shell">
+
+  <div class="breadcrumb">
+    <a href="#">Workers</a><span class="sep">/</span><a href="#">Nora</a><span class="sep">/</span><span class="here">Capability ledger</span>
+  </div>
+
+  <!-- ░░ Teammate identity ░░ -->
+  <section class="identity" aria-label="Teammate">
+    <div class="avatar" aria-hidden="true">N</div>
+    <div class="identity-main">
+      <h1>Nora <span class="chip-probation">On probation: 18h left</span></h1>
+      <div class="identity-sub">
+        Accounts receivable · invoice assistant
+        <span class="wid">wkr_019eb58e&#8230;</span>
+      </div>
+    </div>
+    <div class="identity-right">
+      <div class="kv">Grants on ledger</div>
+      <div class="vv">5 active · 0 expired · 1 pending request</div>
+    </div>
+  </section>
+
+  <!-- ░░ CONNECT-ON-DEMAND HERO ░░ -->
+  <section class="ondemand" aria-label="Connection request">
+    <div class="ondemand-head">
+      <span class="pulse" aria-hidden="true"></span>
+      <span class="label">Connection request · waiting on you</span>
+      <span class="when">req_7c2fa1 · 2 min ago</span>
+    </div>
+    <div class="ondemand-body">
+      <p class="ondemand-title">
+        Nora wants to <b>update the Acme Corp opportunity</b> in Salesforce —
+        <span class="blocked">but she can't reach Salesforce yet.</span>
+      </p>
+
+      <div class="proposed" aria-label="Proposed action preview">
+        <div class="proposed-cap"><span class="sf-mark">SF</span> Proposed action — held until you decide</div>
+        <table>
+          <tr><td class="k">Record</td><td class="v">Acme Corp · Opportunity</td></tr>
+          <tr><td class="k">Stage</td><td class="v">Invoice sent <span class="arrow">&rarr;</span> <span class="new">'Payment reminded'</span></td></tr>
+          <tr><td class="k">Amount</td><td class="v">$2,400</td></tr>
+        </table>
+      </div>
+
+      <div class="ladder" role="radiogroup" aria-label="Grant choice">
+        <button type="button" class="grant-opt grant-read selected" id="optRead" role="radio" aria-checked="true" onclick="selectGrant('read')">
+          <span class="tick" aria-hidden="true"></span>
+          <span class="opt-title">Grant read-only</span>
+          <span class="opt-sub">Safe first step — Nora can see Salesforce records, nothing changes without you.</span>
+        </button>
+        <button type="button" class="grant-opt grant-write" id="optWrite" role="radio" aria-checked="false" onclick="selectGrant('write')">
+          <span class="tick" aria-hidden="true"></span>
+          <span class="opt-title">Grant read + write</span>
+          <span class="opt-sub">She can change records — sensitive changes still ask you.</span>
+        </button>
+        <button type="button" class="notnow" onclick="showToast('Request parked. Nora will continue with her other work.','req_7c2fa1 · deferred')">Not now</button>
+      </div>
+
+      <div class="could" id="couldPanel">
+        <div class="could-cap" id="couldCap">What she could do — read-only</div>
+        <ul id="couldList">
+          <li class="can">See the Acme Corp opportunity, its stage and amount</li>
+          <li class="can">Look up any account, contact or invoice status in Salesforce</li>
+          <li class="cannot">Change, create or delete any record — the proposed update above stays held</li>
+        </ul>
+        <div class="could-act">
+          <button type="button" class="confirm-grant" id="confirmBtn"
+            onclick="confirmGrant()">Grant read-only access</button>
+          <span class="could-note">Signed grant · audit entry <span class="mono">aud_91f4&#8230;c07a</span> · revoke any time</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ░░ THE LEDGER ░░ -->
+  <div class="ledger-head">
+    <h2>Capability ledger</h2>
+    <span class="count">8 entries · chain verified 11 Jun 2026, 09:42 AEST</span>
+    <a href="#" class="export">Export signed ledger &darr;</a>
+  </div>
+
+  <!-- Tier 1 -->
+  <section class="tier" aria-label="Tier 1 — Built-in">
+    <div class="tier-cap">
+      <span class="tier-num">TIER 1</span>
+      <h3>Built-in</h3>
+      <span class="tier-sub">granted at hire · no approval needed · the safe baseline</span>
+      <span class="tier-meta">3 capabilities</span>
+    </div>
+
+    <div class="cap-row" tabindex="0">
+      <div class="cap-name">
+        <span class="cap-ico" aria-hidden="true">FS</span>
+        <span class="nm">Read files<small>scope: ~/SkycotDemo/Inbox</small></span>
+      </div>
+      <div class="badges"><span class="badge b-read">READ</span></div>
+      <div class="cap-meta"><span class="since">since hire</span> · always on for every teammate</div>
+      <div class="cap-act"></div>
+      <div class="cap-detail"><div class="cap-detail-inner">
+        <span><span class="dk">Scope</span><span class="dv">~/SkycotDemo/Inbox (read-only, no subfolder escape)</span></span>
+        <span><span class="dk">Last used</span><span class="dv">4 min ago</span></span>
+        <span><span class="dk">Audit entry</span><span class="dv">aud_2b8e&#8230;91dd</span></span>
+      </div></div>
+    </div>
+
+    <div class="cap-row" tabindex="0">
+      <div class="cap-name">
+        <span class="cap-ico" aria-hidden="true">ME</span>
+        <span class="nm">Memory<small>scope: own notes, this tenant only</small></span>
+      </div>
+      <div class="badges"><span class="badge b-read">READ</span></div>
+      <div class="cap-meta"><span class="since">since hire</span> · always on for every teammate</div>
+      <div class="cap-act"></div>
+      <div class="cap-detail"><div class="cap-detail-inner">
+        <span><span class="dk">Scope</span><span class="dv">tenant-isolated · never shared across customers</span></span>
+        <span><span class="dk">Last used</span><span class="dv">1 min ago</span></span>
+        <span><span class="dk">Audit entry</span><span class="dv">aud_5c11&#8230;0e42</span></span>
+      </div></div>
+    </div>
+
+    <div class="cap-row" tabindex="0">
+      <div class="cap-name">
+        <span class="cap-ico" aria-hidden="true">WS</span>
+        <span class="nm">Web search<small>scope: public web, read-only</small></span>
+      </div>
+      <div class="badges"><span class="badge b-read">READ</span></div>
+      <div class="cap-meta"><span class="since">since hire</span> · always on for every teammate</div>
+      <div class="cap-act"></div>
+      <div class="cap-detail"><div class="cap-detail-inner">
+        <span><span class="dk">Scope</span><span class="dv">search + fetch only · no forms, no logins</span></span>
+        <span><span class="dk">Last used</span><span class="dv">22 min ago</span></span>
+        <span><span class="dk">Audit entry</span><span class="dv">aud_77a0&#8230;3b6f</span></span>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- Tier 2 -->
+  <section class="tier" aria-label="Tier 2 — Connected apps">
+    <div class="tier-cap">
+      <span class="tier-num">TIER 2</span>
+      <h3>Connected apps</h3>
+      <span class="tier-sub">you grant these, per teammate · each grant is its own ledger entry</span>
+      <span class="tier-meta">2 granted · 3 available</span>
+    </div>
+
+    <div class="cap-row" tabindex="0" id="rowGmail">
+      <div class="cap-name">
+        <span class="cap-ico gm" aria-hidden="true">GM</span>
+        <span class="nm">Gmail<small>cap_gmail_ro_4471</small></span>
+      </div>
+      <div class="badges"><span class="badge b-read">READ</span></div>
+      <div class="cap-meta"><span class="since">granted by you · 2d ago</span><span class="aud">aud_4d9a&#8230;f218</span></div>
+      <div class="cap-act">
+        <a href="#" class="lnk-revoke" onclick="askRevoke(event,'Gmail')">Revoke</a>
+        <span class="revoke-confirm" data-confirm><span>Revoke Gmail?</span>
+          <button type="button" class="yes" onclick="doRevoke(event,'Gmail')">Yes, revoke</button>
+          <button type="button" class="no" onclick="cancelRevoke(event)">Cancel</button>
+        </span>
+      </div>
+      <div class="cap-detail"><div class="cap-detail-inner">
+        <span><span class="dk">Scope</span><span class="dv">ar@acmefinance.com · read inbox + labels only</span></span>
+        <span><span class="dk">Last used</span><span class="dv">9 min ago · matched invoice #INV-2207</span></span>
+        <span><span class="dk">Cannot</span><span class="dv">send, delete or modify mail</span></span>
+      </div></div>
+    </div>
+
+    <div class="cap-row" tabindex="0" id="rowSlack">
+      <div class="cap-name">
+        <span class="cap-ico sl" aria-hidden="true">SL</span>
+        <span class="nm">Slack<small>cap_slack_rp_8804</small></span>
+      </div>
+      <div class="badges"><span class="badge b-read">READ</span><span class="badge b-post">POST (ASKS YOU)</span></div>
+      <div class="cap-meta"><span class="since">granted by you · 2d ago</span><span class="aud">aud_b3c7&#8230;22ea</span></div>
+      <div class="cap-act">
+        <a href="#" class="lnk-revoke" onclick="askRevoke(event,'Slack')">Revoke</a>
+        <span class="revoke-confirm" data-confirm><span>Revoke Slack?</span>
+          <button type="button" class="yes" onclick="doRevoke(event,'Slack')">Yes, revoke</button>
+          <button type="button" class="no" onclick="cancelRevoke(event)">Cancel</button>
+        </span>
+      </div>
+      <div class="cap-detail"><div class="cap-detail-inner">
+        <span><span class="dk">Scope</span><span class="dv">#accounts-receivable only</span></span>
+        <span><span class="dk">Post rule</span><span class="dv">every outgoing message routes to your Approvals inbox first</span></span>
+        <span><span class="dk">Last used</span><span class="dv">1h ago · drafted reminder (approved by you)</span></span>
+      </div></div>
+    </div>
+
+    <div class="cap-row dimmed" tabindex="0">
+      <div class="cap-name">
+        <span class="cap-ico sf" aria-hidden="true">SF</span>
+        <span class="nm">Salesforce<small>not connected</small></span>
+      </div>
+      <div class="badges"><span class="badge b-off">NOT CONNECTED</span></div>
+      <div class="cap-meta">Nora has an open request — see the card above</div>
+      <div class="cap-act"><button type="button" class="btn-connect" onclick="document.querySelector('.ondemand').scrollIntoView({behavior:'smooth'});">Connect</button></div>
+      <div class="cap-detail"><div class="cap-detail-inner">
+        <span><span class="dk">If granted</span><span class="dv">starts read-only by default · write is a separate, louder step</span></span>
+        <span><span class="dk">Pending</span><span class="dv">req_7c2fa1 · update Acme Corp opportunity</span></span>
+      </div></div>
+    </div>
+
+    <div class="cap-row dimmed" tabindex="0">
+      <div class="cap-name">
+        <span class="cap-ico st" aria-hidden="true">ST</span>
+        <span class="nm">Stripe<small>not connected</small></span>
+      </div>
+      <div class="badges"><span class="badge b-off">NOT CONNECTED</span></div>
+      <div class="cap-meta">No requests yet</div>
+      <div class="cap-act"><button type="button" class="btn-connect" onclick="showToast('Connect flow would open here (mockup).','stripe · grant wizard')">Connect</button></div>
+      <div class="cap-detail"><div class="cap-detail-inner">
+        <span><span class="dk">If granted</span><span class="dv">read-only by default · money movement is never auto-approved</span></span>
+      </div></div>
+    </div>
+
+    <div class="cap-row dimmed" tabindex="0">
+      <div class="cap-name">
+        <span class="cap-ico qb" aria-hidden="true">QB</span>
+        <span class="nm">QuickBooks<small>not connected</small></span>
+      </div>
+      <div class="badges"><span class="badge b-off">NOT CONNECTED</span></div>
+      <div class="cap-meta">No requests yet</div>
+      <div class="cap-act"><button type="button" class="btn-connect" onclick="showToast('Connect flow would open here (mockup).','quickbooks · grant wizard')">Connect</button></div>
+      <div class="cap-detail"><div class="cap-detail-inner">
+        <span><span class="dk">If granted</span><span class="dv">read-only by default · journal entries always ask first</span></span>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- Tier 3 -->
+  <section class="tier" aria-label="Tier 3 — Drive a Mac app">
+    <div class="tier-cap">
+      <span class="tier-num">TIER 3</span>
+      <h3>Drive a Mac app <span style="font-weight:400;color:var(--ink4)">(computer-use)</span></h3>
+      <span class="tier-sub">the strongest grant on the ledger · use sparingly</span>
+      <span class="tier-meta">0 granted</span>
+    </div>
+
+    <div class="cap-row cu-explain" tabindex="0">
+      <div class="cap-name">
+        <span class="cap-ico cu" aria-hidden="true">CU</span>
+        <span class="nm">Computer use<small>not granted</small></span>
+      </div>
+      <div class="badges"><span class="badge b-off">NOT GRANTED</span><span class="badge b-never">EVERY ACTION ASKS</span></div>
+      <div class="cap-meta">
+        <p class="cu-note">The universal fallback — Nora can drive any Mac app, but <b>every click and keystroke still asks you</b> before it happens.</p>
+      </div>
+      <div class="cap-act"><button type="button" class="btn-grant-cu" onclick="showToast('Computer-use grant requires a full review step (mockup).','tier 3 · strongest warning flow')">Grant&#8230;</button></div>
+      <div class="cap-detail"><div class="cap-detail-inner">
+        <span><span class="dk">If granted</span><span class="dv">screen-recorded session · per-action approval · auto-expires after the task</span></span>
+        <span><span class="dk">Why it exists</span><span class="dv">covers any app with no connector — slowest, most-supervised tier</span></span>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ░░ Legend ░░ -->
+  <footer class="legend">
+    <svg class="shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+      <path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z" stroke-linejoin="round"/>
+      <path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>Every grant is a tamper-evident audit entry</span>
+    <span class="sep">·</span>
+    <span>revocable any time</span>
+    <span class="sep">·</span>
+    <span>sensitive actions always ask first</span>
+    <span class="hash">chain head: aud_e6d2&#8230;48bf · sha-256 verified</span>
+  </footer>
+
+</main>
+
+<div class="toast" id="toast" role="status"><span id="toastMsg"></span><span class="t-hash" id="toastHash"></span></div>
+
+<script>
+  /* ── connect-on-demand: read/write ladder toggle ── */
+  var mode = 'read';
+  var readList = [
+    ['can','See the Acme Corp opportunity, its stage and amount'],
+    ['can','Look up any account, contact or invoice status in Salesforce'],
+    ['cannot','Change, create or delete any record — the proposed update above stays held']
+  ];
+  var writeList = [
+    ['can','Everything in read-only, plus:'],
+    ['can','Apply the held update — Acme Corp · Stage &rarr; ‘Payment reminded’ · $2,400'],
+    ['asks','<b>Sensitive changes still ask you</b> — closing, deleting, or amounts over your threshold route to Approvals first']
+  ];
+  function selectGrant(which){
+    mode = which;
+    var read = document.getElementById('optRead'),
+        write = document.getElementById('optWrite'),
+        panel = document.getElementById('couldPanel'),
+        cap = document.getElementById('couldCap'),
+        list = document.getElementById('couldList'),
+        btn = document.getElementById('confirmBtn');
+    read.classList.toggle('selected', which==='read');
+    write.classList.toggle('selected', which==='write');
+    read.setAttribute('aria-checked', which==='read');
+    write.setAttribute('aria-checked', which==='write');
+    panel.classList.toggle('write-mode', which==='write');
+    cap.textContent = which==='read' ? 'What she could do — read-only' : 'What she could do — read + write';
+    btn.textContent = which==='read' ? 'Grant read-only access' : 'Grant read + write access';
+    btn.classList.toggle('write', which==='write');
+    var rows = which==='read' ? readList : writeList;
+    list.innerHTML = rows.map(function(r){return '<li class="'+r[0]+'">'+r[1]+'</li>';}).join('');
+  }
+  function confirmGrant(){
+    if(mode==='read'){
+      showToast('Read-only Salesforce grant signed for Nora.','aud_91f4…c07a appended to ledger');
+    }else{
+      showToast('Read + write Salesforce grant signed. Sensitive changes still ask you.','aud_91f4…c07a appended to ledger');
+    }
+  }
+
+  /* ── revoke micro-confirm ── */
+  function askRevoke(e,name){
+    e.preventDefault();
+    closeConfirms();
+    var act = e.target.closest('.cap-act');
+    e.target.style.display = 'none';
+    act.querySelector('[data-confirm]').classList.add('show');
+  }
+  function cancelRevoke(e){
+    var act = e.target.closest('.cap-act');
+    act.querySelector('[data-confirm]').classList.remove('show');
+    act.querySelector('.lnk-revoke').style.display = '';
+  }
+  function doRevoke(e,name){
+    var row = e.target.closest('.cap-row');
+    row.classList.add('revoked');
+    var act = row.querySelector('.cap-act');
+    act.querySelector('[data-confirm]').classList.remove('show');
+    act.insertAdjacentHTML('beforeend','<span class="revoked-note">revoked just now</span>');
+    showToast(name+' access revoked for Nora.','revocation appended to audit chain');
+  }
+  function closeConfirms(){
+    document.querySelectorAll('[data-confirm].show').forEach(function(c){
+      c.classList.remove('show');
+      var l = c.closest('.cap-act').querySelector('.lnk-revoke');
+      if(l) l.style.display = '';
+    });
+  }
+
+  /* ── toast ── */
+  var toastTimer = null;
+  function showToast(msg,hash){
+    var t = document.getElementById('toast');
+    document.getElementById('toastMsg').textContent = msg;
+    document.getElementById('toastHash').textContent = hash || '';
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 3400);
+  }
+</script>
+</body>
+</html>

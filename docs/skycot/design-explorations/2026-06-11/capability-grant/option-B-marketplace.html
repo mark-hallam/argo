@@ -1,0 +1,944 @@
+<!--
+DESIGN LANGUAGE — "Capability Marketplace" (Option B, brand-LOUD, app-store familiar).
+This is the consumer-friendly pole of the capability-grant exploration. The metaphor: giving your AI
+teammate a tool should feel exactly like installing an app for a new colleague — a warm marketplace,
+not a permissions matrix. It deliberately matches SKYCOT's locked Skills-page register (A1 marketplace):
+an Audiowide hero question ("What can Nora reach?"), the signature hero search bar with gradient icon +
+⌘K + live count pill + suggested-search chips, a warm radial-blob background on #fafaff, and a grid of
+app-store connector CARDS with monogram icons, Read/Read+Write segmented toggles and one-tap Grant
+buttons that flip to "Granted ✓" with a check-pop animation. The connect-on-demand hero is a FEATURED
+slot at the top of the marketplace — Nora's live Salesforce request rendered like a sponsored app tile,
+with a safe-first two-button ladder (calm "Grant read-only" primary, warning-tinted "Read + write").
+Risk is communicated by tint, never by jargon: read = calm teal, write = warm amber, computer-use = the
+premium dark-ink/gradient highest-trust tier. Purple→PINK gradient (#8b5cf6→#ec4899) only — never cyan.
+Fonts: Audiowide (display), Inter (UI), JetBrains Mono (IDs / audit chrome). Ink #1e1b4b on #fafaff.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SKYCOT — What can Nora reach?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple:#8b5cf6; --purple-deep:#6d28d9; --pink:#ec4899; --coral:#ff6b6b;
+    --teal:#14b8a6; --yellow:#fcd34d;
+    --ink:#1e1b4b; --ink2:#3f3f46; --ink3:#52525b; --ink4:#a1a1aa;
+    --bg:#fafaff; --paper:#ffffff; --paper2:#f4f4f4;
+    --line:#ece9f5; --line-strong:#d1d1d1;
+    --gradient:linear-gradient(135deg,#8b5cf6,#ec4899);
+    --gradient3:linear-gradient(135deg,#8b5cf6,#ec4899,#ff6b6b);
+    --success:#16a34a; --warning:#d97706; --destructive:#dc2626; --info:#2563eb;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    position:relative;
+    overflow-x:hidden;
+  }
+  /* ---- warm radial blob background ---- */
+  .blobs{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+  .blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.5;}
+  .blob.b1{width:560px;height:560px;top:-180px;left:-120px;background:radial-gradient(circle,#ede9fe 0%,transparent 70%);}
+  .blob.b2{width:640px;height:640px;top:-220px;right:-160px;background:radial-gradient(circle,#fce7f3 0%,transparent 70%);}
+  .blob.b3{width:480px;height:480px;top:540px;left:42%;background:radial-gradient(circle,#ccfbf1 0%,transparent 72%);opacity:.38;}
+  .blob.b4{width:520px;height:520px;bottom:-220px;left:-140px;background:radial-gradient(circle,#fef3c7 0%,transparent 72%);opacity:.32;}
+  .page{position:relative;z-index:1;}
+
+  /* ================= TOP BAR ================= */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 48px;
+    border-bottom:1px solid var(--line);
+    background:rgba(255,255,255,.72);
+    backdrop-filter:blur(14px);
+    position:sticky;top:0;z-index:50;
+  }
+  .topbar-left{display:flex;align-items:center;gap:28px;}
+  .wordmark{
+    font-family:'Audiowide',cursive;font-size:19px;letter-spacing:.5px;
+    background:var(--gradient);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+    text-decoration:none;
+  }
+  .crumbs{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink3);font-weight:500;}
+  .crumbs .sep{color:var(--ink4);}
+  .crumbs .here{color:var(--ink);font-weight:700;}
+  .topbar-right{display:flex;align-items:center;gap:14px;}
+  .audit-chip{
+    font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink3);
+    border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--paper);
+    display:flex;align-items:center;gap:7px;white-space:nowrap;
+  }
+  .audit-dot{width:7px;height:7px;border-radius:50%;background:var(--success);box-shadow:0 0 0 3px rgba(22,163,74,.15);}
+  .nora-chip{
+    display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:999px;
+    padding:5px 14px 5px 5px;background:var(--paper);font-size:13px;font-weight:600;
+  }
+  .nora-ava{
+    width:30px;height:30px;border-radius:50%;background:var(--gradient);
+    color:#fff;display:flex;align-items:center;justify-content:center;
+    font-family:'Audiowide',cursive;font-size:12px;
+  }
+
+  /* ================= HERO ================= */
+  .hero{max-width:1180px;margin:0 auto;padding:62px 32px 30px;text-align:center;}
+  .hero-eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--purple-deep);
+    background:rgba(139,92,246,.09);border:1px solid rgba(139,92,246,.22);
+    border-radius:999px;padding:7px 16px;margin-bottom:22px;
+  }
+  .hero h1{
+    font-family:'Audiowide',cursive;font-weight:400;
+    font-size:clamp(34px,4.6vw,54px);line-height:1.12;letter-spacing:.5px;
+    color:var(--ink);
+  }
+  .hero h1 .grad{
+    background:var(--gradient3);
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  }
+  .hero .sub{
+    margin:18px auto 0;max-width:640px;font-size:16.5px;line-height:1.65;color:var(--ink3);font-weight:400;
+  }
+  .hero .sub strong{color:var(--ink);font-weight:600;}
+
+  /* signature hero search */
+  .search-wrap{max-width:760px;margin:34px auto 0;position:relative;}
+  .search-bar{
+    display:flex;align-items:center;gap:14px;
+    background:var(--paper);border:1px solid var(--line);border-radius:18px;
+    padding:14px 18px;
+    box-shadow:0 14px 44px -16px rgba(109,40,217,.22), 0 2px 6px rgba(30,27,75,.05);
+    transition:box-shadow .2s,border-color .2s;
+  }
+  .search-bar:focus-within{
+    border-color:rgba(139,92,246,.55);
+    box-shadow:0 18px 56px -16px rgba(139,92,246,.35), 0 0 0 4px rgba(139,92,246,.10);
+  }
+  .search-glyph{
+    width:28px;height:28px;flex:none;border-radius:9px;background:var(--gradient);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .search-glyph svg{width:15px;height:15px;stroke:#fff;stroke-width:2.4;fill:none;}
+  .search-bar input{
+    flex:1;border:none;outline:none;font-family:'Inter',sans-serif;
+    font-size:18px;font-weight:400;color:var(--ink);background:transparent;
+  }
+  .search-bar input::placeholder{color:var(--ink4);}
+  .count-pill{
+    font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;
+    color:var(--purple-deep);background:rgba(139,92,246,.10);
+    border-radius:999px;padding:5px 11px;white-space:nowrap;
+  }
+  .kbd{
+    font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink4);
+    border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:6px;
+    padding:3px 7px;background:var(--paper2);
+  }
+  .chips{display:flex;flex-wrap:wrap;justify-content:center;gap:9px;margin-top:18px;}
+  .chips .label{font-size:12.5px;color:var(--ink4);align-self:center;margin-right:2px;}
+  .chip{
+    font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--ink2);
+    background:var(--paper);border:1px solid var(--line);border-radius:999px;
+    padding:7px 16px;cursor:pointer;transition:all .15s;
+  }
+  .chip:hover{border-color:var(--purple);color:var(--purple-deep);background:rgba(139,92,246,.06);transform:translateY(-1px);}
+  .chip.cu{
+    background:linear-gradient(#fff,#fff) padding-box, var(--gradient) border-box;
+    border:1px solid transparent;color:var(--purple-deep);
+  }
+
+  /* ================= FEATURED REQUEST BANNER ================= */
+  .featured-zone{max-width:1180px;margin:38px auto 0;padding:0 32px;}
+  .featured-label{
+    display:flex;align-items:center;gap:10px;margin-bottom:12px;
+    font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--warning);
+  }
+  .ping{position:relative;width:9px;height:9px;}
+  .ping::before,.ping::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--warning);}
+  .ping::after{animation:ping 1.6s cubic-bezier(0,0,.2,1) infinite;}
+  @keyframes ping{0%{transform:scale(1);opacity:.7;}80%,100%{transform:scale(2.6);opacity:0;}}
+  .featured{
+    position:relative;border-radius:22px;padding:2px;background:var(--gradient3);
+    box-shadow:0 24px 64px -20px rgba(236,72,153,.32);
+    transition:opacity .45s,transform .45s,max-height .5s,margin .5s;
+    max-height:600px;overflow:hidden;
+  }
+  .featured.dismissed{opacity:0;transform:translateY(-14px) scale(.985);max-height:0;margin:0;box-shadow:none;}
+  .featured-inner{
+    background:var(--paper);border-radius:20px;padding:26px 30px;
+    display:grid;grid-template-columns:auto 1fr auto;gap:24px;align-items:center;
+  }
+  .featured-icon{
+    width:72px;height:72px;border-radius:20px;background:#e8f4fd;border:1px solid #cfe9fb;
+    display:flex;align-items:center;justify-content:center;position:relative;flex:none;
+  }
+  .featured-icon .mono{font-family:'Audiowide',cursive;font-size:26px;color:#00a1e0;}
+  .featured-icon .ask{
+    position:absolute;top:-9px;right:-9px;width:26px;height:26px;border-radius:50%;
+    background:var(--warning);color:#fff;font-size:14px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;border:3px solid var(--paper);
+  }
+  .featured-body h3{font-size:19px;font-weight:700;color:var(--ink);line-height:1.35;}
+  .featured-body h3 .nora-name{
+    background:var(--gradient);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  }
+  .featured-body .why{font-size:13.5px;color:var(--ink3);margin-top:5px;}
+  .action-preview{
+    display:inline-flex;align-items:center;gap:10px;margin-top:13px;
+    font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:500;color:var(--ink2);
+    background:var(--paper2);border:1px solid var(--line);border-radius:10px;padding:9px 14px;
+  }
+  .action-preview .arr{color:var(--pink);font-weight:600;}
+  .action-preview .amt{color:var(--purple-deep);font-weight:600;}
+  .featured-actions{display:flex;flex-direction:column;gap:10px;min-width:248px;}
+  .btn{
+    font-family:'Inter',sans-serif;font-weight:700;font-size:14px;border-radius:12px;
+    padding:12px 22px;cursor:pointer;border:1px solid transparent;transition:all .15s;
+    display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;
+  }
+  .btn-primary{
+    background:var(--gradient);color:#fff;
+    box-shadow:0 10px 26px -10px rgba(139,92,246,.55);
+  }
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 14px 32px -10px rgba(139,92,246,.65);}
+  .btn-primary .hint{font-weight:500;font-size:11.5px;opacity:.85;}
+  .btn-write{
+    background:#fffbeb;border-color:#fde68a;color:#92400e;
+  }
+  .btn-write:hover{background:#fef3c7;border-color:#fcd34d;}
+  .btn-ghost{
+    background:transparent;color:var(--ink4);font-weight:600;font-size:13px;padding:6px;
+  }
+  .btn-ghost:hover{color:var(--ink2);}
+  .micro{font-size:11px;color:var(--ink4);line-height:1.5;text-align:center;}
+
+  /* granted confirmation replacing banner */
+  .featured-granted{
+    display:none;align-items:center;gap:16px;background:#f0fdf4;border:1px solid #bbf7d0;
+    border-radius:20px;padding:20px 26px;
+  }
+  .featured.is-granted .featured-inner{display:none;}
+  .featured.is-granted{background:#bbf7d0;box-shadow:0 18px 48px -22px rgba(22,163,74,.4);}
+  .featured.is-granted .featured-granted{display:flex;}
+  .granted-tick{
+    width:44px;height:44px;border-radius:50%;background:var(--success);color:#fff;flex:none;
+    display:flex;align-items:center;justify-content:center;animation:pop .45s cubic-bezier(.2,1.6,.4,1);
+  }
+  .granted-tick svg{width:22px;height:22px;stroke:#fff;stroke-width:3;fill:none;}
+  .featured-granted .t{font-size:15.5px;font-weight:700;color:#14532d;}
+  .featured-granted .d{font-size:13px;color:#166534;margin-top:3px;}
+  .featured-granted .d .mono{font-family:'JetBrains Mono',monospace;font-size:11.5px;background:#dcfce7;border-radius:6px;padding:2px 7px;}
+
+  /* ================= TRUST STRIP ================= */
+  .trust{max-width:1180px;margin:30px auto 0;padding:0 32px;}
+  .trust-inner{
+    display:flex;align-items:center;justify-content:center;gap:0;
+    background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:15px 10px;
+    box-shadow:0 6px 22px -12px rgba(30,27,75,.10);flex-wrap:wrap;
+  }
+  .trust-item{display:flex;align-items:center;gap:10px;padding:4px 26px;font-size:13.5px;font-weight:600;color:var(--ink2);}
+  .trust-item + .trust-item{border-left:1px solid var(--line);}
+  .trust-dot{width:10px;height:10px;border-radius:50%;flex:none;}
+  .trust-dot.safe{background:var(--teal);}
+  .trust-dot.ask{background:var(--warning);}
+  .trust-dot.log{background:var(--purple);}
+  .trust-item .sub2{color:var(--ink4);font-weight:500;}
+
+  /* ================= TABS ================= */
+  .grid-zone{max-width:1180px;margin:44px auto 90px;padding:0 32px;}
+  .tabs-row{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:2px solid var(--line);margin-bottom:28px;flex-wrap:wrap;gap:12px;}
+  .tabs{display:flex;gap:4px;}
+  .tab{
+    font-family:'Inter',sans-serif;font-size:14.5px;font-weight:600;color:var(--ink3);
+    background:none;border:none;cursor:pointer;padding:12px 18px 14px;position:relative;
+    transition:color .15s;display:flex;align-items:center;gap:8px;
+  }
+  .tab:hover{color:var(--ink);}
+  .tab .n{
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;color:var(--ink4);
+    background:var(--paper2);border-radius:999px;padding:2px 8px;
+  }
+  .tab.active{color:var(--ink);font-weight:700;}
+  .tab.active::after{
+    content:"";position:absolute;left:10px;right:10px;bottom:-2px;height:3px;border-radius:3px;background:var(--gradient);
+  }
+  .tab.active .n{background:rgba(139,92,246,.12);color:var(--purple-deep);}
+  .grants-summary{font-size:12.5px;color:var(--ink4);font-weight:500;padding-bottom:14px;}
+  .grants-summary b{color:var(--ink2);font-weight:700;}
+
+  /* ================= CARD GRID ================= */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:22px;}
+  .card{
+    background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:22px 22px 20px;
+    display:flex;flex-direction:column;gap:14px;position:relative;
+    transition:transform .18s,box-shadow .18s,border-color .18s,background .25s;
+    box-shadow:0 4px 18px -10px rgba(30,27,75,.08);
+  }
+  .card:hover{transform:translateY(-3px);box-shadow:0 18px 44px -18px rgba(109,40,217,.22);}
+  .card.hidden{display:none;}
+
+  .card-head{display:flex;align-items:flex-start;gap:14px;}
+  .app-icon{
+    width:52px;height:52px;border-radius:15px;flex:none;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Audiowide',cursive;font-size:19px;color:#fff;
+    box-shadow:inset 0 -8px 14px rgba(0,0,0,.10);
+  }
+  .ic-gmail{background:linear-gradient(135deg,#ef4444,#dc2626);}
+  .ic-slack{background:linear-gradient(135deg,#7c3aed,#5b21b6);}
+  .ic-sf{background:linear-gradient(135deg,#38bdf8,#0284c7);}
+  .ic-stripe{background:linear-gradient(135deg,#818cf8,#4f46e5);}
+  .ic-qb{background:linear-gradient(135deg,#34d399,#059669);}
+  .ic-notion{background:linear-gradient(135deg,#3f3f46,#18181b);}
+  .ic-files{background:linear-gradient(135deg,#a78bfa,#8b5cf6);}
+  .ic-mem{background:linear-gradient(135deg,#f472b6,#ec4899);}
+  .ic-web{background:linear-gradient(135deg,#2dd4bf,#14b8a6);}
+  .ic-mac{background:var(--gradient3);}
+
+  .card-title-zone{flex:1;min-width:0;}
+  .card-title{font-size:16.5px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .tier-tag{
+    font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    border-radius:6px;padding:3px 7px;
+  }
+  .tier-tag.builtin{background:rgba(20,184,166,.12);color:#0f766e;}
+  .tier-tag.app{background:rgba(139,92,246,.10);color:var(--purple-deep);}
+  .tier-tag.cu{background:var(--gradient);color:#fff;}
+  .card-vendor{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink4);margin-top:3px;}
+
+  .card-desc{font-size:13.5px;line-height:1.55;color:var(--ink3);min-height:42px;transition:color .2s;}
+  .card.mode-write .card-desc{color:#92400e;}
+
+  /* segmented toggle */
+  .seg{
+    display:flex;background:var(--paper2);border:1px solid var(--line);border-radius:11px;padding:3px;gap:3px;
+  }
+  .seg button{
+    flex:1;font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;color:var(--ink3);
+    background:transparent;border:none;border-radius:8px;padding:8px 6px;cursor:pointer;
+    transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .seg .dot{width:7px;height:7px;border-radius:50%;background:var(--ink4);transition:background .15s;}
+  .seg button.on{background:var(--paper);box-shadow:0 1px 4px rgba(30,27,75,.10);color:var(--ink);font-weight:700;}
+  .seg button.seg-read.on .dot{background:var(--teal);}
+  .seg button.seg-write.on .dot{background:var(--warning);}
+  .seg button:disabled{cursor:not-allowed;opacity:.45;}
+
+  /* risk tint on card */
+  .card.mode-read{border-color:rgba(20,184,166,.35);}
+  .card.mode-read::before{
+    content:"";position:absolute;inset:0;border-radius:20px;pointer-events:none;
+    background:linear-gradient(180deg,rgba(20,184,166,.05),transparent 45%);
+  }
+  .card.mode-write{border-color:rgba(217,119,6,.40);background:#fffdf6;}
+  .card.mode-write::before{
+    content:"";position:absolute;inset:0;border-radius:20px;pointer-events:none;
+    background:linear-gradient(180deg,rgba(217,119,6,.07),transparent 50%);
+  }
+  .risk-line{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;}
+  .risk-line.read{color:#0f766e;}
+  .risk-line.write{color:#92400e;}
+  .risk-line svg{width:13px;height:13px;flex:none;}
+
+  /* card footer */
+  .card-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;}
+  .grant-btn{
+    flex:1;font-family:'Inter',sans-serif;font-size:13.5px;font-weight:700;border-radius:11px;
+    padding:11px 16px;cursor:pointer;border:1px solid transparent;transition:all .18s;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .grant-btn.idle{background:var(--ink);color:#fff;}
+  .grant-btn.idle:hover{background:var(--purple-deep);transform:translateY(-1px);box-shadow:0 8px 20px -8px rgba(109,40,217,.5);}
+  .grant-btn.granted{background:#f0fdf4;border-color:#bbf7d0;color:#15803d;cursor:default;}
+  .grant-btn .tick{
+    width:18px;height:18px;border-radius:50%;background:var(--success);
+    display:flex;align-items:center;justify-content:center;flex:none;
+  }
+  .grant-btn .tick svg{width:10px;height:10px;stroke:#fff;stroke-width:3.4;fill:none;}
+  .grant-btn.granted.just .tick{animation:pop .5s cubic-bezier(.2,1.8,.4,1);}
+  @keyframes pop{0%{transform:scale(0);}65%{transform:scale(1.35);}100%{transform:scale(1);}}
+  .revoke{
+    font-size:12px;font-weight:600;color:var(--ink4);background:none;border:none;cursor:pointer;
+    padding:8px 6px;border-radius:8px;transition:color .15s;white-space:nowrap;
+  }
+  .revoke:hover{color:var(--destructive);}
+  .alwayson{
+    flex:1;font-size:12.5px;font-weight:700;color:#0f766e;background:rgba(20,184,166,.08);
+    border:1px dashed rgba(20,184,166,.4);border-radius:11px;padding:11px 16px;text-align:center;
+  }
+
+  /* requested (salesforce) highlight */
+  .card.requested{
+    background:linear-gradient(var(--paper),var(--paper)) padding-box, var(--gradient) border-box;
+    border:2px solid transparent;
+    box-shadow:0 18px 48px -16px rgba(236,72,153,.30);
+  }
+  .req-badge{
+    position:absolute;top:-11px;left:18px;
+    font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    background:var(--gradient);color:#fff;border-radius:999px;padding:4px 12px;
+    box-shadow:0 6px 16px -6px rgba(236,72,153,.5);
+  }
+
+  /* computer-use premium card */
+  .card.cu-card{
+    background:linear-gradient(#221d4f,#1e1b4b) padding-box, var(--gradient3) border-box;
+    border:2px solid transparent;color:#fff;
+  }
+  .card.cu-card:hover{box-shadow:0 22px 56px -18px rgba(236,72,153,.45);}
+  .card.cu-card .card-title{color:#fff;}
+  .card.cu-card .card-vendor{color:rgba(255,255,255,.45);}
+  .card.cu-card .card-desc{color:rgba(255,255,255,.72);min-height:42px;}
+  .card.cu-card .seg{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.14);}
+  .card.cu-card .seg button{color:rgba(255,255,255,.6);}
+  .card.cu-card .seg button.on{background:rgba(255,255,255,.16);color:#fff;box-shadow:none;}
+  .card.cu-card .risk-line{color:var(--yellow);}
+  .card.cu-card .revoke{color:rgba(255,255,255,.5);}
+  .card.cu-card .revoke:hover{color:#fda4af;}
+  .card.cu-card .grant-btn.idle{background:var(--gradient);}
+  .card.cu-card .grant-btn.granted{background:rgba(22,163,74,.18);border-color:rgba(74,222,128,.35);color:#86efac;}
+  .cu-shine{position:absolute;inset:0;border-radius:18px;pointer-events:none;overflow:hidden;}
+  .cu-shine::after{
+    content:"";position:absolute;top:-60%;left:-30%;width:50%;height:220%;transform:rotate(20deg);
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.10),transparent);
+    animation:shine 4.5s ease-in-out infinite;
+  }
+  @keyframes shine{0%,55%{left:-40%;}85%,100%{left:130%;}}
+  .cu-trust{
+    display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;color:var(--yellow);
+    background:rgba(252,211,77,.10);border:1px solid rgba(252,211,77,.25);border-radius:9px;padding:8px 11px;
+  }
+
+  /* empty state */
+  .empty{
+    display:none;text-align:center;padding:70px 20px;color:var(--ink4);
+  }
+  .empty.show{display:block;}
+  .empty .big{font-family:'Audiowide',cursive;font-size:20px;color:var(--ink3);margin-bottom:10px;}
+
+  /* footer */
+  .foot{
+    max-width:1180px;margin:0 auto 60px;padding:0 32px;text-align:center;
+    font-size:12.5px;color:var(--ink4);
+  }
+  .foot a{color:var(--purple-deep);font-weight:600;text-decoration:none;}
+  .foot .mono{font-family:'JetBrains Mono',monospace;font-size:11px;}
+
+  @media (max-width:860px){
+    .topbar{padding:14px 20px;}
+    .crumbs{display:none;}
+    .featured-inner{grid-template-columns:1fr;text-align:center;}
+    .featured-icon{margin:0 auto;}
+    .featured-actions{min-width:0;}
+    .trust-item{border:none !important;padding:4px 14px;}
+  }
+</style>
+</head>
+<body>
+<div class="blobs">
+  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div>
+</div>
+
+<div class="page">
+
+  <!-- ============ TOP BAR ============ -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="wordmark" href="#">SKYCOT</a>
+      <nav class="crumbs">
+        <span>Team</span><span class="sep">/</span>
+        <span>Nora · Sales Ops</span><span class="sep">/</span>
+        <span class="here">Capabilities</span>
+      </nav>
+    </div>
+    <div class="topbar-right">
+      <div class="audit-chip"><span class="audit-dot"></span>audit chain · #84f2…c1 · verified</div>
+      <div class="nora-chip"><span class="nora-ava">N</span>Nora · Level 2</div>
+    </div>
+  </header>
+
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <div class="hero-eyebrow">✦ &nbsp;Capability marketplace</div>
+    <h1>What can <span class="grad">Nora</span> reach?</h1>
+    <p class="sub">Add the apps and tools Nora needs — <strong>read access is safe and instant</strong>; anything
+      that changes the world <strong>still asks you</strong>.</p>
+
+    <div class="search-wrap">
+      <div class="search-bar">
+        <span class="search-glyph">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+        </span>
+        <input id="search" type="text" placeholder="Search apps &amp; capabilities…" autocomplete="off"
+               oninput="applyFilters()">
+        <span class="count-pill" id="countPill">10 tools</span>
+        <span class="kbd">⌘K</span>
+      </div>
+      <div class="chips">
+        <span class="label">Try:</span>
+        <button class="chip" onclick="trySearch('Salesforce')">Salesforce</button>
+        <button class="chip" onclick="trySearch('Gmail')">Gmail</button>
+        <button class="chip" onclick="trySearch('Slack')">Slack</button>
+        <button class="chip" onclick="trySearch('Stripe')">Stripe</button>
+        <button class="chip" onclick="trySearch('QuickBooks')">QuickBooks</button>
+        <button class="chip cu" onclick="trySearch('Drive a Mac app')">Drive a Mac app</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FEATURED: CONNECT ON DEMAND ============ -->
+  <section class="featured-zone">
+    <div class="featured-label"><span class="ping"></span> Needs your OK now · 1 request</div>
+    <div class="featured" id="featuredBanner">
+      <div class="featured-inner">
+        <div class="featured-icon">
+          <span class="mono">SF</span>
+          <span class="ask">?</span>
+        </div>
+        <div class="featured-body">
+          <h3><span class="nora-name">Nora</span> wants to update the Acme Corp opportunity in Salesforce.</h3>
+          <p class="why">She hit a wall mid-task — she can see the opportunity but doesn't have Salesforce access yet. Grant it and she continues right away.</p>
+          <div class="action-preview">
+            Acme&nbsp;Corp&nbsp;·&nbsp;Stage <span class="arr">→</span> Payment&nbsp;reminded&nbsp;·&nbsp;<span class="amt">$2,400</span>
+          </div>
+        </div>
+        <div class="featured-actions">
+          <button class="btn btn-primary" onclick="grantFromBanner('read')">
+            Grant read-only&nbsp;<span class="hint">· safe &amp; instant</span>
+          </button>
+          <button class="btn btn-write" onclick="grantFromBanner('write')">Grant read + write</button>
+          <div class="micro">Read + write means she can change records — sensitive changes still ask you.</div>
+          <button class="btn btn-ghost" onclick="dismissBanner()">Not now</button>
+        </div>
+      </div>
+      <div class="featured-granted">
+        <div class="granted-tick"><svg viewBox="0 0 24 24"><polyline points="4.5 12.5 10 18 19.5 7"/></svg></div>
+        <div>
+          <div class="t" id="grantedTitle">Salesforce granted — Nora is continuing her task.</div>
+          <div class="d" id="grantedDetail">Logged to the audit chain <span class="mono">grant:sf-read · #84f3…0a</span> · revoke any time from the Salesforce card below.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TRUST STRIP ============ -->
+  <section class="trust">
+    <div class="trust-inner">
+      <div class="trust-item"><span class="trust-dot safe"></span>Read <span class="sub2">= safe &amp; instant</span></div>
+      <div class="trust-item"><span class="trust-dot ask"></span>Write / Send <span class="sub2">= asks you</span></div>
+      <div class="trust-item"><span class="trust-dot log"></span>Every grant <span class="sub2">is logged &amp; revocable</span></div>
+    </div>
+  </section>
+
+  <!-- ============ TABS + GRID ============ -->
+  <section class="grid-zone">
+    <div class="tabs-row">
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tier="all" onclick="setTab(this)">All tools <span class="n" id="n-all">10</span></button>
+        <button class="tab" data-tier="builtin" onclick="setTab(this)">Built-in <span class="n" id="n-builtin">3</span></button>
+        <button class="tab" data-tier="app" onclick="setTab(this)">Connected apps <span class="n" id="n-app">6</span></button>
+        <button class="tab" data-tier="cu" onclick="setTab(this)">Computer-use <span class="n" id="n-cu">1</span></button>
+      </div>
+      <div class="grants-summary">Nora currently holds <b id="grantCount">2 grants</b> · last change 4 min ago by you</div>
+    </div>
+
+    <div class="grid" id="grid">
+
+      <!-- ===== BUILT-IN (always on) ===== -->
+      <article class="card mode-read" data-tier="builtin" data-name="read files documents baseline built-in">
+        <div class="card-head">
+          <div class="app-icon ic-files">⌘</div>
+          <div class="card-title-zone">
+            <div class="card-title">Read files <span class="tier-tag builtin">Built-in</span></div>
+            <div class="card-vendor">cap:files.read</div>
+          </div>
+        </div>
+        <p class="card-desc">Nora can read documents you share with her workspace — never outside it.</p>
+        <div class="risk-line read">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 16 9.5"/></svg>
+          Read-only · part of every teammate's baseline
+        </div>
+        <div class="card-foot"><div class="alwayson">Always on · can't be removed</div></div>
+      </article>
+
+      <article class="card mode-read" data-tier="builtin" data-name="memory remember notes baseline built-in">
+        <div class="card-head">
+          <div class="app-icon ic-mem">∞</div>
+          <div class="card-title-zone">
+            <div class="card-title">Memory <span class="tier-tag builtin">Built-in</span></div>
+            <div class="card-vendor">cap:memory.tenant</div>
+          </div>
+        </div>
+        <p class="card-desc">Nora remembers your preferences and past work — scoped to your workspace only.</p>
+        <div class="risk-line read">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 16 9.5"/></svg>
+          Private to your tenant · part of the baseline
+        </div>
+        <div class="card-foot"><div class="alwayson">Always on · can't be removed</div></div>
+      </article>
+
+      <article class="card mode-read" data-tier="builtin" data-name="web search internet research baseline built-in">
+        <div class="card-head">
+          <div class="app-icon ic-web">◎</div>
+          <div class="card-title-zone">
+            <div class="card-title">Web search <span class="tier-tag builtin">Built-in</span></div>
+            <div class="card-vendor">cap:web.search</div>
+          </div>
+        </div>
+        <p class="card-desc">Nora can look things up on the public web to do her research — read-only, always.</p>
+        <div class="risk-line read">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 16 9.5"/></svg>
+          Read-only · part of every teammate's baseline
+        </div>
+        <div class="card-foot"><div class="alwayson">Always on · can't be removed</div></div>
+      </article>
+
+      <!-- ===== CONNECTED APPS ===== -->
+      <article class="card mode-read granted-card" data-tier="app" data-name="gmail email mail google inbox">
+        <div class="card-head">
+          <div class="app-icon ic-gmail">G</div>
+          <div class="card-title-zone">
+            <div class="card-title">Gmail <span class="tier-tag app">App</span></div>
+            <div class="card-vendor">mcp:gmail · granted 3d ago</div>
+          </div>
+        </div>
+        <p class="card-desc js-desc"
+           data-read="Nora can read the shared inbox to find context — she can't send or delete anything."
+           data-write="Nora could draft and send email — every outbound send would ask you first.">Nora can read the shared inbox to find context — she can't send or delete anything.</p>
+        <div class="seg">
+          <button class="seg-read on" onclick="setMode(this,'read')"><span class="dot"></span>Read</button>
+          <button class="seg-write" onclick="setMode(this,'write')"><span class="dot"></span>Read + Write</button>
+        </div>
+        <div class="risk-line read js-risk">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 16 9.5"/></svg>
+          <span class="js-risk-text">Safe &amp; instant · can't change anything</span>
+        </div>
+        <div class="card-foot">
+          <button class="grant-btn granted" onclick="grantCard(this)"><span class="tick"><svg viewBox="0 0 24 24"><polyline points="4.5 12.5 10 18 19.5 7"/></svg></span>Granted · Read</button>
+          <button class="revoke" onclick="revokeCard(this)">Revoke</button>
+        </div>
+      </article>
+
+      <article class="card mode-write granted-card" data-tier="app" data-name="slack chat messages channels post">
+        <div class="card-head">
+          <div class="app-icon ic-slack">S</div>
+          <div class="card-title-zone">
+            <div class="card-title">Slack <span class="tier-tag app">App</span></div>
+            <div class="card-vendor">mcp:slack · granted 3d ago</div>
+          </div>
+        </div>
+        <p class="card-desc js-desc"
+           data-read="Nora can read the channels you pick to stay in the loop — she stays silent."
+           data-write="Nora can read channels and draft replies — every post asks you before it goes out.">Nora can read channels and draft replies — every post asks you before it goes out.</p>
+        <div class="seg">
+          <button class="seg-read" onclick="setMode(this,'read')"><span class="dot"></span>Read</button>
+          <button class="seg-write on" onclick="setMode(this,'write')"><span class="dot"></span>Read + Write</button>
+        </div>
+        <div class="risk-line write js-risk">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3l9.5 17h-19z"/><line x1="12" y1="10" x2="12" y2="14"/><circle cx="12" cy="17" r=".5"/></svg>
+          <span class="js-risk-text">She can act — but every post asks you first</span>
+        </div>
+        <div class="card-foot">
+          <button class="grant-btn granted" onclick="grantCard(this)"><span class="tick"><svg viewBox="0 0 24 24"><polyline points="4.5 12.5 10 18 19.5 7"/></svg></span>Granted · Read + Post-asks-you</button>
+          <button class="revoke" onclick="revokeCard(this)">Revoke</button>
+        </div>
+      </article>
+
+      <article class="card mode-read requested" id="sfCard" data-tier="app" data-name="salesforce crm opportunities pipeline deals">
+        <span class="req-badge">Nora is asking for this</span>
+        <div class="card-head">
+          <div class="app-icon ic-sf">SF</div>
+          <div class="card-title-zone">
+            <div class="card-title">Salesforce <span class="tier-tag app">App</span></div>
+            <div class="card-vendor">mcp:salesforce · requested just now</div>
+          </div>
+        </div>
+        <p class="card-desc js-desc"
+           data-read="Nora can read accounts, contacts and opportunities — perfect for pipeline summaries."
+           data-write="Nora could update records like the Acme Corp opportunity — sensitive changes still ask you.">Nora can read accounts, contacts and opportunities — perfect for pipeline summaries.</p>
+        <div class="seg">
+          <button class="seg-read on" onclick="setMode(this,'read')"><span class="dot"></span>Read</button>
+          <button class="seg-write" onclick="setMode(this,'write')"><span class="dot"></span>Read + Write</button>
+        </div>
+        <div class="risk-line read js-risk">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 16 9.5"/></svg>
+          <span class="js-risk-text">Safe &amp; instant · can't change anything</span>
+        </div>
+        <div class="card-foot">
+          <button class="grant-btn idle" onclick="grantCard(this)">Grant Salesforce</button>
+          <button class="revoke" onclick="revokeCard(this)" style="display:none">Revoke</button>
+        </div>
+      </article>
+
+      <article class="card mode-read" data-tier="app" data-name="stripe payments billing invoices charges">
+        <div class="card-head">
+          <div class="app-icon ic-stripe">St</div>
+          <div class="card-title-zone">
+            <div class="card-title">Stripe <span class="tier-tag app">App</span></div>
+            <div class="card-vendor">mcp:stripe · read-first</div>
+          </div>
+        </div>
+        <p class="card-desc js-desc"
+           data-read="Nora can look up payments and invoices to answer billing questions — never auto-charges."
+           data-write="Nora could issue refunds or update invoices — every money-moving action asks you. Never auto-charges.">Nora can look up payments and invoices to answer billing questions — never auto-charges.</p>
+        <div class="seg">
+          <button class="seg-read on" onclick="setMode(this,'read')"><span class="dot"></span>Read</button>
+          <button class="seg-write" onclick="setMode(this,'write')"><span class="dot"></span>Read + Write</button>
+        </div>
+        <div class="risk-line read js-risk">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 16 9.5"/></svg>
+          <span class="js-risk-text">Safe &amp; instant · never auto-charges</span>
+        </div>
+        <div class="card-foot">
+          <button class="grant-btn idle" onclick="grantCard(this)">Grant Stripe</button>
+          <button class="revoke" onclick="revokeCard(this)" style="display:none">Revoke</button>
+        </div>
+      </article>
+
+      <article class="card mode-read" data-tier="app" data-name="quickbooks accounting books expenses intuit">
+        <div class="card-head">
+          <div class="app-icon ic-qb">qb</div>
+          <div class="card-title-zone">
+            <div class="card-title">QuickBooks <span class="tier-tag app">App</span></div>
+            <div class="card-vendor">mcp:quickbooks</div>
+          </div>
+        </div>
+        <p class="card-desc js-desc"
+           data-read="Nora can read the books to reconcile and report — she can't post a single entry."
+           data-write="Nora could categorise transactions and draft entries — every posting asks you first.">Nora can read the books to reconcile and report — she can't post a single entry.</p>
+        <div class="seg">
+          <button class="seg-read on" onclick="setMode(this,'read')"><span class="dot"></span>Read</button>
+          <button class="seg-write" onclick="setMode(this,'write')"><span class="dot"></span>Read + Write</button>
+        </div>
+        <div class="risk-line read js-risk">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 16 9.5"/></svg>
+          <span class="js-risk-text">Safe &amp; instant · can't change anything</span>
+        </div>
+        <div class="card-foot">
+          <button class="grant-btn idle" onclick="grantCard(this)">Grant QuickBooks</button>
+          <button class="revoke" onclick="revokeCard(this)" style="display:none">Revoke</button>
+        </div>
+      </article>
+
+      <article class="card mode-read" data-tier="app" data-name="notion docs wiki pages knowledge">
+        <div class="card-head">
+          <div class="app-icon ic-notion">N</div>
+          <div class="card-title-zone">
+            <div class="card-title">Notion <span class="tier-tag app">App</span></div>
+            <div class="card-vendor">mcp:notion</div>
+          </div>
+        </div>
+        <p class="card-desc js-desc"
+           data-read="Nora can read your wiki and SOPs so she does things your way — view-only."
+           data-write="Nora could draft and edit pages — publishing a change still asks you.">Nora can read your wiki and SOPs so she does things your way — view-only.</p>
+        <div class="seg">
+          <button class="seg-read on" onclick="setMode(this,'read')"><span class="dot"></span>Read</button>
+          <button class="seg-write" onclick="setMode(this,'write')"><span class="dot"></span>Read + Write</button>
+        </div>
+        <div class="risk-line read js-risk">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 16 9.5"/></svg>
+          <span class="js-risk-text">Safe &amp; instant · can't change anything</span>
+        </div>
+        <div class="card-foot">
+          <button class="grant-btn idle" onclick="grantCard(this)">Grant Notion</button>
+          <button class="revoke" onclick="revokeCard(this)" style="display:none">Revoke</button>
+        </div>
+      </article>
+
+      <!-- ===== COMPUTER-USE (premium tier) ===== -->
+      <article class="card cu-card" data-tier="cu" data-name="drive a mac app computer use desktop screen click universal fallback">
+        <div class="cu-shine"></div>
+        <div class="card-head">
+          <div class="app-icon ic-mac">⌥</div>
+          <div class="card-title-zone">
+            <div class="card-title">Drive a Mac app <span class="tier-tag cu">Computer-use</span></div>
+            <div class="card-vendor">executor:cu-macos · highest-trust tier</div>
+          </div>
+        </div>
+        <p class="card-desc">The universal fallback — when there's no connector, Nora can see the screen and drive any Mac app you name. <strong style="color:#fff">Every click still asks you.</strong></p>
+        <div class="seg">
+          <button class="on" disabled><span class="dot" style="background:var(--yellow)"></span>Supervised — every action approved</button>
+        </div>
+        <div class="cu-trust">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          Per-app, per-session · screen-recorded to the audit chain · the strongest leash we have
+        </div>
+        <div class="card-foot">
+          <button class="grant-btn idle" onclick="grantCard(this)">Grant computer-use</button>
+          <button class="revoke" onclick="revokeCard(this)" style="display:none">Revoke</button>
+        </div>
+      </article>
+
+    </div>
+
+    <div class="empty" id="empty">
+      <div class="big">No tools match</div>
+      <div>Try “Salesforce”, “email”, or switch tabs — or <a href="#" style="color:var(--purple-deep);font-weight:600;">request a new connector</a>.</div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    Every grant, change and revoke on this page writes a hash-chained row to the
+    <a href="#">audit log</a> <span class="mono">(#84f2…c1)</span> — tamper-evident, exportable, yours.
+  </footer>
+
+</div>
+
+<script>
+  // ---------- state ----------
+  var activeTier = 'all';
+
+  // ---------- search ----------
+  function trySearch(q){
+    var input = document.getElementById('search');
+    input.value = q;
+    input.focus();
+    applyFilters();
+  }
+
+  function applyFilters(){
+    var q = document.getElementById('search').value.trim().toLowerCase();
+    var cards = document.querySelectorAll('#grid .card');
+    var visible = 0;
+    cards.forEach(function(card){
+      var tierOk = (activeTier === 'all') || (card.dataset.tier === activeTier);
+      var hay = (card.dataset.name + ' ' + card.querySelector('.card-title').textContent).toLowerCase();
+      var qOk = !q || hay.indexOf(q) !== -1;
+      var show = tierOk && qOk;
+      card.classList.toggle('hidden', !show);
+      if (show) visible++;
+    });
+    document.getElementById('countPill').textContent = visible + (visible === 1 ? ' tool' : ' tools');
+    document.getElementById('empty').classList.toggle('show', visible === 0);
+  }
+
+  // ---------- tabs ----------
+  function setTab(btn){
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+    btn.classList.add('active');
+    activeTier = btn.dataset.tier;
+    applyFilters();
+  }
+
+  // ---------- read / read+write segmented toggle ----------
+  function setMode(btn, mode){
+    var card = btn.closest('.card');
+    card.querySelectorAll('.seg button').forEach(function(b){ b.classList.remove('on'); });
+    btn.classList.add('on');
+    card.classList.remove('mode-read','mode-write');
+    card.classList.add(mode === 'write' ? 'mode-write' : 'mode-read');
+
+    var desc = card.querySelector('.js-desc');
+    if (desc) desc.textContent = mode === 'write' ? desc.dataset.write : desc.dataset.read;
+
+    var risk = card.querySelector('.js-risk');
+    var riskText = card.querySelector('.js-risk-text');
+    if (risk && riskText){
+      risk.classList.remove('read','write');
+      risk.classList.add(mode);
+      if (mode === 'write'){
+        risk.querySelector('svg').innerHTML = '<path d="M12 3l9.5 17h-19z"/><line x1="12" y1="10" x2="12" y2="14"/><circle cx="12" cy="17" r=".5"/>';
+        riskText.innerHTML = 'She can act — but sensitive changes still ask you';
+      } else {
+        risk.querySelector('svg').innerHTML = '<circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 16 9.5"/>';
+        riskText.innerHTML = card.dataset.name.indexOf('stripe') !== -1
+          ? 'Safe &amp; instant · never auto-charges'
+          : 'Safe &amp; instant · can’t change anything';
+      }
+    }
+    // if already granted, update the granted label to reflect mode
+    var gbtn = card.querySelector('.grant-btn.granted');
+    if (gbtn) setGrantedLabel(card, gbtn);
+    refreshGrantCount();
+  }
+
+  // ---------- grant / revoke ----------
+  function currentMode(card){
+    return card.classList.contains('mode-write') ? 'write' : 'read';
+  }
+  function appName(card){
+    return card.querySelector('.card-title').childNodes[0].textContent.trim();
+  }
+  function setGrantedLabel(card, btn){
+    var mode = currentMode(card);
+    var label = card.classList.contains('cu-card') ? 'Granted · Supervised'
+              : (mode === 'write' ? 'Granted · Read + Asks-you' : 'Granted · Read');
+    btn.innerHTML = '<span class="tick"><svg viewBox="0 0 24 24"><polyline points="4.5 12.5 10 18 19.5 7"/></svg></span>' + label;
+  }
+  function grantCard(btn){
+    if (btn.classList.contains('granted')) return;
+    var card = btn.closest('.card');
+    btn.classList.remove('idle');
+    btn.classList.add('granted','just');
+    setGrantedLabel(card, btn);
+    var rv = card.querySelector('.revoke');
+    if (rv) rv.style.display = '';
+    card.classList.add('granted-card');
+    // Salesforce card grant also resolves the featured banner
+    if (card.id === 'sfCard') resolveBanner(currentMode(card));
+    setTimeout(function(){ btn.classList.remove('just'); }, 700);
+    refreshGrantCount();
+  }
+  function revokeCard(btn){
+    var card = btn.closest('.card');
+    var gbtn = card.querySelector('.grant-btn');
+    gbtn.classList.remove('granted','just');
+    gbtn.classList.add('idle');
+    gbtn.textContent = 'Grant ' + (card.classList.contains('cu-card') ? 'computer-use' : appName(card));
+    btn.style.display = 'none';
+    card.classList.remove('granted-card');
+    refreshGrantCount();
+  }
+  function refreshGrantCount(){
+    var n = document.querySelectorAll('#grid .card.granted-card').length;
+    document.getElementById('grantCount').textContent = n + (n === 1 ? ' grant' : ' grants');
+  }
+
+  // ---------- featured banner ----------
+  function grantFromBanner(mode){
+    var card = document.getElementById('sfCard');
+    // set the card's segmented toggle to match
+    var segBtn = card.querySelector(mode === 'write' ? '.seg-write' : '.seg-read');
+    setMode(segBtn, mode);
+    grantCard(card.querySelector('.grant-btn'));
+  }
+  function resolveBanner(mode){
+    var banner = document.getElementById('featuredBanner');
+    if (banner.classList.contains('is-granted') || banner.classList.contains('dismissed')) return;
+    document.getElementById('grantedTitle').textContent =
+      mode === 'write'
+        ? 'Salesforce granted (read + write) — Nora is updating Acme Corp now. The change itself will still ask you.'
+        : 'Salesforce granted (read-only) — Nora can see the opportunity; the update will come back as an approval.';
+    document.getElementById('grantedDetail').innerHTML =
+      'Logged to the audit chain <span class="mono">grant:sf-' + mode + ' · #84f3…0a</span> · revoke any time from the Salesforce card below.';
+    banner.classList.add('is-granted');
+    setTimeout(function(){ banner.classList.add('dismissed'); }, 5200);
+  }
+  function dismissBanner(){
+    var banner = document.getElementById('featuredBanner');
+    banner.classList.add('dismissed');
+  }
+
+  // ⌘K focuses search
+  document.addEventListener('keydown', function(e){
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'){
+      e.preventDefault();
+      document.getElementById('search').focus();
+    }
+  });
+
+  applyFilters();
+  refreshGrantCount();
+</script>
+</body>
+</html>

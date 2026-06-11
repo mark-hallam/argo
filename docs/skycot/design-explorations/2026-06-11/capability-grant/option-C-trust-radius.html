@@ -1,0 +1,730 @@
+<!--
+  DESIGN LANGUAGE — "Trust Radius" (Option C · the viral pole)
+  Bold, spatial, screenshot-worthy. The teammate (Nora) sits at the dead center of a living
+  orbital diagram rendered as a deliberate SKYCOT dark "moment": concentric rings are the three
+  trust tiers, and every capability is a NODE orbiting at its tier's ring. Distance IS the
+  metaphor — the closer to Nora, the safer the power; the far edge (computer-use) is the most
+  powerful and the most gated. Granted nodes glow purple→pink with flowing spokes back to the
+  center; ungranted nodes are dim outlines; the requested Salesforce node pulses with a dashed
+  "wants in" spoke and the connect-on-demand grant ladder anchors directly to it IN the diagram.
+  A glass legend panel translates the picture into plain words with the same controls, so nothing
+  is visual-only. Brand-loud register (Workers holographic-showcase energy): Audiowide display,
+  Inter UI, JetBrains Mono for the technical layer, locked purple→pink gradient only — never
+  purple→cyan. Built to make someone screenshot their permissions screen.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SKYCOT — Nora's Trust Radius</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple:#8b5cf6; --purple-deep:#6d28d9; --pink:#ec4899; --coral:#ff6b6b;
+    --teal:#14b8a6; --yellow:#fcd34d;
+    --ink:#1e1b4b; --ink2:#3f3f46; --ink3:#52525b; --ink4:#a1a1aa;
+    --bg:#fafaff; --paper:#ffffff; --paper2:#f4f4f4; --line:#ece9f5; --line-strong:#d1d1d1;
+    --gradient:linear-gradient(135deg,#8b5cf6,#ec4899);
+    --gradient3:linear-gradient(135deg,#8b5cf6,#ec4899,#ff6b6b);
+    --success:#16a34a; --warning:#d97706; --destructive:#dc2626; --info:#2563eb;
+    /* dark-moment locals */
+    --night:#0c0a24; --night2:#16123a;
+    --dim:rgba(231,228,255,.55); --dimmer:rgba(231,228,255,.34);
+    --lite:#eceaff;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+
+  /* ============ top nav ============ */
+  .nav{display:flex;align-items:center;gap:28px;max-width:1280px;margin:0 auto;padding:18px 24px 14px}
+  .wordmark{font-family:'Audiowide',cursive;font-size:19px;letter-spacing:.06em;background:var(--gradient);
+    -webkit-background-clip:text;background-clip:text;color:transparent;text-decoration:none}
+  .nav a.link{font-size:13.5px;font-weight:600;color:var(--ink3);text-decoration:none;padding:6px 2px}
+  .nav a.link.on{color:var(--ink);box-shadow:0 2px 0 0 var(--purple)}
+  .nav .spacer{flex:1}
+  .nav .me{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--ink3)}
+  .nav .me .av{width:26px;height:26px;border-radius:50%;background:var(--gradient);display:grid;place-items:center;
+    color:#fff;font-size:11px;font-weight:800}
+
+  /* ============ page header ============ */
+  .head{max-width:1280px;margin:0 auto;padding:22px 24px 18px;display:flex;align-items:flex-end;gap:24px}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.22em;
+    color:var(--purple);text-transform:uppercase;margin-bottom:10px}
+  h1{font-family:'Audiowide',cursive;font-weight:400;font-size:40px;line-height:1.05;color:var(--ink);letter-spacing:.01em}
+  h1 .grad{background:var(--gradient);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .head p.sub{margin-top:12px;font-size:15px;color:var(--ink3);max-width:640px;line-height:1.55}
+  .head p.sub b{color:var(--ink);font-weight:600}
+  .head .stats{margin-left:auto;display:flex;gap:10px;padding-bottom:6px}
+  .stat{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 16px;text-align:center;min-width:104px}
+  .stat .n{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--ink)}
+  .stat .n.pink{color:var(--pink)} .stat .n.teal{color:var(--teal)}
+  .stat .l{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4);margin-top:2px}
+
+  /* ============ dark moment ============ */
+  .moment{max-width:1280px;margin:6px auto 0;padding:0 24px 28px}
+  .panel{position:relative;border-radius:26px;overflow:hidden;background:
+      radial-gradient(900px 600px at 12% -10%, rgba(139,92,246,.32), transparent 60%),
+      radial-gradient(800px 560px at 96% 108%, rgba(236,72,153,.26), transparent 58%),
+      linear-gradient(160deg,var(--night2),var(--night) 55%);
+    border:1px solid rgba(139,92,246,.35);
+    box-shadow:0 30px 80px -30px rgba(30,27,75,.55), inset 0 1px 0 rgba(255,255,255,.06);
+    display:flex;gap:6px;padding:18px}
+  .panel::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:radial-gradient(rgba(231,228,255,.12) 1px, transparent 1.4px);
+    background-size:26px 26px;opacity:.35;mask-image:radial-gradient(720px 600px at 38% 50%, #000 30%, transparent 78%)}
+
+  /* live strip */
+  .livestrip{position:absolute;top:22px;left:26px;z-index:5;display:flex;align-items:center;gap:10px;
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+  .livestrip .dot{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 10px var(--teal);
+    animation:blink 2.4s ease-in-out infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+  .auditstamp{position:absolute;bottom:18px;left:26px;z-index:5;font-family:'JetBrains Mono',monospace;
+    font-size:10px;letter-spacing:.1em;color:var(--dimmer)}
+  .auditstamp b{color:var(--dim);font-weight:600}
+
+  /* ============ orbital ============ */
+  .orbital-wrap{position:relative;width:760px;min-width:680px;height:740px;flex:0 1 auto}
+  svg.orbital{width:100%;height:100%;display:block;overflow:visible}
+
+  .ringline{fill:none;stroke:rgba(231,228,255,.14);stroke-width:1}
+  .ringline.r2{stroke:rgba(231,228,255,.18)}
+  .ringline.r3{stroke:rgba(255,107,107,.28);stroke-dasharray:2 8;stroke-linecap:round}
+  .ringtag rect{fill:#13102e;stroke:rgba(231,228,255,.18);rx:9}
+  .ringtag text{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;fill:var(--dim);text-anchor:middle}
+  .ringtag.t3 text{fill:#ffb3b3}
+  .ringtag.t3 rect{stroke:rgba(255,107,107,.4)}
+
+  /* spokes */
+  .spoke{stroke-linecap:round;fill:none}
+  .spoke.builtin{stroke:rgba(20,184,166,.55);stroke-width:1.6}
+  .spoke.on{stroke:url(#spokeGrad);stroke-width:2;stroke-dasharray:3 9;animation:flow 1.5s linear infinite;
+    filter:drop-shadow(0 0 4px rgba(168,85,247,.7))}
+  @keyframes flow{to{stroke-dashoffset:-12}}
+  .spoke.req{stroke:var(--pink);stroke-width:1.8;stroke-dasharray:5 7;opacity:.8;
+    animation:flow 1.1s linear infinite, wantpulse 2.2s ease-in-out infinite}
+  @keyframes wantpulse{0%,100%{opacity:.85}50%{opacity:.3}}
+  .spoke.drawing{stroke:url(#spokeGrad);stroke-width:2.2;stroke-dasharray:300;stroke-dashoffset:300;
+    animation:drawin .7s ease-out forwards;filter:drop-shadow(0 0 6px rgba(236,72,153,.8))}
+  @keyframes drawin{to{stroke-dashoffset:0}}
+  .spoke.hidden{display:none}
+
+  /* nodes */
+  .node{cursor:pointer}
+  .float{animation:bob var(--dur,6s) ease-in-out infinite;animation-delay:var(--del,0s)}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  .scaler{transform-box:fill-box;transform-origin:center;transition:transform .28s cubic-bezier(.34,1.56,.64,1)}
+  .node:hover .scaler{transform:scale(1.14)}
+  .hoverline{opacity:0;transition:opacity .25s;font-family:'Inter',sans-serif;font-size:10px;fill:var(--dim);text-anchor:middle}
+  .node:hover .hoverline{opacity:1}
+
+  .nname{font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;fill:var(--lite);text-anchor:middle}
+  .nchip{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;fill:var(--dim);text-anchor:middle;text-transform:uppercase}
+  .node.dimmed .nname{fill:var(--dimmer)} .node.dimmed .nchip{fill:rgba(231,228,255,.26)}
+  .node.lit .nchip{fill:#f5b9dd}
+
+  .corebg{fill:#181440;stroke:rgba(231,228,255,.28);stroke-width:1.4;transition:fill .5s,stroke .5s}
+  .node.lit .corebg{fill:url(#gradMain);stroke:rgba(255,255,255,.55);
+    filter:drop-shadow(0 0 14px rgba(168,85,247,.85)) drop-shadow(0 0 30px rgba(236,72,153,.4))}
+  .icon{stroke:rgba(231,228,255,.5);stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:stroke .5s}
+  .node.lit .icon{stroke:#fff}
+  .iglyph{font-family:'JetBrains Mono',monospace;font-weight:700;fill:rgba(231,228,255,.5);text-anchor:middle;transition:fill .5s}
+  .node.lit .iglyph{fill:#fff}
+
+  .scopearc{fill:none;stroke:url(#gradMain);stroke-width:2.6;stroke-linecap:round;
+    filter:drop-shadow(0 0 5px rgba(236,72,153,.6))}
+  .scopetrack{fill:none;stroke:rgba(231,228,255,.12);stroke-width:2.6}
+
+  /* requested pulse */
+  .pulser{transition:opacity .4s}
+  .node.requested .pulser{animation:breathe 2.1s ease-in-out infinite}
+  @keyframes breathe{0%,100%{opacity:1}50%{opacity:.45}}
+  .ping{fill:none;stroke:var(--pink);stroke-width:1.6;opacity:0}
+  .node.requested .ping{animation:ping 2.1s cubic-bezier(0,0,.35,1) infinite}
+  .node.requested .ping.p2{animation-delay:1.05s}
+  @keyframes ping{0%{r:27px;opacity:.75}100%{r:62px;opacity:0}}
+  .node.requested .corebg{stroke:var(--pink);stroke-dasharray:4 4}
+
+  /* built-in nodes */
+  .bnode .corebg{fill:rgba(20,184,166,.14);stroke:rgba(20,184,166,.75);stroke-width:1.4}
+  .bnode .icon{stroke:#5eead4}
+  .bnode .nchip{fill:rgba(94,234,212,.75)}
+  .bnode{cursor:default}
+
+  /* computer-use node */
+  .cunode .corebg{fill:#1c0f24;stroke:rgba(255,107,107,.85);stroke-width:1.6}
+  .cunode .icon{stroke:#ffb3b3}
+  .cunode .nchip{fill:#ffb3b3}
+  .cunode .curing{fill:none;stroke:rgba(255,107,107,.5);stroke-width:1.2;stroke-dasharray:3 6;
+    transform-box:fill-box;transform-origin:center;animation:spin 28s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .cunode.armed .corebg{fill:var(--coral);stroke:#fff;
+    filter:drop-shadow(0 0 16px rgba(255,107,107,.9))}
+  .cunode.armed .icon{stroke:#fff}
+
+  /* center */
+  .probtrack{fill:none;stroke:rgba(252,211,77,.18);stroke-width:3}
+  .probarc{fill:none;stroke:var(--yellow);stroke-width:3;stroke-linecap:round;
+    filter:drop-shadow(0 0 6px rgba(252,211,77,.55))}
+  .probbadge rect{fill:rgba(252,211,77,.1);stroke:rgba(252,211,77,.45);rx:12}
+  .probbadge text{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.16em;fill:var(--yellow);text-anchor:middle}
+  .centerN{font-family:'Audiowide',cursive;font-size:36px;fill:#fff;text-anchor:middle}
+
+  /* ============ callout ============ */
+  .callout{position:absolute;left:402px;bottom:442px;width:326px;z-index:20;
+    background:rgba(22,17,58,.94);backdrop-filter:blur(14px);border-radius:18px;
+    border:1px solid transparent;
+    background-clip:padding-box;
+    box-shadow:0 24px 60px -12px rgba(0,0,0,.65), 0 0 0 1px rgba(236,72,153,.45), 0 0 40px -8px rgba(236,72,153,.35);
+    padding:18px 18px 14px;opacity:0;transform:translateY(14px) scale(.96);pointer-events:none;
+    transition:opacity .35s cubic-bezier(.34,1.4,.64,1), transform .35s cubic-bezier(.34,1.4,.64,1)}
+  .callout.open{opacity:1;transform:none;pointer-events:auto}
+  .callout::after{content:"";position:absolute;bottom:-7px;left:172px;width:14px;height:14px;
+    background:rgba(22,17,58,.96);border-right:1px solid rgba(236,72,153,.5);border-bottom:1px solid rgba(236,72,153,.5);
+    transform:rotate(45deg)}
+  .callout .eb{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.2em;color:var(--pink);
+    text-transform:uppercase;display:flex;align-items:center;gap:8px}
+  .callout .eb::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--pink);
+    box-shadow:0 0 8px var(--pink);animation:blink 1.6s infinite}
+  .callout h3{font-size:15.5px;font-weight:700;color:var(--lite);line-height:1.35;margin:8px 0 12px}
+  .callout h3 b{background:var(--gradient);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .actprev{background:rgba(10,8,30,.8);border:1px solid rgba(231,228,255,.12);border-radius:12px;
+    padding:11px 13px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.8;color:var(--dim)}
+  .actprev .row{display:flex;justify-content:space-between;gap:10px}
+  .actprev .k{color:rgba(231,228,255,.4);letter-spacing:.06em}
+  .actprev .v{color:var(--lite);font-weight:600;text-align:right}
+  .actprev .v .arrow{color:var(--pink)}
+  .actprev .v.money{color:var(--yellow)}
+  .cnote{font-size:11px;color:var(--dim);line-height:1.5;margin:11px 2px 12px;min-height:32px;transition:color .2s}
+  .ladder{display:flex;flex-direction:column;gap:8px}
+  .gbtn{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;
+    border-radius:11px;padding:10px 14px;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;
+    cursor:pointer;transition:transform .15s, box-shadow .15s, background .15s}
+  .gbtn:active{transform:scale(.98)}
+  .gbtn small{display:block;font-size:10px;font-weight:500;margin-top:2px;letter-spacing:.02em}
+  .gbtn.read{background:rgba(20,184,166,.13);border:1px solid rgba(20,184,166,.55);color:#7df3e1}
+  .gbtn.read:hover{background:rgba(20,184,166,.22);box-shadow:0 0 18px -4px rgba(20,184,166,.5)}
+  .gbtn.read small{color:rgba(125,243,225,.65)}
+  .gbtn.write{background:rgba(217,119,6,.12);border:1px solid rgba(252,211,77,.5);color:var(--yellow)}
+  .gbtn.write:hover{background:rgba(217,119,6,.22);box-shadow:0 0 18px -4px rgba(252,211,77,.45)}
+  .gbtn.write small{color:rgba(252,211,77,.65)}
+  .gbtn .tag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;opacity:.8;white-space:nowrap}
+  .dismiss{margin-top:10px;width:100%;background:none;border:none;color:var(--dimmer);font-size:11.5px;
+    font-weight:600;cursor:pointer;padding:5px;font-family:'Inter',sans-serif}
+  .dismiss:hover{color:var(--dim)}
+
+  /* ============ legend panel ============ */
+  .legend{flex:1;min-width:380px;z-index:4;display:flex;flex-direction:column;
+    background:rgba(18,14,46,.66);backdrop-filter:blur(12px);
+    border:1px solid rgba(231,228,255,.12);border-radius:18px;padding:20px 20px 16px;margin:6px 6px 6px 0}
+  .legend h2{font-family:'Audiowide',cursive;font-weight:400;font-size:16.5px;color:var(--lite);letter-spacing:.03em}
+  .legend .lsub{font-size:11.5px;color:var(--dim);margin:6px 0 14px;line-height:1.5}
+  .tier{margin-bottom:13px}
+  .tierhead{display:flex;align-items:baseline;gap:8px;margin-bottom:7px}
+  .tierhead .rg{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+  .tierhead .rs{font-size:10px;color:var(--dimmer)}
+  .tierhead.t1 .rg{color:#5eead4}.tierhead.t3 .rg{color:#ffb3b3}
+  .trow{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:11px;
+    border:1px solid transparent;transition:background .2s,border-color .2s}
+  .trow:hover{background:rgba(231,228,255,.04)}
+  .trow.want{background:rgba(236,72,153,.08);border-color:rgba(236,72,153,.4);
+    animation:wantglow 2.2s ease-in-out infinite}
+  @keyframes wantglow{0%,100%{box-shadow:0 0 0 0 rgba(236,72,153,0)}50%{box-shadow:0 0 16px -2px rgba(236,72,153,.35)}}
+  .tdot{width:22px;height:22px;border-radius:8px;flex:none;display:grid;place-items:center;
+    font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700}
+  .tdot.bi{background:rgba(20,184,166,.16);color:#5eead4;border:1px solid rgba(20,184,166,.5)}
+  .tdot.app{background:rgba(139,92,246,.16);color:#cdb6ff;border:1px solid rgba(139,92,246,.55)}
+  .tdot.app.litd{background:var(--gradient);color:#fff;border-color:rgba(255,255,255,.4)}
+  .tdot.app.dimd{background:transparent;color:rgba(231,228,255,.35);border:1px dashed rgba(231,228,255,.3)}
+  .tdot.cu{background:rgba(255,107,107,.14);color:#ffb3b3;border:1px solid rgba(255,107,107,.55)}
+  .tinfo{flex:1;min-width:0}
+  .tname{font-size:12.5px;font-weight:600;color:var(--lite)}
+  .tsubl{font-size:10px;color:var(--dimmer);margin-top:1px}
+  .chip{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.12em;padding:3px 8px;
+    border-radius:99px;white-space:nowrap;text-transform:uppercase}
+  .c-on{background:rgba(20,184,166,.15);color:#5eead4;border:1px solid rgba(20,184,166,.45)}
+  .c-read{background:rgba(139,92,246,.2);color:#cdb6ff;border:1px solid rgba(139,92,246,.55)}
+  .c-write{background:linear-gradient(135deg,rgba(139,92,246,.3),rgba(236,72,153,.3));color:#f5b9dd;border:1px solid rgba(236,72,153,.6)}
+  .c-req{background:rgba(236,72,153,.16);color:var(--pink);border:1px solid rgba(236,72,153,.55);animation:breathe 2.1s infinite}
+  .c-none{background:transparent;color:rgba(231,228,255,.35);border:1px dashed rgba(231,228,255,.25)}
+  .c-cu{background:rgba(255,107,107,.13);color:#ffb3b3;border:1px solid rgba(255,107,107,.5)}
+  .tctl{display:flex;gap:5px;flex:none}
+  .mini{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;border-radius:8px;padding:5px 9px;
+    cursor:pointer;border:1px solid rgba(231,228,255,.22);background:rgba(231,228,255,.06);color:var(--dim);
+    transition:all .15s;white-space:nowrap}
+  .mini:hover{background:rgba(231,228,255,.13);color:var(--lite)}
+  .mini.grant{background:rgba(20,184,166,.14);border-color:rgba(20,184,166,.5);color:#7df3e1}
+  .mini.grant:hover{background:rgba(20,184,166,.26)}
+  .mini.write{background:rgba(217,119,6,.13);border-color:rgba(252,211,77,.45);color:var(--yellow)}
+  .mini.write:hover{background:rgba(217,119,6,.25)}
+  .mini.danger:hover{border-color:rgba(220,38,38,.6);color:#ff9d9d}
+  .legend hr{border:none;border-top:1px solid rgba(231,228,255,.1);margin:4px 0 12px}
+
+  .safety{margin-top:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;
+    background:rgba(10,8,30,.55);border:1px solid rgba(231,228,255,.1);border-radius:13px;padding:13px 15px}
+  .safety .s{display:flex;align-items:flex-start;gap:8px;font-size:10.5px;line-height:1.45;color:var(--dim)}
+  .safety .s b{color:var(--lite);font-weight:600}
+  .sdot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:3px}
+  .sdot.t{background:var(--teal);box-shadow:0 0 7px var(--teal)}
+  .sdot.y{background:var(--yellow);box-shadow:0 0 7px var(--yellow)}
+  .sdot.p{background:var(--purple);box-shadow:0 0 7px var(--purple)}
+  .sdot.c{background:var(--coral);box-shadow:0 0 7px var(--coral)}
+
+  /* ============ toast ============ */
+  .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,90px);z-index:99;
+    background:rgba(14,11,38,.97);border:1px solid rgba(139,92,246,.5);border-radius:14px;
+    box-shadow:0 18px 50px -10px rgba(0,0,0,.6), 0 0 28px -6px rgba(139,92,246,.4);
+    padding:13px 20px 13px 16px;display:flex;align-items:center;gap:13px;max-width:620px;
+    transition:transform .45s cubic-bezier(.34,1.4,.64,1)}
+  .toast.show{transform:translate(-50%,0)}
+  .toast .tk{width:30px;height:30px;border-radius:50%;background:var(--gradient);flex:none;
+    display:grid;place-items:center;color:#fff;font-size:14px;font-weight:800}
+  .toast .tt{font-size:13px;font-weight:700;color:var(--lite)}
+  .toast .ts{font-size:11px;color:var(--dim);margin-top:2px;line-height:1.45}
+  .toast .ts b{color:#cdb6ff;font-weight:600;font-family:'JetBrains Mono',monospace;font-size:10px}
+
+  /* footer */
+  .foot{max-width:1280px;margin:0 auto;padding:4px 24px 36px;display:flex;align-items:center;gap:10px;
+    font-size:12px;color:var(--ink4)}
+  .foot .fdot{width:7px;height:7px;border-radius:50%;background:var(--success)}
+  .foot a{color:var(--purple-deep);font-weight:600;text-decoration:none;margin-left:auto}
+  .foot a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+
+<!-- ================= NAV ================= -->
+<nav class="nav">
+  <a class="wordmark" href="#">SKYCOT</a>
+  <a class="link" href="#">Team</a>
+  <a class="link on" href="#">Permissions</a>
+  <a class="link" href="#">Skills</a>
+  <a class="link" href="#">Audit</a>
+  <a class="link" href="#">Settings</a>
+  <span class="spacer"></span>
+  <span class="me"><span class="av">MH</span> Hallam &amp; Co</span>
+</nav>
+
+<!-- ================= HEADER ================= -->
+<header class="head">
+  <div>
+    <div class="eyebrow">Permissions · Connect on demand</div>
+    <h1>Nora's <span class="grad">trust radius</span></h1>
+    <p class="sub">Every power Nora has, drawn to scale. <b>Closer to the centre = safer.</b>
+      The far edge is the most powerful, and the most gated. Nothing lights up without you.</p>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="n teal">2</div><div class="l">apps granted</div></div>
+    <div class="stat"><div class="n pink" id="stat-pending">1</div><div class="l">wants in</div></div>
+    <div class="stat"><div class="n">0</div><div class="l">writes w/o approval</div></div>
+  </div>
+</header>
+
+<!-- ================= DARK MOMENT ================= -->
+<section class="moment">
+  <div class="panel">
+    <div class="livestrip"><span class="dot"></span> live · capability radius — nora</div>
+    <div class="auditstamp">last grant <b>2 days ago</b> · audit chain <b>#4,811</b> ✓ verified</div>
+
+    <!-- ============ ORBITAL ============ -->
+    <div class="orbital-wrap">
+      <svg class="orbital" viewBox="0 0 760 740" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+        <defs>
+          <linearGradient id="gradMain" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#ec4899"/>
+          </linearGradient>
+          <linearGradient id="spokeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#ec4899"/>
+          </linearGradient>
+          <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#8b5cf6" stop-opacity=".55"/>
+            <stop offset="55%" stop-color="#ec4899" stop-opacity=".18"/>
+            <stop offset="100%" stop-color="#ec4899" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+
+        <!-- rings -->
+        <circle class="ringline" cx="380" cy="370" r="110"/>
+        <circle class="ringline r2" cx="380" cy="370" r="210"/>
+        <circle class="ringline r3" cx="380" cy="370" r="310"/>
+
+        <!-- ring tags (left axis) -->
+        <g class="ringtag"><rect x="225" y="359" width="90" height="20"/><text x="270" y="372.5">BUILT-IN</text></g>
+        <g class="ringtag"><rect x="103" y="359" width="134" height="20"/><text x="170" y="372.5">CONNECTED APPS</text></g>
+        <g class="ringtag t3"><rect x="10" y="359" width="120" height="20"/><text x="70" y="372.5">COMPUTER-USE</text></g>
+
+        <!-- spokes -->
+        <line class="spoke builtin" x1="380" y1="300" x2="380" y2="284"/>
+        <line class="spoke builtin" x1="440.6" y1="405" x2="454.5" y2="413"/>
+        <line class="spoke builtin" x1="319.4" y1="405" x2="305.5" y2="413"/>
+        <line id="spoke-gmail"      class="spoke on"  x1="321.1" y1="336" x2="225.9" y2="281"/>
+        <line id="spoke-slack"      class="spoke on"  x1="368.2" y1="303" x2="349"   y2="194.7"/>
+        <line id="spoke-salesforce" class="spoke req" x1="447.3" y1="360.5" x2="556.2" y2="345.2"/>
+        <line id="spoke-stripe"     class="spoke hidden" x1="368.2" y1="437" x2="349" y2="545.3"/>
+        <line id="spoke-quickbooks" class="spoke hidden" x1="316.1" y1="393.3" x2="215.4" y2="429.9"/>
+
+        <!-- ========== CENTER · NORA ========== -->
+        <g class="node" style="cursor:default">
+          <circle cx="380" cy="370" r="125" fill="url(#halo)"/>
+          <circle class="probtrack" cx="380" cy="370" r="58"/>
+          <circle class="probarc" cx="380" cy="370" r="58" stroke-dasharray="273 364.4" transform="rotate(-90 380 370)"/>
+          <g class="scaler">
+            <circle cx="380" cy="370" r="44" fill="url(#gradMain)" stroke="rgba(255,255,255,.45)" stroke-width="1.5"
+              filter="drop-shadow(0 0 18px rgba(168,85,247,.8))"/>
+            <text class="centerN" x="380" y="383">N</text>
+          </g>
+          <g class="probbadge"><rect x="294" y="446" width="172" height="23"/><text x="380" y="461">⏳ ON PROBATION · 18H LEFT</text></g>
+          <text class="hoverline" x="380" y="488">L1 autonomy · day 4 on the team · every grant below chosen by you</text>
+        </g>
+
+        <!-- ========== RING 1 · BUILT-IN ========== -->
+        <g class="node bnode" transform="translate(380,260)" >
+          <g class="float" style="--dur:7s;--del:-1s"><g class="scaler">
+            <circle class="corebg" r="17"/>
+            <g class="icon"><rect x="-5" y="-7" width="10" height="14" rx="1.5"/><path d="M-2 -3 h4 M-2 0 h4 M-2 3 h2"/></g>
+          </g></g>
+          <text class="nname" y="-28">Read files</text>
+          <text class="nchip" y="34">ALWAYS ON</text>
+          <text class="hoverline" y="48">Workspace files only — never your whole disk</text>
+        </g>
+        <g class="node bnode" transform="translate(284.7,425)">
+          <g class="float" style="--dur:6.4s;--del:-3s"><g class="scaler">
+            <circle class="corebg" r="17"/>
+            <path class="icon" d="M0 -7 L1.8 -1.8 L7 0 L1.8 1.8 L0 7 L-1.8 1.8 L-7 0 L-1.8 -1.8 Z"/>
+          </g></g>
+          <text class="nname" y="34">Memory</text>
+          <text class="nchip" y="49">ALWAYS ON</text>
+          <text class="hoverline" y="63">Her own notes &amp; nothing else</text>
+        </g>
+        <g class="node bnode" transform="translate(475.3,425)">
+          <g class="float" style="--dur:7.6s;--del:-2s"><g class="scaler">
+            <circle class="corebg" r="17"/>
+            <g class="icon"><circle cx="-1.5" cy="-1.5" r="4.5"/><path d="M2 2 L7 7"/></g>
+          </g></g>
+          <text class="nname" y="34">Web search</text>
+          <text class="nchip" y="49">ALWAYS ON</text>
+          <text class="hoverline" y="63">Public web · every query logged</text>
+        </g>
+
+        <!-- ========== RING 2 · CONNECTED APPS ========== -->
+        <!-- Gmail · granted READ -->
+        <g class="node lit" id="node-gmail" transform="translate(198.1,265)" onclick="appToast('gmail')">
+          <g class="float" style="--dur:6.8s;--del:-2.4s"><g class="scaler"><g class="pulser">
+            <circle class="scopetrack" r="31"/>
+            <circle class="scopearc" id="arc-gmail" r="31" stroke-dasharray="97.4 97.4"/>
+            <circle class="corebg" r="24"/>
+            <g class="icon"><rect x="-8" y="-5.5" width="16" height="11" rx="2"/><path d="M-8 -4.5 L0 2 L8 -4.5"/></g>
+          </g></g></g>
+          <text class="nname" y="52">Gmail</text>
+          <text class="nchip" id="nchip-gmail" y="68">READ</text>
+          <text class="hoverline" y="83">Read 12 invoices this morning · 0 sent</text>
+        </g>
+
+        <!-- Slack · granted READ+POST -->
+        <g class="node lit" id="node-slack" transform="translate(343.5,163.2)" onclick="appToast('slack')">
+          <g class="float" style="--dur:7.4s;--del:-4.1s"><g class="scaler"><g class="pulser">
+            <circle class="scopetrack" r="31"/>
+            <circle class="scopearc" id="arc-slack" r="31"/>
+            <circle class="corebg" r="24"/>
+            <g class="icon"><path d="M-3.5 -8 V8 M3.5 -8 V8 M-8 -3.5 H8 M-8 3.5 H8"/></g>
+          </g></g></g>
+          <text class="nname" y="-44">Slack</text>
+          <text class="nchip" id="nchip-slack" y="-58" style="text-anchor:middle">READ + POST</text>
+          <text class="hoverline" y="52">Posted 3 status updates today · #ops only</text>
+        </g>
+
+        <!-- Salesforce · REQUESTED (pulsing) -->
+        <g class="node requested" id="node-salesforce" transform="translate(587.9,340.8)" onclick="toggleCallout()">
+          <circle class="ping" r="27"/><circle class="ping p2" r="27"/>
+          <g class="float" style="--dur:6.2s;--del:-1.6s"><g class="scaler"><g class="pulser">
+            <circle class="scopetrack" r="31" id="track-salesforce"/>
+            <circle class="scopearc" id="arc-salesforce" r="31" style="display:none"/>
+            <circle class="corebg" r="24"/>
+            <path class="icon" d="M-6 5 h11.5 a4 4 0 0 0 .8 -7.9 A6 6 0 0 0 -5 -4.5 A4.5 4.5 0 0 0 -6 5 Z"/>
+          </g></g></g>
+          <text class="nname" y="52">Salesforce</text>
+          <text class="nchip" id="nchip-salesforce" y="68" fill="#ec4899">WANTS IN · TAP</text>
+          <text class="hoverline" y="83">Tap to review her request</text>
+        </g>
+
+        <!-- Stripe · available, dim -->
+        <g class="node dimmed" id="node-stripe" transform="translate(343.5,576.8)" onclick="setApp('stripe','read',true)">
+          <g class="float" style="--dur:7.8s;--del:-3.4s"><g class="scaler"><g class="pulser">
+            <circle class="scopetrack" r="31" style="display:none" id="strack-stripe"></circle>
+            <circle class="scopearc" id="arc-stripe" r="31" style="display:none"/>
+            <circle class="corebg" r="24" stroke-dasharray="3 4"/>
+            <text class="iglyph" font-size="15" y="5.5">S</text>
+          </g></g></g>
+          <text class="nname" y="52">Stripe</text>
+          <text class="nchip" id="nchip-stripe" y="68">NOT CONNECTED</text>
+          <text class="hoverline" y="83">One click to connect, read-only first</text>
+        </g>
+
+        <!-- QuickBooks · available, dim -->
+        <g class="node dimmed" id="node-quickbooks" transform="translate(182.7,441.8)" onclick="setApp('quickbooks','read',true)">
+          <g class="float" style="--dur:6.6s;--del:-.8s"><g class="scaler"><g class="pulser">
+            <circle class="scopearc" id="arc-quickbooks" r="31" style="display:none"/>
+            <circle class="corebg" r="24" stroke-dasharray="3 4"/>
+            <text class="iglyph" font-size="15" y="5.5">Q</text>
+          </g></g></g>
+          <text class="nname" y="52">QuickBooks</text>
+          <text class="nchip" id="nchip-quickbooks" y="68">NOT CONNECTED</text>
+          <text class="hoverline" y="83">One click to connect, read-only first</text>
+        </g>
+
+        <!-- ========== RING 3 · COMPUTER-USE ========== -->
+        <g class="node cunode" id="node-cu" transform="translate(557.9,623.9)" onclick="toggleCU()">
+          <g class="float" style="--dur:8.4s;--del:-2.8s"><g class="scaler">
+            <circle class="curing" r="41"/>
+            <circle class="corebg" r="28"/>
+            <path class="icon" d="M-4 -9 L7 2 L1.5 2.6 L4.5 8.2 L1.6 9.6 L-1.3 4 L-4 6.8 Z" fill="rgba(255,179,179,.18)"/>
+          </g></g>
+          <text class="nname" y="58">Drive a Mac app</text>
+          <text class="nchip" id="nchip-cu" y="74">OFF · EVERY CLICK ASKS</text>
+          <text class="hoverline" y="89">The universal reach — every click still asks you</text>
+        </g>
+      </svg>
+
+      <!-- ============ CONNECT-ON-DEMAND CALLOUT ============ -->
+      <div class="callout" id="callout" role="dialog" aria-label="Salesforce access request">
+        <div class="eb">Connect on demand · just now</div>
+        <h3>Nora wants to update the <b>Acme Corp</b> opportunity</h3>
+        <div class="actprev">
+          <div class="row"><span class="k">RECORD</span><span class="v">Acme Corp · OPP-8841</span></div>
+          <div class="row"><span class="k">STAGE</span><span class="v">Negotiation <span class="arrow">→</span> Payment reminded</span></div>
+          <div class="row"><span class="k">AMOUNT</span><span class="v money">$2,400</span></div>
+          <div class="row"><span class="k">SCOPE</span><span class="v" id="prevScope">1 field · 1 record · nothing else</span></div>
+        </div>
+        <p class="cnote" id="cnote">Pick the smallest grant that works. You can upgrade, or take it back, any time.</p>
+        <div class="ladder">
+          <button class="gbtn read" onclick="setApp('salesforce','read')"
+            onmouseenter="note('With read-only, Nora reads the record and drafts the update — you apply it with one click. Nothing in Salesforce changes without you.')"
+            onmouseleave="note()">
+            <span>Grant read-only<small>the safe default — look, don't touch</small></span><span class="tag">◐ READ</span>
+          </button>
+          <button class="gbtn write" onclick="setApp('salesforce','write')"
+            onmouseenter="note('With read + write, Nora applies routine updates herself. Money, deletes and bulk edits still ask you first, every time.')"
+            onmouseleave="note()">
+            <span>Grant read + write<small>sensitive changes still ask you</small></span><span class="tag">● READ+WRITE</span>
+          </button>
+        </div>
+        <button class="dismiss" onclick="dismissCallout()">Not now — keep Salesforce dark</button>
+      </div>
+    </div>
+
+    <!-- ============ LEGEND / WORDS PANEL ============ -->
+    <aside class="legend">
+      <h2>WHAT NORA CAN TOUCH</h2>
+      <p class="lsub">The same picture, in words. Three rings, three levels of trust — each row mirrors a node on the radius.</p>
+
+      <div class="tier">
+        <div class="tierhead t1"><span class="rg">◉ Inner ring — built in</span><span class="rs">ships with every teammate · always on</span></div>
+        <div class="trow"><span class="tdot bi">⬚</span><span class="tinfo"><span class="tname">Read files</span><div class="tsubl">workspace files only</div></span><span class="chip c-on">always on</span></div>
+        <div class="trow"><span class="tdot bi">✳</span><span class="tinfo"><span class="tname">Memory</span><div class="tsubl">her own notes</div></span><span class="chip c-on">always on</span></div>
+        <div class="trow"><span class="tdot bi">⌕</span><span class="tinfo"><span class="tname">Web search</span><div class="tsubl">public web · logged</div></span><span class="chip c-on">always on</span></div>
+      </div>
+      <hr>
+      <div class="tier">
+        <div class="tierhead"><span class="rg">◎ Middle ring — connected apps</span><span class="rs">granted by you, on demand</span></div>
+        <div class="trow" id="lrow-gmail">
+          <span class="tdot app litd" id="ldot-gmail">G</span>
+          <span class="tinfo"><span class="tname">Gmail</span><div class="tsubl" id="lsub-gmail">reads invoices · cannot send</div></span>
+          <span class="chip c-read" id="lchip-gmail">read</span>
+          <span class="tctl" id="lctl-gmail"></span>
+        </div>
+        <div class="trow" id="lrow-slack">
+          <span class="tdot app litd" id="ldot-slack">#</span>
+          <span class="tinfo"><span class="tname">Slack</span><div class="tsubl" id="lsub-slack">reads #ops · posts updates</div></span>
+          <span class="chip c-write" id="lchip-slack">read + post</span>
+          <span class="tctl" id="lctl-slack"></span>
+        </div>
+        <div class="trow want" id="lrow-salesforce">
+          <span class="tdot app dimd" id="ldot-salesforce">☁</span>
+          <span class="tinfo"><span class="tname">Salesforce</span><div class="tsubl" id="lsub-salesforce">wants in · 2 min ago · Acme Corp update</div></span>
+          <span class="chip c-req" id="lchip-salesforce">wants in</span>
+          <span class="tctl" id="lctl-salesforce"></span>
+        </div>
+        <div class="trow" id="lrow-stripe">
+          <span class="tdot app dimd" id="ldot-stripe">S</span>
+          <span class="tinfo"><span class="tname">Stripe</span><div class="tsubl" id="lsub-stripe">not connected</div></span>
+          <span class="chip c-none" id="lchip-stripe">off</span>
+          <span class="tctl" id="lctl-stripe"></span>
+        </div>
+        <div class="trow" id="lrow-quickbooks">
+          <span class="tdot app dimd" id="ldot-quickbooks">Q</span>
+          <span class="tinfo"><span class="tname">QuickBooks</span><div class="tsubl" id="lsub-quickbooks">not connected</div></span>
+          <span class="chip c-none" id="lchip-quickbooks">off</span>
+          <span class="tctl" id="lctl-quickbooks"></span>
+        </div>
+      </div>
+      <hr>
+      <div class="tier">
+        <div class="tierhead t3"><span class="rg">◌ Outer ring — computer-use</span><span class="rs">the universal reach · every click still asks you</span></div>
+        <div class="trow">
+          <span class="tdot cu">➤</span>
+          <span class="tinfo"><span class="tname">Drive a Mac app</span><div class="tsubl">screen + mouse + keyboard, one approval per click</div></span>
+          <span class="chip c-cu" id="lchip-cu">off</span>
+          <span class="tctl"><button class="mini" id="cubtn" onclick="toggleCU()">Enable</button></span>
+        </div>
+      </div>
+
+      <div class="safety">
+        <div class="s"><span class="sdot t"></span><span><b>Read is safe.</b> Looking never changes anything.</span></div>
+        <div class="s"><span class="sdot y"></span><span><b>Write asks you</b> before anything sensitive.</span></div>
+        <div class="s"><span class="sdot p"></span><span><b>Every grant is logged</b> &amp; revocable, hash-chained.</span></div>
+        <div class="s"><span class="sdot c"></span><span><b>Computer-use always asks,</b> click by click.</span></div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<footer class="foot">
+  <span class="fdot"></span> Audit chain verified 11 seconds ago — every grant and revoke on this screen writes a tamper-evident row.
+  <a href="#">View Nora's full audit trail →</a>
+</footer>
+
+<!-- ================= TOAST ================= -->
+<div class="toast" id="toast">
+  <span class="tk" id="toastK">✓</span>
+  <span><div class="tt" id="toastT"></div><div class="ts" id="toastS"></div></span>
+</div>
+
+<script>
+  var HALF = '97.4 97.4';                       // half of 2π·31 — the “half-full = read” arc
+  var APPS = {
+    gmail:      {name:'Gmail',      scope:'read',      writeWord:'read + write'},
+    slack:      {name:'Slack',      scope:'write',     writeWord:'read + post'},
+    salesforce: {name:'Salesforce', scope:'requested', writeWord:'read + write'},
+    stripe:     {name:'Stripe',     scope:'none',      writeWord:'read + write'},
+    quickbooks: {name:'QuickBooks', scope:'none',      writeWord:'read + write'}
+  };
+  var cuOn = false, toastTimer = null;
+  function $(id){ return document.getElementById(id); }
+
+  /* ---------- callout ---------- */
+  function toggleCallout(){
+    if (APPS.salesforce.scope !== 'requested') { appToast('salesforce'); return; }
+    $('callout').classList.toggle('open');
+  }
+  function dismissCallout(){
+    $('callout').classList.remove('open');
+    toast('✕','Request parked — Salesforce stays dark','Nora was told to wait. She’ll surface it again only if the task still needs it.');
+  }
+  function note(t){
+    $('cnote').textContent = t || 'Pick the smallest grant that works. You can upgrade, or take it back, any time.';
+    $('prevScope').textContent = !t ? '1 field · 1 record · nothing else'
+      : (t.indexOf('read-only') > -1 ? 'she drafts it — you apply with one click'
+                                     : '1 field · 1 record · auto-applied');
+  }
+
+  /* ---------- grant engine ---------- */
+  function setApp(id, scope, viaNode){
+    var a = APPS[id], prev = a.scope;
+    a.scope = scope;
+    var node = $('node-'+id), arc = $('arc-'+id), chip = $('nchip-'+id), spoke = $('spoke-'+id);
+    node.classList.remove('lit','dimmed','requested');
+
+    if (scope === 'none'){
+      node.classList.add('dimmed');
+      arc.style.display = 'none';
+      chip.textContent = 'NOT CONNECTED';
+      spoke.setAttribute('class','spoke hidden');
+    } else {
+      node.classList.add('lit');
+      arc.style.display = '';
+      arc.style.strokeDasharray = (scope === 'read') ? HALF : 'none';
+      chip.textContent = (scope === 'read') ? 'READ' : a.writeWord.toUpperCase();
+      if (prev === 'none' || prev === 'requested'){
+        spoke.setAttribute('class','spoke drawing');
+        setTimeout(function(){ spoke.setAttribute('class','spoke on'); }, 750);
+      } else {
+        spoke.setAttribute('class','spoke on');
+      }
+    }
+    if (id === 'salesforce'){
+      $('callout').classList.remove('open');
+      $('lrow-salesforce').classList.remove('want');
+      $('stat-pending').textContent = (scope === 'requested') ? '1' : '0';
+    }
+    renderRow(id);
+
+    if (scope === 'read' && prev !== 'read'){
+      toast('✓', a.name+' connected · read-only',
+        (id==='salesforce'
+          ? 'Nora drafted the Acme update — she’ll ask you to apply it. Logged to the audit chain <b>#4,812</b> · revoke anytime.'
+          : 'Looking never changes anything. Logged to the audit chain · revoke anytime.'));
+    } else if (scope === 'write' && prev !== 'write'){
+      toast('●', a.name+' connected · '+a.writeWord,
+        (id==='salesforce'
+          ? 'The Acme update runs now. Money, deletes &amp; bulk edits still ask you first. Audit row <b>#4,812</b> written.'
+          : 'Routine changes run; sensitive ones still ask you. Logged &amp; revocable.'));
+    } else if (scope === 'none'){
+      toast('✕', a.name+' access revoked', 'The node went dark instantly. A revoke row was written to the audit chain.');
+    } else if (scope === 'read' && prev === 'write'){
+      toast('◐', a.name+' limited to read-only', 'Downgrade logged. Nora keeps eyes, loses hands.');
+    }
+  }
+
+  /* ---------- legend rows ---------- */
+  function renderRow(id){
+    var a = APPS[id], chip = $('lchip-'+id), ctl = $('lctl-'+id),
+        dot = $('ldot-'+id), sub = $('lsub-'+id);
+    function btn(label, cls, fn){ return '<button class="mini '+cls+'" onclick="'+fn+'">'+label+'</button>'; }
+    if (a.scope === 'read'){
+      chip.className = 'chip c-read'; chip.textContent = 'read';
+      dot.className = 'tdot app litd';
+      sub.textContent = (id==='salesforce') ? 'read-only · drafts wait for you' : sub.textContent;
+      ctl.innerHTML = btn('Allow writes','write',"setApp('"+id+"','write')") + btn('Revoke','danger',"setApp('"+id+"','none')");
+    } else if (a.scope === 'write'){
+      chip.className = 'chip c-write'; chip.textContent = a.writeWord;
+      dot.className = 'tdot app litd';
+      sub.textContent = (id==='salesforce') ? a.writeWord+' · sensitive changes still ask' : sub.textContent;
+      ctl.innerHTML = btn('Read-only','',"setApp('"+id+"','read')") + btn('Revoke','danger',"setApp('"+id+"','none')");
+    } else if (a.scope === 'requested'){
+      chip.className = 'chip c-req'; chip.textContent = 'wants in';
+      dot.className = 'tdot app dimd';
+      ctl.innerHTML = btn('Read-only','grant',"setApp('"+id+"','read')") + btn('Read + write','write',"setApp('"+id+"','write')");
+    } else {
+      chip.className = 'chip c-none'; chip.textContent = 'off';
+      dot.className = 'tdot app dimd';
+      sub.textContent = 'not connected';
+      ctl.innerHTML = btn('Connect read-only','grant',"setApp('"+id+"','read')");
+    }
+  }
+
+  /* ---------- computer-use ---------- */
+  function toggleCU(){
+    cuOn = !cuOn;
+    $('node-cu').classList.toggle('armed', cuOn);
+    $('nchip-cu').textContent = cuOn ? 'ARMED · EVERY CLICK ASKS' : 'OFF · EVERY CLICK ASKS';
+    $('lchip-cu').textContent = cuOn ? 'armed' : 'off';
+    $('cubtn').textContent = cuOn ? 'Disarm' : 'Enable';
+    toast(cuOn ? '➤' : '✕',
+      cuOn ? 'Computer-use armed — nothing moves yet' : 'Computer-use disarmed',
+      cuOn ? 'The universal reach: Nora can see the screen, but <b>every single click</b> sends you an approval first.'
+           : 'Back to dark. The outer ring is the most powerful and the most gated.');
+  }
+
+  /* ---------- toasts ---------- */
+  function toast(k, t, s){
+    $('toastK').textContent = k; $('toastT').textContent = t; $('toastS').innerHTML = s;
+    var el = $('toast'); el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 5200);
+  }
+  function appToast(id){
+    var a = APPS[id];
+    if (a.scope === 'none'){ setApp(id, 'read'); return; }
+    toast('ⓘ', a.name+' — manage in the panel →', 'Upgrade, downgrade or revoke from “What Nora can touch”. Every change writes an audit row.');
+  }
+
+  /* ---------- boot ---------- */
+  ['gmail','slack','salesforce','stripe','quickbooks'].forEach(renderRow);
+  setTimeout(function(){ if (APPS.salesforce.scope === 'requested') $('callout').classList.add('open'); }, 900);
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') $('callout').classList.remove('open'); });
+</script>
+</body>
+</html>

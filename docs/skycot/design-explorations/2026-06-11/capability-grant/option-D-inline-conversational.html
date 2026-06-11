@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<!--
+DESIGN LANGUAGE — Option D: "Inline Conversational Grant" (Apple-clean, minimal, effortless).
+This is the quietest, most restrained pole of the capability-grant exploration. The thesis: a
+non-technical owner never visits a permissions screen and never sees the word "OAuth" — the grant
+happens INSIDE the teammate's conversation, at the exact moment of need, phrased as answering a
+colleague. The surface is a calm centered chat thread (Nora left, the owner right) on warm paper;
+the hero is an inline grant card that reads like a plain-language question ("Let her view
+Salesforce") with a deliberate, quieter second toggle for the write upgrade ("…and update
+records") that reveals a one-line safety note. The full capability picture is one tap away in a
+slide-over drawer ("What Nora can touch") so trust is auditable without ever leaving the
+conversation. One typeface family (Inter) carries everything; Audiowide appears once as the
+wordmark; JetBrains Mono only for tiny technical values. Color is almost entirely ink-on-paper;
+purple is a single calm accent, the gradient appears only in Nora's avatar. Whitespace, soft
+1px-line cards, 12–16px radii, gentle 200ms transitions — the register of a great messaging app,
+not an admin console. This is the "invisible config / it just flows" expression of
+connect-on-demand.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SKYCOT — Nora · Inline Conversational Grant (Option D)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple:#8b5cf6; --purple-deep:#6d28d9; --pink:#ec4899; --coral:#ff6b6b;
+    --teal:#14b8a6; --yellow:#fcd34d;
+    --ink:#1e1b4b; --ink2:#3f3f46; --ink3:#52525b; --ink4:#a1a1aa;
+    --bg:#fafaff; --paper:#ffffff; --paper2:#f4f4f4; --line:#ece9f5; --line-strong:#d1d1d1;
+    --gradient:linear-gradient(135deg,#8b5cf6,#ec4899);
+    --gradient3:linear-gradient(135deg,#8b5cf6,#ec4899,#ff6b6b);
+    --success:#16a34a; --warning:#d97706; --destructive:#dc2626; --info:#2563eb;
+    --shadow-soft: 0 1px 2px rgba(30,27,75,.04), 0 4px 16px rgba(30,27,75,.05);
+    --shadow-lift: 0 2px 4px rgba(30,27,75,.05), 0 12px 32px rgba(30,27,75,.08);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ background:var(--bg); color:var(--ink); font-family:'Inter',-apple-system,sans-serif;
+    font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+
+  /* ---------- header ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:40;
+    background:rgba(250,250,255,.86); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line);
+  }
+  .topbar-inner{
+    max-width:720px; margin:0 auto; padding:14px 20px;
+    display:flex; align-items:center; gap:14px;
+  }
+  .wordmark{ font-family:'Audiowide',sans-serif; font-size:13px; letter-spacing:.06em;
+    color:var(--ink); text-decoration:none; }
+  .wordmark .dot{ background:var(--gradient); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .topbar-divider{ width:1px; height:18px; background:var(--line-strong); opacity:.6; }
+  .thread-id{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .avatar{
+    width:30px; height:30px; border-radius:50%; flex:none;
+    background:var(--gradient); color:#fff; font-weight:600; font-size:13px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .thread-name{ font-weight:600; font-size:14px; }
+  .thread-sub{ font-size:12px; color:var(--ink4); display:flex; align-items:center; gap:5px; }
+  .presence{ width:6px; height:6px; border-radius:50%; background:var(--success); display:inline-block; }
+  .cap-pill{
+    margin-left:auto; flex:none; cursor:pointer;
+    display:flex; align-items:center; gap:7px;
+    font-family:'Inter',sans-serif; font-size:12.5px; font-weight:500; color:var(--ink3);
+    background:var(--paper); border:1px solid var(--line); border-radius:999px;
+    padding:7px 13px; transition:all .2s ease;
+  }
+  .cap-pill:hover{ border-color:var(--purple); color:var(--purple-deep); box-shadow:var(--shadow-soft); }
+  .cap-pill .lock{ font-size:12px; }
+
+  /* ---------- thread ---------- */
+  .thread{ max-width:720px; margin:0 auto; padding:36px 20px 140px; }
+  .day-marker{ text-align:center; font-size:12px; color:var(--ink4); margin:6px 0 26px;
+    display:flex; align-items:center; gap:14px; }
+  .day-marker::before,.day-marker::after{ content:""; flex:1; height:1px; background:var(--line); }
+
+  .turn{ display:flex; gap:12px; margin-bottom:22px; }
+  .turn.nora{ padding-right:64px; }
+  .turn.owner{ flex-direction:row-reverse; padding-left:96px; }
+  .turn .avatar{ margin-top:2px; }
+  .bubble-col{ display:flex; flex-direction:column; gap:8px; min-width:0; }
+  .turn.owner .bubble-col{ align-items:flex-end; }
+  .bubble{
+    background:var(--paper); border:1px solid var(--line); border-radius:16px;
+    border-top-left-radius:6px; padding:13px 16px; box-shadow:var(--shadow-soft);
+    font-size:15px; color:var(--ink2); max-width:100%;
+  }
+  .bubble strong{ color:var(--ink); font-weight:600; }
+  .turn.owner .bubble{
+    background:var(--ink); border-color:var(--ink); color:#f4f3ff;
+    border-radius:16px; border-top-right-radius:6px; box-shadow:none;
+  }
+  .meta{ font-size:11.5px; color:var(--ink4); padding:0 4px; }
+  .turn.owner .meta{ text-align:right; }
+
+  /* attachment-style mini list inside a bubble */
+  .mini-list{ margin-top:10px; border-top:1px solid var(--line); padding-top:10px;
+    display:flex; flex-direction:column; gap:7px; }
+  .mini-row{ display:flex; align-items:baseline; gap:9px; font-size:13.5px; color:var(--ink2); }
+  .mini-row .who{ font-weight:600; color:var(--ink); }
+  .mini-row .amt{ margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--ink3); }
+  .mini-row .late{ font-size:11.5px; color:var(--warning); font-weight:500; white-space:nowrap; }
+
+  .sys-note{ text-align:center; font-size:12.5px; color:var(--ink4); margin:4px 0 22px; }
+  .sys-note .ok{ color:var(--success); font-weight:500; }
+
+  /* ---------- grant card (the hero) ---------- */
+  .grant-wrap{ margin-top:2px; max-width:100%; width:100%; }
+  .grant-card{
+    background:var(--paper); border:1px solid var(--line); border-radius:16px;
+    box-shadow:var(--shadow-lift); overflow:hidden;
+    transition:opacity .25s ease, transform .25s ease;
+  }
+  .grant-card.leaving{ opacity:0; transform:translateY(6px) scale(.985); }
+  .grant-head{
+    display:flex; align-items:center; gap:12px; padding:15px 18px 13px;
+  }
+  .sf-mark{
+    width:36px; height:36px; flex:none; border-radius:10px;
+    background:#eaf4fd; color:#00a1e0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .sf-mark svg{ display:block; }
+  .grant-title{ font-weight:600; font-size:14.5px; color:var(--ink); }
+  .grant-sub{ font-size:12.5px; color:var(--ink4); margin-top:1px; }
+  .grant-divider{ height:1px; background:var(--line); margin:0 18px; }
+
+  .preview{ padding:13px 18px 5px; }
+  .preview-label{ font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--ink4); margin-bottom:9px; }
+  .preview-row{ display:flex; align-items:center; gap:8px; font-size:13.5px;
+    padding:5px 0; color:var(--ink2); }
+  .preview-row .acct{ font-weight:600; color:var(--ink); white-space:nowrap; }
+  .preview-row .change{ color:var(--ink3); display:flex; align-items:center; gap:6px; min-width:0;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .preview-row .arrow{ color:var(--ink4); }
+  .preview-row .val{ margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink3); }
+  .preview-more{ font-size:12.5px; color:var(--purple-deep); padding:5px 0 6px; cursor:pointer;
+    background:none; border:none; font-family:inherit; font-weight:500; }
+  .preview-more:hover{ text-decoration:underline; }
+  .preview-extra{ display:none; }
+  .preview-extra.open{ display:block; }
+  .preview-dim .change,.preview-dim .val{ opacity:.45; }
+  .preview-note-readonly{ font-size:12px; color:var(--ink4); padding:2px 0 6px; font-style:italic; }
+
+  /* the ladder */
+  .ladder{ padding:13px 18px 16px; display:flex; flex-direction:column; gap:10px; }
+  .btn-grant{
+    appearance:none; width:100%; cursor:pointer;
+    background:var(--purple); color:#fff; border:none; border-radius:12px;
+    font-family:'Inter',sans-serif; font-size:14.5px; font-weight:600;
+    padding:12px 18px; transition:background .2s ease, transform .12s ease;
+  }
+  .btn-grant:hover{ background:var(--purple-deep); }
+  .btn-grant:active{ transform:scale(.99); }
+
+  .write-row{
+    display:flex; align-items:center; gap:11px; cursor:pointer; user-select:none;
+    padding:3px 2px;
+  }
+  .switch{
+    width:36px; height:21px; border-radius:999px; flex:none; position:relative;
+    background:var(--line-strong); transition:background .2s ease;
+  }
+  .switch::after{
+    content:""; position:absolute; top:2.5px; left:3px; width:16px; height:16px;
+    border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(30,27,75,.25);
+    transition:left .2s ease;
+  }
+  .write-row.on .switch{ background:var(--purple); }
+  .write-row.on .switch::after{ left:17px; }
+  .write-label{ font-size:14px; color:var(--ink3); transition:color .2s ease; }
+  .write-row.on .write-label{ color:var(--ink); font-weight:500; }
+
+  .sens-note{
+    display:none; align-items:flex-start; gap:9px;
+    background:#f7f5ff; border:1px solid #e6e0fb; border-radius:10px;
+    padding:10px 13px; font-size:13px; color:var(--ink3);
+  }
+  .sens-note.show{ display:flex; animation:fadeSlide .25s ease; }
+  .sens-note .shield{ flex:none; font-size:13px; margin-top:1px; }
+  .sens-note strong{ color:var(--ink); font-weight:600; }
+
+  .not-now{
+    background:none; border:none; cursor:pointer; align-self:center;
+    font-family:'Inter',sans-serif; font-size:13px; color:var(--ink4); padding:4px 8px;
+  }
+  .not-now:hover{ color:var(--ink3); text-decoration:underline; }
+
+  /* ---------- post-grant ---------- */
+  .confirm-bubble{
+    display:none; align-items:flex-start; gap:10px;
+    background:#f2faf5; border:1px solid #d3eedd; border-radius:14px;
+    padding:13px 16px; font-size:14px; color:var(--ink2); margin-top:2px;
+  }
+  .confirm-bubble.show{ display:flex; animation:fadeSlide .35s ease; }
+  .confirm-bubble .tick{
+    width:20px; height:20px; flex:none; border-radius:50%; background:var(--success);
+    color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; margin-top:1px;
+  }
+  .confirm-bubble a{ color:var(--purple-deep); text-decoration:none; font-weight:500; }
+  .confirm-bubble a:hover{ text-decoration:underline; }
+
+  .post-grant{ display:none; }
+  .post-grant.show{ display:flex; animation:fadeSlide .4s ease .15s both; }
+
+  @keyframes fadeSlide{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:none;} }
+
+  .typing{ display:inline-flex; gap:4px; align-items:center; padding:2px 0; }
+  .typing i{ width:5px; height:5px; border-radius:50%; background:var(--ink4); display:block;
+    animation:blink 1.2s infinite ease-in-out; }
+  .typing i:nth-child(2){ animation-delay:.15s; } .typing i:nth-child(3){ animation-delay:.3s; }
+  @keyframes blink{ 0%,70%,100%{opacity:.3;} 35%{opacity:1;} }
+
+  /* ---------- composer ---------- */
+  .composer-wrap{
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    background:linear-gradient(to top, var(--bg) 72%, rgba(250,250,255,0));
+    padding:26px 20px 18px;
+  }
+  .composer{
+    max-width:680px; margin:0 auto;
+    background:var(--paper); border:1px solid var(--line); border-radius:14px;
+    box-shadow:var(--shadow-soft);
+    display:flex; align-items:center; gap:10px; padding:6px 6px 6px 16px;
+  }
+  .composer input{
+    flex:1; border:none; outline:none; background:transparent;
+    font-family:'Inter',sans-serif; font-size:14.5px; color:var(--ink); padding:9px 0;
+  }
+  .composer input::placeholder{ color:var(--ink4); }
+  .send{
+    width:34px; height:34px; flex:none; border:none; border-radius:10px; cursor:pointer;
+    background:var(--paper2); color:var(--ink4); font-size:14px;
+    display:flex; align-items:center; justify-content:center; transition:all .2s ease;
+  }
+  .send:hover{ background:var(--purple); color:#fff; }
+  .trust-line{
+    max-width:680px; margin:9px auto 0; text-align:center;
+    font-size:12px; color:var(--ink4);
+  }
+  .trust-line b{ font-weight:500; color:var(--ink3); }
+  .trust-line .sep{ margin:0 7px; opacity:.55; }
+
+  /* ---------- drawer ---------- */
+  .scrim{
+    position:fixed; inset:0; z-index:50; background:rgba(30,27,75,.22);
+    opacity:0; pointer-events:none; transition:opacity .25s ease;
+  }
+  .scrim.open{ opacity:1; pointer-events:auto; }
+  .drawer{
+    position:fixed; top:0; right:0; bottom:0; z-index:60; width:min(380px,92vw);
+    background:var(--paper); border-left:1px solid var(--line);
+    box-shadow:-12px 0 40px rgba(30,27,75,.10);
+    transform:translateX(102%); transition:transform .28s cubic-bezier(.32,.72,.33,1);
+    display:flex; flex-direction:column;
+  }
+  .drawer.open{ transform:none; }
+  .drawer-head{
+    padding:20px 22px 16px; border-bottom:1px solid var(--line);
+    display:flex; align-items:flex-start; gap:12px;
+  }
+  .drawer-head h2{ font-size:16px; font-weight:600; color:var(--ink); }
+  .drawer-head p{ font-size:12.5px; color:var(--ink4); margin-top:2px; }
+  .drawer-close{
+    margin-left:auto; width:30px; height:30px; flex:none; cursor:pointer;
+    border:none; border-radius:8px; background:var(--paper2); color:var(--ink3); font-size:14px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .drawer-close:hover{ background:var(--line); }
+  .drawer-body{ overflow-y:auto; padding:8px 22px 22px; flex:1; }
+  .cap-group{ margin-top:18px; }
+  .cap-group h3{ font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--ink4); margin-bottom:8px; }
+  .cap-row{
+    display:flex; align-items:center; gap:11px; padding:11px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .cap-group .cap-row:last-child{ border-bottom:none; }
+  .cap-ico{
+    width:30px; height:30px; flex:none; border-radius:9px; background:var(--paper2);
+    display:flex; align-items:center; justify-content:center; font-size:14px;
+  }
+  .cap-name{ font-size:13.5px; font-weight:500; color:var(--ink); }
+  .cap-level{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink4); margin-top:1px; }
+  .cap-tag{
+    margin-left:auto; flex:none; font-size:11px; font-weight:600;
+    padding:3px 9px; border-radius:999px;
+  }
+  .tag-read{ background:#eef7f1; color:var(--success); }
+  .tag-write{ background:#f7f5ff; color:var(--purple-deep); }
+  .tag-off{ background:var(--paper2); color:var(--ink4); }
+  .cap-revoke{
+    background:none; border:none; cursor:pointer; flex:none;
+    font-family:'Inter',sans-serif; font-size:11.5px; color:var(--ink4); padding:2px 0 2px 10px;
+  }
+  .cap-revoke:hover{ color:var(--destructive); }
+  .cap-row.new-cap{ animation:fadeSlide .4s ease; }
+  .drawer-foot{
+    border-top:1px solid var(--line); padding:14px 22px; font-size:12px; color:var(--ink4);
+  }
+  .drawer-foot b{ color:var(--ink3); font-weight:500; }
+
+  /* preview-state hint (for reviewing the mockup) */
+  .demo-hint{
+    position:fixed; left:18px; bottom:18px; z-index:45;
+    font-size:11.5px; color:var(--ink4); background:var(--paper);
+    border:1px solid var(--line); border-radius:999px; padding:7px 14px;
+    box-shadow:var(--shadow-soft); cursor:pointer; font-family:'Inter',sans-serif;
+  }
+  .demo-hint:hover{ color:var(--purple-deep); border-color:var(--purple); }
+  @media (max-width:880px){ .demo-hint{ display:none; } }
+</style>
+</head>
+<body>
+
+<!-- ===================== header ===================== -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="wordmark" href="#">SKYC<span class="dot">O</span>T</a>
+    <div class="topbar-divider"></div>
+    <div class="thread-id">
+      <div class="avatar">N</div>
+      <div>
+        <div class="thread-name">Nora</div>
+        <div class="thread-sub"><span class="presence"></span> Accounts follow-up · working now</div>
+      </div>
+    </div>
+    <button class="cap-pill" id="capPill" aria-haspopup="dialog" aria-controls="drawer">
+      <span class="lock">🔒</span> <span id="capPillText">3 tools · 1 app</span>
+    </button>
+  </div>
+</header>
+
+<!-- ===================== thread ===================== -->
+<main class="thread">
+  <div class="day-marker">Today · 9:41 am</div>
+
+  <!-- prior turn 1 — Nora opens with real work done -->
+  <div class="turn nora">
+    <div class="avatar">N</div>
+    <div class="bubble-col">
+      <div class="bubble">
+        Morning! I went through your Inbox first thing. <strong>4 invoices</strong> came in replies overnight —
+        <strong>3 are overdue</strong>, $8,580 total. I've drafted polite payment reminders for each:
+        <div class="mini-list">
+          <div class="mini-row"><span class="who">Acme Corp</span> <span class="late">21 days late</span> <span class="amt">$2,400</span></div>
+          <div class="mini-row"><span class="who">Bright &amp; Co</span> <span class="late">14 days late</span> <span class="amt">$3,980</span></div>
+          <div class="mini-row"><span class="who">Fieldstone</span> <span class="late">9 days late</span> <span class="amt">$2,200</span></div>
+        </div>
+      </div>
+      <div class="bubble">Want me to send the three reminders? You can read each draft first if you like.</div>
+      <div class="meta">Nora · 9:41 am · read 4 emails, sent nothing yet</div>
+    </div>
+  </div>
+
+  <!-- prior turn 2 — owner replies -->
+  <div class="turn owner">
+    <div class="bubble-col">
+      <div class="bubble">Drafts look good — send all three.</div>
+      <div class="meta">You · 9:46 am</div>
+    </div>
+  </div>
+
+  <!-- system note -->
+  <div class="sys-note"><span class="ok">✓</span> 3 reminders sent from your Gmail · each one is in the log</div>
+
+  <!-- the connect-on-demand moment -->
+  <div class="turn nora">
+    <div class="avatar">N</div>
+    <div class="bubble-col" style="width:100%">
+      <div class="bubble">
+        Done — all three sent. One more thing: to keep your pipeline honest I'd mark these deals as
+        <strong>chased</strong> in <strong>Salesforce</strong>… but I don't have access to Salesforce yet.
+        Happy either way — you can also do it yourself and I'll remind you.
+      </div>
+
+      <!-- ================= THE GRANT CARD (hero) ================= -->
+      <div class="grant-wrap" id="grantWrap">
+        <div class="grant-card" id="grantCard">
+          <div class="grant-head">
+            <div class="sf-mark" aria-hidden="true">
+              <svg width="20" height="14" viewBox="0 0 20 14" fill="currentColor"><path d="M8.3 1.6c.9-1 2.2-1.6 3.6-1.6 1.9 0 3.5 1 4.4 2.6.7-.3 1.5-.5 2.3-.5-2.5 0-1.2 0-.1 0 .8 0 1.5.7 1.5 1.5v8.9c0 .8-.7 1.5-1.5 1.5H1.5C.7 14 0 13.3 0 12.5v-7C0 4.7.7 4 1.5 4c.4 0 .9.1 1.2.3C3.4 2.9 4.9 2 6.6 2c.6 0 1.2.1 1.7.4Z" opacity=".9"/></svg>
+            </div>
+            <div>
+              <div class="grant-title">Give Nora access to Salesforce?</div>
+              <div class="grant-sub">She only asks when a task needs it — nothing is pre-connected.</div>
+            </div>
+          </div>
+          <div class="grant-divider"></div>
+
+          <!-- concrete action preview -->
+          <div class="preview" id="preview">
+            <div class="preview-label" id="previewLabel">What she'd do right now</div>
+            <div class="preview-rows preview-dim" id="previewRows">
+              <div class="preview-row">
+                <span class="acct">Acme Corp</span>
+                <span class="change">Stage <span class="arrow">→</span> Payment reminded</span>
+                <span class="val">$2,400</span>
+              </div>
+              <div class="preview-extra" id="previewExtra">
+                <div class="preview-row">
+                  <span class="acct">Bright &amp; Co</span>
+                  <span class="change">Stage <span class="arrow">→</span> Payment reminded</span>
+                  <span class="val">$3,980</span>
+                </div>
+                <div class="preview-row">
+                  <span class="acct">Fieldstone</span>
+                  <span class="change">Stage <span class="arrow">→</span> Payment reminded</span>
+                  <span class="val">$2,200</span>
+                </div>
+              </div>
+              <button class="preview-more" id="previewMore">+ 2 more</button>
+            </div>
+            <div class="preview-note-readonly" id="readonlyNote">With view-only access she'll check the deals and hand you the updates to make.</div>
+          </div>
+
+          <!-- the safe-first ladder -->
+          <div class="ladder">
+            <button class="btn-grant" id="btnGrant">Let her view Salesforce</button>
+            <div class="write-row" id="writeRow" role="switch" aria-checked="false" tabindex="0">
+              <span class="switch"></span>
+              <span class="write-label">…and update records</span>
+            </div>
+            <div class="sens-note" id="sensNote">
+              <span class="shield">🛡</span>
+              <span><strong>Sensitive changes still ask you.</strong> Anything that touches money, deletes data,
+              or emails a customer comes to you first — every time.</span>
+            </div>
+            <button class="not-now" id="btnNotNow">Not now — I'll do it.</button>
+          </div>
+        </div>
+
+        <!-- post-grant confirmation (hidden until grant) -->
+        <div class="confirm-bubble" id="confirmBubble">
+          <span class="tick">✓</span>
+          <span id="confirmText">Done — Nora can <strong>view + update</strong> Salesforce.
+          You can change this any time on <a href="#" onclick="return false;">her profile</a>.</span>
+        </div>
+      </div>
+
+      <div class="meta">Nora · 9:47 am</div>
+    </div>
+  </div>
+
+  <!-- Nora continues after grant (hidden until grant) -->
+  <div class="turn nora post-grant" id="postGrantTurn">
+    <div class="avatar">N</div>
+    <div class="bubble-col">
+      <div class="bubble" id="postGrantBubble">
+        Thanks — updating the 3 opportunities now <strong>(each change will ask you first)</strong>.
+        I'll ping you when Acme's is ready to approve.
+      </div>
+      <div class="meta">Nora · just now</div>
+    </div>
+  </div>
+
+  <!-- declined state (hidden unless Not now) -->
+  <div class="turn nora post-grant" id="declinedTurn">
+    <div class="avatar">N</div>
+    <div class="bubble-col">
+      <div class="bubble">
+        No problem — I've left the 3 deals on your list with a note for each.
+        If you change your mind, just say <strong>"go ahead with Salesforce"</strong> any time.
+      </div>
+      <div class="meta">Nora · just now</div>
+    </div>
+  </div>
+</main>
+
+<!-- ===================== composer ===================== -->
+<div class="composer-wrap">
+  <div class="composer">
+    <input type="text" placeholder="Reply to Nora…" aria-label="Reply to Nora">
+    <button class="send" aria-label="Send">↑</button>
+  </div>
+  <div class="trust-line"><b>Read is safe</b><span class="sep">·</span><b>changes ask you</b><span class="sep">·</span><b>everything's logged</b></div>
+</div>
+
+<!-- ===================== drawer: What Nora can touch ===================== -->
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-label="What Nora can touch">
+  <div class="drawer-head">
+    <div>
+      <h2>What Nora can touch</h2>
+      <p>Her full reach, in one place. Change anything, any time.</p>
+    </div>
+    <button class="drawer-close" id="drawerClose" aria-label="Close">✕</button>
+  </div>
+  <div class="drawer-body">
+
+    <div class="cap-group">
+      <h3>Built in</h3>
+      <div class="cap-row">
+        <div class="cap-ico">📄</div>
+        <div><div class="cap-name">Read files you share</div><div class="cap-level">read</div></div>
+        <span class="cap-tag tag-read">View</span>
+      </div>
+      <div class="cap-row">
+        <div class="cap-ico">🧠</div>
+        <div><div class="cap-name">Memory of your business</div><div class="cap-level">read + write</div></div>
+        <span class="cap-tag tag-write">Update</span>
+      </div>
+      <div class="cap-row">
+        <div class="cap-ico">🔍</div>
+        <div><div class="cap-name">Web search</div><div class="cap-level">read</div></div>
+        <span class="cap-tag tag-read">View</span>
+      </div>
+    </div>
+
+    <div class="cap-group">
+      <h3>Connected apps</h3>
+      <div class="cap-row">
+        <div class="cap-ico">✉️</div>
+        <div><div class="cap-name">Gmail</div><div class="cap-level">read · send asks you</div></div>
+        <span class="cap-tag tag-read">View</span>
+        <button class="cap-revoke">Revoke</button>
+      </div>
+      <div class="cap-row">
+        <div class="cap-ico">💬</div>
+        <div><div class="cap-name">Slack</div><div class="cap-level">read + post</div></div>
+        <span class="cap-tag tag-write">Update</span>
+        <button class="cap-revoke">Revoke</button>
+      </div>
+      <!-- Salesforce row appears here after grant -->
+    </div>
+
+    <div class="cap-group">
+      <h3>Computer use</h3>
+      <div class="cap-row">
+        <div class="cap-ico">🖥</div>
+        <div><div class="cap-name">Control a computer</div><div class="cap-level">not granted</div></div>
+        <span class="cap-tag tag-off">Off</span>
+      </div>
+    </div>
+
+  </div>
+  <div class="drawer-foot">
+    Every action Nora takes is written to a <b>tamper-evident log</b> you can open from her profile.
+  </div>
+</aside>
+
+<!-- reviewer convenience: reset the demo -->
+<button class="demo-hint" id="demoReset" title="Reset the mockup to the pre-grant state">↺ reset demo state</button>
+
+<script>
+(function(){
+  var writeOn = false;
+  var granted = false;
+
+  var writeRow   = document.getElementById('writeRow');
+  var sensNote   = document.getElementById('sensNote');
+  var btnGrant   = document.getElementById('btnGrant');
+  var btnNotNow  = document.getElementById('btnNotNow');
+  var grantCard  = document.getElementById('grantCard');
+  var confirmB   = document.getElementById('confirmBubble');
+  var confirmTxt = document.getElementById('confirmText');
+  var postTurn   = document.getElementById('postGrantTurn');
+  var declined   = document.getElementById('declinedTurn');
+  var postBubble = document.getElementById('postGrantBubble');
+  var previewRows= document.getElementById('previewRows');
+  var previewLbl = document.getElementById('previewLabel');
+  var roNote     = document.getElementById('readonlyNote');
+  var pillText   = document.getElementById('capPillText');
+  var previewMore= document.getElementById('previewMore');
+  var previewXtra= document.getElementById('previewExtra');
+
+  /* expand "+2 more" */
+  previewMore.addEventListener('click', function(){
+    var open = previewXtra.classList.toggle('open');
+    previewMore.textContent = open ? 'show less' : '+ 2 more';
+  });
+
+  /* write-upgrade toggle */
+  function setWrite(on){
+    writeOn = on;
+    writeRow.classList.toggle('on', on);
+    writeRow.setAttribute('aria-checked', on ? 'true':'false');
+    sensNote.classList.toggle('show', on);
+    btnGrant.textContent = on ? 'Let her view + update Salesforce' : 'Let her view Salesforce';
+    previewRows.classList.toggle('preview-dim', !on);
+    previewLbl.textContent = on ? "What she'd do right now" : "What she'd do right now (view-only: she'll list these for you)";
+    roNote.style.display = on ? 'none' : '';
+  }
+  writeRow.addEventListener('click', function(){ setWrite(!writeOn); });
+  writeRow.addEventListener('keydown', function(e){
+    if(e.key===' '||e.key==='Enter'){ e.preventDefault(); setWrite(!writeOn); }
+  });
+
+  /* grant — morph card into confirmation, append Nora's next bubble */
+  btnGrant.addEventListener('click', function(){
+    if(granted) return;
+    granted = true;
+    grantCard.classList.add('leaving');
+    setTimeout(function(){
+      grantCard.style.display = 'none';
+      if(writeOn){
+        confirmTxt.innerHTML = 'Done — Nora can <strong>view + update</strong> Salesforce. ' +
+          'You can change this any time on <a href="#" onclick="return false;">her profile</a>.';
+        postBubble.innerHTML = 'Thanks — updating the 3 opportunities now ' +
+          '<strong>(each change will ask you first)</strong>. I\'ll ping you when Acme\'s is ready to approve.';
+      } else {
+        confirmTxt.innerHTML = 'Done — Nora can <strong>view</strong> Salesforce. ' +
+          'You can change this any time on <a href="#" onclick="return false;">her profile</a>.';
+        postBubble.innerHTML = 'Thanks — I\'ll check the 3 opportunities and hand you the exact updates to make. ' +
+          'If you\'d like me to make them myself later, just say so.';
+      }
+      confirmB.classList.add('show');
+      postTurn.classList.add('show');
+      pillText.textContent = '3 tools · 2 apps';
+      addSalesforceRow(writeOn);
+      postTurn.scrollIntoView({behavior:'smooth', block:'center'});
+    }, 240);
+  });
+
+  /* not now — card folds away, Nora acknowledges gracefully */
+  btnNotNow.addEventListener('click', function(){
+    if(granted) return;
+    granted = true;
+    grantCard.classList.add('leaving');
+    setTimeout(function(){
+      grantCard.style.display = 'none';
+      declined.classList.add('show');
+      declined.scrollIntoView({behavior:'smooth', block:'center'});
+    }, 240);
+  });
+
+  /* drawer */
+  var drawer = document.getElementById('drawer');
+  var scrim  = document.getElementById('scrim');
+  function openDrawer(){ drawer.classList.add('open'); scrim.classList.add('open'); }
+  function closeDrawer(){ drawer.classList.remove('open'); scrim.classList.remove('open'); }
+  document.getElementById('capPill').addEventListener('click', openDrawer);
+  document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+  scrim.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeDrawer(); });
+
+  function addSalesforceRow(write){
+    if(document.getElementById('sfCapRow')) return;
+    var group = document.querySelectorAll('.cap-group')[1];
+    var row = document.createElement('div');
+    row.className = 'cap-row new-cap';
+    row.id = 'sfCapRow';
+    row.innerHTML =
+      '<div class="cap-ico">☁️</div>' +
+      '<div><div class="cap-name">Salesforce</div><div class="cap-level">' +
+      (write ? 'view + update · sensitive asks you' : 'view only') + '</div></div>' +
+      '<span class="cap-tag ' + (write ? 'tag-write">Update' : 'tag-read">View') + '</span>' +
+      '<button class="cap-revoke">Revoke</button>';
+    group.appendChild(row);
+  }
+
+  /* demo reset for reviewers */
+  document.getElementById('demoReset').addEventListener('click', function(){ location.reload(); });
+})();
+</script>
+</body>
+</html>
