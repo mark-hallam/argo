@@ -365,6 +365,20 @@ export interface WorkerRunResult {
   audit_id: string;
   trigger_id: string;
   queued_at: string;
+  /**
+   * Session the run executes under — the handle for the in-SPA tool
+   * approval flow (`POST /api/sessions/<id>/approve`).
+   */
+  session_id?: string;
+  /**
+   * Tools the run wanted but that are held by the 24-hour probation
+   * window pending a one-time human OK (additive field; absent on
+   * older gateways). Non-empty means the green "running now" toast
+   * would be theater — the overview surfaces the held state instead.
+   */
+  held_tools?: string[];
+  /** True while the worker is inside its 24h probation window. */
+  probation?: boolean;
 }
 
 export async function triggerWorkerRun(

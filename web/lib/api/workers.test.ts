@@ -3,6 +3,7 @@ import {
   fetchWorker,
   hireWorker,
   listWorkersInVertical,
+  triggerWorkerRun,
   WorkerNotFoundError,
 } from "./workers";
 import { fetchTeam } from "./team";
@@ -147,6 +148,50 @@ describe("lib/api/workers", () => {
     });
 
     await expect(fetchWorker(MARIAH.id)).resolves.toEqual(MARIAH);
+  });
+
+  // Day-1 unblock FIX 1: the run envelope's ADDITIVE probation fields
+  // (`session_id`, `held_tools`, `probation`) must ride through
+  // triggerWorkerRun so the overview can render the held state — and
+  // an older gateway that omits them must still parse.
+  it("triggerWorkerRun passes session_id / held_tools / probation through", async () => {
+    installMock((req) => {
+      expect(req.url).toMatch(/\/api\/workers\/w-1\/run$/);
+      return makeResponse({
+        body: {
+          action_id: "a1",
+          audit_id: "a1",
+          trigger_id: "t1",
+          queued_at: "2026-06-11T00:00:00Z",
+          session_id: "019e6785-928a-7270-a766-f945b6cd7161",
+          held_tools: ["send_email", "web_search"],
+          probation: true,
+        },
+      });
+    });
+
+    const result = await triggerWorkerRun("w-1");
+    expect(result.session_id).toBe("019e6785-928a-7270-a766-f945b6cd7161");
+    expect(result.held_tools).toEqual(["send_email", "web_search"]);
+    expect(result.probation).toBe(true);
+  });
+
+  it("triggerWorkerRun tolerates an older gateway envelope without the probation fields", async () => {
+    installMock(() =>
+      makeResponse({
+        body: {
+          action_id: "a2",
+          audit_id: "a2",
+          trigger_id: "t2",
+          queued_at: "2026-06-11T00:00:00Z",
+        },
+      }),
+    );
+
+    const result = await triggerWorkerRun("w-1");
+    expect(result.action_id).toBe("a2");
+    expect(result.held_tools).toBeUndefined();
+    expect(result.probation).toBeUndefined();
   });
 });
 
