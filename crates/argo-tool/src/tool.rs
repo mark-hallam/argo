@@ -209,6 +209,28 @@ pub trait Tool: Send + Sync + std::fmt::Debug {
     /// when the broad declaration would pass.
     fn required_capabilities(&self, args: &serde_json::Value) -> ArgoResult<CapabilitySet>;
 
+    /// Capabilities required to run this tool, with the per-call
+    /// [`ToolContext`] in hand (cu1c).
+    ///
+    /// Defaults to [`Tool::required_capabilities`] (ignoring `ctx`), so
+    /// every existing tool compiles untouched. The file tools
+    /// (`file_read` / `file_write` / `file_patch`) override this to
+    /// resolve a *relative* requested path against `ctx.workspace_root`
+    /// before deriving the `Fs*` capability glob — letting a fenced
+    /// teammate use relative paths without tripping RBAC (whose grant
+    /// glob is absolute, `<fs_root>/**`). This never widens a grant: a
+    /// relative path that climbs out via `..` still resolves outside the
+    /// jail and is denied. The dispatch path (`registry::dispatch`) calls
+    /// this variant; `confine_path` remains the second, filesystem-aware
+    /// line of defense at dispatch time.
+    fn required_capabilities_in_ctx(
+        &self,
+        args: &serde_json::Value,
+        _ctx: &ToolContext,
+    ) -> ArgoResult<CapabilitySet> {
+        self.required_capabilities(args)
+    }
+
     /// Build a [`ToolSchema`] for shipping to providers.
     #[must_use]
     fn schema(&self) -> ToolSchema {

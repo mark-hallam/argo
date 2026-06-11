@@ -91,6 +91,45 @@ pub fn confine_path(workspace_root: &Path, requested: &Path) -> Result<PathBuf, 
     Ok(canonical)
 }
 
+/// Resolve a tool's `requested` path against the jail `root` for the
+/// purpose of capability-glob derivation (cu1c).
+///
+/// This is a **lexical-only** resolve — no filesystem access, no
+/// symlink resolution. It exists so a fenced teammate can pass a
+/// *relative* path (`invoice-acme-4471.txt`) and still have the derived
+/// `Fs*` capability glob compared against the **absolute** grant
+/// (`<fs_root>/**`). Without it, a relative requested path never matches
+/// the absolute grant and RBAC denies before [`confine_path`] ever runs.
+/// The canonicalizing, filesystem-aware check is [`confine_path`],
+/// applied again at dispatch (defense in depth).
+///
+/// - Absolute `requested` is returned unchanged — it must stand on its
+///   own merits at the RBAC and [`confine_path`] layers.
+/// - Relative `requested` is joined onto `root` and lexically
+///   normalized: `.` is dropped and `..` pops the preceding component.
+///   A `..` that climbs above `root` therefore yields a path *outside*
+///   `<root>/**`, so RBAC denies it (and [`confine_path`] refuses it
+///   again at dispatch). This never widens a grant.
+#[must_use]
+pub(crate) fn resolve_against_root(root: &Path, requested: &str) -> String {
+    let req = Path::new(requested);
+    if req.is_absolute() {
+        return requested.to_string();
+    }
+    let joined = root.join(req);
+    let mut out = PathBuf::new();
+    for component in joined.components() {
+        match component {
+            Component::ParentDir => {
+                out.pop();
+            }
+            Component::CurDir => {}
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out.to_string_lossy().into_owned()
+}
+
 /// Walk `joined` from leaf to root looking for the deepest
 /// ancestor that canonicalizes successfully, then re-attach the
 /// non-existent tail components in their original order.
@@ -320,6 +359,49 @@ mod tests {
     /// `symlink_metadata`) but its target does not. Reject, because
     /// the eventual `open()` will follow the link and we cannot
     /// verify the final destination is inside the workspace.
+    // ---- resolve_against_root (cu1c, lexical capability-glob derivation) ----
+
+    #[test]
+    fn resolve_relative_joins_onto_root() {
+        assert_eq!(
+            resolve_against_root(Path::new("/tmp/w"), "a.txt"),
+            "/tmp/w/a.txt"
+        );
+        assert_eq!(
+            resolve_against_root(Path::new("/tmp/w"), "sub/dir/a.txt"),
+            "/tmp/w/sub/dir/a.txt"
+        );
+    }
+
+    #[test]
+    fn resolve_absolute_passes_through_unchanged() {
+        assert_eq!(
+            resolve_against_root(Path::new("/tmp/w"), "/etc/passwd"),
+            "/etc/passwd"
+        );
+    }
+
+    #[test]
+    fn resolve_parent_climb_lands_outside_root() {
+        // `..` is lexically resolved; the result escapes `/tmp/w/**`, so
+        // the RBAC glob check (which compares against the absolute grant)
+        // denies it — exactly the deny-by-default behavior we want.
+        let resolved = resolve_against_root(Path::new("/tmp/w"), "../escape");
+        assert_eq!(resolved, "/tmp/escape");
+        assert!(!Path::new(&resolved).starts_with("/tmp/w"));
+    }
+
+    #[test]
+    fn resolve_curdir_and_nested_climb_normalized() {
+        assert_eq!(
+            resolve_against_root(Path::new("/tmp/w"), "./a.txt"),
+            "/tmp/w/a.txt"
+        );
+        let resolved = resolve_against_root(Path::new("/tmp/w"), "a/../../escape");
+        assert_eq!(resolved, "/tmp/escape");
+        assert!(!Path::new(&resolved).starts_with("/tmp/w"));
+    }
+
     #[cfg(unix)]
     #[test]
     fn dangling_symlink_rejected() {

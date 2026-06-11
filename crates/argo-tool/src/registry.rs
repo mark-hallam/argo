@@ -204,7 +204,11 @@ impl ToolRegistry {
             },
         )?;
         // Then check the per-arg fine-grained caps the tool declares.
-        let needs = tool.required_capabilities(&args)?;
+        // `_in_ctx` lets the file tools resolve a relative requested path
+        // against `ctx.workspace_root` before deriving the `Fs*` glob, so
+        // a relative path matches the absolute grant (cu1c). Non-file
+        // tools use the default, which ignores `ctx`.
+        let needs = tool.required_capabilities_in_ctx(&args, ctx)?;
         for cap in &needs.0 {
             engine.check(&ctx.principal, cap)?;
         }
@@ -296,6 +300,67 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(err, ArgoError::RbacDenied { .. }));
+    }
+
+    // cu1c — a relative path now passes RBAC against an ABSOLUTE grant
+    // (`<root>/**`), because dispatch derives the per-arg cap via
+    // `required_capabilities_in_ctx`, which resolves the relative path
+    // against `ctx.workspace_root`. A climb-out is still denied.
+    #[tokio::test]
+    async fn dispatch_allows_relative_path_under_absolute_grant() {
+        use crate::tools::FileRead;
+        let dir = tempfile::tempdir().unwrap();
+        tokio::fs::write(dir.path().join("hello.txt"), "hi")
+            .await
+            .unwrap();
+        let mut reg = ToolRegistry::new();
+        reg.register(Arc::new(FileRead));
+        let engine = CapabilityEngine::with_defaults();
+        let principal = Principal::Local {
+            os_user: "fenced".into(),
+        };
+        // Grant exactly what cu1b sets for a fenced teammate: dispatch on
+        // the tool + an ABSOLUTE fs-read glob rooted at the jail.
+        engine.grant_dynamic(
+            principal.clone(),
+            Capability::ToolDispatch {
+                tool_name_glob: "file_read".into(),
+            },
+        );
+        engine.grant_dynamic(
+            principal.clone(),
+            Capability::FsRead {
+                path_glob: format!("{}/**", dir.path().display()),
+            },
+        );
+        let ctx = ToolContext::new(principal, dir.path().to_path_buf());
+
+        // Relative path → allowed (the cu1c fix).
+        let ok = reg
+            .dispatch(
+                "file_read",
+                serde_json::json!({"path": "hello.txt"}),
+                &ctx,
+                &engine,
+            )
+            .await
+            .unwrap();
+        assert!(!ok.is_error, "relative in-fence read should be allowed");
+
+        // Relative climb-out → still denied by RBAC, before dispatch.
+        let err = reg
+            .dispatch(
+                "file_read",
+                serde_json::json!({"path": "../escape.txt"}),
+                &ctx,
+                &engine,
+            )
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(err, ArgoError::RbacDenied { .. } | ArgoError::CapabilityDenied(_)),
+            "climb-out must be RBAC-denied, got {err:?}"
+        );
     }
 
     #[tokio::test]

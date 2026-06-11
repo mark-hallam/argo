@@ -56,6 +56,22 @@ impl Tool for FileWrite {
         }]))
     }
 
+    fn required_capabilities_in_ctx(
+        &self,
+        args: &serde_json::Value,
+        ctx: &ToolContext,
+    ) -> ArgoResult<CapabilitySet> {
+        let parsed: Args =
+            serde_json::from_value(args.clone()).map_err(|e| argo_types::ArgoError::Tool {
+                tool: "file_write".into(),
+                msg: format!("invalid arguments: {e}"),
+            })?;
+        // cu1c — resolve a relative path against the jail root so the
+        // derived glob is absolute and matches the absolute grant.
+        let path_glob = crate::path_guard::resolve_against_root(&ctx.workspace_root, &parsed.path);
+        Ok(CapabilitySet(vec![Capability::FsWrite { path_glob }]))
+    }
+
     async fn dispatch(
         &self,
         args: serde_json::Value,
@@ -214,6 +230,68 @@ mod tests {
             !escape.exists(),
             "guard must reject before any fs::write call"
         );
+    }
+
+    // cu1c — relative paths resolve against the jail root for the
+    // FsWrite capability glob.
+
+    fn ctx_at(root: &str) -> ToolContext {
+        ToolContext::new(
+            Principal::Local {
+                os_user: "u".into(),
+            },
+            std::path::PathBuf::from(root),
+        )
+    }
+
+    fn write_glob(caps: &CapabilitySet) -> String {
+        match &caps.0[0] {
+            Capability::FsWrite { path_glob } => path_glob.clone(),
+            other => panic!("expected FsWrite, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn in_ctx_resolves_relative_against_root() {
+        let ctx = ctx_at("/tmp/w");
+        let caps = FileWrite
+            .required_capabilities_in_ctx(
+                &serde_json::json!({"path": "out.txt", "content": "x"}),
+                &ctx,
+            )
+            .unwrap();
+        assert_eq!(write_glob(&caps), "/tmp/w/out.txt");
+        let grant = CapabilitySet(vec![Capability::FsWrite {
+            path_glob: "/tmp/w/**".into(),
+        }]);
+        assert!(grant.covers(&caps.0[0]));
+    }
+
+    #[test]
+    fn in_ctx_climb_out_is_denied_by_grant() {
+        let ctx = ctx_at("/tmp/w");
+        let caps = FileWrite
+            .required_capabilities_in_ctx(
+                &serde_json::json!({"path": "../escape.txt", "content": "x"}),
+                &ctx,
+            )
+            .unwrap();
+        let grant = CapabilitySet(vec![Capability::FsWrite {
+            path_glob: "/tmp/w/**".into(),
+        }]);
+        assert!(!grant.covers(&caps.0[0]));
+    }
+
+    #[test]
+    fn in_ctx_absolute_path_unchanged() {
+        let ctx = ctx_at("/tmp/w");
+        let caps = FileWrite
+            .required_capabilities_in_ctx(
+                &serde_json::json!({"path": "/etc/evil", "content": "x"}),
+                &ctx,
+            )
+            .unwrap();
+        assert_eq!(write_glob(&caps), "/etc/evil");
     }
 
     #[tokio::test]

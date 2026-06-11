@@ -66,6 +66,27 @@ impl Tool for FilePatch {
         ]))
     }
 
+    fn required_capabilities_in_ctx(
+        &self,
+        args: &serde_json::Value,
+        ctx: &ToolContext,
+    ) -> ArgoResult<CapabilitySet> {
+        let parsed: Args =
+            serde_json::from_value(args.clone()).map_err(|e| argo_types::ArgoError::Tool {
+                tool: "file_patch".into(),
+                msg: format!("invalid arguments: {e}"),
+            })?;
+        // cu1c — resolve a relative path against the jail root so the
+        // derived globs are absolute and match the absolute grant.
+        let path_glob = crate::path_guard::resolve_against_root(&ctx.workspace_root, &parsed.path);
+        Ok(CapabilitySet(vec![
+            Capability::FsRead {
+                path_glob: path_glob.clone(),
+            },
+            Capability::FsWrite { path_glob },
+        ]))
+    }
+
     async fn dispatch(
         &self,
         args: serde_json::Value,
@@ -208,6 +229,62 @@ mod tests {
             .await
             .unwrap();
         assert!(r.is_error);
+    }
+
+    // cu1c — relative paths resolve against the jail root for BOTH the
+    // FsRead and FsWrite capability globs file_patch derives.
+
+    #[test]
+    fn in_ctx_resolves_relative_against_root() {
+        let ctx = ctx_for(std::path::Path::new("/tmp/w"));
+        let caps = FilePatch
+            .required_capabilities_in_ctx(
+                &serde_json::json!({"path": "a.txt", "old_str": "x", "new_str": "y"}),
+                &ctx,
+            )
+            .unwrap();
+        let grant = CapabilitySet(vec![
+            Capability::FsRead {
+                path_glob: "/tmp/w/**".into(),
+            },
+            Capability::FsWrite {
+                path_glob: "/tmp/w/**".into(),
+            },
+        ]);
+        // Both derived caps (read + write) resolve to /tmp/w/a.txt and
+        // are covered by the absolute grant.
+        assert_eq!(caps.0.len(), 2);
+        for cap in &caps.0 {
+            match cap {
+                Capability::FsRead { path_glob } | Capability::FsWrite { path_glob } => {
+                    assert_eq!(path_glob, "/tmp/w/a.txt");
+                }
+                other => panic!("unexpected cap {other:?}"),
+            }
+            assert!(grant.covers(cap));
+        }
+    }
+
+    #[test]
+    fn in_ctx_climb_out_is_denied_by_grant() {
+        let ctx = ctx_for(std::path::Path::new("/tmp/w"));
+        let caps = FilePatch
+            .required_capabilities_in_ctx(
+                &serde_json::json!({"path": "../escape", "old_str": "x", "new_str": "y"}),
+                &ctx,
+            )
+            .unwrap();
+        let grant = CapabilitySet(vec![
+            Capability::FsRead {
+                path_glob: "/tmp/w/**".into(),
+            },
+            Capability::FsWrite {
+                path_glob: "/tmp/w/**".into(),
+            },
+        ]);
+        for cap in &caps.0 {
+            assert!(!grant.covers(cap), "climb-out cap must be denied: {cap:?}");
+        }
     }
 
     #[tokio::test]
