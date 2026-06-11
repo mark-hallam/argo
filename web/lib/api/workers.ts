@@ -367,6 +367,14 @@ export interface WorkerRunResult {
   trigger_id: string;
   queued_at: string;
   /**
+   * The pending-job id this run claimed — the key for the run's
+   * artifact bundle (`GET /api/v1/workers/<id>/runs/<job_id>/output`),
+   * deep-linked by the "Output" card. Additive (empty string on a run
+   * with no completed job; absent on older gateways). Persisted so the
+   * card rehydrates after the post-run remount (`last-run-summary.ts`).
+   */
+  job_id?: string;
+  /**
    * Session the run executes under — the handle for the in-SPA tool
    * approval flow (`POST /api/sessions/<id>/approve`).
    */

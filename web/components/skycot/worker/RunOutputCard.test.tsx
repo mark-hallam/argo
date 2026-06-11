@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RunOutputBody, RunOutputCard } from "@/components/skycot/worker/RunOutputCard";
 import type { WorkerRunOutput } from "@/lib/api/worker-output";
@@ -28,6 +28,12 @@ const SAMPLE: WorkerRunOutput = {
   actions: { counts: { total: 3, pending_approval: 1 }, actions: [] },
   actionCounts: { total: 3, pendingApproval: 1 },
 };
+
+beforeEach(() => {
+  // The card now rehydrates a stored jobId on mount when no prop is
+  // passed; clear so the no-jobId cases start from a never-run worker.
+  sessionStorage.clear();
+});
 
 afterEach(() => {
   vi.restoreAllMocks();

@@ -6,6 +6,7 @@ import {
   fetchWorkerRunOutput,
   type WorkerRunOutput,
 } from "@/lib/api/worker-output";
+import { loadLastRunSummary } from "@/components/skycot/worker/last-run-summary";
 
 /**
  * "Output" card — shows what a teammate actually produced on a run
@@ -21,6 +22,14 @@ import {
  * NO THEATER: with no `jobId` (or when the run isn't the caller's), the
  * card renders an honest empty state — it never fabricates output. Pass
  * the `jobId` returned by the "Run now" response to deep-link a run.
+ *
+ * Remount survival: the route renders this card as a SIBLING of
+ * `WorkerOverviewContent` (which owns the Run-now call), so the run's
+ * `job_id` never reaches us as a prop, and the page remounts right
+ * after a run. When no explicit `jobId` prop is given, we rehydrate the
+ * latest run's `job_id` from the per-worker last-run summary
+ * (`last-run-summary.ts`) on mount — otherwise the card shows "No runs
+ * yet" immediately after a successful run.
  */
 export function RunOutputCard({
   workerId,
@@ -29,20 +38,30 @@ export function RunOutputCard({
   workerId: string;
   jobId?: string | null;
 }) {
+  // When the caller doesn't pass a jobId, rehydrate the last run's job
+  // id from sessionStorage on mount. An explicit `jobId` prop always
+  // wins (used by tests + any future direct deep-link).
+  const [storedJobId, setStoredJobId] = useState<string | null>(null);
+  useEffect(() => {
+    if (jobId) return;
+    setStoredJobId(loadLastRunSummary(workerId)?.jobId ?? null);
+  }, [workerId, jobId]);
+  const effectiveJobId = jobId ?? storedJobId;
+
   const [state, setState] = useState<"idle" | "loading" | "loaded" | "error">(
     jobId ? "loading" : "idle",
   );
   const [output, setOutput] = useState<WorkerRunOutput | null>(null);
 
   useEffect(() => {
-    if (!jobId) {
+    if (!effectiveJobId) {
       setState("idle");
       setOutput(null);
       return;
     }
     let alive = true;
     setState("loading");
-    fetchWorkerRunOutput(workerId, jobId)
+    fetchWorkerRunOutput(workerId, effectiveJobId)
       .then((res) => {
         if (!alive) return;
         setOutput(res);
@@ -54,7 +73,7 @@ export function RunOutputCard({
     return () => {
       alive = false;
     };
-  }, [workerId, jobId]);
+  }, [workerId, effectiveJobId]);
 
   return (
     <Card data-testid="card-run-output">

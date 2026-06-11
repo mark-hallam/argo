@@ -136,6 +136,10 @@ function heldEnvelope(tools: string[] = ["send_email", "web_search"]) {
 
 describe("WorkerOverviewContent — probation + one-action Approve & run", () => {
   beforeEach(() => {
+    // The component now rehydrates held-tools / probation state from a
+    // per-worker sessionStorage summary on mount; clear it so each test
+    // starts from a never-run worker rather than a prior test's run.
+    sessionStorage.clear();
     toastSuccessMock.mockReset();
     toastErrorMock.mockReset();
     toastWarningMock.mockReset();

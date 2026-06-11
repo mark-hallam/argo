@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, Play, ShieldAlert } from "lucide-react";
 import { useWorker } from "@/lib/hooks/use-worker";
 import { useWorkerOverview } from "@/lib/hooks/use-worker-overview";
@@ -27,6 +27,7 @@ import {
 } from "@/lib/types/worker";
 import { ProbationApprovalCard } from "@/components/skycot/worker/ProbationApprovalCard";
 import { CapabilityGrantCard } from "@/components/skycot/worker/CapabilityGrantCard";
+import { saveLastRunSummary, loadLastRunSummary } from "@/components/skycot/worker/last-run-summary";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/lib/ui/use-toast";
 import { triggerWorkerRun } from "@/lib/api/workers";
@@ -81,6 +82,20 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
     useState<CapabilityGrantRequest | null>(null);
   const [connecting, setConnecting] = useState(false);
   const toggleMutation = useToggleDuty(workerId);
+
+  // Rehydrate the held-tools / probation state from the per-worker
+  // last-run summary on mount. The page remounts right after a Run-now,
+  // dropping the in-memory response — without this the approval card the
+  // toast pointed at ("approve the held tools below") never re-renders.
+  // The Output card rehydrates the same summary's `job_id` itself (it's a
+  // sibling in the route, not a child here). No summary → honest empty
+  // states stay (a never-run worker).
+  useEffect(() => {
+    const summary = loadLastRunSummary(workerId);
+    if (!summary) return;
+    setHeldTools(summary.heldTools.length > 0 ? summary.heldTools : null);
+    setInProbation(summary.probation);
+  }, [workerId]);
 
   const permissions: WorkerPermissions =
     workerQuery.data?.permissions ?? DEFAULT_DELEGATOR_PERMISSIONS;
@@ -165,6 +180,15 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
         // a connect prompt it can't honestly fulfil.
         setGrantRequest(result.capability_request ?? null);
         const held = result.held_tools ?? [];
+        // Persist the run summary so the Output card + the approval card
+        // survive the post-run remount (they live in sibling subtrees, so
+        // a shared parent state can't bridge them — sessionStorage does).
+        saveLastRunSummary(workerId, {
+          jobId: result.job_id || null,
+          heldTools: held,
+          probation: Boolean(result.probation),
+          at: Date.now(),
+        });
         if (held.length > 0) {
           // Progressive approval: the approved tools fired and the
           // teammate reached a NEW set — the card re-renders with it.
