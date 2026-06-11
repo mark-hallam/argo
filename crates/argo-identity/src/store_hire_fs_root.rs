@@ -42,9 +42,17 @@ pub fn default_genesis_fs_root(home: &Path, suggested_name: &str) -> PathBuf {
 
 /// Resolve the effective `fs_root` for a hire draft.
 ///
-/// Precedence (uf-bind-intake-access-folder-to-fs-root):
-/// 1. An explicit non-empty `draft.fs_root` always wins (a deliberate,
-///    unchecked override — programmatic / power-user).
+/// Precedence (uf-bind-intake-access-folder-to-fs-root +
+/// fix-explicit-fs-root-tier-validate-under-home):
+/// 1. An explicit non-empty `draft.fs_root` that resolves UNDER `home` — run
+///    through the SAME [`safe_access_fs_root`] guard as tier 2. The explicit
+///    field is deserialized straight from the untrusted `POST /api/v1/workers`
+///    hire body, so an outside-HOME / traversal / non-path value is REJECTED
+///    and falls through to the lower tiers (it can no longer bind `/etc`). The
+///    CLI's operator-trusted `worker create --fs-root` does NOT reach this
+///    resolver (it writes `worker.fs_root` directly via
+///    `argo_cli::handlers::worker_create_store::insert_worker`), so a
+///    deliberate operator root outside HOME is unaffected.
 /// 2. A captured-intake Access folder ([`HireDraft::access_fs_root`]) that
 ///    [`safe_access_fs_root`] accepts: the user NAMED a local folder during
 ///    Genesis intake, and it resolves to a path under `home` with no `..`
@@ -102,11 +110,18 @@ pub fn default_genesis_fs_root(home: &Path, suggested_name: &str) -> PathBuf {
 ///     resolved_fs_root(&draft, Some(home)),
 ///     Some(Path::new("/home/sam/SkycotTeammates/ava").to_path_buf()),
 /// );
-/// // An explicit fs_root override still wins over everything.
-/// draft.fs_root = Some("/data/inbox".into());
+/// // An explicit fs_root UNDER HOME still wins over everything.
+/// draft.fs_root = Some("/home/sam/Projects/acme".into());
 /// assert_eq!(
 ///     resolved_fs_root(&draft, Some(home)),
-///     Some(Path::new("/data/inbox").to_path_buf()),
+///     Some(Path::new("/home/sam/Projects/acme").to_path_buf()),
+/// );
+/// // An explicit fs_root OUTSIDE HOME (e.g. `/etc`) is rejected on the
+/// // untrusted HTTP hire path → falls back to the generated default.
+/// draft.fs_root = Some("/etc".into());
+/// assert_eq!(
+///     resolved_fs_root(&draft, Some(home)),
+///     Some(Path::new("/home/sam/SkycotTeammates/ava").to_path_buf()),
 /// );
 /// draft.fs_root = None;
 /// draft.access_fs_root = None;
@@ -120,8 +135,20 @@ pub fn resolved_fs_root(draft: &HireDraft, home: Option<&Path>) -> Option<PathBu
     // would make the under-HOME guard vacuous; adversarial-review hardening
     // 2026-06-11).
     let home = home.filter(|h| !h.as_os_str().is_empty());
+    // Tier 1 — explicit, wire-supplied `fs_root`, validated UNDER HOME.
+    // `draft.fs_root` rides the untrusted `POST /api/v1/workers` hire body, so
+    // an owner-authed client could send `{"worker_draft":{"fs_root":"/etc"}}`
+    // to bind a (Genesis-fenced) teammate's sandbox to `/etc`. Run it through
+    // the SAME under-HOME guard as the captured-Access tier; an outside-HOME /
+    // traversal / non-path value is rejected and falls through (fail-soft —
+    // never blocks the hire). With no HOME to scope under, the value cannot be
+    // validated, so it is skipped (fail-closed). The CLI `worker create
+    // --fs-root` does NOT reach this resolver, so a deliberate operator root
+    // outside HOME is unaffected.
     if let Some(explicit) = draft.fs_root.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-        return Some(PathBuf::from(explicit));
+        if let Some(bound) = home.and_then(|h| safe_access_fs_root(explicit, h)) {
+            return Some(bound);
+        }
     }
     if let (Some(home), Some(access)) = (home, draft.access_fs_root.as_deref()) {
         if let Some(bound) = safe_access_fs_root(access, home) {
@@ -231,22 +258,27 @@ pub fn safe_access_fs_root(candidate: &str, home: &Path) -> Option<PathBuf> {
 ///
 /// ```
 /// use argo_identity::{resolved_fs_root_from_env, ApprovalPolicyChoice, HireDraft};
-/// let draft = HireDraft {
-///     suggested_name: "Ava".into(),
-///     charter: "Read invoice files and draft reminders.".into(),
-///     suggested_vertical: "support".into(),
-///     approval_policy: ApprovalPolicyChoice { level: "balanced".into() },
-///     duties: vec![],
-///     voice_profile: None,
-///     tagline: None,
-///     genesis_plan_id: None,
-///     fs_root: Some("/data/inbox".into()),
-///     access_fs_root: None,
-/// };
-/// assert_eq!(
-///     resolved_fs_root_from_env(&draft).as_deref(),
-///     Some(std::path::Path::new("/data/inbox")),
-/// );
+/// // An explicit `fs_root` UNDER $HOME binds; outside-HOME is rejected (see
+/// // `resolved_fs_root`). Derive an in-bounds path from the same env var.
+/// if let Some(home) = std::env::var_os("HOME")
+///     .map(std::path::PathBuf::from)
+///     .filter(|p| !p.as_os_str().is_empty())
+/// {
+///     let under_home = home.join("Projects").join("acme");
+///     let draft = HireDraft {
+///         suggested_name: "Ava".into(),
+///         charter: "Read invoice files and draft reminders.".into(),
+///         suggested_vertical: "support".into(),
+///         approval_policy: ApprovalPolicyChoice { level: "balanced".into() },
+///         duties: vec![],
+///         voice_profile: None,
+///         tagline: None,
+///         genesis_plan_id: None,
+///         fs_root: Some(under_home.display().to_string()),
+///         access_fs_root: None,
+///     };
+///     assert_eq!(resolved_fs_root_from_env(&draft), Some(under_home));
+/// }
 /// ```
 #[must_use]
 pub fn resolved_fs_root_from_env(draft: &HireDraft) -> Option<PathBuf> {

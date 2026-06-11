@@ -6,7 +6,9 @@
 //! 1. a Genesis hire (draft carries `genesis_plan_id`) defaults
 //!    `worker.fs_root` to `<home>/SkycotTeammates/<persona-slug>/`;
 //! 2. a non-Genesis hire leaves `fs_root` `NULL` (unchanged behaviour);
-//! 3. an explicit `draft.fs_root` always wins over the default.
+//! 3. an explicit `draft.fs_root` UNDER HOME wins over the default, but an
+//!    outside-HOME / traversal explicit value (untrusted HTTP hire field) is
+//!    rejected and falls through — fix-explicit-fs-root-tier-validate-under-home.
 
 #![allow(clippy::expect_used)]
 
@@ -90,12 +92,37 @@ fn non_genesis_draft_resolves_to_none() {
 }
 
 #[test]
-fn explicit_fs_root_wins_over_genesis_default() {
-    let d = draft("Ava", Some("genesis-ava-019e"), Some("/data/inbox"));
+fn explicit_fs_root_under_home_wins_over_genesis_default() {
+    let d = draft("Ava", Some("genesis-ava-019e"), Some("/home/sam/Projects/acme"));
     assert_eq!(
         resolved_fs_root(&d, Some(Path::new("/home/sam"))),
-        Some(PathBuf::from("/data/inbox")),
+        Some(PathBuf::from("/home/sam/Projects/acme")),
     );
+}
+
+// fix-explicit-fs-root-tier-validate-under-home (security, acceptance pin 1):
+// the explicit `draft.fs_root` field rides the untrusted `POST /api/v1/workers`
+// hire body. An outside-HOME / traversal value must NOT bind — it is rejected
+// and falls back to the generated Genesis default (it can no longer escape a
+// fenced teammate's sandbox to `/etc`).
+#[test]
+fn explicit_outside_home_fs_root_is_rejected_falls_to_default() {
+    for outside in ["/etc", "/", "/Users/OtherUser/secrets", "../../etc"] {
+        let d = draft("Ava", Some("genesis-ava-019e"), Some(outside));
+        assert_eq!(
+            resolved_fs_root(&d, Some(Path::new("/home/sam"))),
+            Some(PathBuf::from("/home/sam/SkycotTeammates/ava")),
+            "outside-HOME explicit fs_root {outside:?} must fall back to the default",
+        );
+    }
+}
+
+// On a NON-Genesis hire (no default to fall to), an outside-HOME explicit value
+// yields None rather than binding it.
+#[test]
+fn explicit_outside_home_fs_root_non_genesis_is_none() {
+    let d = draft("Ava", None, Some("/etc"));
+    assert_eq!(resolved_fs_root(&d, Some(Path::new("/home/sam"))), None);
 }
 
 // uf-bind-intake-access-folder-to-fs-root — bind the folder the user NAMED
@@ -163,27 +190,49 @@ fn empty_home_rejects_absolute_access_path() {
     }
 }
 
-// An explicit `fs_root` override still beats a captured Access folder.
+// An explicit `fs_root` UNDER HOME still beats a captured Access folder.
 #[test]
-fn explicit_fs_root_wins_over_captured_access_folder() {
+fn explicit_fs_root_under_home_wins_over_captured_access_folder() {
     let d = draft_with_access(
         "Ava",
         Some("genesis-ava-019e"),
-        Some("/data/inbox"),
+        Some("/home/sam/Projects/acme"),
         Some("SkycotDemo/Inbox"),
     );
     assert_eq!(
         resolved_fs_root(&d, Some(Path::new("/home/sam"))),
-        Some(PathBuf::from("/data/inbox")),
+        Some(PathBuf::from("/home/sam/Projects/acme")),
     );
 }
 
+// fix-explicit-fs-root-tier-validate-under-home: an OUTSIDE-HOME explicit value
+// is rejected, so a valid captured Access folder under HOME still binds — the
+// explicit field can no longer silently escape past the captured-Access tier.
 #[test]
-fn missing_home_skips_the_default_but_not_the_explicit_value() {
+fn outside_home_explicit_falls_through_to_captured_access() {
+    let d = draft_with_access(
+        "Ava",
+        Some("genesis-ava-019e"),
+        Some("/etc"),
+        Some("SkycotDemo/Inbox"),
+    );
+    assert_eq!(
+        resolved_fs_root(&d, Some(Path::new("/home/sam"))),
+        Some(PathBuf::from("/home/sam/SkycotDemo/Inbox")),
+    );
+}
+
+// With no HOME to scope under, even an explicit `fs_root` cannot be validated
+// as in-bounds, so it is skipped (fail-closed) — the resolver returns None
+// rather than binding an unvalidated path. (The CLI operator-trusted path,
+// which does NOT use this resolver, is the seam for a deliberate outside-HOME
+// root.)
+#[test]
+fn missing_home_skips_default_and_unvalidatable_explicit() {
     let d = draft("Ava", Some("genesis-ava-019e"), None);
     assert_eq!(resolved_fs_root(&d, None), None);
     let d = draft("Ava", Some("genesis-ava-019e"), Some("/data/inbox"));
-    assert_eq!(resolved_fs_root(&d, None), Some(PathBuf::from("/data/inbox")));
+    assert_eq!(resolved_fs_root(&d, None), None);
 }
 
 #[tokio::test]
@@ -246,15 +295,43 @@ async fn captured_access_folder_persists_to_fs_root_column() {
 }
 
 #[tokio::test]
-async fn explicit_draft_fs_root_persists_verbatim() {
+async fn explicit_under_home_draft_fs_root_persists() {
     let store = mem_store().await;
-    let d = draft("Ava", Some("genesis-ava-019e"), Some("/data/inbox"));
+    // Derive an in-bounds explicit path from the same env var the production
+    // seam reads, so the under-HOME guard accepts it.
+    let home = std::env::var("HOME").expect("HOME set in test env");
+    let explicit = Path::new(&home).join("Projects").join("acme");
+    let explicit_str = explicit.display().to_string();
+    let d = draft("Ava", Some("genesis-ava-019e"), Some(&explicit_str));
     let id = IdentityStore::new(&store)
         .create_worker_from_draft(&d, TenantId::new(), "human:op")
         .await
         .expect("hire");
     assert_eq!(
         stored_fs_root(&store, &id.to_string()).await.as_deref(),
-        Some("/data/inbox"),
+        Some(explicit_str.as_str()),
+    );
+}
+
+// fix-explicit-fs-root-tier-validate-under-home (security, round-trip): an
+// outside-HOME explicit `fs_root` on the untrusted hire path is NOT persisted;
+// the column gets the generated Genesis default instead.
+#[tokio::test]
+async fn outside_home_explicit_fs_root_persists_genesis_default() {
+    let store = mem_store().await;
+    let d = draft("Ava", Some("genesis-ava-019e"), Some("/etc"));
+    let id = IdentityStore::new(&store)
+        .create_worker_from_draft(&d, TenantId::new(), "human:op")
+        .await
+        .expect("hire");
+    let home = std::env::var("HOME").expect("HOME set in test env");
+    let expected = Path::new(&home)
+        .join("SkycotTeammates")
+        .join("ava")
+        .display()
+        .to_string();
+    assert_eq!(
+        stored_fs_root(&store, &id.to_string()).await.as_deref(),
+        Some(expected.as_str()),
     );
 }
