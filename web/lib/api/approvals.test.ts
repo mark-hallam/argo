@@ -207,6 +207,71 @@ describe("lib/api/approvals", () => {
     expect(title).toMatch(/permission to undo/i);
   });
 
+  // Day-1 unblock FIX 2 (NO-THEATER on the flagship loop): the gateway's
+  // /decide envelope carries `execution: "dispatched" | "failed"` —
+  // whether the approved action actually ran. submitDecision must pass
+  // the two known values through, and degrade anything else (absent /
+  // unrecognised) to undefined so the UI never renders a wrong claim.
+  it("passes execution: 'dispatched' through from the /decide envelope", async () => {
+    installMock(() =>
+      makeResponse({
+        status: 200,
+        body: {
+          ok: true,
+          approval_id: "ap_exec",
+          decision: "approve",
+          execution: "dispatched",
+        },
+      }),
+    );
+
+    const result = await submitDecision({ approvalId: "ap_exec", decision: "approve" });
+    expect(result.execution).toBe("dispatched");
+    expect(result.source).toBe("live");
+  });
+
+  it("passes execution: 'failed' through from the /decide envelope", async () => {
+    installMock(() =>
+      makeResponse({
+        status: 200,
+        body: {
+          ok: true,
+          approval_id: "ap_exec",
+          decision: "approve",
+          execution: "failed",
+        },
+      }),
+    );
+
+    const result = await submitDecision({ approvalId: "ap_exec", decision: "approve" });
+    expect(result.execution).toBe("failed");
+  });
+
+  it("omits execution when the envelope lacks it or carries an unknown value", async () => {
+    installMock(() =>
+      makeResponse({
+        status: 200,
+        body: { ok: true, approval_id: "ap_old", decision: "approve" },
+      }),
+    );
+    const absent = await submitDecision({ approvalId: "ap_old", decision: "approve" });
+    expect(absent.execution).toBeUndefined();
+
+    installMock(() =>
+      makeResponse({
+        status: 200,
+        body: {
+          ok: true,
+          approval_id: "ap_new",
+          decision: "approve",
+          execution: "queued-v2-shape",
+        },
+      }),
+    );
+    const unknown = await submitDecision({ approvalId: "ap_new", decision: "approve" });
+    expect(unknown.execution).toBeUndefined();
+  });
+
   it("short-circuits to mock when NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1 (no fetch made)", async () => {
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
     const fetchMock = installMock(() => {

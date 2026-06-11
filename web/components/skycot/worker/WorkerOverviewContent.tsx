@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { AlertCircle, Play } from "lucide-react";
+import { AlertCircle, Play, ShieldAlert } from "lucide-react";
 import { useWorker } from "@/lib/hooks/use-worker";
 import { useWorkerOverview } from "@/lib/hooks/use-worker-overview";
 import { useToggleDuty } from "@/lib/hooks/use-duties";
@@ -25,6 +25,7 @@ import {
   DEFAULT_DELEGATOR_PERMISSIONS,
   type WorkerPermissions,
 } from "@/lib/types/worker";
+import { ProbationApprovalCard } from "@/components/skycot/worker/ProbationApprovalCard";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/lib/ui/use-toast";
 import { triggerWorkerRun } from "@/lib/api/workers";
@@ -56,6 +57,15 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
   const toast = useToast();
   const [running, setRunning] = useState(false);
   const [editingDuty, setEditingDuty] = useState<WorkerDuty | null>(null);
+  // Probation state derived ONLY from the last run response (the
+  // worker-detail / overview payloads don't expose probation — see
+  // `lib/api/worker-overview.ts`; we don't invent backend fields
+  // beyond the two additive ones on the run envelope).
+  const [heldRun, setHeldRun] = useState<{
+    sessionId: string;
+    heldTools: string[];
+  } | null>(null);
+  const [inProbation, setInProbation] = useState(false);
   const toggleMutation = useToggleDuty(workerId);
 
   const permissions: WorkerPermissions =
@@ -119,6 +129,29 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
     try {
       const result = await triggerWorkerRun(workerId);
       const workerName = workerQuery.data?.name ?? "Worker";
+      // Day-1 unblock FIX 1 (NO-THEATER): the run envelope's additive
+      // `held_tools` / `probation` fields say whether the 24h probation
+      // window held the teammate's tools. A green "running now" toast
+      // over a held run is theater — surface the honest state and the
+      // in-SPA approval card instead. Both fields are optional so older
+      // gateways keep the previous behavior.
+      setInProbation(Boolean(result.probation));
+      const heldTools = result.held_tools ?? [];
+      if (heldTools.length > 0) {
+        if (result.session_id) {
+          setHeldRun({ sessionId: result.session_id, heldTools });
+        }
+        toast.warning(
+          `${workerName} ran, but their tools are held by the probation window`,
+          {
+            description: result.session_id
+              ? "Approve the held tools below — it's a one-time OK."
+              : "Approve the held tools to let the work go through.",
+          },
+        );
+        return;
+      }
+      setHeldRun(null);
       toast.success(`${workerName} is running now`, {
         description: "Action queued. The audit row is live.",
         action: {
@@ -206,18 +239,41 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
         ) : (
           <span />
         )}
-        <Button
-          type="button"
-          variant="primary"
-          size="md"
-          onClick={onRunNow}
-          loading={running}
-          data-testid="worker-overview-run-now"
-        >
-          <Play aria-hidden="true" />
-          Run now
-        </Button>
+        <span className="inline-flex items-center gap-2">
+          {inProbation ? (
+            <span
+              data-testid="worker-probation-chip"
+              title="New teammates work under a 24-hour probation window — every tool needs your one-time OK."
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--muted)]/40 px-2.5 py-1 text-xs font-medium text-[var(--muted-foreground)]"
+            >
+              <ShieldAlert aria-hidden="true" className="size-3.5" />
+              24h probation
+            </span>
+          ) : null}
+          <Button
+            type="button"
+            variant="primary"
+            size="md"
+            onClick={onRunNow}
+            loading={running}
+            data-testid="worker-overview-run-now"
+          >
+            <Play aria-hidden="true" />
+            Run now
+          </Button>
+        </span>
       </div>
+      {heldRun ? (
+        <ProbationApprovalCard
+          workerName={workerQuery.data?.name ?? "This teammate"}
+          sessionId={heldRun.sessionId}
+          heldTools={heldRun.heldTools}
+          onRunAgain={() => {
+            setHeldRun(null);
+            void onRunNow();
+          }}
+        />
+      ) : null}
       <WhatTheyDoCard
         charter={overview.charter}
         canEdit={permissions.canEditCharter}

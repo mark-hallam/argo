@@ -140,18 +140,49 @@ export function ApprovalsOpsDashboard({ items }: ApprovalsOpsDashboardProps) {
   // `decision`, which removes the row from the `pending` derived list
   // above — no extra local state needed. The sonner toast wires the
   // Undo back-channel.
+  //
+  // NO-THEATER (day-1 unblock FIX 2): the toast now fires from
+  // `onSuccess` with the gateway's actual `execution` outcome instead
+  // of fire-and-forget at click time. Approve + "dispatched" → the
+  // action really executed; approve + "failed" → the decision was
+  // RECORDED but the dispatch failed, said destructively; `execution`
+  // absent (older gateway / refuse / dev fallback) → the previous
+  // generic toast. The Undo affordance stays on every variant.
   const handleDecide = useCallback(
     (id: string, decision: "approve" | "refuse") => {
-      submit.mutate({ approvalId: id, decision });
-      void import("sonner").then((m) => {
-        m.toast.success(decision === "approve" ? "Approved" : "Refused", {
-          duration: 5000,
-          action: {
-            label: "Undo",
-            onClick: () => undo.mutate(id),
+      submit.mutate(
+        { approvalId: id, decision },
+        {
+          onSuccess: (result) => {
+            void import("sonner").then((m) => {
+              const undoAction = {
+                label: "Undo",
+                onClick: () => undo.mutate(id),
+              };
+              if (decision === "approve" && result.execution === "dispatched") {
+                m.toast.success("Approved — action executed", {
+                  description: "See the audit trail.",
+                  duration: 5000,
+                  action: undoAction,
+                });
+                return;
+              }
+              if (decision === "approve" && result.execution === "failed") {
+                m.toast.error("Approved, but execution failed", {
+                  description: "The decision was recorded — check the audit trail.",
+                  duration: 8000,
+                  action: undoAction,
+                });
+                return;
+              }
+              m.toast.success(decision === "approve" ? "Approved" : "Refused", {
+                duration: 5000,
+                action: undoAction,
+              });
+            });
           },
-        });
-      });
+        },
+      );
     },
     [submit, undo],
   );

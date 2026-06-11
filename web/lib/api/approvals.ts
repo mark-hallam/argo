@@ -80,6 +80,14 @@ export type DecisionResult = {
   approvalId: string;
   decision: "approve" | "refuse";
   source: DataSource;
+  /**
+   * Execution outcome for an approve decision (NO-THEATER, day-1
+   * unblock FIX 2). The gateway's `/decide` handler dispatches the
+   * approved action and reports `execution: "dispatched" | "failed"`
+   * in the envelope. Optional: older gateways (and the refuse path)
+   * omit it, in which case the UI keeps its current generic toast.
+   */
+  execution?: "dispatched" | "failed";
 };
 
 export type UndoResult = {
@@ -275,13 +283,21 @@ export async function submitDecision({
       ok: true;
       approval_id: string;
       decision: "approve" | "refuse";
+      execution?: string;
     }>(`/api/v1/approvals/${approvalId}/decide`, decideBody);
-    return {
+    const result: DecisionResult = {
       ok: true,
       approvalId: res.approval_id ?? approvalId,
       decision: res.decision ?? decision,
       source: "live",
     };
+    // Pass the execution outcome through only when it's one of the two
+    // values the UI knows how to render — an unrecognised string from a
+    // future gateway degrades to the generic toast, never a wrong claim.
+    if (res.execution === "dispatched" || res.execution === "failed") {
+      result.execution = res.execution;
+    }
+    return result;
   } catch (err) {
     // RBAC role-gate (mission-rbac-approvals-decide-role-gate): a
     // 403 from the gateway means the caller's role is below the
