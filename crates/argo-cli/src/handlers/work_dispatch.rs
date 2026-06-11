@@ -125,6 +125,7 @@ async fn finalize_job(
         store,
         memory,
         workspace,
+        tenant,
         vertical_id,
         provider,
         model,

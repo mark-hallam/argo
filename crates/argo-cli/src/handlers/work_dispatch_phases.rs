@@ -131,6 +131,7 @@ pub(super) async fn write_artifacts_and_emit_actions(
     store: &Arc<SessionStore>,
     memory: &MemoryStore,
     workspace: WorkspaceId,
+    tenant_id: argo_types::TenantId,
     vertical_id: &str,
     provider: &str,
     model: &str,
@@ -169,7 +170,8 @@ pub(super) async fn write_artifacts_and_emit_actions(
     let output_dir = artifact
         .as_ref()
         .map(|a| a.output_dir.to_string_lossy().to_string());
-    let actions = emit_actions(memory, workspace, vertical_id, job, artifact.as_ref()).await;
+    let actions =
+        emit_actions(memory, workspace, tenant_id, vertical_id, job, artifact.as_ref()).await;
     Ok((output_dir, actions))
 }
 
@@ -179,6 +181,7 @@ pub(super) async fn write_artifacts_and_emit_actions(
 async fn emit_actions(
     memory: &MemoryStore,
     workspace: WorkspaceId,
+    tenant_id: argo_types::TenantId,
     vertical_id: &str,
     job: &MemoryEntry,
     artifact: Option<&ArtifactOutput>,
@@ -187,6 +190,7 @@ async fn emit_actions(
         super::work_emission::emit_and_persist_actions(
             memory,
             workspace,
+            tenant_id,
             vertical_id,
             &job.id.to_string(),
             art,

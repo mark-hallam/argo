@@ -40,22 +40,31 @@ use std::collections::HashSet;
 /// ([`super::work_dispatch_executor_inline`]) iterates the returned
 /// records to inline-dispatch the auto-eligible ones; callers that
 /// only need a count use `.len()`.
+///
+/// cu1f (DEC-050): the manifest resolves via
+/// [`argo_vertical::load_for_worker`] — flat catalog first, then the
+/// tenant-scoped `.genesis/<tenant>/<vid>/` tree (fail-closed
+/// cross-tenant). The previous flat-only `load_dir` lookup silently
+/// returned zero actions for EVERY Genesis-hired teammate, so their
+/// proposals never reached the action ledger or `/approvals` — the
+/// same flat-only-loader bug the Run-now gate fixed in
+/// `routes_worker_run_exec::vertical_loads`.
 pub(crate) async fn emit_and_persist_actions(
     memory: &MemoryStore,
     workspace: WorkspaceId,
+    tenant_id: argo_types::TenantId,
     vertical_id: &str,
     job_id: &str,
     artifact: &ArtifactOutput,
 ) -> Vec<ActionRecord> {
     let dir = resolve_verticals_dir();
-    let (registry, _errors) = match argo_vertical::load_dir(&dir) {
-        Ok(t) => t,
-        Err(e) => {
-            eprintln!("argo work: warning — vertical reload for action emission failed: {e}");
-            return Vec::new();
-        }
-    };
-    let Some(loaded) = registry.get(vertical_id) else {
+    let Some(loaded) =
+        argo_vertical::load_for_worker(&dir, &tenant_id.to_string(), vertical_id)
+    else {
+        eprintln!(
+            "argo work: warning — vertical `{vertical_id}` not loadable for tenant \
+             `{tenant_id}` (flat or .genesis); action emission skipped"
+        );
         return Vec::new();
     };
     let manifest = &loaded.manifest;
