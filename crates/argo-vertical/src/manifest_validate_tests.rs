@@ -171,6 +171,42 @@ fn computer_use_with_profile_passes() {
 }
 
 #[test]
+fn native_macos_with_target_app_passes() {
+    // The DEC-050 G3 desktop-drive kind accepts `target_app` (no
+    // `profile` needed) — this is the canonical native-desktop form.
+    let src = format!(
+        "{MINIMAL_HEADER}\n[actions.note]\nrisk = \"low\"\nrequires_approval = false\nexecutor = {{ kind = \"computer_use_native_macos\", target_app = \"com.apple.Notes\" }}\n"
+    );
+    parse_strict(&src).expect("computer_use_native_macos with target_app passes");
+}
+
+#[test]
+fn native_macos_without_target_app_or_profile_fails() {
+    let src = format!(
+        "{MINIMAL_HEADER}\n[actions.note]\nrisk = \"low\"\nrequires_approval = false\nexecutor = {{ kind = \"computer_use_native_macos\" }}\n"
+    );
+    let msg = err_message(&src);
+    assert!(
+        msg.contains("actions.note.executor.target_app"),
+        "got: {msg}"
+    );
+    assert!(
+        msg.contains("requires a non-empty 'target_app' field"),
+        "got: {msg}"
+    );
+}
+
+#[test]
+fn macos_kind_still_accepts_legacy_profile() {
+    // Back-compat: manifests authored before `target_app` existed
+    // declared the bundle id via `profile` — that must still pass.
+    let src = format!(
+        "{MINIMAL_HEADER}\n[actions.note]\nrisk = \"low\"\nrequires_approval = false\nexecutor = {{ kind = \"computer_use_macos\", profile = \"com.apple.Notes\" }}\n"
+    );
+    parse_strict(&src).expect("computer_use_macos with legacy profile passes");
+}
+
+#[test]
 fn on_complete_emit_undeclared_action_fails() {
     let src = format!(
         "{MINIMAL_HEADER}\n[actions.draft]\nrisk = \"low\"\nrequires_approval = false\non_complete_emit = [\"send\"]\n"

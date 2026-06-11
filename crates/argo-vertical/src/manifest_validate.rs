@@ -45,6 +45,8 @@ pub const KNOWN_EXECUTOR_KINDS: &[&str] = &[
     "computer_use",
     "computer_use_macos",
     "computer-use-macos",
+    "computer_use_native_macos",
+    "computer-use-native-macos",
     "computer_use_linux",
     "computer-use-linux",
     "computer_use_windows",
@@ -196,12 +198,21 @@ fn check_executor_binding_shape(
         push_missing(errors, "binding", "api");
     } else if kind == "browser" && is_empty(&t.binding) {
         push_missing(errors, "binding", "browser");
+    } else if kind == "computer_use" && is_empty(&t.profile) {
+        push_missing(errors, "profile", kind);
     } else if matches!(
         kind,
-        "computer_use" | "computer_use_macos" | "computer-use-macos"
+        "computer_use_macos"
+            | "computer-use-macos"
+            | "computer_use_native_macos"
+            | "computer-use-native-macos"
     ) && is_empty(&t.profile)
+        && is_empty(&t.target_app)
     {
-        push_missing(errors, "profile", kind);
+        // The native-macOS family accepts either the canonical
+        // `target_app` (bundle id) or the legacy `profile` field;
+        // require at least one so the executor knows what app to drive.
+        push_missing(errors, "target_app", kind);
     }
 }
 

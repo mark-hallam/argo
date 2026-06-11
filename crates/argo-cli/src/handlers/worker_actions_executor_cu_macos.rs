@@ -128,9 +128,12 @@ fn build_config(
     use argo_executor_computer_use_macos::MacosCuConfig;
     let mut cfg = MacosCuConfig::for_notes_app();
     if let Some(d) = decl {
-        if let Some(profile) = d.executor.profile() {
-            cfg.allowed_apps.insert(profile.to_string());
-            cfg.target_app = profile.to_string();
+        // Prefer the canonical `target_app` bundle id (DEC-050 G3);
+        // fall back to the legacy `profile` field for manifests
+        // authored before `target_app` existed.
+        if let Some(app) = d.executor.target_app().or_else(|| d.executor.profile()) {
+            cfg.allowed_apps.insert(app.to_string());
+            cfg.target_app = app.to_string();
         }
     }
     if let Ok(base_url) = std::env::var("SKYCOT_CU_ANTHROPIC_BASE_URL") {
@@ -371,6 +374,40 @@ mod cu_macos_tests {
         let manifest = manifest_with_kind("computer_use_macos");
         let exec = resolve_executor(&manifest, "do_thing").expect("resolves");
         assert_eq!(exec.kind(), ExecutorKind::ComputerUseMacOS);
+    }
+
+    #[test]
+    fn manifest_native_macos_alias_resolves_to_macos_kind() {
+        // The DEC-050 G3 desktop-drive spelling routes to the same
+        // executor as `computer_use_macos`.
+        for kind in ["computer_use_native_macos", "computer-use-native-macos"] {
+            let manifest = manifest_with_kind(kind);
+            let exec = resolve_executor(&manifest, "do_thing")
+                .unwrap_or_else(|e| panic!("{kind} resolves: {e}"));
+            assert_eq!(exec.kind(), ExecutorKind::ComputerUseMacOS);
+        }
+    }
+
+    #[test]
+    fn manifest_target_app_field_parses_and_resolves() {
+        // `target_app` is the canonical native-desktop bundle-id
+        // field; a manifest using it (no `profile`) must parse and
+        // route to the macOS executor.
+        let src = "schema_version = \"1\"\n\n[vertical]\nid = \"cu-macos-fix\"\n\
+                   name = \"cu-macos-fix\"\nversion = \"0.0.1\"\n\n[actions.do_thing]\n\
+                   risk = \"low\"\nrequires_approval = false\ndescription = \"x\"\n\
+                   executor = { kind = \"computer_use_native_macos\", \
+                   target_app = \"com.apple.Notes\" }\n";
+        let manifest = argo_vertical::parse(src).expect("manifest with target_app parses");
+        let exec = resolve_executor(&manifest, "do_thing").expect("resolves");
+        assert_eq!(exec.kind(), ExecutorKind::ComputerUseMacOS);
+        let decl = manifest
+            .actions
+            .as_ref()
+            .and_then(|a| a.actions.get("do_thing"))
+            .expect("action declared");
+        assert_eq!(decl.executor.target_app(), Some("com.apple.Notes"));
+        assert_eq!(decl.executor.profile(), None);
     }
 
     #[test]

@@ -83,6 +83,31 @@ impl ExecutorDeclaration {
         }
     }
 
+    /// Optional native-desktop target-app bundle id (used by the
+    /// `computer_use_native_macos` / `computer_use_macos` executor
+    /// to pick + sandbox the app it drives, e.g. `com.apple.Notes`).
+    /// `None` for the legacy string form. Distinct from
+    /// [`Self::profile`]: `profile` names a sandbox image / browser
+    /// flavour for the E2B computer-use path, whereas `target_app`
+    /// names the literal macOS bundle id for the native-desktop path.
+    ///
+    /// # Example
+    /// ```
+    /// use argo_vertical::{ExecutorDeclaration, ExecutorTagged};
+    /// let mut t = ExecutorTagged::default();
+    /// t.kind = "computer_use_native_macos".into();
+    /// t.target_app = Some("com.apple.Notes".into());
+    /// let decl = ExecutorDeclaration::Tagged(t);
+    /// assert_eq!(decl.target_app(), Some("com.apple.Notes"));
+    /// ```
+    #[must_use]
+    pub fn target_app(&self) -> Option<&str> {
+        match self {
+            Self::Legacy(_) => None,
+            Self::Tagged(t) => t.target_app.as_deref(),
+        }
+    }
+
     /// Optional MCP server name (used by the MCP executor).
     ///
     /// # Example
@@ -180,6 +205,12 @@ pub struct ExecutorTagged {
     /// `desktop_full`). Picks the sandbox image + tool whitelist.
     #[serde(default)]
     pub profile: Option<String>,
+    /// Native-desktop target-app bundle id (only meaningful for the
+    /// `computer_use_native_macos` / `computer_use_macos` kinds, e.g.
+    /// `com.apple.Notes`). The native macOS executor uses it as the
+    /// app to activate + the sole entry in its allowed-apps fence.
+    #[serde(default)]
+    pub target_app: Option<String>,
     /// Per-action USD budget cap. The computer-use executor
     /// refuses to start a session that would exceed this; the
     /// MCP / API executors read it for cost-aware retries.

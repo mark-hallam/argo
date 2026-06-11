@@ -71,7 +71,10 @@ pub(crate) enum ExecutorKind {
     /// (follow-up to #941 claude-computer-use-native-macos-poc).
     /// Platform-gated: dispatch on non-macOS returns a clean
     /// Provider error so manifests that pin `computer_use_macos`
-    /// fail loudly on Linux/Windows hosts.
+    /// fail loudly on Linux/Windows hosts. The manifest may spell
+    /// the kind `computer_use_macos` or the desktop-drive alias
+    /// `computer_use_native_macos` (DEC-050 G3); both route here and
+    /// read the `target_app` bundle id from the executor declaration.
     ComputerUseMacOS,
     /// Native Linux computer-use via `xdotool` + `scrot` against
     /// an X11 desktop. Wired by
@@ -134,7 +137,10 @@ impl ExecutorKind {
             "human" => Ok(Self::Human),
             "mcp" => Ok(Self::Mcp),
             "computer_use" => Ok(Self::ComputerUse),
-            "computer_use_macos" | "computer-use-macos" => Ok(Self::ComputerUseMacOS),
+            "computer_use_macos"
+            | "computer-use-macos"
+            | "computer_use_native_macos"
+            | "computer-use-native-macos" => Ok(Self::ComputerUseMacOS),
             "computer_use_linux" | "computer-use-linux" => Ok(Self::ComputerUseLinux),
             "computer_use_windows" | "computer-use-windows" => Ok(Self::ComputerUseWindows),
             "api" => Ok(Self::Api),
@@ -147,6 +153,7 @@ impl ExecutorKind {
             other => Err(ArgoError::Provider(format!(
                 "unknown executor kind '{other}' — \
                  valid: human | mcp | computer_use | computer_use_macos | \
+                 computer_use_native_macos | \
                  computer_use_linux | computer_use_windows | api | browser | \
                  filesystem | code_execution | document_creation | document_csv | \
                  document_gsuite"
