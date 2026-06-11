@@ -37,7 +37,7 @@ use crate::handlers::worker_actions_query::{
     collect_latest_actions, collect_latest_actions_for_tenant, workspace_for_tenant,
 };
 use crate::handlers::worker_actions_transitions::{
-    self, find_action_for_tenant, open_workspace_memory_with_store,
+    self, find_action, open_workspace_memory_with_store,
 };
 use argo_audit::{AuditKind, AuditSink};
 use argo_memory::MemoryFile;
@@ -236,7 +236,7 @@ pub(super) async fn decide_response(approval_id: &str, req: &str) -> (&'static s
         Err(e) => return server_error(&format!("workspace: {e}")),
     };
     let Some(located) =
-        (match find_action_for_tenant(&memory, ws, approval_id, &tenant.to_string()).await {
+        (match find_action(&memory, ws, approval_id).await {
             Ok(v) => v,
             Err(e) => return server_error(&format!("find_action: {e}")),
         })
@@ -353,7 +353,7 @@ pub(super) async fn undo_response(approval_id: &str, req: &str) -> (&'static str
         Err(e) => return server_error(&format!("workspace: {e}")),
     };
     let Some(located) =
-        (match find_action_for_tenant(&memory, ws, approval_id, &tenant.to_string()).await {
+        (match find_action(&memory, ws, approval_id).await {
             Ok(v) => v,
             Err(e) => return server_error(&format!("find_action: {e}")),
         })

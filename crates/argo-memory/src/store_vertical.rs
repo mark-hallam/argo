@@ -182,6 +182,34 @@ impl MemoryStore {
         Ok(out)
     }
 
+    /// Distinct `vertical_id`s that have at least one non-superseded
+    /// entry in this workspace (cu1g · DEC-050). Workspace-scoped, so the
+    /// result is inherently tenant-bounded — callers use it to enumerate
+    /// only the verticals a tenant actually has data under, instead of
+    /// walking every tenant's `.genesis` tree on disk (the O(N·M) DoS the
+    /// adversarial review flagged on the approval hot path). One indexed
+    /// SELECT; `NULL` (workspace-global) entries are excluded.
+    pub async fn distinct_verticals(
+        &self,
+        workspace_id: WorkspaceId,
+        file: MemoryFile,
+    ) -> ArgoResult<Vec<String>> {
+        self.ensure_layer_schema().await?;
+        let rows = sqlx::query_as::<_, (String,)>(
+            "SELECT DISTINCT m.vertical_id \
+             FROM memory_entry m \
+             WHERE m.workspace_id = ? AND m.file = ? \
+               AND m.vertical_id IS NOT NULL \
+               AND m.superseded_by IS NULL",
+        )
+        .bind(workspace_id.0.as_bytes().as_slice())
+        .bind(file.filename())
+        .fetch_all(self.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("memory distinct_verticals: {e}")))?;
+        Ok(rows.into_iter().map(|(v,)| v).collect())
+    }
+
     /// List vertical-scoped MEMORY.md entries whose body parses
     /// as a learned skill candidate (#697). Pure read — joins
     /// `list_for_vertical(MemoryFile::Memory)` with the

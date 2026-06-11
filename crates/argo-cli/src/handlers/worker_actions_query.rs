@@ -193,10 +193,15 @@ pub(crate) async fn collect_latest_actions_for_tenant(
                 }
                 Err(_) => Vec::new(),
             };
-            ids.extend(genesis_vertical_ids_for_tenant(
-                &dir,
-                &tenant_id.to_string(),
-            ));
+            // cu1g (perf fix): bound the genesis enumeration to verticals
+            // that actually have rows in THIS workspace via one
+            // workspace-scoped SELECT — not an O(N) `.genesis` fs walk
+            // across every tenant (the DoS the adversarial review flagged).
+            for vid in memory.distinct_verticals(workspace, MemoryFile::Memory).await? {
+                if !ids.contains(&vid) {
+                    ids.push(vid);
+                }
+            }
             ids
         }
     };
@@ -223,23 +228,6 @@ pub(crate) async fn workspace_for_tenant(
         .await
         .map_err(|e| ArgoError::Provider(format!("ensure_workspace: {e}")))?;
     Ok(ws)
-}
-
-/// List the vertical ids materialized under the tenant's OWN
-/// `.genesis/<sanitized-tenant>/` segment (exact dir — never a
-/// cross-tenant scan). Empty when the tenant has no genesis tree.
-pub(crate) fn genesis_vertical_ids_for_tenant(dir: &std::path::Path, tenant_id: &str) -> Vec<String> {
-    let seg = dir
-        .join(".genesis")
-        .join(argo_vertical::sanitize_tenant(tenant_id));
-    let Ok(entries) = std::fs::read_dir(&seg) else {
-        return Vec::new();
-    };
-    entries
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().join("vertical.toml").is_file())
-        .filter_map(|e| e.file_name().to_str().map(str::to_string))
-        .collect()
 }
 
 /// Shared latest-wins fold over `(workspace, vertical_ids)` memory rows.
