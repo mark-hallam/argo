@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<!--
+  OPTION H — "The Ask + Fence Map" (NARROWED synthesis round, 2026-06-11)
+  Same chosen direction (D focus + B warmth + E map). This variant leads with the SAFETY STORY:
+  the access map is a FENCE — a lit enclosure holding ONLY the two scopes Nora is being granted,
+  with everything else in Salesforce (and every other app) drawn ghosted/greyed OUTSIDE the fence,
+  visibly out of reach. It answers the non-technical user's real fear ("what CAN'T she touch?")
+  by drawing the boundary, not just the grant. Toggles live inside the fence. Most "Skycot is safe
+  by construction" of the three. One ask, no catalog.
+-->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capability grant — Option H (Ask + Fence Map)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple:#8b5cf6; --purple-deep:#6d28d9; --pink:#ec4899; --coral:#ff6b6b;
+    --teal:#14b8a6; --yellow:#fcd34d;
+    --ink:#1e1b4b; --ink2:#3f3f46; --ink3:#52525b; --ink4:#a1a1aa;
+    --bg:#fafaff; --paper:#ffffff; --paper2:#f4f4f4; --line:#ece9f5; --line-strong:#d1d1d1;
+    --gradient:linear-gradient(135deg,#8b5cf6,#ec4899);
+    --success:#16a34a; --warning:#d97706; --destructive:#dc2626;
+    --shadow-soft: 0 1px 2px rgba(30,27,75,.04), 0 4px 16px rgba(30,27,75,.05);
+    --shadow-lift: 0 2px 4px rgba(30,27,75,.05), 0 12px 32px rgba(30,27,75,.08);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ background:var(--bg); color:var(--ink); font-family:'Inter',-apple-system,sans-serif; font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+
+  .topbar{ position:sticky; top:0; z-index:40; background:rgba(250,250,255,.86); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid var(--line); }
+  .topbar-inner{ max-width:760px; margin:0 auto; padding:14px 22px; display:flex; align-items:center; gap:14px; }
+  .wordmark{ font-family:'Audiowide',sans-serif; font-size:13px; letter-spacing:.06em; color:var(--ink); text-decoration:none; }
+  .wordmark .dot{ background:var(--gradient); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .topbar-divider{ width:1px; height:18px; background:var(--line-strong); opacity:.6; }
+  .thread-id{ display:flex; align-items:center; gap:10px; }
+  .avatar{ width:30px; height:30px; border-radius:50%; flex:none; background:var(--gradient); color:#fff; font-weight:600; font-size:13px; display:grid; place-items:center; }
+  .thread-meta b{ font-size:13.5px; } .thread-meta span{ display:block; font-size:11px; color:var(--ink4); }
+
+  .thread{ max-width:760px; margin:0 auto; padding:34px 22px 80px; }
+  .day{ text-align:center; font-size:11px; color:var(--ink4); margin:6px 0 26px; letter-spacing:.04em; }
+  .msg{ display:flex; gap:12px; margin-bottom:22px; }
+  .msg .who{ width:30px; height:30px; border-radius:50%; flex:none; display:grid; place-items:center; font-size:12px; font-weight:600; }
+  .msg.nora .who{ background:var(--gradient); color:#fff; }
+  .bubble{ background:var(--paper); border:1px solid var(--line); border-radius:4px 16px 16px 16px; padding:13px 16px; box-shadow:var(--shadow-soft); max-width:560px; }
+  .bubble p{ font-size:14.5px; color:var(--ink2); }
+
+  .grant{ background:var(--paper); border:1px solid var(--line); border-radius:4px 16px 16px 16px; box-shadow:var(--shadow-lift); max-width:610px; overflow:hidden; }
+  .grant-head{ display:flex; align-items:center; gap:13px; padding:16px 18px 14px; }
+  .conn-logo{ width:42px; height:42px; border-radius:10px; flex:none; display:grid; place-items:center; background:#fff; border:1px solid var(--line); box-shadow:var(--shadow-soft); }
+  .ask{ flex:1; } .ask .lead{ font-size:15.5px; font-weight:600; color:var(--ink); line-height:1.4; } .ask .sub{ font-size:12.5px; color:var(--ink4); margin-top:2px; }
+  .badge-od{ font-family:'JetBrains Mono',monospace; font-size:9.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--purple-deep); background:#f5f1ff; border:1px solid #e9e1fc; padding:3px 7px; border-radius:5px; align-self:flex-start; }
+
+  /* fence map */
+  .fence{ padding:14px 16px 12px; background:radial-gradient(120% 90% at 30% 0%, #fbf7ff, #fff 60%); border-top:1px solid var(--line); }
+  .fence svg{ display:block; width:100%; height:auto; }
+  .fence-key{ display:flex; gap:16px; justify-content:center; padding:8px 0 2px; }
+  .fence-key span{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--ink3); }
+  .dotk{ width:9px; height:9px; border-radius:3px; } .dotk.in{ background:var(--purple); } .dotk.out{ background:#d8d8e2; }
+
+  .scopes{ border-top:1px solid var(--line); padding:6px 18px 6px; }
+  .scope{ display:flex; align-items:center; gap:12px; padding:11px 2px; }
+  .scope + .scope{ border-top:1px solid var(--line); }
+  .scope .ico{ width:30px; height:30px; border-radius:8px; flex:none; display:grid; place-items:center; background:#f5f1ff; color:var(--purple-deep); }
+  .scope .txt{ flex:1; } .scope .txt b{ font-size:14px; } .scope .txt span{ display:block; font-size:12px; color:var(--ink4); }
+  .seg{ display:inline-flex; background:var(--paper2); border:1px solid var(--line); border-radius:8px; padding:2px; }
+  .seg button{ font-family:'Inter',sans-serif; font-size:12px; font-weight:600; color:var(--ink3); background:transparent; border:0; padding:5px 11px; border-radius:6px; cursor:pointer; }
+  .seg button.on-r{ background:#e7faf6; color:#0f766e; box-shadow:var(--shadow-soft); }
+  .seg button.on-w{ background:var(--gradient); color:#fff; box-shadow:var(--shadow-soft); }
+  .seg button.off{ color:var(--ink4); }
+
+  .grant-foot{ display:flex; align-items:center; gap:10px; padding:13px 18px 16px; border-top:1px solid var(--line); background:linear-gradient(0deg,#fcfbff,transparent); }
+  .foot-note{ flex:1; font-size:11.5px; color:var(--ink4); display:flex; align-items:center; gap:6px; }
+  .btn{ font-family:'Inter',sans-serif; font-size:13.5px; font-weight:600; border-radius:9px; padding:9px 16px; cursor:pointer; border:1px solid var(--line-strong); background:#fff; color:var(--ink2); }
+  .btn.primary{ border:0; background:var(--gradient); color:#fff; box-shadow:var(--shadow-lift); }
+  .caption{ text-align:center; font-size:11px; color:var(--ink4); margin-top:38px; } .caption b{ color:var(--ink3); }
+</style>
+</head>
+<body>
+  <div class="topbar"><div class="topbar-inner">
+    <a class="wordmark" href="#">SKYCOT<span class="dot">.</span></a>
+    <div class="topbar-divider"></div>
+    <div class="thread-id"><div class="avatar">N</div>
+      <div class="thread-meta"><b>Nora</b><span>Revenue Operations teammate</span></div></div>
+  </div></div>
+
+  <div class="thread">
+    <div class="day">Today, 2:14 pm</div>
+
+    <div class="msg" style="flex-direction:row-reverse">
+      <div class="who" style="background:#eef0ff;color:var(--purple-deep)">You</div>
+      <div class="bubble" style="border-radius:16px 4px 16px 16px;background:#f7f7ff">
+        <p>Nora, can you build me the Q3 pipeline review — every open opportunity over $50k, with the owner and next step?</p>
+      </div>
+    </div>
+
+    <div class="msg nora"><div class="who">N</div>
+      <div class="bubble"><p>On it. I can pull that straight from your CRM. I'll need a connection to <b>Salesforce</b> — but only this small corner of it. Everything outside the fence stays off-limits:</p></div>
+    </div>
+
+    <div class="msg nora">
+      <div class="who" style="background:transparent"></div>
+      <div class="grant">
+        <div class="grant-head">
+          <div class="conn-logo"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M10 7.2a3.4 3.4 0 0 1 6 .9 2.9 2.9 0 0 1 1.2-.26 3 3 0 0 1 .2 6 3.3 3.3 0 0 1-2.4 5.6 3.3 3.3 0 0 1-1.6-.42 3.8 3.8 0 0 1-6.7-.5 3 3 0 0 1-.7.08 3.2 3.2 0 0 1-.9-6.27A3.6 3.6 0 0 1 10 7.2Z" fill="#00A1E0" opacity=".9"/></svg></div>
+          <div class="ask">
+            <div class="lead">Give Nora a fenced corner of Salesforce</div>
+            <div class="sub">Inside the fence: what she can use. Outside, greyed: what she can't.</div>
+          </div>
+          <div class="badge-od">On&nbsp;demand</div>
+        </div>
+
+        <!-- fence map: granted scopes lit inside; everything else ghosted outside -->
+        <div class="fence">
+          <svg viewBox="0 0 610 248" role="img" aria-label="Fence map: Contacts read and Opportunities read-write are inside Nora's granted fence; Accounts, Leads, Reports, Settings, Files and other apps are outside, greyed and out of reach">
+            <defs>
+              <linearGradient id="gh" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#ec4899"/></linearGradient>
+              <linearGradient id="ghw" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#ec4899"/></linearGradient>
+            </defs>
+
+            <!-- OUTSIDE: ghosted chips (out of reach) -->
+            <g font-family="'JetBrains Mono',monospace" font-size="10.5" fill="#b9b9c6">
+              <rect x="14" y="14" width="78" height="26" rx="7" fill="#f6f6fa" stroke="#e6e6ee"/><text x="53" y="31" text-anchor="middle">Accounts</text>
+              <rect x="104" y="14" width="62" height="26" rx="7" fill="#f6f6fa" stroke="#e6e6ee"/><text x="135" y="31" text-anchor="middle">Leads</text>
+              <rect x="498" y="14" width="98" height="26" rx="7" fill="#f6f6fa" stroke="#e6e6ee"/><text x="547" y="31" text-anchor="middle">Settings</text>
+              <rect x="14" y="208" width="74" height="26" rx="7" fill="#f6f6fa" stroke="#e6e6ee"/><text x="51" y="225" text-anchor="middle">Reports</text>
+              <rect x="100" y="208" width="60" height="26" rx="7" fill="#f6f6fa" stroke="#e6e6ee"/><text x="130" y="225" text-anchor="middle">Files</text>
+              <rect x="520" y="208" width="76" height="26" rx="7" fill="#f6f6fa" stroke="#e6e6ee"/><text x="558" y="225" text-anchor="middle">Billing</text>
+              <text x="305" y="30" text-anchor="middle" fill="#c4c4cf" font-size="10">…and the rest of Salesforce — out of reach</text>
+            </g>
+
+            <!-- THE FENCE -->
+            <rect x="150" y="52" width="310" height="146" rx="18" fill="#ffffff" stroke="url(#gh)" stroke-width="2" stroke-dasharray="2 0"/>
+            <rect x="150" y="52" width="310" height="146" rx="18" fill="url(#gh)" opacity=".04"/>
+            <!-- fence label tab -->
+            <rect x="238" y="42" width="134" height="22" rx="11" fill="url(#gh)"/>
+            <text x="305" y="57" text-anchor="middle" font-size="11" font-weight="700" fill="#fff" font-family="'JetBrains Mono',monospace">NORA · GRANTED</text>
+
+            <!-- inside: the two scopes, lit -->
+            <rect x="170" y="84" width="270" height="44" rx="11" fill="#fdfbff" stroke="#14b8a6" stroke-width="1.5"/>
+            <circle cx="192" cy="106" r="10" fill="#e7faf6"/><text x="192" y="110" text-anchor="middle" font-size="10" font-weight="700" fill="#0f766e">R</text>
+            <text x="214" y="102" font-family="'JetBrains Mono',monospace" font-size="12.5" font-weight="600" fill="#1e1b4b">Contacts</text>
+            <text x="214" y="117" font-size="10" fill="#0f766e">read only</text>
+
+            <rect x="170" y="136" width="270" height="44" rx="11" fill="#fdfbff" stroke="url(#ghw)" stroke-width="1.7"/>
+            <circle cx="192" cy="158" r="10" fill="url(#ghw)"/><text x="192" y="162" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">W</text>
+            <text x="214" y="154" font-family="'JetBrains Mono',monospace" font-size="12.5" font-weight="600" fill="#1e1b4b">Opportunities</text>
+            <text x="214" y="169" font-size="10" fill="#be185d">read + write</text>
+          </svg>
+          <div class="fence-key">
+            <span><i class="dotk in"></i> Inside the fence — Nora can use</span>
+            <span><i class="dotk out"></i> Outside — out of reach</span>
+          </div>
+        </div>
+
+        <div class="scopes">
+          <div class="scope">
+            <div class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4 0-7 2-7 4.5V20h14v-1.5C19 16 16 14 12 14Z" fill="currentColor"/></svg></div>
+            <div class="txt"><b>Contacts</b><span>Names, emails, owners — Nora only looks</span></div>
+            <div class="seg"><button class="on-r">Read</button><button class="off">Write</button></div>
+          </div>
+          <div class="scope">
+            <div class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 5h16v4H4V5Zm0 6h10v8H4v-8Zm12 0h4v8h-4v-8Z" fill="currentColor"/></svg></div>
+            <div class="txt"><b>Opportunities</b><span>Deal amounts, stages, next steps — Nora can update these</span></div>
+            <div class="seg"><button class="off">Read</button><button class="on-w">Write</button></div>
+          </div>
+        </div>
+
+        <div class="grant-foot">
+          <div class="foot-note"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5l-8-3Z" stroke="#a1a1aa" stroke-width="1.6"/></svg> Revocable any time · every action logged</div>
+          <button class="btn">Not now</button>
+          <button class="btn primary">Connect Salesforce</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="caption">Option <b>H</b> — the ask + a fence map. Draws the boundary: the two scopes lit inside, everything else ghosted out of reach.</p>
+  </div>
+</body>
+</html>

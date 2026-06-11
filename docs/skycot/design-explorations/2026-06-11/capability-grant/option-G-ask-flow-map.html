@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<!--
+  OPTION G — "The Ask + Flow Map" (NARROWED synthesis round, 2026-06-11)
+  Same chosen direction (D focus + B warmth + E map). This variant draws the access map as a
+  LEFT-TO-RIGHT DATA FLOW that reads like a sentence: [Nora] ▸ [Salesforce] ▸ [Contacts · read]
+  [Opportunities · read+write]. The flow narrates where the data goes and which way it moves.
+  Read = teal arrow pointing back to Nora (data comes IN); write = gradient arrow pointing out
+  (Nora pushes changes). Toggles sit in a clean B-style segmented row beneath. One ask, no catalog.
+-->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capability grant — Option G (Ask + Flow Map)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple:#8b5cf6; --purple-deep:#6d28d9; --pink:#ec4899; --coral:#ff6b6b;
+    --teal:#14b8a6; --yellow:#fcd34d;
+    --ink:#1e1b4b; --ink2:#3f3f46; --ink3:#52525b; --ink4:#a1a1aa;
+    --bg:#fafaff; --paper:#ffffff; --paper2:#f4f4f4; --line:#ece9f5; --line-strong:#d1d1d1;
+    --gradient:linear-gradient(135deg,#8b5cf6,#ec4899);
+    --success:#16a34a; --warning:#d97706; --destructive:#dc2626;
+    --shadow-soft: 0 1px 2px rgba(30,27,75,.04), 0 4px 16px rgba(30,27,75,.05);
+    --shadow-lift: 0 2px 4px rgba(30,27,75,.05), 0 12px 32px rgba(30,27,75,.08);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ background:var(--bg); color:var(--ink); font-family:'Inter',-apple-system,sans-serif; font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+
+  .topbar{ position:sticky; top:0; z-index:40; background:rgba(250,250,255,.86); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid var(--line); }
+  .topbar-inner{ max-width:760px; margin:0 auto; padding:14px 22px; display:flex; align-items:center; gap:14px; }
+  .wordmark{ font-family:'Audiowide',sans-serif; font-size:13px; letter-spacing:.06em; color:var(--ink); text-decoration:none; }
+  .wordmark .dot{ background:var(--gradient); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .topbar-divider{ width:1px; height:18px; background:var(--line-strong); opacity:.6; }
+  .thread-id{ display:flex; align-items:center; gap:10px; }
+  .avatar{ width:30px; height:30px; border-radius:50%; flex:none; background:var(--gradient); color:#fff; font-weight:600; font-size:13px; display:grid; place-items:center; }
+  .thread-meta b{ font-size:13.5px; } .thread-meta span{ display:block; font-size:11px; color:var(--ink4); }
+
+  .thread{ max-width:760px; margin:0 auto; padding:34px 22px 80px; }
+  .day{ text-align:center; font-size:11px; color:var(--ink4); margin:6px 0 26px; letter-spacing:.04em; }
+  .msg{ display:flex; gap:12px; margin-bottom:22px; }
+  .msg .who{ width:30px; height:30px; border-radius:50%; flex:none; display:grid; place-items:center; font-size:12px; font-weight:600; }
+  .msg.nora .who{ background:var(--gradient); color:#fff; }
+  .bubble{ background:var(--paper); border:1px solid var(--line); border-radius:4px 16px 16px 16px; padding:13px 16px; box-shadow:var(--shadow-soft); max-width:560px; }
+  .bubble p{ font-size:14.5px; color:var(--ink2); }
+
+  .grant{ background:var(--paper); border:1px solid var(--line); border-radius:4px 16px 16px 16px; box-shadow:var(--shadow-lift); max-width:610px; overflow:hidden; }
+  .grant-head{ display:flex; align-items:center; gap:13px; padding:16px 18px 14px; }
+  .conn-logo{ width:42px; height:42px; border-radius:10px; flex:none; display:grid; place-items:center; background:#fff; border:1px solid var(--line); box-shadow:var(--shadow-soft); }
+  .ask{ flex:1; } .ask .lead{ font-size:15.5px; font-weight:600; color:var(--ink); line-height:1.4; } .ask .sub{ font-size:12.5px; color:var(--ink4); margin-top:2px; }
+  .badge-od{ font-family:'JetBrains Mono',monospace; font-size:9.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--purple-deep); background:#f5f1ff; border:1px solid #e9e1fc; padding:3px 7px; border-radius:5px; align-self:flex-start; }
+
+  /* flow map */
+  .flow{ background:linear-gradient(180deg,#fcfbff,#fff); border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:18px 16px 12px; }
+  .flow svg{ display:block; width:100%; height:auto; }
+  .flow-cap{ text-align:center; font-size:11px; color:var(--ink4); margin-top:8px; }
+  .flow-cap b{ color:var(--teal); } .flow-cap em{ font-style:normal; color:var(--pink); }
+
+  .scopes{ padding:6px 18px 6px; }
+  .scope{ display:flex; align-items:center; gap:12px; padding:11px 2px; }
+  .scope + .scope{ border-top:1px solid var(--line); }
+  .scope .ico{ width:30px; height:30px; border-radius:8px; flex:none; display:grid; place-items:center; background:#f5f1ff; color:var(--purple-deep); }
+  .scope .txt{ flex:1; } .scope .txt b{ font-size:14px; } .scope .txt span{ display:block; font-size:12px; color:var(--ink4); }
+  .seg{ display:inline-flex; background:var(--paper2); border:1px solid var(--line); border-radius:8px; padding:2px; }
+  .seg button{ font-family:'Inter',sans-serif; font-size:12px; font-weight:600; color:var(--ink3); background:transparent; border:0; padding:5px 11px; border-radius:6px; cursor:pointer; }
+  .seg button.on-r{ background:#e7faf6; color:#0f766e; box-shadow:var(--shadow-soft); }
+  .seg button.on-w{ background:var(--gradient); color:#fff; box-shadow:var(--shadow-soft); }
+  .seg button.off{ color:var(--ink4); }
+
+  .grant-foot{ display:flex; align-items:center; gap:10px; padding:13px 18px 16px; border-top:1px solid var(--line); background:linear-gradient(0deg,#fcfbff,transparent); }
+  .foot-note{ flex:1; font-size:11.5px; color:var(--ink4); display:flex; align-items:center; gap:6px; }
+  .btn{ font-family:'Inter',sans-serif; font-size:13.5px; font-weight:600; border-radius:9px; padding:9px 16px; cursor:pointer; border:1px solid var(--line-strong); background:#fff; color:var(--ink2); }
+  .btn.primary{ border:0; background:var(--gradient); color:#fff; box-shadow:var(--shadow-lift); }
+  .caption{ text-align:center; font-size:11px; color:var(--ink4); margin-top:38px; } .caption b{ color:var(--ink3); }
+</style>
+</head>
+<body>
+  <div class="topbar"><div class="topbar-inner">
+    <a class="wordmark" href="#">SKYCOT<span class="dot">.</span></a>
+    <div class="topbar-divider"></div>
+    <div class="thread-id"><div class="avatar">N</div>
+      <div class="thread-meta"><b>Nora</b><span>Revenue Operations teammate</span></div></div>
+  </div></div>
+
+  <div class="thread">
+    <div class="day">Today, 2:14 pm</div>
+
+    <div class="msg" style="flex-direction:row-reverse">
+      <div class="who" style="background:#eef0ff;color:var(--purple-deep)">You</div>
+      <div class="bubble" style="border-radius:16px 4px 16px 16px;background:#f7f7ff">
+        <p>Nora, can you build me the Q3 pipeline review — every open opportunity over $50k, with the owner and next step?</p>
+      </div>
+    </div>
+
+    <div class="msg nora"><div class="who">N</div>
+      <div class="bubble"><p>On it. I can pull that straight from your CRM. To do it I'll need to connect to <b>Salesforce</b>. Here's the flow:</p></div>
+    </div>
+
+    <div class="msg nora">
+      <div class="who" style="background:transparent"></div>
+      <div class="grant">
+        <div class="grant-head">
+          <div class="conn-logo"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M10 7.2a3.4 3.4 0 0 1 6 .9 2.9 2.9 0 0 1 1.2-.26 3 3 0 0 1 .2 6 3.3 3.3 0 0 1-2.4 5.6 3.3 3.3 0 0 1-1.6-.42 3.8 3.8 0 0 1-6.7-.5 3 3 0 0 1-.7.08 3.2 3.2 0 0 1-.9-6.27A3.6 3.6 0 0 1 10 7.2Z" fill="#00A1E0" opacity=".9"/></svg></div>
+          <div class="ask">
+            <div class="lead">Connect Salesforce so Nora can read your pipeline</div>
+            <div class="sub">Follow the arrows — that's everything that moves, and which way.</div>
+          </div>
+          <div class="badge-od">On&nbsp;demand</div>
+        </div>
+
+        <!-- flow map: Nora ▸ Salesforce ▸ two scopes, arrows show direction -->
+        <div class="flow">
+          <svg viewBox="0 0 610 180" role="img" aria-label="Data flow: Salesforce Contacts flow into Nora as read; Opportunities flow both ways as read and write">
+            <defs>
+              <linearGradient id="gw2" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#ec4899"/></linearGradient>
+              <linearGradient id="gnode" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#ec4899"/></linearGradient>
+              <marker id="arrTeal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#14b8a6"/></marker>
+              <marker id="arrGrad" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ec4899"/></marker>
+            </defs>
+
+            <!-- Nora node (left) -->
+            <rect x="14" y="58" width="104" height="64" rx="14" fill="url(#gnode)"/>
+            <text x="66" y="88" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">Nora</text>
+            <text x="66" y="105" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#fdeaf5">your teammate</text>
+
+            <!-- Salesforce node (middle) -->
+            <rect x="232" y="62" width="120" height="56" rx="12" fill="#fff" stroke="#00A1E0" stroke-width="1.4"/>
+            <text x="292" y="86" text-anchor="middle" font-size="13" font-weight="600" fill="#1e1b4b">Salesforce</text>
+            <text x="292" y="101" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#7aa7c7">your CRM</text>
+
+            <!-- scope nodes (right) -->
+            <rect x="448" y="30" width="148" height="44" rx="11" fill="#fdfbff" stroke="#14b8a6" stroke-width="1.4"/>
+            <text x="466" y="51" font-family="'JetBrains Mono',monospace" font-size="12" font-weight="600" fill="#1e1b4b">Contacts</text>
+            <text x="466" y="65" font-size="9.5" fill="#0f766e">read</text>
+
+            <rect x="448" y="106" width="148" height="44" rx="11" fill="#fdfbff" stroke="url(#gw2)" stroke-width="1.6"/>
+            <text x="466" y="127" font-family="'JetBrains Mono',monospace" font-size="12" font-weight="600" fill="#1e1b4b">Opportunities</text>
+            <text x="466" y="141" font-size="9.5" fill="#be185d">read · write</text>
+
+            <!-- edges Nora<->Salesforce -->
+            <line x1="232" y1="90" x2="118" y2="90" stroke="#9aa0c4" stroke-width="1.6" marker-end="url(#arrTeal)" opacity=".5"/>
+            <!-- Salesforce -> Contacts : read = arrow back toward Nora (data in) -->
+            <path d="M352 80 C 400 80, 408 52, 448 52" fill="none" stroke="#14b8a6" stroke-width="2.2" marker-start="url(#arrTeal)"/>
+            <!-- Salesforce <-> Opportunities : both directions -->
+            <path d="M352 100 C 400 100, 408 128, 448 128" fill="none" stroke="url(#gw2)" stroke-width="3.2" marker-start="url(#arrGrad)" marker-end="url(#arrGrad)"/>
+          </svg>
+          <div class="flow-cap"><b>◂ Read</b> — data flows in to Nora &nbsp;·&nbsp; <em>⇄ Write</em> — Nora can push changes back</div>
+        </div>
+
+        <div class="scopes">
+          <div class="scope">
+            <div class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4 0-7 2-7 4.5V20h14v-1.5C19 16 16 14 12 14Z" fill="currentColor"/></svg></div>
+            <div class="txt"><b>Contacts</b><span>Names, emails, owners — Nora only looks</span></div>
+            <div class="seg"><button class="on-r">Read</button><button class="off">Write</button></div>
+          </div>
+          <div class="scope">
+            <div class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 5h16v4H4V5Zm0 6h10v8H4v-8Zm12 0h4v8h-4v-8Z" fill="currentColor"/></svg></div>
+            <div class="txt"><b>Opportunities</b><span>Deal amounts, stages, next steps — Nora can update these</span></div>
+            <div class="seg"><button class="off">Read</button><button class="on-w">Write</button></div>
+          </div>
+        </div>
+
+        <div class="grant-foot">
+          <div class="foot-note"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5l-8-3Z" stroke="#a1a1aa" stroke-width="1.6"/></svg> Revocable any time · every action logged</div>
+          <button class="btn">Not now</button>
+          <button class="btn primary">Connect Salesforce</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="caption">Option <b>G</b> — the ask + a left-to-right flow map. Arrows show what moves and which way (read in, write out).</p>
+  </div>
+</body>
+</html>

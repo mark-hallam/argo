@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<!--
+  OPTION G2 · MOMENT — fully-branded refinement of the chosen Option G (flow map), brand turned UP.
+  Same bones as G (in-thread, one-line ask, flow illustration, read/write options) but staged as a
+  delightful "wow" product moment: a soft gradient halo behind the card, an Audiowide micro-eyebrow,
+  larger gradient Nora orb with a glow ring, animated flowing particles along the WRITE edge, gradient
+  scope chips, and a confident gradient CTA with shine. The "go viral / epic" pole. Locked tokens only
+  (purple→pink, Audiowide, Inter, JetBrains Mono, teal=read). Pair with G2·Elevated to pick the final intensity.
+-->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capability grant — G2 · Moment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple:#8b5cf6; --purple-deep:#6d28d9; --pink:#ec4899; --coral:#ff6b6b;
+    --teal:#14b8a6; --yellow:#fcd34d;
+    --ink:#1e1b4b; --ink2:#3f3f46; --ink3:#52525b; --ink4:#a1a1aa;
+    --bg:#fafaff; --paper:#ffffff; --paper2:#f4f4f4; --line:#ece9f5; --line-strong:#d1d1d1;
+    --gradient:linear-gradient(135deg,#8b5cf6,#ec4899);
+    --gradient3:linear-gradient(120deg,#8b5cf6,#ec4899,#ff6b6b);
+    --success:#16a34a;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ background:var(--bg); color:var(--ink); font-family:'Inter',-apple-system,sans-serif; font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+
+  .blobs{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+  .blob{ position:absolute; border-radius:50%; filter:blur(85px); }
+  .b1{ width:600px;height:600px; top:-220px;left:-140px; background:radial-gradient(circle,#e9d5ff 0%,transparent 70%); opacity:.7; }
+  .b2{ width:680px;height:680px; top:-260px;right:-200px; background:radial-gradient(circle,#fbcfe8 0%,transparent 70%); opacity:.62; }
+  .b3{ width:520px;height:520px; top:480px;left:44%; background:radial-gradient(circle,#99f6e4 0%,transparent 72%); opacity:.32; }
+  .b4{ width:560px;height:560px; bottom:-260px;left:-120px; background:radial-gradient(circle,#fde68a 0%,transparent 72%); opacity:.30; }
+
+  .topbar{ position:sticky; top:0; z-index:40; background:rgba(255,255,255,.7); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-bottom:1px solid var(--line); }
+  .topbar-inner{ max-width:800px; margin:0 auto; padding:14px 22px; display:flex; align-items:center; gap:14px; }
+  .wordmark{ font-family:'Audiowide',sans-serif; font-size:14px; letter-spacing:.06em; color:var(--ink); text-decoration:none; }
+  .wordmark .dot{ background:var(--gradient); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .topbar-divider{ width:1px; height:18px; background:var(--line-strong); opacity:.6; }
+  .thread-id{ display:flex; align-items:center; gap:10px; }
+  .avatar{ width:30px;height:30px; border-radius:50%; flex:none; background:var(--gradient); color:#fff; font-weight:600; font-size:13px; display:grid; place-items:center; box-shadow:0 4px 12px rgba(139,92,246,.34); }
+  .thread-meta b{ font-size:13.5px; } .thread-meta span{ display:block; font-size:11px; color:var(--ink4); }
+  .pill-secure{ margin-left:auto; display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ink3); border:1px solid var(--line); border-radius:999px; padding:5px 12px; background:var(--paper); }
+  .pill-secure .d{ width:7px;height:7px;border-radius:50%; background:var(--success); box-shadow:0 0 0 3px rgba(22,163,74,.15); }
+
+  .thread{ position:relative; z-index:1; max-width:800px; margin:0 auto; padding:34px 22px 96px; }
+  .day{ text-align:center; font-size:11px; color:var(--ink4); margin:4px 0 26px; letter-spacing:.05em; }
+  .msg{ display:flex; gap:12px; margin-bottom:22px; }
+  .msg .who{ width:30px;height:30px; border-radius:50%; flex:none; display:grid; place-items:center; font-size:12px; font-weight:600; }
+  .msg.nora .who{ background:var(--gradient); color:#fff; box-shadow:0 4px 12px rgba(139,92,246,.3); }
+  .bubble{ background:var(--paper); border:1px solid var(--line); border-radius:4px 16px 16px 16px; padding:13px 16px; box-shadow:0 8px 24px -10px rgba(30,27,75,.14); max-width:560px; }
+  .bubble p{ font-size:14.5px; color:var(--ink2); } .bubble b{ color:var(--ink); }
+
+  /* the moment: halo behind the card */
+  .stage{ position:relative; max-width:640px; }
+  .halo{ position:absolute; inset:-30px -10px -20px; z-index:0; border-radius:36px; background:var(--gradient3); filter:blur(46px); opacity:.28; }
+  .grant{ position:relative; z-index:1; border-radius:22px; padding:1.6px;
+    background:linear-gradient(#fff,#fff) padding-box, var(--gradient3) border-box; border:1.6px solid transparent;
+    box-shadow:0 28px 70px -22px rgba(139,92,246,.5), 0 0 0 5px rgba(139,92,246,.06); overflow:hidden; }
+  .grant-inner{ background:var(--paper); border-radius:20.4px; overflow:hidden; }
+
+  .grant-head{ display:flex; align-items:flex-start; gap:15px; padding:20px 22px 14px; }
+  .conn-logo{ width:50px;height:50px; border-radius:15px; flex:none; display:grid; place-items:center; background:#fff; border:1px solid var(--line); box-shadow:0 8px 20px -6px rgba(0,161,224,.45); }
+  .ask{ flex:1; }
+  .eyebrow{ font-family:'Audiowide',sans-serif; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; margin-bottom:5px;
+    background:var(--gradient); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .ask .lead{ font-size:18px; font-weight:800; color:var(--ink); line-height:1.3; letter-spacing:-.02em; }
+  .ask .sub{ font-size:12.5px; color:var(--ink4); margin-top:4px; }
+  .badge-od{ font-family:'JetBrains Mono',monospace; font-size:9.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase;
+    color:#fff; background:var(--gradient); padding:5px 9px; border-radius:7px; align-self:flex-start; box-shadow:0 4px 12px rgba(236,72,153,.34); }
+
+  .flow{ margin:4px 16px 10px; padding:18px 12px 12px; border-radius:16px;
+    background:radial-gradient(120% 90% at 50% 0%, #f6f0ff, #fdfbff 70%); border:1px solid #efe7fb; }
+  .flow svg{ display:block; width:100%; height:auto; }
+  .flow-cap{ text-align:center; font-size:11.5px; color:var(--ink3); margin-top:10px; }
+  .flow-cap .r{ color:#0f766e; font-weight:700; } .flow-cap .w{ color:var(--pink); font-weight:700; }
+
+  .scopes{ padding:4px 22px 6px; }
+  .scope{ display:flex; align-items:center; gap:13px; padding:13px 2px; }
+  .scope + .scope{ border-top:1px solid var(--line); }
+  .scope .ico{ width:34px;height:34px; border-radius:10px; flex:none; display:grid; place-items:center; color:#fff; background:var(--gradient); box-shadow:0 5px 14px -4px rgba(139,92,246,.5); }
+  .scope .txt{ flex:1; } .scope .txt b{ font-size:14.5px; } .scope .txt span{ display:block; font-size:12px; color:var(--ink4); }
+  .seg{ display:inline-flex; background:var(--paper2); border:1px solid var(--line); border-radius:10px; padding:2px; }
+  .seg button{ font-family:'Inter',sans-serif; font-size:12px; font-weight:600; color:var(--ink3); background:transparent; border:0; padding:6px 13px; border-radius:8px; cursor:pointer; transition:.15s; }
+  .seg button.on-r{ background:#e7faf6; color:#0f766e; box-shadow:0 1px 3px rgba(15,118,110,.2); }
+  .seg button.on-w{ background:var(--gradient); color:#fff; box-shadow:0 4px 12px rgba(236,72,153,.4); }
+  .seg button.off{ color:var(--ink4); }
+
+  .grant-foot{ display:flex; align-items:center; gap:11px; padding:15px 22px 20px; border-top:1px solid var(--line); background:linear-gradient(0deg,#fdf9ff,transparent); }
+  .foot-note{ flex:1; font-size:11.5px; color:var(--ink4); display:flex; align-items:center; gap:6px; }
+  .btn{ font-family:'Inter',sans-serif; font-size:14px; font-weight:600; border-radius:11px; padding:11px 17px; cursor:pointer; border:1px solid var(--line-strong); background:#fff; color:var(--ink2); transition:.15s; }
+  .btn:hover{ border-color:var(--purple); color:var(--purple-deep); }
+  .btn.primary{ position:relative; border:0; background:var(--gradient); color:#fff; box-shadow:0 10px 26px -6px rgba(236,72,153,.55); overflow:hidden; padding:11px 22px; font-weight:700; }
+  .btn.primary::after{ content:""; position:absolute; top:0; left:-60%; width:42%; height:100%; background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent); animation:shine 3s ease-in-out infinite; }
+  @keyframes shine{ 0%{left:-60%} 55%,100%{left:135%} }
+  @keyframes flow{ to{ stroke-dashoffset:-300; } }
+  .particle{ stroke-dasharray:3 13; animation:flow 5.5s linear infinite; }
+  @keyframes dash{ to{ stroke-dashoffset:-18; } }
+  .live-edge{ stroke-dasharray:6 5; animation:dash 1.1s linear infinite; }
+  .caption{ text-align:center; font-size:11px; color:var(--ink4); margin-top:42px; } .caption b{ color:var(--ink3); }
+</style>
+</head>
+<body>
+  <div class="blobs"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div></div>
+
+  <div class="topbar"><div class="topbar-inner">
+    <a class="wordmark" href="#">SKYCOT<span class="dot">.</span></a>
+    <div class="topbar-divider"></div>
+    <div class="thread-id"><div class="avatar">N</div>
+      <div class="thread-meta"><b>Nora</b><span>Revenue Operations teammate</span></div></div>
+    <div class="pill-secure"><span class="d"></span> Every action logged</div>
+  </div></div>
+
+  <div class="thread">
+    <div class="day">Today, 2:14 pm</div>
+
+    <div class="msg" style="flex-direction:row-reverse">
+      <div class="who" style="background:#eef0ff;color:var(--purple-deep)">You</div>
+      <div class="bubble" style="border-radius:16px 4px 16px 16px;background:#f7f7ff">
+        <p>Nora, can you build me the Q3 pipeline review — every open opportunity over $50k, with the owner and next step?</p>
+      </div>
+    </div>
+
+    <div class="msg nora"><div class="who">N</div>
+      <div class="bubble"><p>On it. I can pull that straight from your CRM. To do it I'll need to connect to <b>Salesforce</b>. Here's exactly what flows, and which way:</p></div>
+    </div>
+
+    <div class="msg nora">
+      <div class="who" style="background:transparent"></div>
+      <div class="stage">
+        <div class="halo"></div>
+        <div class="grant"><div class="grant-inner">
+          <div class="grant-head">
+            <div class="conn-logo"><svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M10 7.2a3.4 3.4 0 0 1 6 .9 2.9 2.9 0 0 1 1.2-.26 3 3 0 0 1 .2 6 3.3 3.3 0 0 1-2.4 5.6 3.3 3.3 0 0 1-1.6-.42 3.8 3.8 0 0 1-6.7-.5 3 3 0 0 1-.7.08 3.2 3.2 0 0 1-.9-6.27A3.6 3.6 0 0 1 10 7.2Z" fill="#00A1E0"/></svg></div>
+            <div class="ask">
+              <div class="eyebrow">Connect on demand</div>
+              <div class="lead">Connect Salesforce so Nora can read your pipeline</div>
+              <div class="sub">Follow the arrows — that's everything that moves, and which way.</div>
+            </div>
+            <div class="badge-od">Live</div>
+          </div>
+
+          <div class="flow">
+            <svg viewBox="0 0 636 188" role="img" aria-label="Data flow: Salesforce Contacts flow in to Nora as read; Opportunities flow both ways as read and write">
+              <defs>
+                <linearGradient id="gnodeM" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#ec4899"/></linearGradient>
+                <linearGradient id="gwM" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#ec4899"/></linearGradient>
+                <radialGradient id="ring" cx="0.5" cy="0.5" r="0.5"><stop offset="0.72" stop-color="#8b5cf6" stop-opacity="0"/><stop offset="1" stop-color="#ec4899" stop-opacity="0.35"/></radialGradient>
+                <marker id="aTealM" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#14b8a6"/></marker>
+                <marker id="aGradM" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ec4899"/></marker>
+                <filter id="softM" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#8b5cf6" flood-opacity="0.28"/></filter>
+              </defs>
+
+              <!-- Nora orb with glow ring -->
+              <circle cx="60" cy="94" r="54" fill="url(#ring)"/>
+              <g filter="url(#softM)"><circle cx="60" cy="94" r="42" fill="url(#gnodeM)"/></g>
+              <text x="60" y="90" text-anchor="middle" font-size="16" font-weight="800" fill="#fff">Nora</text>
+              <text x="60" y="107" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8" fill="#fdeaf5">teammate</text>
+
+              <rect x="248" y="66" width="124" height="56" rx="14" fill="#fff" stroke="#00A1E0" stroke-width="1.5" filter="url(#softM)"/>
+              <text x="310" y="90" text-anchor="middle" font-size="13" font-weight="600" fill="#1e1b4b">Salesforce</text>
+              <text x="310" y="105" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#7aa7c7">your CRM</text>
+
+              <rect x="466" y="30" width="154" height="48" rx="13" fill="#fff" stroke="#14b8a6" stroke-width="1.6" filter="url(#softM)"/>
+              <circle cx="489" cy="54" r="12" fill="#e7faf6"/><text x="489" y="58" text-anchor="middle" font-size="10" font-weight="700" fill="#0f766e">R</text>
+              <text x="508" y="50" font-family="'JetBrains Mono',monospace" font-size="12" font-weight="600" fill="#1e1b4b">Contacts</text>
+              <text x="508" y="64" font-size="9.5" fill="#0f766e">read</text>
+
+              <rect x="466" y="110" width="154" height="48" rx="13" fill="#fff" stroke="url(#gwM)" stroke-width="1.9" filter="url(#softM)"/>
+              <circle cx="489" cy="134" r="12" fill="url(#gwM)"/><text x="489" y="138" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">W</text>
+              <text x="508" y="130" font-family="'JetBrains Mono',monospace" font-size="12" font-weight="600" fill="#1e1b4b">Opportunities</text>
+              <text x="508" y="144" font-size="9.5" fill="#be185d">read · write</text>
+
+              <line x1="248" y1="94" x2="104" y2="94" stroke="#bcb4dd" stroke-width="1.6" marker-end="url(#aTealM)" opacity=".55"/>
+              <path d="M372 84 C 420 84, 430 54, 466 54" fill="none" stroke="#14b8a6" stroke-width="2.6" marker-start="url(#aTealM)"/>
+              <!-- write edge: base + animated particles flowing both ways -->
+              <path class="live-edge" d="M372 104 C 420 104, 430 134, 466 134" fill="none" stroke="url(#gwM)" stroke-width="3.6" marker-start="url(#aGradM)" marker-end="url(#aGradM)"/>
+              <path class="particle" d="M372 104 C 420 104, 430 134, 466 134" fill="none" stroke="#fff" stroke-width="2.4" opacity=".9"/>
+            </svg>
+            <div class="flow-cap"><span class="r">◂ Read</span> — flows in to Nora &nbsp;·&nbsp; <span class="w">⇄ Write</span> — Nora can push changes back</div>
+          </div>
+
+          <div class="scopes">
+            <div class="scope">
+              <div class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4 0-7 2-7 4.5V20h14v-1.5C19 16 16 14 12 14Z" fill="currentColor"/></svg></div>
+              <div class="txt"><b>Contacts</b><span>Names, emails, owners — Nora only looks</span></div>
+              <div class="seg"><button class="on-r">Read</button><button class="off">Write</button></div>
+            </div>
+            <div class="scope">
+              <div class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 5h16v4H4V5Zm0 6h10v8H4v-8Zm12 0h4v8h-4v-8Z" fill="currentColor"/></svg></div>
+              <div class="txt"><b>Opportunities</b><span>Deal amounts, stages, next steps — Nora can update these</span></div>
+              <div class="seg"><button class="off">Read</button><button class="on-w">Write</button></div>
+            </div>
+          </div>
+
+          <div class="grant-foot">
+            <div class="foot-note"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5l-8-3Z" stroke="#a1a1aa" stroke-width="1.6"/></svg> Revocable any time · every action logged</div>
+            <button class="btn">Not now</button>
+            <button class="btn primary">Connect Salesforce</button>
+          </div>
+        </div></div>
+      </div>
+    </div>
+
+    <p class="caption">Option <b>G2 · Moment</b> — your chosen flow map, staged as a delight moment: halo, Audiowide eyebrow, glowing orb, flowing particles. The "go viral" pole.</p>
+  </div>
+</body>
+</html>
