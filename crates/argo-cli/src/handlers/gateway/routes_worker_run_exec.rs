@@ -99,6 +99,12 @@ const MAX_TOOL_ROUNDS: usize = 8;
 /// ```
 #[derive(Debug)]
 pub(super) struct RunOutcome {
+    /// The pending-job id this run claimed (UUID string). Surfaced to
+    /// the HTTP response so the SPA can deep-link the run's artifact
+    /// bundle via `GET /api/v1/workers/<id>/runs/<job_id>/output`
+    /// (brief `uf-spa-teammate-output-surface`). Empty on the failed
+    /// path (no completed job to point at).
+    pub job_id: String,
     /// The session the turn ran in (lower-hyphenated UUID string).
     pub session_id: String,
     /// `"completed"` when the engine recorded a completion row,
@@ -235,6 +241,12 @@ pub(super) async fn run_worker_now(
     // the turn genuinely completed, so its presence IS the evidence.
     let mut outcome =
         read_completion(&memory, workspace, vertical_id, &job.id.to_string()).await?;
+    // Stamp the claimed job id so the response can deep-link the run's
+    // artifact bundle. Only meaningful on the completed path (a failed
+    // run wrote no bundle); the SPA gates on `status == "completed"`.
+    if outcome.status == "completed" {
+        outcome.job_id = job.id.to_string();
+    }
     outcome.approved_tools = approved_tools;
     Ok(Ok(outcome))
 }
@@ -358,6 +370,7 @@ async fn read_completion(
             .map(Iterator::count)
             .unwrap_or(0);
         return Ok(RunOutcome {
+            job_id: String::new(),
             session_id,
             status: "completed",
             chars,
@@ -366,6 +379,7 @@ async fn read_completion(
     }
     // No completion row — the turn did not finish. Report it honestly.
     Ok(RunOutcome {
+        job_id: String::new(),
         session_id: String::new(),
         status: "failed",
         chars: 0,

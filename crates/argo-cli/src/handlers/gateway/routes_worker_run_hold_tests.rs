@@ -70,6 +70,7 @@ async fn run_during_probation_reports_held_tools_and_probation_true() {
     write_hold_row(&env.store, env.tenant, session, "send_email").await;
 
     let outcome = super::super::routes_worker_run_exec::RunOutcome {
+        job_id: uuid::Uuid::now_v7().to_string(),
         session_id: session.0.to_string(),
         status: "completed",
         chars: 12,

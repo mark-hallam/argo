@@ -186,6 +186,11 @@ async fn finish_run(
         "audit_id": audit_hex,
         "trigger_id": trigger_id,
         "session_id": outcome.session_id,
+        // The pending-job id this run claimed — lets the SPA deep-link
+        // the run's artifact bundle (`/api/v1/workers/<id>/runs/<job_id>
+        // /output`, brief `uf-spa-teammate-output-surface`). Empty
+        // string on the failed path (no completed job).
+        "job_id": outcome.job_id,
         "status": outcome.status,
         "chars": outcome.chars,
         "queued_at": queued_at.to_rfc3339(),

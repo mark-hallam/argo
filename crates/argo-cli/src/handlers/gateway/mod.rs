@@ -264,6 +264,7 @@ mod routes_worker_escalations;
 mod routes_worker_executor_promote;
 mod routes_worker_freeze;
 mod routes_worker_memory;
+mod routes_worker_outputs;
 mod routes_worker_overview;
 mod routes_worker_policies;
 mod routes_worker_run;

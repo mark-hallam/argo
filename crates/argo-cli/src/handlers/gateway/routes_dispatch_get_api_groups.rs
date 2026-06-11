@@ -236,6 +236,57 @@ async fn dispatch_worker_subpath(
     store: Option<&Arc<SessionStore>>,
 ) -> Option<(&'static str, String)> {
     let (id_with_suffix, tail) = rest.split_once('/')?;
+    // `runs/<job_id>/output` — a single teammate run's artifact bundle.
+    // Pinned first among the sub-paths since its three-segment shape is
+    // disjoint from every single-verb arm below.
+    if let Some(after) = tail.strip_prefix("runs/") {
+        if let Some((job_seg, rest_after)) = after.split_once('/') {
+            if rest_after.starts_with("output ") || rest_after.starts_with("output?") {
+                return Some(
+                    super::routes_worker_outputs::output_response(
+                        id_with_suffix,
+                        job_seg,
+                        req,
+                        store,
+                    )
+                    .await,
+                );
+            }
+        }
+    }
+    // `skills/<sid>/history` — the other multi-segment sub-path. Disjoint
+    // from the single-verb arms, so checking it here (before the simple-verb
+    // helper, which also owns the `skills` list verb) is order-preserving.
+    if tail.starts_with("skills/") {
+        let after = tail.trim_start_matches("skills/");
+        if let Some((sid, rest_after)) = after.split_once('/') {
+            if rest_after.starts_with("history ") || rest_after.starts_with("history?") {
+                return Some(
+                    super::routes_worker_skills::history_response(
+                        id_with_suffix,
+                        sid,
+                        req,
+                        store,
+                    )
+                    .await,
+                );
+            }
+        }
+    }
+    dispatch_worker_simple_verb(id_with_suffix, tail, req, store).await
+}
+
+/// The single-verb sub-paths under a worker id (no nested segments):
+/// trust-grade, evals(+replay), trust-streaks, overview, activity,
+/// scorecard, memory, settings, retrain/recent, skills (list). Split out
+/// of [`dispatch_worker_subpath`] to keep each function under the 80-LOC
+/// invariant; the arms are mutually disjoint so the order is preserved.
+async fn dispatch_worker_simple_verb(
+    id_with_suffix: &str,
+    tail: &str,
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> Option<(&'static str, String)> {
     if tail.starts_with("trust-grade ") || tail.starts_with("trust-grade?") {
         return Some(
             super::routes_worker_trust_grade::show_response(id_with_suffix, req, store).await,
@@ -281,22 +332,6 @@ async fn dispatch_worker_subpath(
     }
     if tail.starts_with("retrain/recent ") || tail.starts_with("retrain/recent?") {
         return Some(super::routes_retrain::recent_response(id_with_suffix, req, store).await);
-    }
-    if tail.starts_with("skills/") {
-        let after = tail.trim_start_matches("skills/");
-        if let Some((sid, rest_after)) = after.split_once('/') {
-            if rest_after.starts_with("history ") || rest_after.starts_with("history?") {
-                return Some(
-                    super::routes_worker_skills::history_response(
-                        id_with_suffix,
-                        sid,
-                        req,
-                        store,
-                    )
-                    .await,
-                );
-            }
-        }
     }
     if tail.starts_with("skills ") || tail.starts_with("skills?") {
         return Some(
