@@ -34,6 +34,7 @@ fn sample_draft() -> HireDraft {
         voice_profile: None,
         tagline: Some("Marketplace seller persona".into()),
         genesis_plan_id: None,
+        fs_root: None,
     }
 }
 

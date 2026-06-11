@@ -172,6 +172,12 @@ pub(super) async fn hire_response(
         remember_idempotency(tenant_id, key, &body_digest, new_id);
     }
 
+    // Day-1 unblock fix 1: materialise the teammate's filesystem root on
+    // disk (the store layer only persists the PATH — `worker.fs_root` —
+    // and stays free of filesystem side effects). Fail-soft: a mkdir
+    // error is logged, never fails the already-committed hire.
+    ensure_fs_root_dir(&draft, new_id);
+
     // UF Phase-B · B1 (DEC-036/040): mirror the new teammate's enabled
     // duties into the scheduler's `role_duty` table so its cadence is
     // visible to the autonomous scheduler. Safe plumbing only — the row
@@ -206,6 +212,26 @@ pub(super) async fn hire_response(
         })
         .to_string(),
     )
+}
+
+/// Create the hire's resolved `fs_root` directory (explicit draft value
+/// or the Genesis default `<home>/SkycotTeammates/<persona-slug>/` —
+/// the SAME resolution [`argo_identity::resolved_fs_root_from_env`]
+/// used when the store stamped the `worker.fs_root` column). Fail-soft
+/// by design: the hire is already committed, so a mkdir failure is a
+/// warning the operator can act on, never a 500.
+fn ensure_fs_root_dir(draft: &HireDraft, worker_id: WorkerId) {
+    let Some(root) = argo_identity::resolved_fs_root_from_env(draft) else {
+        return;
+    };
+    if let Err(e) = std::fs::create_dir_all(&root) {
+        tracing::warn!(
+            target: "gateway::workers_hire",
+            worker_id = %worker_id,
+            fs_root = %root.display(),
+            "could not create the teammate's fs_root directory: {e}"
+        );
+    }
 }
 
 /// Attach the per-worker skill-learning registry to a freshly-built

@@ -380,3 +380,8 @@ async fn run_no_store_returns_503() {
 // `use super::*` there reuses every fixture defined above.
 #[path = "routes_worker_run_audit_tests.rs"]
 mod audit_tests;
+
+// Day-1 unblock fix 2 — `held_tools` + `probation` response fields.
+// Sibling file for LOC headroom; child module so fixtures are shared.
+#[path = "routes_worker_run_hold_tests.rs"]
+mod hold_tests;

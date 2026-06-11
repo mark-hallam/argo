@@ -63,6 +63,7 @@ fn draft_for(name: &str, vertical: &str, charter: &str) -> HireDraft {
         voice_profile: None,
         tagline: None,
         genesis_plan_id: None,
+        fs_root: None,
     }
 }
 

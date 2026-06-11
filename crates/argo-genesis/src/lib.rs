@@ -154,6 +154,7 @@ pub use job_description::{
     genesis_from_job_description, genesis_from_job_description_with, GenesisDraft, JobDescInput,
 };
 pub use materialize::{materialize_spec, write_capability_vertical};
+pub use materialize_naming::persona_name_from_role_text;
 pub use materialize_writer::{persona_prompt_from_spec, system_prompt_from_spec};
 pub use spec::{
     CapabilityDecl, CapabilitySpec, EscalationSpec, ExecutorIntent, SuccessCriterion,

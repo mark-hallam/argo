@@ -186,6 +186,29 @@ pub(crate) async fn ensure_worker_skill_table(pool: &sqlx::Pool<sqlx::Sqlite>) -
     Ok(())
 }
 
+/// Idempotent additive helper for `worker.fs_root` (raw migration
+/// `19__worker_fs_root.sql` / versioned slot v20). The crate-scoped
+/// `ensure_schema` path needs it so
+/// [`crate::store_hire_fs_root`]'s post-commit fs_root stamp never hits
+/// a missing column on a DB that was bootstrapped without the full
+/// versioned migration run. Mirrors [`ensure_worker_role_name_columns`].
+pub(crate) async fn ensure_worker_fs_root_column(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+) -> ArgoResult<()> {
+    let rows = sqlx::query("PRAGMA table_info(worker)")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("worker table info: {e}")))?;
+    let columns: Vec<String> = rows.into_iter().map(|row| row.get("name")).collect();
+    if !columns.iter().any(|existing| existing == "fs_root") {
+        sqlx::query("ALTER TABLE worker ADD COLUMN fs_root TEXT")
+            .execute(pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("add worker.fs_root: {e}")))?;
+    }
+    Ok(())
+}
+
 pub(crate) async fn ensure_role_columns(pool: &sqlx::Pool<sqlx::Sqlite>) -> ArgoResult<()> {
     let rows = sqlx::query("PRAGMA table_info(role)")
         .fetch_all(pool)
