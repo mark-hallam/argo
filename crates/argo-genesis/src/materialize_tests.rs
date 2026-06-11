@@ -341,6 +341,44 @@ fn genesis_hire_naming_variants_all_extract_the_name() {
 }
 
 #[test]
+fn genesis_hire_persona_slot_in_charter_wins_over_first_word_and_slug() {
+    // Day-1 fix 4 live repro: intake persona slot = "Ava", charter starts
+    // "Read invoice files…", and the persona slug regressed to the
+    // charter's first word ("read"). The `Persona:` slot value must
+    // become the teammate's display name — never "Read".
+    let spec = named_spec(
+        "Read invoice files from the inbox and draft payment reminders.\n\n\
+         Persona: Ava\nCadence: every weekday morning",
+        "read",
+    );
+    let plan = materialize_spec(&spec).expect("materialize");
+    assert_eq!(
+        plan.manifest.vertical.name, "Ava",
+        "the Persona: slot value must be the display name"
+    );
+}
+
+#[test]
+fn persona_name_from_role_text_extracts_slot_and_ignores_prose() {
+    use crate::persona_name_from_role_text;
+    // Slot line (any case), bulleted slot line, and `persona is` all hit.
+    assert_eq!(
+        persona_name_from_role_text("Do things.\nPERSONA: Ava\nCadence: daily").as_deref(),
+        Some("Ava"),
+    );
+    assert_eq!(
+        persona_name_from_role_text("- persona: maria garcia\n- cadence: daily").as_deref(),
+        Some("Maria"),
+    );
+    assert_eq!(
+        persona_name_from_role_text("Their persona is Nori"),
+        None,
+        "mid-sentence prose must not false-positive",
+    );
+    assert_eq!(persona_name_from_role_text("Chase overdue invoices."), None);
+}
+
+#[test]
 fn genesis_hire_no_name_in_charter_humanizes_the_persona_slug() {
     // No naming phrase in the charter, but a real persona slug → Title-Cased
     // name from the slug (`maya` → "Maya", `maria-garcia` → "Maria Garcia").

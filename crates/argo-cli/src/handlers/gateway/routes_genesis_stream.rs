@@ -419,11 +419,18 @@ fn provider_key_present() -> bool {
     non_empty(PROVIDER_KEY_ENV) || PROVIDER_KEY_ALIASES.iter().any(|k| non_empty(k))
 }
 
+/// Resolve the persona slug for the run: the explicit `persona` body
+/// field wins; else a `Persona: <Name>` slot embedded in the role text
+/// (the intake conversation's persona slot rides inside the SPA's
+/// composed `role_description` — day-1 fix 4: ignoring it minted a
+/// teammate named after the charter's first word, "Read"); else the
+/// first-word fallback.
 fn persona_for(explicit: Option<&str>, role_description: &str) -> String {
     let raw = explicit
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(str::to_string)
+        .or_else(|| argo_genesis::persona_name_from_role_text(role_description))
         .unwrap_or_else(|| derive_persona(role_description));
     name_to_persona_slug(&raw)
 }

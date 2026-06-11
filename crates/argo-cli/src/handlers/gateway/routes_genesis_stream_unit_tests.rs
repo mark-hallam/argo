@@ -41,3 +41,20 @@ fn derive_persona_falls_back_to_operator_on_noise() {
     let derived = derive_persona("Marketing intern needed asap");
     assert_eq!(derived, "Marketing");
 }
+
+#[test]
+fn persona_for_honours_the_persona_slot_in_the_role_text() {
+    // Day-1 fix 4 live repro: the SPA posted no `persona` body field but
+    // the composed role text carried the intake's `Persona: Ava` slot.
+    // The slug must be "ava" — not the charter's first word "read".
+    let role = "Read invoice files from the inbox and draft payment \
+                reminders.\n\nPersona: Ava\nCadence: every weekday morning";
+    assert_eq!(persona_for(None, role), "ava");
+    // An explicit body field still wins over the embedded slot.
+    assert_eq!(persona_for(Some("Maya"), role), "maya");
+    // No slot anywhere → the historical first-word fallback (slugged).
+    assert_eq!(
+        persona_for(None, "Chase overdue invoices politely."),
+        "chase"
+    );
+}

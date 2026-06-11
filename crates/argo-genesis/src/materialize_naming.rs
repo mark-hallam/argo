@@ -31,16 +31,23 @@ const GENERIC_PERSONA_SLUGS: &[&str] = &["worker", "operator", "pioneer"];
 /// "Genesis Teammate (sales)").
 ///
 /// Resolution order (first hit wins):
-/// 1. An explicit name written into the charter (`named Maya`, `call her
+/// 1. A `Persona:` slot value written into the charter (`Persona: Ava`)
+///    — the intake's persona slot IS the name the operator chose; it
+///    outranks everything (day-1 fix 4: a charter starting "Read invoice
+///    files…" with `Persona: Ava` hired a teammate called "Read").
+/// 2. An explicit name written into the charter (`named Maya`, `call her
 ///    Maya`, `their name is Maya`) — the operator said it out loud, honour it.
-/// 2. The persona slug humanized into a name (`maya` → "Maya", `sam-j` →
+/// 3. The persona slug humanized into a name (`maya` → "Maya", `sam-j` →
 ///    "Sam J", `maria_garcia` → "Maria Garcia") — UNLESS the slug is a
 ///    generic synthesis fallback (`worker` / `operator` / `pioneer`), which is
 ///    not a real name and would read as placeholder text on the roster card.
-/// 3. The nearest-archetype role label (`"Marketing Intern"`, `"Sales SDR"`)
+/// 4. The nearest-archetype role label (`"Marketing Intern"`, `"Sales SDR"`)
 ///    — a real, human-meaningful role name. Never the bare "Genesis Teammate"
 ///    placeholder.
 pub(crate) fn derive_display_name(spec: &CapabilitySpec) -> String {
+    if let Some(persona) = persona_name_from_role_text(&spec.charter) {
+        return persona;
+    }
     if let Some(named) = name_from_charter(&spec.charter) {
         return named;
     }
@@ -48,6 +55,45 @@ pub(crate) fn derive_display_name(spec: &CapabilitySpec) -> String {
         return from_slug;
     }
     spec.nearest_archetype.label().to_string()
+}
+
+/// Pull the PERSONA slot value out of free role text — the
+/// `Persona: Ava` / `persona is Ava` line the intake conversation (and
+/// the SPA's composed `role_description`) carries. Scans line by line
+/// (a name never spans lines, so the following `Cadence:` /
+/// `Exceptions:` slot lines can't bleed into it), matches the marker
+/// case-insensitively, and Title-Cases the captured 1-3 name tokens.
+/// Returns `None` when no persona marker is present.
+///
+/// ```
+/// use argo_genesis::persona_name_from_role_text;
+/// let text = "Read invoice files from the inbox.\n\nPersona: Ava\nCadence: daily";
+/// assert_eq!(persona_name_from_role_text(text).as_deref(), Some("Ava"));
+/// assert_eq!(persona_name_from_role_text("Chase overdue invoices."), None);
+/// ```
+#[must_use]
+pub fn persona_name_from_role_text(text: &str) -> Option<String> {
+    const MARKERS: &[&str] = &["persona:", "persona is ", "persona = "];
+    for line in text.lines() {
+        let lower = line.to_lowercase();
+        for marker in MARKERS {
+            let Some(rel) = lower.find(marker) else {
+                continue;
+            };
+            // Only honour a marker at the start of the line (allowing
+            // list bullets / whitespace) so prose like "…the persona is
+            // configurable" doesn't false-positive mid-sentence.
+            let prefix = &line[..rel];
+            if !prefix.trim_start_matches(['-', '*', '#', ' ', '\t']).is_empty() {
+                continue;
+            }
+            let rest = &line[rel + marker.len()..];
+            if let Some(name) = take_name_tokens(rest) {
+                return Some(name);
+            }
+        }
+    }
+    None
 }
 
 /// Pull an explicit person name out of a free-text charter. Matches the small
