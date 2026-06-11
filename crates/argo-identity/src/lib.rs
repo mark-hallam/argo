@@ -39,6 +39,7 @@ mod store;
 mod store_archive_methods;
 mod store_channels;
 mod store_hire;
+mod store_hire_fs_root;
 mod store_role;
 mod store_skill_tests;
 mod store_skills;
@@ -73,6 +74,9 @@ pub use store_hire::{
     truth_boundary_policy_id_from_provenance, ApprovalPolicyChoice, HireDraft, HireDutyDraft,
     GENESIS_DEFAULT_TRUTH_BOUNDARY_POLICY_ID, GENESIS_PLAN_PROVENANCE_PREFIX, PROBATION_HOURS,
     PROBATION_PROVENANCE_PREFIX, TRUTH_BOUNDARY_PROVENANCE_PREFIX,
+};
+pub use store_hire_fs_root::{
+    default_genesis_fs_root, resolved_fs_root, resolved_fs_root_from_env, TEAMMATES_DIR_NAME,
 };
 pub use store_skills::BulkAssignSkillOutcome;
 pub use tenant::{Tenant, TenantStatus};

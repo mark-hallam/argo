@@ -44,6 +44,7 @@ use serde::{Deserialize, Serialize};
 ///     voice_profile: None,
 ///     tagline: None,
 ///     genesis_plan_id: None,
+///     fs_root: None,
 /// };
 /// assert_eq!(draft.suggested_name, "Maya");
 /// ```
@@ -78,6 +79,17 @@ pub struct HireDraft {
     /// and the persisted worker row.
     #[serde(default)]
     pub genesis_plan_id: Option<String>,
+    /// Optional explicit filesystem jail root (`worker.fs_root` column)
+    /// for the new teammate's file tools. When absent AND the draft
+    /// carries Genesis provenance ([`Self::genesis_plan_id`]), the hire
+    /// path defaults it to `<home>/SkycotTeammates/<persona-slug>/` so a
+    /// Genesis teammate's approved file work lands in the user's own
+    /// folder instead of jailing to the gateway process cwd. An explicit
+    /// value always wins over the default; a non-Genesis hire with no
+    /// explicit value stays `NULL` (unchanged behaviour). See
+    /// [`crate::resolved_fs_root`].
+    #[serde(default)]
+    pub fs_root: Option<String>,
 }
 
 /// `provenance_chain` prefix that marks a Genesis-plan id entry, e.g.

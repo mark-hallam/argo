@@ -48,6 +48,7 @@ fn draft_with(plan_id: Option<String>) -> HireDraft {
         voice_profile: None,
         tagline: Some("Marketing intern persona".into()),
         genesis_plan_id: plan_id,
+        fs_root: None,
     }
 }
 

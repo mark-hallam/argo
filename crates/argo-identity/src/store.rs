@@ -1,9 +1,8 @@
-use crate::store_hire::{assemble_worker_from_draft, validate_hire_draft, HireDraft};
 use crate::store_sql::{
-    ensure_role_columns, ensure_worker_charter_columns, ensure_worker_level_columns,
-    ensure_worker_role_name_columns, ensure_worker_skill_table, ensure_worker_trust_grade_columns,
-    insert_duty, kpis_to_json, parse_worker_id, to_json, worker_from_row, IDENTITY_SCHEMA,
-    WORKER_SELECT,
+    ensure_role_columns, ensure_worker_charter_columns, ensure_worker_fs_root_column,
+    ensure_worker_level_columns, ensure_worker_role_name_columns, ensure_worker_skill_table,
+    ensure_worker_trust_grade_columns, insert_duty, kpis_to_json, parse_worker_id, to_json,
+    worker_from_row, IDENTITY_SCHEMA, WORKER_SELECT,
 };
 use crate::{circuit, Duty, Worker, WorkerId, WorkerLevel, WorkerUpdate};
 use argo_store::SessionStore;
@@ -112,6 +111,7 @@ impl<'a> IdentityStore<'a> {
         ensure_worker_trust_grade_columns(self.store.pool()).await?;
         ensure_worker_skill_table(self.store.pool()).await?;
         ensure_worker_role_name_columns(self.store.pool()).await?;
+        ensure_worker_fs_root_column(self.store.pool()).await?;
         Ok(())
     }
 
@@ -464,26 +464,9 @@ impl<'a> IdentityStore<'a> {
             .ok_or_else(|| ArgoError::NotFound(format!("worker {worker_id} in tenant {tenant_id}")))
     }
 
-    /// Commit a worker from a hire draft (Stream J5).
-    ///
-    /// Assembles a [`Worker`] from `draft`, the caller's `tenant_id`,
-    /// and the `principal_id` of the operator placing the hire (stored
-    /// as `persona.builder_attribution`), then forwards to the existing
-    /// [`Self::create_worker`] transactional path. Validation errors
-    /// surface as [`ArgoError::Schema`] so the HTTP layer can map them
-    /// to 400; the underlying `create_worker` SQL errors continue to
-    /// surface as [`ArgoError::Provider`].
-    pub async fn create_worker_from_draft(
-        &self,
-        draft: &HireDraft,
-        tenant_id: TenantId,
-        principal_id: &str,
-    ) -> ArgoResult<WorkerId> {
-        validate_hire_draft(draft)?;
-        let worker = assemble_worker_from_draft(draft, tenant_id, principal_id);
-        self.create_worker(&worker).await?;
-        Ok(worker.id)
-    }
+    // NB: `create_worker_from_draft` (the J5 hire-draft commit) lives in
+    // the sibling [`crate::store_hire_fs_root`] — moved there with the
+    // fs_root default resolution for LOC headroom.
 }
 
 #[cfg(test)]

@@ -393,6 +393,7 @@ pub(super) fn build_first_hire_draft(
         }),
         tagline: Some(description.to_string()),
         genesis_plan_id: Some(plan.vertical_id.clone()),
+        fs_root: None,
     };
     FirstHireDraft {
         draft,
