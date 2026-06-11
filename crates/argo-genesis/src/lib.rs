@@ -60,6 +60,7 @@ pub mod job_description;
 pub mod manifest_writer;
 pub mod materialize;
 mod materialize_naming;
+mod materialize_tools;
 pub mod materialize_writer;
 pub mod memory_schema;
 pub mod onboarding_documents;

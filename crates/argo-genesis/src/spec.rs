@@ -342,7 +342,9 @@ fn synthesized_intent(action_name: &str) -> String {
 /// Turn a `snake_case` action name into a lower-case space-separated verb
 /// phrase (`draft_truck_plan` → "draft truck plan"). Falls back to "perform a
 /// task" for an empty/degenerate name so the description is never blank.
-fn humanize_action_name(action_name: &str) -> String {
+/// `pub(crate)`: also feeds the runtime-tool signal text in
+/// [`crate::materialize_tools`].
+pub(crate) fn humanize_action_name(action_name: &str) -> String {
     let words: Vec<&str> = action_name
         .split(|c: char| !c.is_ascii_alphanumeric())
         .filter(|s| !s.is_empty())

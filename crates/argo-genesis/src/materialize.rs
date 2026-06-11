@@ -19,9 +19,11 @@
 //!    declaration carrying `risk` + `requires_approval` + a real `executor`
 //!    (closing the `executor="human"`-everywhere gap — but per DEC-025 #6 an
 //!    `Mcp` intent is recorded as a draft integration, NOT auto-bound).
-//! 3. Emit `[tools]` (least-privilege allow = the action vocabulary; deny =
-//!    the structural sensitive verbs not in the allow-set), `[mcp_servers]`
-//!    (draft), and `[escalation]` — none of which Genesis writes today.
+//! 3. Emit `[tools]` (least-privilege RUNTIME-TOOL allow-list — safe
+//!    baseline + role-conditional grants, with the shell/exec/transmit
+//!    family + structural sensitive verbs denied; see
+//!    [`crate::materialize_tools`]), `[mcp_servers]` (draft), and
+//!    `[escalation]` — none of which Genesis writes today.
 //! 4. Emit typed `[[kpi]]` from `success_metrics` (falling back to the SLA
 //!    skeleton so `role.kpis` is never empty).
 //! 5. Companion files via **archetype-free** writers
@@ -46,7 +48,7 @@ use crate::{memory_schema, pipeline::GenesisPlan};
 use argo_vertical::{
     ActionDeclaration, ActionsSection, EscalationSection, ExecutorDeclaration, KpiComparator,
     KpiDefinition, KpiGate, KpiKind, McpServerDeclaration, McpServersSection, RoleSection,
-    SuccessMetricsSection, ToolsSection, VerticalIdentity, VerticalManifest, WorkflowsSection,
+    SuccessMetricsSection, VerticalIdentity, VerticalManifest, WorkflowsSection,
     SCHEMA_VERSION,
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -139,7 +141,10 @@ fn build_spec_manifest(
             system_prompt: "prompts/system.md".to_string(),
             persona: Some("prompts/persona.md".to_string()),
         }),
-        tools: Some(build_tools(&actions)),
+        // Runtime-tool allow/deny list (the capability-fence input) — REAL
+        // in-core tool names conservatively derived from the role, NEVER the
+        // action vocabulary (see `materialize_tools` for the bug this fixed).
+        tools: Some(crate::materialize_tools::build_tools(spec, &actions)),
         memory: Some(memory_schema::manifest_section()),
         escalation: Some(build_escalation(spec)),
         kpis: build_kpis(spec),
@@ -164,7 +169,7 @@ fn build_spec_manifest(
 /// executor is real (from [`ExecutorIntent`]) — but per DEC-025 #6 an `Mcp`
 /// intent does NOT auto-bind a live server: the action still runs `human` and
 /// the server name is surfaced only in `[mcp_servers]` (recorded as draft).
-fn build_actions(spec: &CapabilitySpec) -> ActionsSection {
+pub(crate) fn build_actions(spec: &CapabilitySpec) -> ActionsSection {
     let mut actions: BTreeMap<String, ActionDeclaration> = BTreeMap::new();
     for cap in &spec.capabilities {
         // De-dupe by action name (a sanitised collision keeps the first).
@@ -198,27 +203,6 @@ fn executor_declaration(intent: &ExecutorIntent) -> ExecutorDeclaration {
             ExecutorDeclaration::Legacy("human".to_string())
         }
     }
-}
-
-/// Build the least-privilege `[tools]` section.
-///
-/// - `allowed`: the teammate's own action vocabulary (the deny-by-default
-///   fence's allow-set is derived from these + this list at hire).
-/// - `denied`: every structural sensitive verb that is NOT a declared action
-///   — an explicit belt-and-braces fence so even a hallucinated tool name
-///   carrying `send`/`pay`/`delete`/… is refused.
-///
-/// A spec with no capabilities would yield `allowed=[]` (deny-all) — but
-/// [`materialize_spec`] rejects an empty spec upstream, so the materialized
-/// teammate always has a real, non-empty least-privilege profile.
-fn build_tools(actions: &ActionsSection) -> ToolsSection {
-    let allowed: Vec<String> = actions.actions.keys().cloned().collect();
-    let denied: Vec<String> = safety_judge::SENSITIVE_VERBS
-        .iter()
-        .map(|verb| (*verb).to_string())
-        .filter(|verb| !allowed.iter().any(|a| a == verb))
-        .collect();
-    ToolsSection { allowed, denied }
 }
 
 /// Build `[mcp_servers]` from the spec's `Mcp` executor intents. Each named
