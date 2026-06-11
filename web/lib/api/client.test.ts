@@ -326,6 +326,106 @@ describe("lib/api/client", () => {
     });
   });
 
+  describe("CSRF 403 self-heal (re-fetch token + retry once)", () => {
+    const ORIGINAL_COOKIE = Object.getOwnPropertyDescriptor(
+      Document.prototype,
+      "cookie",
+    );
+
+    function stubCookie(value: string) {
+      Object.defineProperty(document, "cookie", {
+        configurable: true,
+        get: () => value,
+        set: () => {},
+      });
+    }
+
+    afterEach(() => {
+      if (ORIGINAL_COOKIE) {
+        Object.defineProperty(Document.prototype, "cookie", ORIGINAL_COOKIE);
+      }
+    });
+
+    it("re-fetches a fresh token and retries once on 403 csrf_mismatch", async () => {
+      stubCookie("__Host-csrf=stale-tok");
+      const seen: string[] = [];
+      let gatewayCalls = 0;
+      const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        if (url.endsWith("/api/auth/session")) {
+          return Promise.resolve(makeResponse({ status: 200, body: {} }));
+        }
+        if (url.endsWith("/api/v1/auth/csrf")) {
+          return Promise.resolve(makeResponse({ status: 200, body: { token: "fresh-tok" } }));
+        }
+        const req = new Request(url, init);
+        seen.push(req.headers.get("X-CSRF-Token") ?? "");
+        gatewayCalls += 1;
+        if (gatewayCalls === 1) {
+          return Promise.resolve(
+            makeResponse({ status: 403, body: { error: "csrf_mismatch", reason: "x" } }),
+          );
+        }
+        return Promise.resolve(makeResponse({ status: 200, body: { ok: true } }));
+      });
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+      const out = await apiPost<{ ok: boolean }>("/api/v1/workers", {});
+      expect(out).toEqual({ ok: true });
+      expect(gatewayCalls).toBe(2);
+      expect(seen[0]).toBe("stale-tok");
+      expect(seen[1]).toBe("fresh-tok");
+    });
+
+    it("retries at most ONCE — a persistent 403 csrf_missing surfaces the error", async () => {
+      stubCookie("__Host-csrf=stale-tok");
+      let gatewayCalls = 0;
+      const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        if (url.endsWith("/api/auth/session")) {
+          return Promise.resolve(makeResponse({ status: 200, body: {} }));
+        }
+        if (url.endsWith("/api/v1/auth/csrf")) {
+          return Promise.resolve(makeResponse({ status: 200, body: { token: "fresh-tok" } }));
+        }
+        void init;
+        gatewayCalls += 1;
+        return Promise.resolve(
+          makeResponse({ status: 403, body: { error: "csrf_missing", reason: "x" } }),
+        );
+      });
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+      await expect(apiPost("/api/v1/workers", {})).rejects.toMatchObject({ status: 403 });
+      expect(gatewayCalls).toBe(2); // original + exactly one retry, no loop
+    });
+
+    it("does NOT retry a 403 RBAC forbidden (only csrf_* self-heals)", async () => {
+      stubCookie("__Host-csrf=tok");
+      let gatewayCalls = 0;
+      let csrfFetches = 0;
+      const fetchMock = vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        if (url.endsWith("/api/auth/session")) {
+          return Promise.resolve(makeResponse({ status: 200, body: {} }));
+        }
+        if (url.endsWith("/api/v1/auth/csrf")) {
+          csrfFetches += 1;
+          return Promise.resolve(makeResponse({ status: 200, body: { token: "x" } }));
+        }
+        gatewayCalls += 1;
+        return Promise.resolve(
+          makeResponse({ status: 403, body: { error: { code: "forbidden", message: "no cap" } } }),
+        );
+      });
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+      await expect(apiPost("/api/v1/workers", {})).rejects.toMatchObject({
+        status: 403,
+        code: "forbidden",
+      });
+      expect(gatewayCalls).toBe(1);
+      expect(csrfFetches).toBe(0);
+    });
+  });
+
   describe("gatewayBase URL resolution (F01 fix — same-origin in browser)", () => {
     it("browser context: uses same-origin path with no gateway prefix", async () => {
       // The default test env (happy-dom) has `window` defined, so this

@@ -28,6 +28,16 @@ pub(super) const SESSION_COOKIE: &str = "__Host-session";
 pub(super) const CSRF_COOKIE: &str = "__Host-csrf";
 pub(super) const CSRF_HEADER: &str = "X-CSRF-Token";
 
+/// Non-`__Host-`-prefixed CSRF cookie name, emitted + honoured ONLY in
+/// non-production (dev) mode. The `__Host-` prefix requires the `Secure`
+/// attribute and an HTTPS origin, so `__Host-csrf` does not round-trip on
+/// a plain `http://localhost` dev origin in some browsers — leaving the
+/// double-submit compare with no cookie to read. In dev the verify route
+/// additionally mints this plain `csrf` cookie (SameSite=Lax, no Secure)
+/// so a local-dev hire still has a readable token. Production never emits
+/// or accepts it; the strict `__Host-csrf` + Secure posture is unchanged.
+pub(super) const DEV_CSRF_COOKIE: &str = "csrf";
+
 const REJECT_BODY_MISSING: &str =
     r#"{"error":"csrf_missing","reason":"X-CSRF-Token header required for cookie-auth requests"}"#;
 const REJECT_BODY_MISMATCH: &str =
@@ -37,11 +47,29 @@ const REJECT_BODY_MISMATCH: &str =
 /// check. Returns `None` for the skip-cases listed in the module
 /// docs.
 pub(super) fn check_csrf(req: &str) -> Option<(&'static str, String)> {
+    // Dev-origin fallback to the plain `csrf` cookie is enabled only
+    // when the gateway is NOT in production mode. In production the
+    // strict `__Host-csrf` cookie is the only one read, so a forged
+    // plain `csrf` cookie can never satisfy the compare.
+    check_csrf_impl(
+        req,
+        !super::routes_auth_production_mode::bind_aware_production_mode(),
+    )
+}
+
+fn check_csrf_impl(req: &str, allow_dev_cookie: bool) -> Option<(&'static str, String)> {
     if !is_mutating_request(req) || is_anonymous_auth(req) {
         return None;
     }
     let session_present = cookie_value(req, SESSION_COOKIE).is_some();
-    let Some(csrf_cookie) = cookie_value(req, CSRF_COOKIE) else {
+    // Prefer the strict `__Host-csrf` cookie; fall back to the plain
+    // dev `csrf` cookie only when allowed AND the strict one is absent.
+    let csrf_cookie = cookie_value(req, CSRF_COOKIE).or_else(|| {
+        allow_dev_cookie
+            .then(|| cookie_value(req, DEV_CSRF_COOKIE))
+            .flatten()
+    });
+    let Some(csrf_cookie) = csrf_cookie else {
         return if session_present {
             Some(("403 Forbidden", REJECT_BODY_MISSING.to_string()))
         } else {
@@ -193,6 +221,71 @@ mod tests {
         let resp = check_csrf(&r).expect("rejected");
         assert_eq!(resp.0, "403 Forbidden");
         assert!(resp.1.contains("csrf_mismatch"));
+    }
+
+    #[test]
+    fn dev_csrf_cookie_accepted_when_allowed() {
+        // http://localhost dev path: only the plain `csrf` cookie
+        // round-trips. With dev fallback on, the double-submit compare
+        // reads it and passes when the header matches.
+        let r = req(
+            "POST",
+            "/api/v1/workers",
+            &[
+                ("Cookie", "__Host-session=abc; csrf=devtok"),
+                ("X-CSRF-Token", "devtok"),
+            ],
+        );
+        assert!(check_csrf_impl(&r, true).is_none());
+    }
+
+    #[test]
+    fn dev_csrf_cookie_ignored_in_production() {
+        // In production the plain `csrf` cookie is NOT honoured; with
+        // no `__Host-csrf` present the gate treats the token as missing.
+        let r = req(
+            "POST",
+            "/api/v1/workers",
+            &[
+                ("Cookie", "__Host-session=abc; csrf=devtok"),
+                ("X-CSRF-Token", "devtok"),
+            ],
+        );
+        let resp = check_csrf_impl(&r, false).expect("rejected");
+        assert_eq!(resp.0, "403 Forbidden");
+        assert!(resp.1.contains("csrf_missing"));
+    }
+
+    #[test]
+    fn host_csrf_cookie_preferred_over_dev_cookie() {
+        // When both cookies are present the strict `__Host-csrf` wins,
+        // so a mismatched plain `csrf` cookie cannot weaken the compare.
+        let r = req(
+            "POST",
+            "/api/v1/workers",
+            &[
+                (
+                    "Cookie",
+                    "__Host-session=abc; __Host-csrf=strict; csrf=devtok",
+                ),
+                ("X-CSRF-Token", "strict"),
+            ],
+        );
+        assert!(check_csrf_impl(&r, true).is_none());
+        // Header matching only the dev cookie is rejected — the strict
+        // cookie is the one compared.
+        let r2 = req(
+            "POST",
+            "/api/v1/workers",
+            &[
+                (
+                    "Cookie",
+                    "__Host-session=abc; __Host-csrf=strict; csrf=devtok",
+                ),
+                ("X-CSRF-Token", "devtok"),
+            ],
+        );
+        assert!(check_csrf_impl(&r2, true).is_some());
     }
 
     #[test]

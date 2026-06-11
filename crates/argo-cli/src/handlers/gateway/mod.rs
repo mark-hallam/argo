@@ -364,6 +364,13 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
                 &cfg.gateway.cors,
                 routes_auth_production_mode::is_production_mode_for_bind(&bind),
             );
+            // Capture the bind-AWARE production decision once for the
+            // per-request CSRF gates (cookie emit + double-submit compare),
+            // which cannot see `bind` themselves. Without this they'd fall
+            // back to the bind-BLIND heuristic and mint a non-Secure dev
+            // CSRF cookie on a `--bind 0.0.0.0`-behind-a-proxy production
+            // deploy that omitted `ARGO_GATEWAY_PROFILE` (#2827 review).
+            routes_auth_production_mode::record_bind_production(&bind);
             // mission-per-tenant-rate-limiting: layer the per-tenant
             // limiter on top of the `[gateway.rate_limit.tenant]`
             // config block and hydrate per-tenant overrides from the

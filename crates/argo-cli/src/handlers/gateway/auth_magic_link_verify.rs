@@ -19,6 +19,7 @@ use tokio::net::TcpStream;
 
 const SESSION_COOKIE_NAME: &str = "__Host-session";
 const CSRF_COOKIE_NAME: &str = "__Host-csrf";
+use super::super::middleware_csrf::DEV_CSRF_COOKIE;
 
 #[derive(Debug, Deserialize)]
 struct VerifyBody {
@@ -143,14 +144,37 @@ pub(crate) async fn verify_outcome(
     // double-submit pattern in `middleware_csrf` compares the
     // cookie value to the header value. Emitted as one
     // `\r\nSet-Cookie: `-separated string so the stream writer
-    // emits two header lines without needing a `Vec<String>`.
+    // emits one header line per cookie without needing a `Vec<String>`.
     VerifyOutcome {
         status: "200 OK",
         body: body.to_string(),
-        set_cookie: Some(format!(
-            "{SESSION_COOKIE_NAME}={jwt}; Max-Age={JWT_TTL_SECS}; Path=/; HttpOnly; Secure; SameSite=Lax\r\nSet-Cookie: {CSRF_COOKIE_NAME}={jti}; Max-Age={JWT_TTL_SECS}; Path=/; Secure; SameSite=Lax"
+        set_cookie: Some(build_set_cookie(
+            &jwt,
+            &jti,
+            super::super::routes_auth_production_mode::bind_aware_production_mode(),
         )),
     }
+}
+
+/// Build the `Set-Cookie` header value(s) for a successful verify.
+///
+/// Always emits the strict `__Host-session` + `__Host-csrf` pair
+/// (HttpOnly / Secure — the production posture). In non-production
+/// (dev) mode it ALSO emits a plain `csrf` cookie (no `__Host-` prefix,
+/// no `Secure`) so the double-submit CSRF compare has a readable cookie
+/// on a plain `http://localhost` dev origin, where `__Host-` cookies do
+/// not round-trip in some browsers. Cookies are joined with
+/// `\r\nSet-Cookie: ` so the stream writer emits one header line each.
+fn build_set_cookie(jwt: &str, jti: &str, production: bool) -> String {
+    let mut cookie = format!(
+        "{SESSION_COOKIE_NAME}={jwt}; Max-Age={JWT_TTL_SECS}; Path=/; HttpOnly; Secure; SameSite=Lax\r\nSet-Cookie: {CSRF_COOKIE_NAME}={jti}; Max-Age={JWT_TTL_SECS}; Path=/; Secure; SameSite=Lax"
+    );
+    if !production {
+        cookie.push_str(&format!(
+            "\r\nSet-Cookie: {DEV_CSRF_COOKIE}={jti}; Max-Age={JWT_TTL_SECS}; Path=/; SameSite=Lax"
+        ));
+    }
+    cookie
 }
 
 pub(crate) fn err_outcome(status: &'static str, msg: &str) -> VerifyOutcome {
@@ -240,3 +264,38 @@ fn default_workspace_name(email: &str) -> String {
 #[cfg(test)]
 #[path = "auth_magic_link_verify_provision_tests.rs"]
 mod provision_tests;
+
+#[cfg(test)]
+mod set_cookie_tests {
+    use super::*;
+
+    #[test]
+    fn production_emits_strict_host_cookies_only() {
+        let c = build_set_cookie("jwt-val", "jti-val", true);
+        assert!(c.contains("__Host-session=jwt-val"));
+        assert!(c.contains("__Host-csrf=jti-val; Max-Age="));
+        // Both strict cookies carry Secure.
+        assert_eq!(c.matches("Secure").count(), 2);
+        // No plain dev cookie line in production.
+        assert!(!c.contains("\r\nSet-Cookie: csrf=jti-val"));
+    }
+
+    #[test]
+    fn dev_also_emits_plain_csrf_cookie_without_secure() {
+        let c = build_set_cookie("jwt-val", "jti-val", false);
+        // Strict cookies are unchanged in dev too.
+        assert!(c.contains("__Host-session=jwt-val; Max-Age="));
+        assert!(c.contains("__Host-csrf=jti-val; Max-Age="));
+        // The extra dev cookie line is present...
+        assert!(c.contains("\r\nSet-Cookie: csrf=jti-val; Max-Age="));
+        // ...and it carries NO Secure (so it round-trips on http).
+        let dev_line = c
+            .lines()
+            .find(|l| l.contains("csrf=jti-val; Max-Age=") && !l.contains("__Host"))
+            .expect("dev csrf cookie line present");
+        assert!(!dev_line.contains("Secure"));
+        assert!(dev_line.contains("SameSite=Lax"));
+        // Still only the two strict cookies carry Secure.
+        assert_eq!(c.matches("Secure").count(), 2);
+    }
+}

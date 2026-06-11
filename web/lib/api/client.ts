@@ -13,7 +13,7 @@
 
 import { ApiError, GatewayTimeoutError, type ApiErrorEnvelope } from "./types";
 import { resolveTenantId } from "./tenant";
-import { resolveCsrfToken } from "@/lib/auth/csrf-token";
+import { resolveCsrfToken, fetchCsrfTokenViaXhr } from "@/lib/auth/csrf-token";
 import {
   buildSigninUrlWithReturnTo,
   captureCurrentLocationAsReturnTo,
@@ -133,6 +133,24 @@ function isSessionEndedBody(rawBody: string): boolean {
     if (typeof code === "string" && SESSION_END_CODES.has(code)) return true;
   }
   return false;
+}
+
+/**
+ * True when a 403 body is the gateway's CSRF double-submit rejection
+ * (`{"error":"csrf_missing",...}` or `{"error":"csrf_mismatch",...}`
+ * from `middleware_csrf`). These are the only 403s worth a token
+ * re-fetch + single retry; an RBAC `{"error":{"code":"forbidden"}}`
+ * envelope is NOT (the operator genuinely lacks the capability, so a
+ * retry would just 403 again).
+ */
+function isCsrfRejection(rawBody: string): boolean {
+  if (!rawBody) return false;
+  try {
+    const parsed = JSON.parse(rawBody) as { error?: unknown };
+    return parsed.error === "csrf_missing" || parsed.error === "csrf_mismatch";
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -309,17 +327,44 @@ async function request<T>(method: string, path: string, init: ApiRequestInit = {
   // `timeoutMs` overrides either default.
   const isRead = method === "GET" || method === "HEAD";
   const effectiveTimeoutMs = timeoutMs ?? (isRead ? READ_TIMEOUT_MS : 0);
-  const res = await fetchWithTimeout(
-    url,
-    {
-      ...rest,
-      method,
-      headers: finalHeaders,
-      body: json !== undefined ? JSON.stringify(json) : undefined,
-    },
-    effectiveTimeoutMs,
-    path,
-  );
+  const body = json !== undefined ? JSON.stringify(json) : undefined;
+  const send = () =>
+    fetchWithTimeout(
+      url,
+      { ...rest, method, headers: finalHeaders, body },
+      effectiveTimeoutMs,
+      path,
+    );
+
+  let res = await send();
+
+  // CSRF self-heal (brief fix-browser-hire-csrf-after-gateway-restart).
+  // A cookie-auth mutating request can come back 403 csrf_missing /
+  // csrf_mismatch when the SPA's token has desynced from the
+  // `__Host-csrf` cookie — most often after a mid-session gateway
+  // restart re-minted it. Re-fetch a fresh token from
+  // `GET /api/v1/auth/csrf`, stamp it, and retry the request EXACTLY
+  // once. Browser-only (the XHR fetch needs same-origin cookies) and
+  // only for mutating verbs (reads never carry the CSRF header). If the
+  // retry still fails the honest error surfaces below — nothing is
+  // swallowed, and an RBAC `forbidden` 403 is never retried.
+  if (
+    res.status === 403 &&
+    typeof window !== "undefined" &&
+    MUTATING_METHODS.has(method.toUpperCase())
+  ) {
+    const rawBody = await res
+      .clone()
+      .text()
+      .catch(() => "");
+    if (isCsrfRejection(rawBody)) {
+      const fresh = await fetchCsrfTokenViaXhr();
+      if (fresh) {
+        finalHeaders.set("X-CSRF-Token", fresh);
+        res = await send();
+      }
+    }
+  }
 
   if (!res.ok) throw await parseError(res);
   if (res.status === 204) return undefined as T;

@@ -7,10 +7,36 @@
 //! explicit `--bind` value with [`is_production_mode_for_bind`].
 
 use std::net::{IpAddr, SocketAddr};
+use std::sync::OnceLock;
 
 const PROFILE_ENV: &str = "ARGO_GATEWAY_PROFILE";
 const BIND_ENV: &str = "ARGO_GATEWAY_BIND";
 pub(super) const BEARER_TOKEN_ENV: &str = "ARGO_GATEWAY_BEARER_TOKEN";
+
+/// The bind-AWARE production decision, captured ONCE at gateway boot from
+/// the runtime `--bind` value (via [`record_bind_production`]). Per-request
+/// gates that cannot see `bind` (CSRF middleware, cookie emit) read it
+/// through [`bind_aware_production_mode`]. Write-once; never mutated after
+/// boot — the same pattern the bearer-token / CORS boot gates use.
+static BIND_PRODUCTION: OnceLock<bool> = OnceLock::new();
+
+/// Capture the bind-aware production decision at boot. Called once from the
+/// gateway boot path where the runtime `--bind` is in scope. Idempotent
+/// (first writer wins; subsequent calls are no-ops).
+pub(super) fn record_bind_production(bind: &str) {
+    let _ = BIND_PRODUCTION.set(is_production_mode_for_bind(bind));
+}
+
+/// The bind-AWARE production decision for per-request gates. Prefers the
+/// boot-captured value; **fails CLOSED to production (`true`)** when boot
+/// has not recorded it yet — so a path reading it before boot can never
+/// fail-open (e.g. silently mint a non-`Secure` dev CSRF cookie). Replaces
+/// the bind-BLIND [`is_production_mode`] at the CSRF gates, which the
+/// bearer-token / encryption / CORS gates already abandoned as fail-open
+/// for a `--bind 0.0.0.0`-behind-a-proxy deploy with no `ARGO_GATEWAY_PROFILE`.
+pub(super) fn bind_aware_production_mode() -> bool {
+    *BIND_PRODUCTION.get().unwrap_or(&true)
+}
 
 pub(super) fn is_production_mode() -> bool {
     profile_is_production()

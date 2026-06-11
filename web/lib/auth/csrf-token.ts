@@ -20,10 +20,19 @@
  */
 
 const CSRF_COOKIE = "__Host-csrf";
+// Plain dev-origin cookie name (no `__Host-` prefix). The gateway mints
+// this ONLY in non-production mode, because `__Host-csrf` requires
+// `Secure` + HTTPS and does not round-trip on a plain `http://localhost`
+// dev origin. Read it as a fallback so local-dev hire works; production
+// always carries `__Host-csrf` so this branch is never reached there.
+const DEV_CSRF_COOKIE = "csrf";
 const FETCH_FALLBACK_URL = "/api/v1/auth/csrf";
 
 /**
  * Return the current CSRF token, or `undefined` if no cookie is set.
+ *
+ * Prefers the strict `__Host-csrf` cookie and falls back to the plain
+ * dev `csrf` cookie (set only on a non-production HTTP origin).
  *
  * SSR: returns `undefined` (no `document` in the Node environment).
  * Callers in server components should fetch the cookie value via
@@ -31,7 +40,11 @@ const FETCH_FALLBACK_URL = "/api/v1/auth/csrf";
  */
 export function readCsrfTokenFromCookie(): string | undefined {
   if (typeof document === "undefined") return undefined;
-  const target = `${CSRF_COOKIE}=`;
+  return readCookie(CSRF_COOKIE) ?? readCookie(DEV_CSRF_COOKIE);
+}
+
+function readCookie(name: string): string | undefined {
+  const target = `${name}=`;
   for (const pair of document.cookie.split(";")) {
     const trimmed = pair.trim();
     if (trimmed.startsWith(target)) {
