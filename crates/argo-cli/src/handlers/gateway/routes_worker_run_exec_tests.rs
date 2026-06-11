@@ -19,13 +19,18 @@
 //!
 //! ## Isolation discipline
 //!
-//! These tests mutate PROCESS-global state (env vars + cwd), so they
-//! serialize on a single mutex and use [`RunEnv`] — an RAII guard that
-//! snapshots every env var it touches, chdir's into the test tempdir,
-//! and on drop restores cwd to a STABLE absolute path
-//! (`CARGO_MANIFEST_DIR`, which always exists) and restores each env var
-//! to its pre-test value. That makes a panic in one test unable to leak
-//! state into the next.
+//! These tests mutate PROCESS-global env vars, so they serialize on a
+//! single mutex and use [`RunEnv`] — an RAII guard that snapshots every
+//! env var it touches and restores each to its pre-test value on drop.
+//! That makes a panic in one test unable to leak state into the next.
+//!
+//! Crucially, they do NOT chdir. The artifact bundle root is steered to
+//! the tempdir via the `ARGO_OUTPUTS_ROOT` seam ([`RunEnv::point_outputs_to_tmp`])
+//! rather than the process cwd. An earlier revision chdir'd into the
+//! tempdir and restored cwd to `CARGO_MANIFEST_DIR` on drop; that global
+//! cwd mutation leaked `.skycot/outputs/<job>/` bundles into the crate
+//! source tree whenever a write raced the restore window, tripping the
+//! worker-loop dirty-tree claim guard (`fix-worker-outputs-tests-write-tempdir`).
 
 #![allow(clippy::expect_used)]
 
@@ -50,6 +55,7 @@ const TOUCHED_ENV: &[&str] = &[
     "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
     "ARGO_WORKER_RUN_PROVIDER",
+    "ARGO_OUTPUTS_ROOT",
 ];
 
 fn workspace_root() -> PathBuf {
@@ -61,18 +67,19 @@ fn workspace_root() -> PathBuf {
 }
 
 /// RAII test environment: holds the serialization guard + tempdir,
-/// snapshots [`TOUCHED_ENV`], and restores cwd + env on drop.
+/// snapshots [`TOUCHED_ENV`], and restores env on drop. Does NOT touch
+/// the process-global cwd — see the module-level isolation note.
 struct RunEnv {
     _guard: OwnedMutexGuard<()>,
     tmp: TempDir,
     saved_env: Vec<(&'static str, Option<String>)>,
-    stable_cwd: PathBuf,
 }
 
 impl RunEnv {
     /// Acquire the lock, snapshot env, and point `ARGO_HOME` +
-    /// `ARGO_VERTICALS_DIR` at the tempdir / workspace. Does NOT chdir
-    /// yet — callers that run a real turn call [`Self::chdir_tmp`].
+    /// `ARGO_VERTICALS_DIR` at the tempdir / workspace. Callers that run
+    /// a real turn additionally call [`Self::point_outputs_to_tmp`] so
+    /// the artifact bundle lands under the tempdir.
     async fn new() -> Self {
         let guard = crate::handlers::gateway::shared_env_lock().await;
         let tmp = TempDir::new().expect("tempdir");
@@ -80,7 +87,6 @@ impl RunEnv {
             .iter()
             .map(|&k| (k, std::env::var(k).ok()))
             .collect();
-        let stable_cwd = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         std::env::set_var("ARGO_HOME", tmp.path().join("home"));
         std::fs::create_dir_all(tmp.path().join("home")).expect("home dir");
         std::env::set_var("ARGO_VERTICALS_DIR", workspace_root().join("verticals"));
@@ -88,7 +94,6 @@ impl RunEnv {
             _guard: guard,
             tmp,
             saved_env,
-            stable_cwd,
         }
     }
 
@@ -100,10 +105,13 @@ impl RunEnv {
         self.tmp.path().to_string_lossy().to_string()
     }
 
-    /// chdir into the tempdir so `process_job` artifact writes land in
-    /// (and are cleaned up with) the tempdir.
-    fn chdir_tmp(&self) {
-        std::env::set_current_dir(self.tmp.path()).expect("chdir tmp");
+    /// Steer `process_job`'s artifact bundle root to the tempdir via the
+    /// `ARGO_OUTPUTS_ROOT` seam (the bundle lands at
+    /// `<tmp>/.skycot/outputs/<job>/`). Replaces an earlier `chdir`-based
+    /// approach that mutated the process-global cwd and leaked bundles
+    /// into the crate source tree on restore.
+    fn point_outputs_to_tmp(&self) {
+        std::env::set_var("ARGO_OUTPUTS_ROOT", self.tmp.path());
     }
 
     fn set(&self, k: &str, v: &str) {
@@ -117,9 +125,8 @@ impl RunEnv {
 
 impl Drop for RunEnv {
     fn drop(&mut self) {
-        // Restore cwd to a stable, always-present dir FIRST (never a
-        // deleted tempdir), then restore each touched env var.
-        let _ = std::env::set_current_dir(&self.stable_cwd);
+        // Restore each touched env var to its pre-test value. cwd is never
+        // mutated by this suite, so there is nothing to restore there.
         for (k, v) in &self.saved_env {
             match v {
                 Some(val) => std::env::set_var(k, val),
@@ -224,7 +231,7 @@ async fn run_happy_path_completes_with_real_fields() {
     // Drive the genuine `process_job` engine with the deterministic mock
     // provider — exercises every phase with NO network call.
     env.set("ARGO_WORKER_RUN_PROVIDER", "mock");
-    env.chdir_tmp();
+    env.point_outputs_to_tmp();
 
     let store = mem_store().await;
     let tenant = fresh_tenant_workspace(&store, &env.root()).await;
@@ -251,6 +258,45 @@ async fn run_happy_path_completes_with_real_fields() {
     assert!(env.path().exists());
 }
 
+/// (b-canary) Regression guard for `fix-worker-outputs-tests-write-tempdir`:
+/// a real run with the `ARGO_OUTPUTS_ROOT` seam pointed at the tempdir
+/// writes its artifact bundle UNDER the tempdir and leaves NO `.skycot/`
+/// directory in the crate source tree. This pins the root fix for the
+/// 2026-06-12 worker stall, where the suite's old chdir-to-`CARGO_MANIFEST_DIR`
+/// discipline leaked `.skycot/outputs/<job>/` into `crates/argo-cli/`,
+/// tripping the worker-loop dirty-tree claim guard.
+#[tokio::test]
+async fn run_writes_bundle_into_tempdir_not_crate_tree() {
+    let env = RunEnv::new().await;
+    env.set("ANTHROPIC_API_KEY", "test-key-present");
+    env.set("ARGO_WORKER_RUN_PROVIDER", "mock");
+    env.point_outputs_to_tmp();
+
+    let store = mem_store().await;
+    let tenant = fresh_tenant_workspace(&store, &env.root()).await;
+    let worker = add_worker(&store, tenant, REAL_VERTICAL).await;
+
+    run_worker_now(&store, &worker, "Summarise today's open tickets.", &[], None)
+        .await
+        .expect("no internal error")
+        .expect("a real turn should have run (not blocked)");
+
+    // The bundle landed under the tempdir's outputs root...
+    let tmp_outputs = env.path().join(".skycot").join("outputs");
+    assert!(
+        tmp_outputs.exists(),
+        "bundle should be written under the tempdir outputs root: {}",
+        tmp_outputs.display()
+    );
+    // ...and NOTHING leaked into the crate source tree.
+    let crate_skycot = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".skycot");
+    assert!(
+        !crate_skycot.exists(),
+        "no .skycot/ may appear in the crate source tree: {}",
+        crate_skycot.display()
+    );
+}
+
 /// (c) Worker attribution (e2e R2-F1): a worker-run turn stamps the
 /// run's worker onto the session row. The audit feed resolves a turn
 /// row's `worker` from `session.worker_id` (the agent runner copies it
@@ -264,7 +310,7 @@ async fn run_stamps_worker_id_onto_session() {
     env.set("ANTHROPIC_API_KEY", "test-key-present");
     // Mock seam → the REAL `process_job` engine, no network LLM call.
     env.set("ARGO_WORKER_RUN_PROVIDER", "mock");
-    env.chdir_tmp();
+    env.point_outputs_to_tmp();
 
     let store = mem_store().await;
     let tenant = fresh_tenant_workspace(&store, &env.root()).await;
@@ -322,7 +368,7 @@ async fn genesis_worker_runs_for_own_tenant() {
     // verticals/ dir, which must stay clean).
     let vroot = env.path().join("vroot");
     env.set("ARGO_VERTICALS_DIR", vroot.to_string_lossy().as_ref());
-    env.chdir_tmp();
+    env.point_outputs_to_tmp();
 
     let store = mem_store().await;
     let tenant = fresh_tenant_workspace(&store, &env.root()).await;

@@ -14,7 +14,34 @@ use argo_memory::{MemoryEntry, MemoryFile, MemoryStore};
 use argo_store::{SessionCreate, SessionStore, WorkerId};
 use argo_types::{ArgoError, ArgoResult, SessionId, TenantId, WorkspaceId};
 use serde_json::{json, Value};
+use std::path::PathBuf;
 use std::sync::Arc;
+
+/// Test-only seam: when set + non-empty, overrides the base directory the
+/// per-job artifact bundle is written under (the bundle lands at
+/// `<base>/.skycot/outputs/<job_id>/`). Production NEVER sets it, so the
+/// gateway run path always anchors the bundle at the process cwd exactly
+/// as before. Tests set it to a `tempfile::tempdir()` so artifact writes
+/// land in (and are cleaned up with) the tempdir WITHOUT mutating the
+/// process-global cwd. Mutating cwd let the bundle leak into the source
+/// tree on a test guard's restore-to-`CARGO_MANIFEST_DIR`, which tripped
+/// the worker-loop dirty-tree claim guard
+/// (`fix-worker-outputs-tests-write-tempdir`). Mirrors the
+/// `ARGO_WORKER_RUN_PROVIDER` provider-override discipline.
+const OUTPUTS_ROOT_OVERRIDE_ENV: &str = "ARGO_OUTPUTS_ROOT";
+
+/// Resolve the base directory the artifact bundle is written under,
+/// honoring the test-only [`OUTPUTS_ROOT_OVERRIDE_ENV`] seam and falling
+/// back to the process cwd (production behavior, unchanged).
+fn resolve_outputs_base() -> ArgoResult<PathBuf> {
+    if let Ok(root) = std::env::var(OUTPUTS_ROOT_OVERRIDE_ENV) {
+        let trimmed = root.trim();
+        if !trimmed.is_empty() {
+            return Ok(PathBuf::from(trimmed));
+        }
+    }
+    std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))
+}
 
 /// Decode `job.body` into a `(prompt, pending_created_at)` pair.
 /// Both fields are surfaced to artifacts + the completed_jobs row,
@@ -189,7 +216,7 @@ pub(super) async fn write_artifacts_and_emit_actions(
     step_run: &StepRunOutput,
     preview: &str,
 ) -> ArgoResult<(Option<String>, Vec<ActionRecord>)> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let cwd = resolve_outputs_base()?;
     let stop_reason_str = step_run.outcome.stop_reason.as_str().to_string();
     let stop_detail_str = step_run.outcome.stop_reason.detail().to_string();
     let inputs = super::work_artifacts::ArtifactInputs {
