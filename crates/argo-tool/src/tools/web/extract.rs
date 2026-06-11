@@ -6,26 +6,22 @@
 //! to all `<p>` tags inside `<body>`. No JS rendering — that's
 //! the browser MCP server's job (#642).
 
-use super::{any_selector, http_client, UA};
+use super::any_selector;
+use super::safe_fetch::safe_fetch_html;
 
 /// Cap on the extracted body length surfaced to the model.
 /// Long-form articles get truncated at ~32k chars; the worker
 /// can re-extract a different region if needed.
 pub(super) const EXTRACT_MAX_CHARS: usize = 32_000;
 
+/// Fetch `url` (a **model-supplied** URL) and extract its readable text.
+///
+/// The fetch is routed through [`safe_fetch_html`] — the SSRF guard — so a
+/// prompt-injected worker cannot make the server read cloud-metadata, the
+/// gateway, or any internal host. The guard validates the scheme + resolved
+/// address of the URL and every redirect hop before connecting.
 pub(super) async fn fetch_and_extract(url: &str) -> Result<(String, String), String> {
-    let client = http_client()?;
-    let resp = client
-        .get(url)
-        .header(reqwest::header::USER_AGENT, UA)
-        .header(reqwest::header::ACCEPT, "text/html,application/xhtml+xml")
-        .send()
-        .await
-        .map_err(|e| format!("fetch {url}: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("status {} for {url}", resp.status()));
-    }
-    let html = resp.text().await.map_err(|e| format!("body {url}: {e}"))?;
+    let html = safe_fetch_html(url).await?;
     Ok(extract_readable(&html))
 }
 

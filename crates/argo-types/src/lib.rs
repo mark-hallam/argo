@@ -31,6 +31,7 @@ mod messages;
 mod plan_provenance;
 mod routing;
 mod secret;
+mod ssrf;
 
 #[cfg(test)]
 mod secret_tests;
@@ -57,6 +58,7 @@ pub use messages::{ContentBlock, Message, MessageRole, ToolCallRequest, ToolCall
 pub use plan_provenance::PlanProvenance;
 pub use routing::{ProviderModel, RoutingDecision, RoutingPolicy, TieredRouting};
 pub use secret::Redacted;
+pub use ssrf::is_blocked_ip;
 
 /// Operator approval decision shared by channel tokens and approval
 /// persistence.

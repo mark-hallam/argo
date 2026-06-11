@@ -3,6 +3,18 @@
 //! Backend selection is env-driven so operators can rotate keys
 //! without a restart, and the test path stays deterministic
 //! (no env → DuckDuckGo HTML scrape).
+//!
+//! ## SSRF audit (fix-web-extract-ssrf-guard)
+//!
+//! Unlike `web_extract`, `web_search` does **not** fetch a model-supplied URL:
+//! the endpoints here are fixed provider hosts (`html.duckduckgo.com`,
+//! `api.tavily.com`, `api.search.brave.com`), overridable only via
+//! operator-controlled env vars (`ARGO_DDG_HTML_URL` / `ARGO_TAVILY_URL` /
+//! `ARGO_BRAVE_URL`). Only the `query` string is model-supplied. There is no
+//! model-controlled URL to forge, so these fetches are not an SSRF vector and
+//! intentionally do not route through the `safe_fetch` guard (which would also
+//! break the JSON POST / custom-header API calls). The model-URL SSRF surface
+//! is `web_extract`, which is guarded in [`super::safe_fetch`].
 
 use super::{any_selector, http_client, UA};
 

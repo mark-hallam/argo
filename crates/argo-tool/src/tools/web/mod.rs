@@ -27,10 +27,12 @@
 //! handles them without changes.
 //!
 //! Sub-modules:
+//!   * `safe_fetch` — SSRF guard for model-supplied URLs (`web_extract`)
 //!   * `search` — backend selection + per-backend fetch + DDG HTML parser
 //!   * `extract` — fetch + readability-style text extraction
 
 mod extract;
+mod safe_fetch;
 mod search;
 
 use crate::tool::{error_text, success_text, Concurrency, Tool, ToolContext};

@@ -23,6 +23,16 @@
 //! agent cannot ask `vision_analyze` to read
 //! `/etc/shadow.png` (#677, runtime workspace containment).
 //!
+//! ## SSRF audit (fix-web-extract-ssrf-guard)
+//!
+//! A `https://…` image input is **not fetched server-side** by this tool — the
+//! URL is passed through to the bound provider, which fetches it from its own
+//! infrastructure (the `source.type=url` image block). So `vision_analyze` is
+//! not a server-side SSRF vector the way `web_extract` was: there is no
+//! gateway-side `client.get(model_url)` here to route through the web tools'
+//! `safe_fetch` guard. (If a future change makes this tool fetch the URL
+//! itself, route it through that guard.)
+//!
 //! ## Provider routing
 //!
 //! Provider routing reuses whichever transport the agent loop

@@ -34,8 +34,7 @@
 //! check blocks the overwhelmingly common static-internal-target attack, which
 //! is the acceptance gate this brief calls out.
 
-use argo_types::{ArgoError, ArgoResult};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use argo_types::{is_blocked_ip, ArgoError, ArgoResult};
 use std::time::Duration;
 
 /// Max decoded body size for a fetched wiki page (bytes). Matches the
@@ -181,60 +180,9 @@ async fn read_capped_body(resp: reqwest::Response, url: &str) -> ArgoResult<Stri
         .map_err(|e| ArgoError::Schema(format!("safe-fetch {url}: body not utf-8: {e}")))
 }
 
-/// `true` when `ip` falls in a range the gateway must never fetch on an
-/// operator-supplied URL's behalf (SSRF defence).
-#[must_use]
-pub(crate) fn is_blocked_ip(ip: IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(v4) => is_blocked_v4(v4),
-        IpAddr::V6(v6) => is_blocked_v6(v6),
-    }
-}
-
-/// Blocked IPv4 ranges: loopback, RFC-1918 private, link-local (incl. the
-/// `169.254.169.254` metadata endpoint), the whole `0.0.0.0/8`
-/// "this host"/"this network" block, broadcast, CGNAT, documentation,
-/// reserved/Class-E (`240.0.0.0/4`), and multicast.
-fn is_blocked_v4(v4: Ipv4Addr) -> bool {
-    let [a, b, _, _] = v4.octets();
-    v4.is_loopback()
-        || v4.is_private()
-        || v4.is_link_local()
-        // 0.0.0.0/8 — "this host"/"this network". `is_unspecified()` only
-        // matches 0.0.0.0, but on Linux any 0.x.x.x routes to localhost, so
-        // `http://0.1.2.3/` would otherwise reach loopback-bound services
-        // (the gateway binds loopback). Block the whole /8.
-        || a == 0
-        || v4.is_broadcast()
-        || v4.is_multicast()
-        || v4.is_documentation()
-        // 100.64.0.0/10 — Carrier-Grade NAT shared address space.
-        || (a == 100 && (64..=127).contains(&b))
-        // 192.0.0.0/24 — IETF protocol assignments.
-        || (a == 192 && b == 0 && v4.octets()[2] == 0)
-        // 240.0.0.0/4 — reserved / Class E (never a legitimate fetch target).
-        || a >= 240
-}
-
-/// Blocked IPv6 ranges: loopback, unspecified, multicast, unique-local
-/// (`fc00::/7`), link-local (`fe80::/10`), and IPv4-mapped addresses whose
-/// embedded v4 is itself blocked.
-fn is_blocked_v6(v6: Ipv6Addr) -> bool {
-    if v6.is_loopback() || v6.is_unspecified() || v6.is_multicast() {
-        return true;
-    }
-    // IPv4-mapped (::ffff:a.b.c.d) — re-check the embedded v4 so a mapped
-    // private address can't slip through.
-    if let Some(mapped) = v6.to_ipv4_mapped() {
-        return is_blocked_v4(mapped);
-    }
-    let first = v6.segments()[0];
-    // fc00::/7 unique-local.
-    let unique_local = (first & 0xfe00) == 0xfc00;
-    // fe80::/10 link-local.
-    let link_local = (first & 0xffc0) == 0xfe80;
-    unique_local || link_local
-}
+// The SSRF address blocklist (`is_blocked_ip`) lives in `argo-types::ssrf` so
+// this fetcher and the `web_extract` tool guard share one source of truth and
+// can never drift to different blocklists. See [`argo_types::is_blocked_ip`].
 
 #[cfg(test)]
 #[path = "safe_fetch_tests.rs"]
