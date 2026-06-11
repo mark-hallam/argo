@@ -29,7 +29,7 @@
 
 #![allow(clippy::expect_used)]
 
-use super::{run_worker_now, RunBlocked};
+use super::{filter_to_worker_tool_set, run_worker_now, RunBlocked};
 use argo_identity::{IdentityStore, Persona, Role, Worker};
 use argo_store::SessionStore;
 use argo_types::TenantId;
@@ -374,4 +374,78 @@ async fn genesis_worker_blocked_cross_tenant() {
         0,
         "no cross-tenant genesis run should have started"
     );
+}
+
+// ---- `approve_tools` membership filter (keystone fix) -----------------
+//
+// Pure-function pins for the no-privilege-escalation property: a
+// requested tool is granted ONLY when the worker would legitimately
+// hold it under the runtime's own least-privilege derivation
+// (manifest `[actions]` + `[tools].allowed`, deny-wins, plus the
+// always-safe MINIMAL_TEAMMATE_TOOLS).
+
+/// Parse a minimal manifest with the given tool + action declarations.
+fn manifest_with(allowed: &str, denied: &str, action: Option<&str>) -> argo_vertical::VerticalManifest {
+    let actions = action
+        .map(|a| {
+            format!(
+                "[actions]\n[actions.{a}]\nrisk = \"low\"\nrequires_approval = false\ndescription = \"d\"\n"
+            )
+        })
+        .unwrap_or_default();
+    let toml = format!(
+        "schema_version = \"1\"\n[vertical]\nid = \"t\"\nname = \"T\"\nversion = \"0.1.0\"\n\
+         [tools]\nallowed = [{allowed}]\ndenied = [{denied}]\n{actions}"
+    );
+    argo_vertical::parse(&toml).expect("parse test manifest")
+}
+
+#[test]
+fn filter_keeps_allowed_and_action_tools_drops_unknown_and_denied() {
+    let m = manifest_with("\"file_read\", \"web_search\"", "\"terminal\"", Some("draft_reply"));
+    let requested: Vec<String> = [
+        "file_read",   // [tools].allowed → kept
+        "draft_reply", // [actions] vocabulary → kept
+        "terminal",    // [tools].denied → dropped (deny wins)
+        "wire_funds",  // not declared anywhere → dropped
+    ]
+    .iter()
+    .map(|s| (*s).to_string())
+    .collect();
+    assert_eq!(
+        filter_to_worker_tool_set(&m, &requested),
+        vec!["file_read".to_string(), "draft_reply".to_string()]
+    );
+}
+
+#[test]
+fn filter_admits_minimal_teammate_tools_unless_denied() {
+    // `memory` is in MINIMAL_TEAMMATE_TOOLS — the runtime grants it to
+    // every fenced teammate, so an operator may pre-approve it even
+    // when the manifest doesn't list it...
+    let m = manifest_with("\"file_read\"", "", None);
+    let req = vec!["memory".to_string()];
+    assert_eq!(filter_to_worker_tool_set(&m, &req), vec!["memory".to_string()]);
+    // ...but an explicit manifest deny still wins.
+    let m_denied = manifest_with("\"file_read\"", "\"memory\"", None);
+    assert!(filter_to_worker_tool_set(&m_denied, &req).is_empty());
+}
+
+#[test]
+fn filter_dedupes_and_trims_and_handles_no_tools_block() {
+    let m = manifest_with("\"file_read\"", "", None);
+    let req = vec![
+        " file_read ".to_string(),
+        "file_read".to_string(),
+        String::new(),
+    ];
+    assert_eq!(filter_to_worker_tool_set(&m, &req), vec!["file_read".to_string()]);
+
+    // A manifest with no [tools]/[actions] declares nothing → deny-all
+    // for non-minimal tools (the safest default for a novel role).
+    let bare = argo_vertical::parse(
+        "schema_version = \"1\"\n[vertical]\nid = \"t\"\nname = \"T\"\nversion = \"0.1.0\"\n",
+    )
+    .expect("parse bare manifest");
+    assert!(filter_to_worker_tool_set(&bare, &["file_read".to_string()]).is_empty());
 }

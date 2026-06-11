@@ -385,3 +385,8 @@ mod audit_tests;
 // Sibling file for LOC headroom; child module so fixtures are shared.
 #[path = "routes_worker_run_hold_tests.rs"]
 mod hold_tests;
+
+// "Approve & run" keystone fix — `approve_tools` body param mints
+// one-shot grants on the new run's session. Child module, shared fixtures.
+#[path = "routes_worker_run_approve_tests.rs"]
+mod approve_tests;
