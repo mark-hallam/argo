@@ -29,8 +29,10 @@ A computer-use action's autonomy is decided **per-operation by real risk, NOT by
 self-asserted manifest field**:
 
 - **OBSERVE tier — autonomous-eligible (safe, per DEC-041).** Pure reads with no
-  host mutation: `screenshot`, `cursor_position`, screen read / OCR, window/app
-  enumeration, `wait`. These may run autonomously (within DEC-041's envelope:
+  host mutation: `screenshot`, `cursor_position`, **cursor/mouse move**, **scroll**, screen
+  read / OCR, window/app enumeration, `wait`. These only change where the pointer
+  is or what is in view — no persistent change, trivially reversible — so they may
+  run autonomously (within DEC-041's envelope:
   spend cap, rate limit, scope, hash-chained audit).
 - **ACT tier — approval-gated (sensitive, per DEC-041), REGARDLESS of the
   manifest's claimed `risk`/`requires_approval`.** Any host input/mutation:

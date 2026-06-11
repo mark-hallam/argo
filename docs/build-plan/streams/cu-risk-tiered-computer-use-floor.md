@@ -7,7 +7,7 @@
 
 Enforce the risk-tiered computer-use floor: OBSERVE operations (screenshot,
 cursor_position, screen read, wait) run autonomously; ACT operations (click,
-type, key, drag, scroll, app launch, mutating osascript) are approval-gated
+type, key, drag, app launch, mutating osascript) are approval-gated
 **regardless of the manifest's self-asserted `requires_approval`/`risk`**.
 Closes the cu3/#2816 self-assertion hole; unblocks #2816.
 
@@ -24,9 +24,9 @@ reversibility, enforced in the executor.
 
 1. **Classify cu operations** (a small `enum`/fn in
    `crates/argo-executor-computer-use-macos`, or a shared spot the run loop
-   uses): `Observe` { screenshot, cursor_position, wait, read/OCR, enumerate }
+   uses): `Observe` { screenshot, cursor_position, cursor/mouse move, scroll, wait, read/OCR, enumerate }
    vs `Act` { left/right/middle/double click, click_drag, type, key, hold_key,
-   scroll, mouse input, app launch, mutating osascript }. **Unknown → Act**
+   mouse-BUTTON click (NOT a bare cursor move), app launch, mutating osascript }. **Unknown → Act**
    (fail closed, DEC-041 boundary 4). Map the Anthropic CU action vocabulary the
    run loop already parses (grep `action_kind` in `run_loop*.rs`).
 2. **Gate in the run loop**: Observe ops execute. Before the FIRST Act op, if the
