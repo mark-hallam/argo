@@ -56,106 +56,21 @@ use std::path::Path;
 const FILE_READ_TOOL: &str = "file_read";
 const FILE_WRITE_TOOLS: &[&str] = &["file_write", "file_patch"];
 
-/// Irreversible / business-ruining action verbs that ALWAYS require a
-/// human in the loop, no matter what a generated profile grants — matched
-/// as a **whole `_`-delimited token** (case-insensitive), or as a
-/// contiguous phrase for the multi-token entries (`wire_funds`).
-///
-/// Deterministic by construction: this is a fixed list, NOT an
-/// LLM-judged classification. It is the hard floor under the semantic
-/// judge — the actions where an autonomous mistake cannot be undone.
-///
-/// Token-matching (not substring) is used for the short / ambiguous verbs
-/// here so an unrelated word that merely *contains* one of them does not
-/// false-positive (e.g. `rewire_config` ≠ `wire`, `display_board` ≠ `pay`,
-/// `attach_file` ≠ `ach`). The high-signal stems that ARE safe to match
-/// anywhere in a compound name live in [`IRREVERSIBLE_DANGER_STEMS`].
-///
-/// ## Synonym coverage (closes the token-exact / synonym-blind hole)
-///
-/// The original list was token-exact + synonym-blind: `payment` ≠ `pay`,
-/// and `transfer` / `empty` / `erase` / `export` / `authenticate` went
-/// uncaught — so money/destroy/exfil/credential actions surfaced
-/// autonomous + low-risk. The families below are now covered (money,
-/// destructive, egress, credential). A false-positive approval gate is
-/// SAFE; a false-negative is the hole, so coverage biases toward flagging.
-pub const IRREVERSIBLE_ACTION_VERBS: &[&str] = &[
-    // money movement (whole-token; short/ambiguous, so not substring-matched)
-    "wire",
-    "wire_funds",
-    "pay",
-    "remit",
-    "ach",
-    "trade",
-    "withdraw",
-    "deposit",
-    // destructive (whole-token)
-    "drop",
-    "drop_table",
-    "wipe",
-    "purge",
-    "destroy",
-    "erase",
-    "empty",
-    "clear",
-    "flush",
-    "remove",
-    "terminate",
-    "deprovision",
-    "revoke",
-    // account / subscription lifecycle (whole-token + contiguous phrase)
-    "cancel_subscription",
-    "delete_account",
-    "close_account",
-    // egress / credential (whole-token; the stems below cover compounds)
-    "export",
-    "exfiltrate",
-    "upload",
-    "forward",
-    "leak",
-    "extract",
-    "download",
-    "authenticate",
-    "credential",
-    "password",
-    "login",
-    "signin",
-];
+/// cu1d (DEC-050 G1 follow-up): read-only research tools whose dispatch
+/// additionally demands `NetEgress`. When a worker's allow-set permits one
+/// of these (deny-wins), [`WorkerCapabilityProfile::to_capability_set`]
+/// emits `NetEgress{**}` so the dispatch can actually reach the network.
+/// Without this, a manifest that explicitly allows `web_search` still
+/// dead-ends at `rbac denied: … lacks NetEgress` — and the #729 evidence
+/// gate then blocks every approval-gated proposal the worker makes.
+const WEB_RESEARCH_TOOLS: &[&str] = &["web_search", "web_extract"];
 
-/// High-signal dangerous **stems** matched anywhere inside a compound
-/// action name (substring, case-insensitive) — so `process_payment`,
-/// `TRANSFER_funds`, `EXTRACT_customer_records`, `authenticate_portal`,
-/// and `empty_archived_storage` all promote to always-human even though
-/// the dangerous family appears as part of a larger token. Every stem
-/// here was chosen because a substring hit is almost always genuinely
-/// dangerous (low benign-collision risk); short / ambiguous verbs that
-/// would false-positive as substrings (e.g. `pay` → `display`, `ach` →
-/// `attach`) stay token-only in [`IRREVERSIBLE_ACTION_VERBS`].
-pub const IRREVERSIBLE_DANGER_STEMS: &[&str] = &[
-    // money movement
-    "payment",
-    "transfer",
-    "disburse",
-    "payout",
-    "remit",
-    "chargeback",
-    "refund",
-    "withdraw",
-    // destructive
-    "truncate",
-    "destroy",
-    "deprovision",
-    "purge",
-    "exfiltrat",
-    // egress
-    "exfiltrate",
-    "extract",
-    "download",
-    // credential
-    "authenticate",
-    "credential",
-    "password",
-];
+#[path = "worker_profile_danger_lists.rs"]
+mod danger_lists;
+/// Re-exported so the public path (`argo_capability::IRREVERSIBLE_*`) and
+/// the in-module references inside [`is_irreversible_action`] are unchanged
+/// after the lists moved to a sibling file (500-LOC ceiling).
+pub use danger_lists::{IRREVERSIBLE_ACTION_VERBS, IRREVERSIBLE_DANGER_STEMS};
 
 /// `true` when `action_name` denotes an irreversible / business-ruining
 /// action that must ALWAYS go through human approval.
@@ -486,6 +401,23 @@ impl WorkerCapabilityProfile {
                 caps.push(Capability::FsWrite { path_glob: glob });
             }
         }
+        // cu1d (DEC-050 G1 follow-up): the read-only web research tools
+        // (`web_search` / `web_extract`) additionally require `NetEgress` at
+        // dispatch. Emit it ONLY on explicit manifest opt-in (deny-wins via
+        // `permits_tool`); a worker without web tools keeps zero egress
+        // (default-deny preserved). The glob is `**` because search backends
+        // and extraction targets are operator-unknown hosts — but the grant
+        // is only exercisable through the two read-only web tools: no
+        // transmit, shell, or write tool in a worker profile declares
+        // `NetEgress`, and `Spawn`/`LocalCodeExecution` are never emitted
+        // here, so this cannot become a data-exfiltration primitive beyond
+        // what the web tools themselves return into the audited transcript.
+        if WEB_RESEARCH_TOOLS.iter().any(|t| self.permits_tool(t)) {
+            caps.push(Capability::NetEgress {
+                host_glob: "**".into(),
+                port: None,
+            });
+        }
         CapabilitySet(caps)
     }
 }
@@ -493,3 +425,7 @@ impl WorkerCapabilityProfile {
 #[cfg(test)]
 #[path = "worker_profile_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "worker_profile_net_egress_tests.rs"]
+mod net_egress_tests;
