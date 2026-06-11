@@ -39,6 +39,7 @@
 
 import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import type { CapabilityGrantRequest } from "@/lib/types/capability-grant";
 import { appendDemoWorker, findDemoWorker } from "@/lib/api/demo-roster-store";
 import type { WorkerOverview } from "@/lib/api/worker-overview";
 import {
@@ -387,6 +388,15 @@ export interface WorkerRunResult {
    * simply missing from this list.
    */
   approved_tools?: string[];
+  /**
+   * Connect-on-demand ask: emitted when the run hit a connector the
+   * teammate isn't yet authorized for (additive field; absent on older
+   * gateways AND until the backend emission lands — sibling brief
+   * `backend-emit-capability-request-on-fenced-connector`). Present
+   * means the overview surfaces the `CapabilityGrantCard` so the
+   * operator can connect the missing tool with per-scope access.
+   */
+  capability_request?: CapabilityGrantRequest;
 }
 
 /**

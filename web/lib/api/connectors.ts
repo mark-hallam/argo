@@ -15,6 +15,7 @@
  */
 import { apiDelete, apiGet, apiPost, ApiError } from "./client";
 import { resolveGatewayUrl } from "@/lib/config/gateway-url";
+import type { GrantSelection } from "@/lib/types/capability-grant";
 
 export type ConnectorStatus =
   | "not_connected"
@@ -186,4 +187,34 @@ export async function saveTenantConnectorCredential(args: {
     args.fields,
   );
   return { ok: true };
+}
+
+export interface AuthorizeConnectorScopesResponse {
+  workerId: string;
+  connectorId: string;
+  ok: boolean;
+}
+
+/**
+ * Connect-on-demand authorize: grant a teammate the chosen per-scope
+ * access on a connector it hit mid-run. Backs the locked
+ * `CapabilityGrantCard` "Connect" action — POSTs the connector id + the
+ * operator's `{id, access}[]` selection to the gateway's
+ * connector-authorize path, tenant- and worker-scoped.
+ *
+ * Unlike the read/disconnect helpers above, this does NOT swallow
+ * errors: a failed authorize must surface honestly so the card can show
+ * the real failure and the operator knows the connect didn't happen
+ * (no silent "connected" theater).
+ */
+export async function authorizeConnectorScopes(args: {
+  workerId: string;
+  connectorId: string;
+  scopes: GrantSelection[];
+}): Promise<AuthorizeConnectorScopesResponse> {
+  await apiPost<void>(
+    `/api/v1/workers/${encodeURIComponent(args.workerId)}/connectors/${encodeURIComponent(args.connectorId)}/authorize`,
+    { scopes: args.scopes },
+  );
+  return { workerId: args.workerId, connectorId: args.connectorId, ok: true };
 }

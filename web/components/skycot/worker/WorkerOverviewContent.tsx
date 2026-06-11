@@ -26,9 +26,16 @@ import {
   type WorkerPermissions,
 } from "@/lib/types/worker";
 import { ProbationApprovalCard } from "@/components/skycot/worker/ProbationApprovalCard";
+import { CapabilityGrantCard } from "@/components/skycot/worker/CapabilityGrantCard";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/lib/ui/use-toast";
 import { triggerWorkerRun } from "@/lib/api/workers";
+import { authorizeConnectorScopes } from "@/lib/api/connectors";
+import { hasRealSession } from "@/lib/skycot/demo-mode";
+import type {
+  CapabilityGrantRequest,
+  GrantSelection,
+} from "@/lib/types/capability-grant";
 import type { WorkerDuty } from "@/lib/api/worker-overview";
 
 /**
@@ -65,6 +72,14 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
   // (`approve_tools`), not on the finished run's session.
   const [heldTools, setHeldTools] = useState<string[] | null>(null);
   const [inProbation, setInProbation] = useState(false);
+  // Connect-on-demand: a pending capability/connector grant-request the
+  // run surfaced (additive `capability_request` field on the run
+  // envelope — see `lib/api/workers.ts`; absent until the backend
+  // emission sibling brief lands). Mock-gated on render so it never
+  // shows against a fixture; `connecting` drives the card's busy state.
+  const [grantRequest, setGrantRequest] =
+    useState<CapabilityGrantRequest | null>(null);
+  const [connecting, setConnecting] = useState(false);
   const toggleMutation = useToggleDuty(workerId);
 
   const permissions: WorkerPermissions =
@@ -143,6 +158,12 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
         // in-SPA approval card instead. Both fields are optional so older
         // gateways keep the previous behavior.
         setInProbation(Boolean(result.probation));
+        // Connect-on-demand: if the run hit a connector the teammate
+        // isn't authorized for, the gateway returns a
+        // `capability_request` — surface the grant card. Real backend
+        // data, but mock-gated so a fixture-driven session never shows
+        // a connect prompt it can't honestly fulfil.
+        setGrantRequest(result.capability_request ?? null);
         const held = result.held_tools ?? [];
         if (held.length > 0) {
           // Progressive approval: the approved tools fired and the
@@ -188,6 +209,39 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
     [running, workerId, workerQuery.data?.name, toast],
   );
   const onRunNow = useCallback(() => runNow(), [runNow]);
+
+  // Connect-on-demand "Connect" → authorize the connector with the
+  // operator's chosen per-scope access. Honest surface: a failed
+  // authorize keeps the card up and toasts the real error (no silent
+  // "connected" theater); success clears the card and points at audit.
+  const onConnectGrant = useCallback(
+    async (scopes: GrantSelection[]) => {
+      if (connecting || !grantRequest) return;
+      setConnecting(true);
+      try {
+        await authorizeConnectorScopes({
+          workerId,
+          connectorId: grantRequest.connector.id,
+          scopes,
+        });
+        const connName = grantRequest.connector.name;
+        setGrantRequest(null);
+        toast.success(`Connected ${connName}`, {
+          description:
+            "The teammate can use it now — every action stays logged in the audit trail.",
+        });
+      } catch (err) {
+        toast.error("Couldn't connect", {
+          description:
+            err instanceof Error ? err.message : "The connect didn't go through.",
+        });
+      } finally {
+        setConnecting(false);
+      }
+    },
+    [connecting, grantRequest, workerId, toast],
+  );
+  const onDismissGrant = useCallback(() => setGrantRequest(null), []);
 
   if (overviewQuery.isPending) {
     return (
@@ -287,6 +341,14 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
           workerName={workerQuery.data?.name ?? "This teammate"}
           heldTools={heldTools}
           onApproveAndRun={(tools) => runNow(tools)}
+        />
+      ) : null}
+      {grantRequest && grantRequest.scopes.length > 0 && hasRealSession() ? (
+        <CapabilityGrantCard
+          request={grantRequest}
+          onConnect={onConnectGrant}
+          onDismiss={onDismissGrant}
+          busy={connecting}
         />
       ) : null}
       <WhatTheyDoCard
