@@ -99,12 +99,18 @@ pub(super) async fn post_run(
     // list. Absent / non-array → empty (existing callers unaffected).
     // The exec layer filters it to the worker's declared tool set and
     // mints ONE-SHOT grants on the new run's session before the turn.
+    // Cap the input array (defense-in-depth, adversarial-review note):
+    // the downstream membership filter is already bounded by the worker's
+    // (small) tool set, but bounding the raw input keeps the O(n) filter
+    // loop cheap regardless of body size. 64 ≫ any real worker tool set.
+    const MAX_APPROVE_TOOLS: usize = 64;
     let approve_tools: Vec<String> = body
         .get("approve_tools")
         .and_then(Value::as_array)
         .map(|arr| {
             arr.iter()
                 .filter_map(Value::as_str)
+                .take(MAX_APPROVE_TOOLS)
                 .map(str::to_string)
                 .collect()
         })
