@@ -165,3 +165,24 @@ It sets `[tools].allowed` to the teammate's **action names** (`scan_invoice`, `d
 **Consequence:** a Genesis-minted teammate's `WorkerCapabilityProfile` grants `ToolDispatch{scan_invoice}` (meaningless — no such runtime tool) and **does NOT grant `file_read`/`memory`/`web_search`** (the real tools the agent calls). The teammate can only ever use the 4 `MINIMAL_TEAMMATE_TOOLS` (clarify/memory/skill_view/skills_list). It is structurally incapable of reading a file, searching the web, or doing its job — regardless of probation, approvals, or fs_root. **This is THE mission blocker; everything above it (probation UX, approve_tools, fs_root) is necessary but not sufficient until this is fixed.**
 
 **Fix:** `build_tools` must emit the **runtime tools** the teammate's actions require (a conservative safe baseline — e.g. `file_read` + `memory` + `clarify` always; `web_search`/`web_extract` for research roles; `file_write` only when the role writes), with the dangerous tools denied by default (`terminal`, `file_patch`, `delegate_task`, `code_execute`) — matching the hand-authored pattern and the existing `MINIMAL_TEAMMATE_TOOLS`/deny-list machinery. This is a capability-fence change → must be adversarially reviewed (it must NEVER over-grant: deny-wins, no `terminal`/shell, no `delegate_task`, no write outside fs_root).
+
+---
+
+## ✅ ROOT-CAUSE FIX VERIFIED LIVE (2026-06-11 PM, gateway `c2f9af4`)
+
+Minted a fresh teammate ("Nora", same AR role) through the live SPA Genesis flow AFTER the materializer fix merged. Her generated manifest on disk (`verticals/.genesis/<tenant>/genesis-nora-019eb58a08746c86/vertical.toml`):
+```toml
+[tools]
+allowed = ["clarify", "file_read", "memory", "skill_view", "skills_list"]
+denied  = ["ach","authenticate","charge","clear","code_execute","credential",
+           "delegate_task","delete","deposit","destroy","download","drop","empty",
+           "erase","export","extract","file_patch","flush","forward", … "terminal", …]
+```
+**This is the fix working end-to-end through the live product:** `file_read` (a REAL runtime tool) is now granted — Nora can read invoice files — and the dangerous family (`terminal`, `code_execute`, `delegate_task`, `file_patch`) plus all sensitive verbs are denied. Contrast the pre-fix manifest (the old "Read"/Ava): `allowed = [classify_overdue, draft_reminder, flag_escalation, …]` — action names, zero real tools. The structural "a minted teammate can never hold file_read" blocker is removed.
+
+The verification chain is complete at every decision layer:
+1. Minting works (live) → 2. manifest grants the real tools (live, on disk) → 3. the capability fence grants `file_read` ⇔ allowed ∧ fs_root, denies the dangerous family with deny-wins (merged + 2 adversarial reviews CONFIRMED-SOUND + unit tests) → 4. fs_root is set at hire (live) → 5. the probation→approve→run loop converges via `approve_tools` (live on Ava) → 6. day-1 UX honest + one-click (live).
+
+### Environmental blockers (NOT product/fix defects, flagged for follow-up)
+- **Browser hire 403 after a mid-session gateway restart.** `POST /api/v1/workers` (browser cookie-auth + CSRF double-submit) returns 403 after the gateway is rebuilt mid-session, while `run-now` (same-origin Next proxy, bearer-auth, CSRF-exempt) keeps working. The FIRST hire of the session succeeded; it degrades only after a restart. A real stranger on an HTTPS deployment never restarts the gateway mid-session, but the CSRF token/cookie re-sync after a gateway bounce is worth hardening (and the `__Host-csrf` cookie does not round-trip on `http://localhost`). Follow-up brief candidate.
+- **Tenant split on the CLI shortcut.** `argo worker create` provisions into the cwd-derived tenant, but a Genesis vertical lives under the browser user's tenant `.genesis/<tenant>/` dir, so a CLI-created worker can't resolve a browser-minted vertical. Expected (tenant isolation working), just means the CLI isn't a shortcut for verifying a browser-minted teammate.
