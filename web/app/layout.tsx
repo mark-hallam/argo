@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Audiowide, Inter, JetBrains_Mono } from "next/font/google";
-import { headers } from "next/headers";
 import { SkipToContent } from "@/components/a11y/SkipToContent";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
@@ -116,7 +115,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // script carries the matching nonce under the nonce-based `script-src`
   // CSP. `headers()` is request-scoped, so reading it here opts the root
   // layout into dynamic rendering — acceptable; every route already
-  // renders dynamically (ƒ) under the auth middleware.
+  // renders dynamically (ƒ) under the auth middleware. The `next/headers`
+  // import is dynamic (mirrors web/lib/theme/cookie.ts +
+  // web/lib/auth/session-cookie.ts) so this module's static import graph
+  // never pulls a server-only API into a client SSR bundle (P0 #2027
+  // regression class — see __tests__/lint/no-server-imports).
+  const { headers } = await import("next/headers");
   const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (
