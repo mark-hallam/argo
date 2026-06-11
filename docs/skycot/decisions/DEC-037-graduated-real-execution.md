@@ -72,13 +72,17 @@ are BINDING prerequisites on the operator flag-flip (NOT on the merged wiring):
    Mac with NO approval the moment this flag flips. The operator chose risk-tiering
    (DEC-051) over manifest-validation: the floor is now bound to the OPERATION's
    reversibility and enforced **in the macOS CU run loop** (`cu_risk::classify` +
-   the `act_approved` gate in `executor_loop.rs`). OBSERVE ops (screenshot/cursor/
-   read/wait) run autonomously; the loop returns `HumanHandoff` at the FIRST ACT op
-   (click/type/key/drag/scroll/mouse/launch/mutating-osascript) unless the request
-   is explicitly approved — regardless of the manifest's `requires_approval`/`risk`.
+   the `act_approved` gate in `executor_loop.rs`; shipped #2822). AUTONOMOUS ops —
+   observe (screenshot/cursor-read/OCR/enumerate/wait) PLUS navigate/STAGE input
+   (scroll, cursor-move, `type`) — run on their own; the loop returns `HumanHandoff`
+   at the FIRST committing ACT op (click/double_click/`key`/hold_key incl Enter-as-
+   submit/drag/navigate/app-launch/mutating-osascript) unless the request is
+   explicitly approved — regardless of the manifest's `requires_approval`/`risk`.
+   Typing is autonomous ONLY because the SUBMIT (`key`/click) stays ACT, so staged
+   text is reviewable before any irreversible commit (operator tiers 2026-06-11).
    Both the CLI auto-dispatch path and the gateway inline cu-macos path construct
    the request with `act_approved=false`, so neither can self-approve host control.
-   Unblocks cu3/#2816 (register the macOS executor). **Residual (smaller follow-up,
+   Unblocked cu3/#2816 (register the macOS executor — now MERGED). **Residual (smaller follow-up,
    NOT a flip-blocker):** non-macOS computer-use executors (E2B) are not on the v1
    path and are not yet covered by an `is_auto_eligible_with_flag` belt-and-suspenders;
    add that floor if/when an E2B cu executor is wired to the inline run path.
