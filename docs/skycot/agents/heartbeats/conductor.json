@@ -1,34 +1,36 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-06-10T06:31:00Z",
+  "last_run_utc": "2026-06-11T03:18:00Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "loop-2026-06-10-perimeter-and-tenant-complete",
-  "run_notes": "AUTONOMOUS /loop. TWO MILESTONES this cycle, both verified on main: (1) \u2b50 PERIMETER XFF-SPOOF CLASS CLOSED 6/6 \u2014 #2790 re-landed the verify-route fix that #2780 silently DROPPED (stacked-squash); verify.rs:70 now keys the 60/IP/min throttle on trusted src_ip + signup_source_ip RETIRED (zero non-test callers). All 6 anonymous limiters (signup/waitlist/enterprise/pitch/signup_protection/verify) now spoof-proof. (2) \u2b50 TENANT-ISOLATION CLUSTER COMPLETE 3/3 \u2014 #2786 Genesis-hired teammates runnable (tenant-scoped vertical resolve) + #2788 worker memory namespace server-authoritatively bound + #2787 memory-tool tenant+vertical scope (closes cross-vertical leak). Each gate-PASS + adversarial-review CONFIRMED-FIXED + verified on main. Both #2790 + #2787 needed worker test/file splits (LOC gates) \u2014 resolved this cycle. STILL HELD (correct): #2791 (shared-identity-file readability) \u2014 adversarial review found a NEW-VULN (over-relaxed cross-vertical identity read); gate PASSED but couldn't see the logic flaw \u2014 only the review caught it; P1 fix-2791 CLAIMED + building. #2778 B-4 (operator). #2773 voice (attended verify). Swarm recovered from the earlier stall (loops 5, git stable, no re-divergence). Queue TODO=3 healthy, drift 0. STANDING OPERATOR THREADS: B-1 worker-ledger-lock (the stall proved it now halts the swarm, not just races commits) + B-4 #2778 (note: B-4 running the gate alone would NOT have caught #2791's vuln \u2014 the adversarial-review layer is essential for security surfaces).",
-  "open_prs": 3,
+  "session_label": "loop-2026-06-11-dec050-cu-loop-complete",
+  "run_notes": "AUTONOMOUS /loop 2026-06-11. \u2b50 DEC-050 COMPUTER-USE GENESIS LOOP COMPLETE \u2014 8 PRs verified MERGED on main this cycle: #2822 DEC-051 risk-tiered floor (conductor corrected the classifier to the operator's FINAL tiers BEFORE merge: typing/scroll/cursor-move AUTONOMOUS, only committing ops click/key-incl-Enter/drag/navigate/launch/mutating-osascript GATED, unknown\u2192Act fail-closed; 59 lib+3 doctest+run-loop hold/autonomous tests green); #2819 cu1d NetEgress (was HELD until SSRF #2821 landed \u2014 verified web_extract\u2192safe_fetch_html\u2192is_blocked_ip this turn before merge); #2816 cu3 macOS executor in run-path (same floored loop, act_approved=false, no parallel kind); #2820 cu1f Genesis work-emission (tenant-threaded load_for_worker, fail-closed); #2823 cu1g tenant+genesis approvals chain (TWO adversarial reviewers CONFIRMED-SOUND: SQL workspace_id-scoped, auth fails-closed-to-Guest, JWT tnt un-spoofable); #2824 cu1g perf-fix landed (removed all-tenant find_action walk \u2192 workspace-scoped SELECT DISTINCT). Conductor split 3 files under the 500-LOC ceiling at review (worker_profile 521\u2192431, its tests 516\u2192450, routes_approvals_json 516\u2192418). DEC-037 flip-gate item 4 reconciled to the shipped tiers (#a89ce5ef4). LEDGERS RECONCILED: 10 stale IN_REVIEW rows flipped\u2192MERGED + 3 missing MERGED rows added + FEATURE_MATRIX cu-macOS row updated. Drift=0. Build loop healthy (145 PRs/7d, 44/24h, 0 open). 1 fast-follow chipped (pin JWT-tenant-owns-workspace test). QUEUE EMPTY \u2014 replenishment is the next conductor action.",
+  "open_prs": 0,
   "queue_state": {
-    "todo": 3,
-    "claimed": 2,
-    "note": "fix-2791 (P1 security) building; only held/operator PRs open"
+    "todo": 0,
+    "claimed": 0,
+    "in_review": 0,
+    "blocked": 29,
+    "note": "QUEUE EMPTY \u2014 replenishment overdue (DEC-046). 29 BLOCKED rows mostly stale on the obsolete 2026-05-25 'claude CLI logged out' reason; revival needs scope-curation vs the post-2026-05-29 MVP reframe (don't bulk-flip = drift). Next conductor action."
   },
   "the_gate": "\u2b50 PERIMETER 6/6 + TENANT-ISOLATION 3/3 both COMPLETE + verified on main (2 DEC-044 public-preview hardening conditions). Gate spine enforces 3 invariants. DEC-042 Stage-1 B-4 (#2778) operator-hold; B-1 worker-lock now urgent (stalled the swarm). Next: land fix-2791 when built; the dropped-#2780 integrity gap is now CLOSED.",
   "quota_probe": "skip",
   "north_star_metrics": {
     "_schema": "dec042-north-star-v1",
     "_doc": "docs/skycot/decisions/DEC-042-continuous-self-improvement-loop.md#6",
-    "generated_utc": "2026-06-10T06:31:01Z",
+    "generated_utc": "2026-06-11T03:16:38Z",
     "build_loop": {
-      "merged_prs_per_day_7d": 16.86,
-      "merged_prs_last_7d": 118,
-      "merged_prs_last_24h": 43,
-      "open_prs": 3,
+      "merged_prs_per_day_7d": 20.71,
+      "merged_prs_last_7d": 145,
+      "merged_prs_last_24h": 44,
+      "open_prs": 0,
       "drift_rows": 0,
       "queue_depth": {
-        "todo": 3,
-        "claimed": 2,
-        "in_review": 5,
-        "blocked": 28
+        "todo": 0,
+        "claimed": 0,
+        "in_review": 0,
+        "blocked": 29
       },
-      "recurring_nit_count": 17,
+      "recurring_nit_count": 18,
       "pct_done_claims_pass_cold_reverify": null,
       "mean_time_to_green_ci": null,
       "defect_escape_rate": null
