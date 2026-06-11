@@ -179,7 +179,7 @@ async fn run_with_unloadable_vertical_blocks_no_vertical() {
     let tenant = fresh_tenant_workspace(&store, &env.root()).await;
     let worker = add_worker(&store, tenant, "definitely-not-a-real-vertical").await;
 
-    let result = run_worker_now(&store, &worker, "do a thing")
+    let result = run_worker_now(&store, &worker, "do a thing", &[], None)
         .await
         .expect("no internal error");
     match result {
@@ -201,7 +201,7 @@ async fn run_without_provider_key_blocks_no_provider() {
     let tenant = fresh_tenant_workspace(&store, &env.root()).await;
     let worker = add_worker(&store, tenant, REAL_VERTICAL).await;
 
-    let result = run_worker_now(&store, &worker, "do a thing")
+    let result = run_worker_now(&store, &worker, "do a thing", &[], None)
         .await
         .expect("no internal error");
     assert!(
@@ -230,7 +230,7 @@ async fn run_happy_path_completes_with_real_fields() {
     let tenant = fresh_tenant_workspace(&store, &env.root()).await;
     let worker = add_worker(&store, tenant, REAL_VERTICAL).await;
 
-    let outcome = run_worker_now(&store, &worker, "Summarise today's open tickets.")
+    let outcome = run_worker_now(&store, &worker, "Summarise today's open tickets.", &[], None)
         .await
         .expect("no internal error")
         .expect("a real turn should have run (not blocked)");
@@ -270,7 +270,7 @@ async fn run_stamps_worker_id_onto_session() {
     let tenant = fresh_tenant_workspace(&store, &env.root()).await;
     let worker = add_worker(&store, tenant, REAL_VERTICAL).await;
 
-    run_worker_now(&store, &worker, "Summarise today's open tickets.")
+    run_worker_now(&store, &worker, "Summarise today's open tickets.", &[], None)
         .await
         .expect("no internal error")
         .expect("a real turn should have run (not blocked)");
@@ -330,7 +330,7 @@ async fn genesis_worker_runs_for_own_tenant() {
     write_genesis_vertical(&vroot, &tenant.to_string(), vid);
     let worker = add_worker(&store, tenant, vid).await;
 
-    let outcome = run_worker_now(&store, &worker, "Do your next task.")
+    let outcome = run_worker_now(&store, &worker, "Do your next task.", &[], None)
         .await
         .expect("no internal error")
         .expect("genesis worker should run for its own tenant, not be blocked");
@@ -362,7 +362,7 @@ async fn genesis_worker_blocked_cross_tenant() {
         .0;
     let worker = add_worker(&store, bob, vid).await;
 
-    let result = run_worker_now(&store, &worker, "Do a thing")
+    let result = run_worker_now(&store, &worker, "Do a thing", &[], None)
         .await
         .expect("no internal error");
     match result {

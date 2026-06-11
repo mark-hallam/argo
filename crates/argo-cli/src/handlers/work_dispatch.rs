@@ -14,11 +14,46 @@ use argo_types::{ArgoResult, TenantId, WorkspaceId};
 use chrono::Utc;
 use std::sync::Arc;
 
-// 12 args is intentional: each is load-bearing (storage handles,
+/// Operator pre-approved tools for a single run (the "Approve & run"
+/// keystone fix). When present, [`process_job`] mints ONE-SHOT session
+/// grants for each named tool on the freshly created session BEFORE the
+/// turn executes — so a probationary teammate's turn runs with the
+/// operator's explicit per-tool OK instead of being held again on a
+/// brand-new grant-less session.
+///
+/// Safety posture (load-bearing):
+/// - The CALLER is responsible for filtering `tools` down to the
+///   worker's legitimate declared tool set (see
+///   `routes_worker_run_exec::filter_to_worker_tool_set`) — this struct
+///   never widens what a worker may hold.
+/// - Every grant is minted `one_shot = true`, so the dispatch gate
+///   consumes it on first use and the approval never outlives the turn.
+/// - The session a run mints grants on is never reused by another run
+///   (each "Run now" creates a fresh session), so no permanent
+///   elevation is possible.
+///
+/// Example (crate-internal type, shown rather than doc-tested):
+///
+/// ```text
+/// let pre = PreApprovedTools {
+///     tools: vec!["file_read".into()],
+///     approved_by: Some("human:mark".into()),
+/// };
+/// // pre.tools is the filtered allow-list; grants mint one-shot.
+/// ```
+#[derive(Debug, Clone)]
+pub(crate) struct PreApprovedTools {
+    /// Tool names to grant (already filtered to the worker's tool set).
+    pub tools: Vec<String>,
+    /// Audit principal of the approving operator, when known.
+    pub approved_by: Option<String>,
+}
+
+// 13 args is intentional: each is load-bearing (storage handles,
 // tenancy ids, the optional owning worker, vertical scope, provider
-// config, the job, max steps, max tool rounds, output mode). Bundling
-// into a struct would just push the same arity into the struct
-// definition without removing the coupling.
+// config, the job, max steps, max tool rounds, output mode, optional
+// pre-approved tools). Bundling into a struct would just push the same
+// arity into the struct definition without removing the coupling.
 //
 // `worker_id` is the teammate that owns this run, when one exists. The
 // `argo work serve` queue path passes `None` (system-driven jobs); the
@@ -26,6 +61,10 @@ use std::sync::Arc;
 // therefore every turn audit row emitted under it — attributes to that
 // teammate instead of resolving to "unknown" in the audit feed
 // (fix-runnow-process-job-worker-attribution / e2e R2-F1).
+//
+// `pre_approved` carries the operator's one-action "Approve & run"
+// tool list (gateway run path only; `argo work serve` passes `None`).
+// Grants are minted on the new session AFTER creation, BEFORE the turn.
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn process_job(
     store: &Arc<SessionStore>,
@@ -40,6 +79,7 @@ pub(crate) async fn process_job(
     max_steps: u32,
     max_tool_rounds: usize,
     json_out: bool,
+    pre_approved: Option<&PreApprovedTools>,
 ) -> ArgoResult<()> {
     use super::work_dispatch_phases as p;
     let (prompt, pending_created_at) = p::parse_job_body(job)?;
@@ -66,6 +106,14 @@ pub(crate) async fn process_job(
         store, tenant, workspace, worker_id, vertical_id, provider, model, job,
     )
     .await?;
+
+    // "Approve & run" (keystone fix): mint the operator's ONE-SHOT
+    // per-tool grants on THIS run's session before the turn executes,
+    // so the probation gate sees the approval instead of holding the
+    // same tools on yet another grant-less fresh session.
+    if let Some(pre) = pre_approved {
+        p::mint_pre_approved_grants(store, tenant, session_id, pre).await?;
+    }
 
     let step_run = p::run_job_steps(
         store,

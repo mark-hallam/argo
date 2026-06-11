@@ -238,6 +238,9 @@ async fn serve(
                     max_steps,
                     max_tool_rounds,
                     json_out,
+                    // Queue jobs carry no operator "Approve & run" list —
+                    // pre-approved one-shot grants are a gateway-run-only path.
+                    None,
                 )
                 .instrument(job_span)
                 .await?;
