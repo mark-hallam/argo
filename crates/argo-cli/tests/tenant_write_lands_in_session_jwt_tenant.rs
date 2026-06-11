@@ -91,6 +91,7 @@ fn sample_hire(name: &str) -> HireDraft {
         tagline: Some("Marketplace seller persona".into()),
         genesis_plan_id: None,
         fs_root: None,
+        access_fs_root: None,
     }
 }
 

@@ -14,6 +14,7 @@ import {
   Plug,
   Split,
   Target,
+  FolderOpen,
 } from "lucide-react";
 import type {
   GenesisVerticalReadyEvent,
@@ -22,6 +23,7 @@ import type {
   SuccessCriterion,
 } from "@/lib/api/genesis";
 import { parseCadenceToCron } from "@/lib/api/genesis-cadence";
+import { extractFsRootFromAccessNeeds } from "@/lib/api/genesis-hire-intake";
 
 /**
  * Genesis P5 (c) — the operator "what can this teammate do" review screen
@@ -188,6 +190,12 @@ export function RoleContractReview({
   // a slot the operator stated out loud, and stops the Integrations card from
   // reading as a contradiction of what they just asked for (DEC-048).
   const accessNeeds = contract.access_needs ?? [];
+  // uf-bind-intake-access-folder-to-fs-root: when the captured Access needs
+  // name a local folder, surface it so the operator can confirm the teammate's
+  // working folder before hiring. Truthful + no overclaim: the gateway binds
+  // this only if it resolves under the user's home folder (otherwise it falls
+  // back to a generated default), which the caption states honestly.
+  const workingFolder = extractFsRootFromAccessNeeds(contract.access_needs);
 
   return (
     <div className="rc-wrap" data-testid="genesis-role-contract-review">
@@ -303,6 +311,22 @@ export function RoleContractReview({
                 ))}
               </ul>
             </div>
+
+            {workingFolder ? (
+              <div className="rc-panel" data-testid="genesis-working-folder">
+                <h4 className="rc-h4">
+                  <FolderOpen size={13} aria-hidden /> Working folder
+                </h4>
+                <p className="rc-escalation">
+                  <code>{workingFolder}</code>
+                </p>
+                <p className="rc-escalation">
+                  Approved file work happens inside this folder. It binds only
+                  if it&apos;s under your home folder; otherwise a default
+                  teammate folder is used.
+                </p>
+              </div>
+            ) : null}
 
             {accessNeeds.length > 0 ? (
               <div className="rc-panel" data-testid="genesis-access-needs">

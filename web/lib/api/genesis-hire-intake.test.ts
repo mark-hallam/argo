@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   applyIntakeEdits,
   buildHireDraftFromGenesis,
+  extractFsRootFromAccessNeeds,
   intakeFromContract,
 } from "./genesis-hire-intake";
 import type { GenesisVerticalReadyEvent, RoleContract } from "./genesis";
@@ -121,8 +122,54 @@ describe("buildHireDraftFromGenesis round-trip", () => {
     expect(draft.cadence).toBeUndefined();
     expect(draft.exceptions).toBeUndefined();
     expect(draft.successCriteria).toBeUndefined();
+    expect(draft.accessFsRoot).toBeUndefined();
     // The required validator fields are still present.
     expect(draft.suggestedVertical).toBe("support-teammate-sam");
     expect(draft.genesisPlanId).toBe("support-teammate-sam");
+  });
+
+  it("carries a captured local folder as accessFsRoot", () => {
+    const draft = buildHireDraftFromGenesis(
+      ready(contract({ access_needs: ["SkycotDemo/Inbox folder"] })),
+      "Read the invoice files in my inbox.",
+    );
+    expect(draft.accessFsRoot).toBe("SkycotDemo/Inbox");
+  });
+
+  it("does NOT set accessFsRoot for a bare integration name", () => {
+    const draft = buildHireDraftFromGenesis(
+      ready(contract({ access_needs: ["Gmail", "Xero"] })),
+      "Send the follow-ups.",
+    );
+    expect(draft.accessFsRoot).toBeUndefined();
+  });
+});
+
+describe("extractFsRootFromAccessNeeds", () => {
+  it("extracts a slash/tilde folder path and strips a trailing descriptor", () => {
+    expect(extractFsRootFromAccessNeeds(["SkycotDemo/Inbox folder"])).toBe(
+      "SkycotDemo/Inbox",
+    );
+    expect(extractFsRootFromAccessNeeds(["~/Documents/Invoices"])).toBe(
+      "~/Documents/Invoices",
+    );
+    expect(extractFsRootFromAccessNeeds(["/Users/sam/inbox dir"])).toBe(
+      "/Users/sam/inbox",
+    );
+  });
+
+  it("returns the FIRST folder-like need, skipping integration names", () => {
+    expect(
+      extractFsRootFromAccessNeeds(["Gmail", "Projects/active folder"]),
+    ).toBe("Projects/active");
+  });
+
+  it("returns undefined for vague / non-path answers", () => {
+    expect(extractFsRootFromAccessNeeds(["Gmail"])).toBeUndefined();
+    expect(
+      extractFsRootFromAccessNeeds(["the invoice files in the inbox folder"]),
+    ).toBeUndefined();
+    expect(extractFsRootFromAccessNeeds([])).toBeUndefined();
+    expect(extractFsRootFromAccessNeeds(undefined)).toBeUndefined();
   });
 });

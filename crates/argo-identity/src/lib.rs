@@ -76,7 +76,8 @@ pub use store_hire::{
     PROBATION_PROVENANCE_PREFIX, TRUTH_BOUNDARY_PROVENANCE_PREFIX,
 };
 pub use store_hire_fs_root::{
-    default_genesis_fs_root, resolved_fs_root, resolved_fs_root_from_env, TEAMMATES_DIR_NAME,
+    default_genesis_fs_root, resolved_fs_root, resolved_fs_root_from_env, safe_access_fs_root,
+    TEAMMATES_DIR_NAME,
 };
 pub use store_skills::BulkAssignSkillOutcome;
 pub use tenant::{Tenant, TenantStatus};

@@ -42,12 +42,23 @@ pub fn default_genesis_fs_root(home: &Path, suggested_name: &str) -> PathBuf {
 
 /// Resolve the effective `fs_root` for a hire draft.
 ///
-/// Precedence:
-/// 1. An explicit non-empty `draft.fs_root` always wins.
-/// 2. A Genesis draft (non-empty `genesis_plan_id`) with a known `home`
+/// Precedence (uf-bind-intake-access-folder-to-fs-root):
+/// 1. An explicit non-empty `draft.fs_root` always wins (a deliberate,
+///    unchecked override — programmatic / power-user).
+/// 2. A captured-intake Access folder ([`HireDraft::access_fs_root`]) that
+///    [`safe_access_fs_root`] accepts: the user NAMED a local folder during
+///    Genesis intake, and it resolves to a path under `home` with no `..`
+///    traversal. This is the "bind the folder the user actually named" path —
+///    so a teammate hired to "read the files in MY folder" works in that
+///    folder instead of an empty generated default.
+/// 3. A Genesis draft (non-empty `genesis_plan_id`) with a known `home`
 ///    defaults to [`default_genesis_fs_root`].
-/// 3. Otherwise `None` — a non-Genesis hire keeps today's behaviour
+/// 4. Otherwise `None` — a non-Genesis hire keeps today's behaviour
 ///    (`worker.fs_root` stays `NULL`).
+///
+/// A vague / non-path Access answer, or one that points outside `home` or
+/// contains traversal, is REJECTED at step 2 and falls through to the Genesis
+/// default — the hire is never blocked on a bad path (fail-soft).
 ///
 /// `home` is a parameter (rather than read from the environment) so the
 /// resolution is pure and deterministic; production callers pass the
@@ -71,25 +82,51 @@ pub fn default_genesis_fs_root(home: &Path, suggested_name: &str) -> PathBuf {
 ///     tagline: None,
 ///     genesis_plan_id: Some("genesis-ava-1".into()),
 ///     fs_root: None,
+///     access_fs_root: None,
 /// };
 /// let home = Path::new("/home/sam");
+/// // No captured folder → the generated Genesis default.
 /// assert_eq!(
 ///     resolved_fs_root(&draft, Some(home)),
 ///     Some(Path::new("/home/sam/SkycotTeammates/ava").to_path_buf()),
 /// );
+/// // The user named a folder under HOME → bind it (relative joins onto HOME).
+/// draft.access_fs_root = Some("SkycotDemo/Inbox".into());
+/// assert_eq!(
+///     resolved_fs_root(&draft, Some(home)),
+///     Some(Path::new("/home/sam/SkycotDemo/Inbox").to_path_buf()),
+/// );
+/// // A traversal / outside-HOME folder is rejected → falls back to default.
+/// draft.access_fs_root = Some("../../etc".into());
+/// assert_eq!(
+///     resolved_fs_root(&draft, Some(home)),
+///     Some(Path::new("/home/sam/SkycotTeammates/ava").to_path_buf()),
+/// );
+/// // An explicit fs_root override still wins over everything.
 /// draft.fs_root = Some("/data/inbox".into());
 /// assert_eq!(
 ///     resolved_fs_root(&draft, Some(home)),
 ///     Some(Path::new("/data/inbox").to_path_buf()),
 /// );
 /// draft.fs_root = None;
+/// draft.access_fs_root = None;
 /// draft.genesis_plan_id = None;
 /// assert_eq!(resolved_fs_root(&draft, Some(home)), None);
 /// ```
 #[must_use]
 pub fn resolved_fs_root(draft: &HireDraft, home: Option<&Path>) -> Option<PathBuf> {
+    // Normalize a set-but-EMPTY home to None so neither the captured-Access
+    // tier nor the generated default can be based on an empty path (which
+    // would make the under-HOME guard vacuous; adversarial-review hardening
+    // 2026-06-11).
+    let home = home.filter(|h| !h.as_os_str().is_empty());
     if let Some(explicit) = draft.fs_root.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         return Some(PathBuf::from(explicit));
+    }
+    if let (Some(home), Some(access)) = (home, draft.access_fs_root.as_deref()) {
+        if let Some(bound) = safe_access_fs_root(access, home) {
+            return Some(bound);
+        }
     }
     let is_genesis = draft
         .genesis_plan_id
@@ -100,6 +137,90 @@ pub fn resolved_fs_root(draft: &HireDraft, home: Option<&Path>) -> Option<PathBu
         return None;
     }
     home.map(|h| default_genesis_fs_root(h, &draft.suggested_name))
+}
+
+/// Safety-gate a captured-intake Access folder candidate to an absolute path
+/// under `home`, or `None` when it is vague / unsafe.
+///
+/// The captured value is UNTRUSTED operator input (it rode the wire from the
+/// Genesis intake), so the rules mirror the `with_fs_root` capability guard
+/// and add an outside-HOME rejection:
+/// - trims; empty → `None`.
+/// - any `..` component (traversal) → `None`.
+/// - a vague / non-path answer is rejected so a captured phrase like
+///   `"Gmail and the shared drive"` falls back to the default instead of
+///   minting a junk folder under `home`: the candidate must be whitespace-free
+///   AND look like a path (start with `~`/`/`, or contain a `/` segment). The
+///   frontend extractor already enforces this; the server re-checks as the
+///   real boundary (a folder name with a space is a known, fail-soft gap).
+/// - a leading `~` / `~/` expands to `home`.
+/// - a relative candidate is resolved against `home`; an absolute candidate is
+///   kept as-is.
+/// - the final path MUST equal `home` or be a descendant of it; anything
+///   outside `home` → `None` (the caller then falls back to the default).
+///
+/// Pure: no filesystem access. The folder is created fail-soft by the gateway
+/// hire route's `mkdir`, so a not-yet-existing (but in-bounds) folder still
+/// binds — the user's named folder usually already exists.
+///
+/// ```
+/// use argo_identity::safe_access_fs_root;
+/// use std::path::Path;
+/// let home = Path::new("/home/sam");
+/// assert_eq!(
+///     safe_access_fs_root("SkycotDemo/Inbox", home),
+///     Some(Path::new("/home/sam/SkycotDemo/Inbox").to_path_buf()),
+/// );
+/// assert_eq!(
+///     safe_access_fs_root("~/Documents/Invoices", home),
+///     Some(Path::new("/home/sam/Documents/Invoices").to_path_buf()),
+/// );
+/// // Outside HOME, traversal, empty, and vague phrases are all rejected.
+/// assert_eq!(safe_access_fs_root("/etc", home), None);
+/// assert_eq!(safe_access_fs_root("../secrets", home), None);
+/// assert_eq!(safe_access_fs_root("   ", home), None);
+/// assert_eq!(safe_access_fs_root("Gmail and the shared drive", home), None);
+/// assert_eq!(safe_access_fs_root("Gmail", home), None);
+/// ```
+#[must_use]
+pub fn safe_access_fs_root(candidate: &str, home: &Path) -> Option<PathBuf> {
+    // An empty `home` makes the under-HOME check (`starts_with`) vacuously
+    // true — `Path::new("")` is a prefix of every path — which would let an
+    // absolute candidate like `/etc` escape. Reject it: a teammate fs_root
+    // is only safe when scoped under a concrete HOME (adversarial-review
+    // hardening 2026-06-11; `HOME=""` is degenerate but fail-closed here).
+    if home.as_os_str().is_empty() {
+        return None;
+    }
+    let trimmed = candidate.trim();
+    if trimmed.is_empty() || trimmed.contains("..") {
+        return None;
+    }
+    if trimmed.chars().any(char::is_whitespace) {
+        return None;
+    }
+    let looks_like_path =
+        trimmed.starts_with('~') || trimmed.starts_with('/') || trimmed.contains('/');
+    if !looks_like_path {
+        return None;
+    }
+    let resolved = if trimmed == "~" {
+        home.to_path_buf()
+    } else if let Some(rest) = trimmed.strip_prefix("~/") {
+        home.join(rest)
+    } else {
+        let p = Path::new(trimmed);
+        if p.is_absolute() {
+            p.to_path_buf()
+        } else {
+            home.join(p)
+        }
+    };
+    if resolved == home || resolved.starts_with(home) {
+        Some(resolved)
+    } else {
+        None
+    }
 }
 
 /// [`resolved_fs_root`] with `home` read from the `HOME` environment
@@ -120,6 +241,7 @@ pub fn resolved_fs_root(draft: &HireDraft, home: Option<&Path>) -> Option<PathBu
 ///     tagline: None,
 ///     genesis_plan_id: None,
 ///     fs_root: Some("/data/inbox".into()),
+///     access_fs_root: None,
 /// };
 /// assert_eq!(
 ///     resolved_fs_root_from_env(&draft).as_deref(),
@@ -128,7 +250,13 @@ pub fn resolved_fs_root(draft: &HireDraft, home: Option<&Path>) -> Option<PathBu
 /// ```
 #[must_use]
 pub fn resolved_fs_root_from_env(draft: &HireDraft) -> Option<PathBuf> {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
+    // Treat a set-but-EMPTY `HOME` the same as unset (`None`) so the
+    // captured-Access tier is skipped rather than fail-open: an empty home
+    // would otherwise make the under-HOME guard vacuously true (see
+    // `safe_access_fs_root`). Belt-and-suspenders with that guard.
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .filter(|p| !p.as_os_str().is_empty());
     resolved_fs_root(draft, home.as_deref())
 }
 
@@ -190,6 +318,7 @@ impl IdentityStore<'_> {
     ///     tagline: None,
     ///     genesis_plan_id: None,
     ///     fs_root: None,
+    ///     access_fs_root: None,
     /// };
     /// let id = IdentityStore::new(&store)
     ///     .create_worker_from_draft(&draft, TenantId::new(), "human:op")

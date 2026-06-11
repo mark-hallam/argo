@@ -44,6 +44,7 @@ fn genesis_draft(plan_id: Option<&str>) -> HireDraft {
         tagline: None,
         genesis_plan_id: plan_id.map(str::to_string),
         fs_root: None,
+        access_fs_root: None,
     }
 }
 

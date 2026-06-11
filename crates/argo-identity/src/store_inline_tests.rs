@@ -35,6 +35,7 @@ fn sample_draft() -> HireDraft {
         tagline: Some("Marketplace seller persona".into()),
         genesis_plan_id: None,
         fs_root: None,
+        access_fs_root: None,
     }
 }
 

@@ -69,6 +69,45 @@ export function applyIntakeEdits(
 }
 
 /**
+ * Best-effort: pull a local folder path out of the captured Access needs so
+ * the hire can bind `worker.fs_root` to the folder the user actually NAMED at
+ * intake (uf-bind-intake-access-folder-to-fs-root). Returns the path-ish token
+ * of the FIRST access need that denotes a local folder, or `undefined` when
+ * none does — in which case the hire keeps the generated Genesis default.
+ *
+ * This is a CONVENIENCE extractor, NOT the security boundary: the gateway
+ * re-validates the candidate (must resolve under the user's HOME, no `..`
+ * traversal) before binding it (`argo_identity::safe_access_fs_root`). A vague
+ * or non-path answer (a bare integration name like "Gmail", or a full
+ * sentence) yields `undefined` so the server falls back to the default.
+ */
+export function extractFsRootFromAccessNeeds(
+  accessNeeds: string[] | undefined,
+): string | undefined {
+  if (!accessNeeds) return undefined;
+  for (const raw of accessNeeds) {
+    const candidate = folderCandidate(raw);
+    if (candidate) return candidate;
+  }
+  return undefined;
+}
+
+/**
+ * Reduce one Access-need string to a local folder path token, or `undefined`.
+ * Rule: strip a trailing descriptor word ("folder"/"directory"/"dir"), then
+ * accept the remainder only when it is a SINGLE whitespace-free token that
+ * looks like a path — it starts with `~` or `/`, or contains a `/` segment.
+ * A bare integration name ("Gmail") or a multi-word phrase is rejected.
+ */
+function folderCandidate(raw: string): string | undefined {
+  const stripped = raw.trim().replace(/\s+(folder|directory|dir)\b\.?$/i, "").trim();
+  if (!stripped || /\s/.test(stripped)) return undefined;
+  const looksLikePath =
+    stripped.startsWith("~") || stripped.startsWith("/") || stripped.includes("/");
+  return looksLikePath ? stripped : undefined;
+}
+
+/**
  * Build a canonical `HireDraft` (snake_case → wire camelCase) from the
  * SSE `vertical_ready` payload. The Rust validator requires:
  *
@@ -144,6 +183,11 @@ export function buildHireDraftFromGenesis(
     if (rc.success_criteria && rc.success_criteria.length > 0) {
       draft.successCriteria = rc.success_criteria;
     }
+    // uf-bind-intake-access-folder-to-fs-root: when the captured Access needs
+    // name a local folder, carry it so the gateway can bind worker.fs_root to
+    // the folder the user actually named (server re-validates under HOME).
+    const fsRoot = extractFsRootFromAccessNeeds(rc.access_needs);
+    if (fsRoot) draft.accessFsRoot = fsRoot;
   }
   return draft;
 }

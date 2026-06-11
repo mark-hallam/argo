@@ -45,6 +45,7 @@ use serde::{Deserialize, Serialize};
 ///     tagline: None,
 ///     genesis_plan_id: None,
 ///     fs_root: None,
+///     access_fs_root: None,
 /// };
 /// assert_eq!(draft.suggested_name, "Maya");
 /// ```
@@ -90,6 +91,17 @@ pub struct HireDraft {
     /// [`crate::resolved_fs_root`].
     #[serde(default)]
     pub fs_root: Option<String>,
+    /// Optional captured-intake Access folder candidate — the local folder
+    /// the user NAMED during Genesis intake (e.g. `SkycotDemo/Inbox`, surfaced
+    /// in the captured panel as `Access needed (draft-only): "<folder>"`).
+    /// Unlike [`Self::fs_root`] (a deliberate, unchecked override), this value
+    /// is UNTRUSTED operator input, so the hire path safety-gates it: it is
+    /// only bound to `worker.fs_root` when it resolves to a path under the
+    /// user's `HOME` with no `..` traversal — otherwise the hire falls back to
+    /// the generated Genesis default. Precedence sits BELOW an explicit
+    /// `fs_root` and ABOVE the Genesis default. See [`crate::resolved_fs_root`].
+    #[serde(default)]
+    pub access_fs_root: Option<String>,
 }
 
 /// `provenance_chain` prefix that marks a Genesis-plan id entry, e.g.

@@ -214,7 +214,9 @@ pub(super) async fn hire_response(
     )
 }
 
-/// Create the hire's resolved `fs_root` directory (explicit draft value
+/// Create the hire's resolved `fs_root` directory (explicit draft value,
+/// the captured-intake Access folder the user NAMED — bound only when it
+/// resolves under HOME with no traversal, uf-bind-intake-access-folder-to-fs-root —
 /// or the Genesis default `<home>/SkycotTeammates/<persona-slug>/` —
 /// the SAME resolution [`argo_identity::resolved_fs_root_from_env`]
 /// used when the store stamped the `worker.fs_root` column). Fail-soft

@@ -83,6 +83,7 @@ fn sample_draft() -> HireDraft {
         tagline: None,
         genesis_plan_id: None,
         fs_root: None,
+        access_fs_root: None,
     }
 }
 

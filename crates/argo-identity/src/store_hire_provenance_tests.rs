@@ -22,6 +22,7 @@ fn draft_with_plan(plan: Option<&str>) -> HireDraft {
         tagline: None,
         genesis_plan_id: plan.map(str::to_string),
         fs_root: None,
+        access_fs_root: None,
     }
 }
 
