@@ -62,6 +62,12 @@ pub(super) enum Action {
     /// human), so owner only — stricter than the admin-floor lifecycle
     /// verbs.
     WorkerExecutorPromote,
+    /// `POST|DELETE /api/v1/workers/<id>/capability-grants[/<tool>]` — the
+    /// durable per-worker capability grant + revoke (tg3). It loosens the
+    /// least-privilege fence by appending a tool to the worker's manifest
+    /// `[tools].allowed` (revoke removes it), so it is as sensitive as
+    /// executor-promotion: owner only.
+    WorkerCapabilityGrant,
     /// `PATCH /api/v1/workers/<id>/{channels,quiet-hours,budget,autonomy}`.
     /// Anyone can flip autonomy today — gate to admin+.
     WorkerSettingsPatch,
@@ -123,6 +129,7 @@ impl Action {
             Self::WorkerArchive => "worker.archive",
             Self::WorkerHardDelete => "worker.hard_delete",
             Self::WorkerExecutorPromote => "worker.executor_promote",
+            Self::WorkerCapabilityGrant => "worker.capability_grant",
             Self::WorkerSettingsPatch => "worker.settings_patch",
             Self::ApprovalDecide => "approval.decide",
             Self::ApprovalUndo => "approval.undo",
@@ -149,6 +156,7 @@ pub(super) fn required_role(action: Action) -> UserTenantRole {
         // wiki delete (destructive head removal).
         Action::WorkerHardDelete
         | Action::WorkerExecutorPromote
+        | Action::WorkerCapabilityGrant
         | Action::AuditCrossTenant
         | Action::DataExport
         | Action::KnowledgeDelete => UserTenantRole::Owner,

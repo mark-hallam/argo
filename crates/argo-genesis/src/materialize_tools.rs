@@ -75,7 +75,12 @@ pub(crate) const FILE_WRITE_TOOL: &str = "file_write";
 /// `[tools].denied` so the fence refuses them even if a colliding
 /// `[actions]` key lands them in the profile's allow-set (deny wins in
 /// `WorkerCapabilityProfile::permits_tool`).
-pub(crate) const ALWAYS_DENIED_RUNTIME_TOOLS: &[&str] = &[
+///
+/// Re-exported at the crate root (`argo_genesis::ALWAYS_DENIED_RUNTIME_TOOLS`)
+/// so the durable per-worker capability-grant route (tg3) refuses to grant any
+/// of these with an explicit error, reusing THIS canonical list rather than
+/// forking a second always-denied taxonomy (parallel-surface rule).
+pub const ALWAYS_DENIED_RUNTIME_TOOLS: &[&str] = &[
     "code_execute",
     "delegate_task",
     "file_patch",

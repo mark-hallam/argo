@@ -259,6 +259,7 @@ mod routes_waitlist;
 mod routes_enterprise_inquiry;
 mod routes_wizard;
 mod routes_worker_activity;
+mod routes_worker_capability_grant;
 mod routes_worker_detail;
 mod routes_worker_escalations;
 mod routes_worker_executor_promote;

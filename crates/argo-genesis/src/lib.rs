@@ -105,6 +105,11 @@ pub use comprehension::{
 };
 pub use conflict::{detect as detect_conflicts, highest_score, ConflictMatch, ConflictReport};
 pub use error::GenesisError;
+/// Canonical list of runtime tools a teammate may NEVER hold (shell/exec/spawn
+/// family + arbitrary file mutation + external transmit). The durable
+/// capability-grant route refuses to grant any of these (deny-wins, reused not
+/// forked).
+pub use materialize_tools::ALWAYS_DENIED_RUNTIME_TOOLS;
 pub use genesis_judge::{
     build_judge_prompt, judge_genesis_draft, GenesisJudgeClient, GenesisJudgeVerdict, JudgeInput,
 };

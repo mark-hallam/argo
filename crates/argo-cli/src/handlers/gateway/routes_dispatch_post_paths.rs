@@ -77,6 +77,26 @@ pub(super) async fn dispatch_worker_action_executor(
     )
 }
 
+/// `POST /api/v1/workers/<id>/capability-grants` — durable per-worker
+/// capability grant (tg3). Two path segments (`<id>/capability-grants`)
+/// distinguish it from the lifecycle verbs; the matching DELETE revoke lives
+/// in [`super::routes_dispatch_delete`].
+pub(super) async fn dispatch_worker_capability_grant(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> Option<(&'static str, String)> {
+    let rest = req.strip_prefix("POST /api/v1/workers/")?;
+    let (head, _) = rest.split_once(' ')?;
+    let head_no_query = head.split('?').next().unwrap_or(head);
+    let parts: Vec<&str> = head_no_query.split('/').collect();
+    if parts.len() != 2 || parts[1] != "capability-grants" {
+        return None;
+    }
+    Some(
+        super::routes_worker_capability_grant::post_capability_grant(parts[0], req, store).await,
+    )
+}
+
 /// `/api/v1/approvals/bundles[/decide]` create + decide routes.
 pub(super) async fn dispatch_approval_bundles(
     req: &str,

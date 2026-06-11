@@ -21,7 +21,34 @@ pub(super) async fn dispatch_delete(
     if let Some(resp) = super::routes_api_keys::dispatch_delete(req, store).await {
         return Some(resp);
     }
+    // tg3 — revoke a durable per-worker capability grant. Three path segments
+    // (`<id>/capability-grants/<tool>`) distinguish it from the two-segment
+    // hard-delete below.
+    if let Some(resp) = dispatch_capability_grant_revoke(req, store).await {
+        return Some(resp);
+    }
     dispatch_worker_delete(req, store).await
+}
+
+/// `DELETE /api/v1/workers/<id>/capability-grants/<tool>` — revoke one durable
+/// grant, restoring the deny-by-default fence for that tool on the next run.
+async fn dispatch_capability_grant_revoke(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> Option<(&'static str, String)> {
+    let rest = req.strip_prefix("DELETE /api/v1/workers/")?;
+    let (head, _) = rest.split_once(' ')?;
+    let head_no_query = head.split('?').next().unwrap_or(head);
+    let parts: Vec<&str> = head_no_query.split('/').collect();
+    if parts.len() != 3 || parts[1] != "capability-grants" {
+        return None;
+    }
+    Some(
+        super::routes_worker_capability_grant::delete_capability_grant(
+            parts[0], parts[2], req, store,
+        )
+        .await,
+    )
 }
 
 /// `DELETE /api/v1/workers/<id>` — J11 hard-delete.
