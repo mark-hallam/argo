@@ -250,28 +250,21 @@ pub(super) async fn decide_response(approval_id: &str, req: &str) -> (&'static s
         worker_actions_transitions::cancel(&memory, ws, approval_id, &actor, Some(&note)).await
     };
     match result {
+        // Refuse → audit the decline. Approve → audit the grant AND
+        // re-dispatch the held action through its executor (cu5, DEC-050
+        // G5 — approval becomes real work in one click). Both branches
+        // resolve the request tenant first.
         Ok(decided) => {
-            if decision == "refuse" {
-                let tenant =
-                    match super::resolve_tenant::resolve_tenant_for_request(req, store.as_ref())
-                        .await
-                    {
-                        Ok(t) => t.to_string(),
-                        Err(e) => return server_error(&format!("resolve tenant: {e}")),
-                    };
-                if let Err(e) =
-                    emit_approval_declined(&store, &tenant, &actor, &located.record, &decided).await
-                {
-                    return server_error(&format!("approval declined audit: {e}"));
-                }
-            }
-            ok_decide(approval_id, decision)
+            super::routes_approvals_execute::finalize_decision(
+                req, &store, &memory, ws, decision, &located, &decided, &actor, approval_id,
+            )
+            .await
         }
         Err(e) => server_error(&format!("decide: {e}")),
     }
 }
 
-async fn emit_approval_declined(
+pub(super) async fn emit_approval_declined(
     store: &Arc<SessionStore>,
     tenant_id: &str,
     actor: &str,
@@ -400,8 +393,17 @@ fn approval_row_json(rec: &ActionRecord) -> Value {
 }
 
 fn decision_from_record(rec: &ActionRecord) -> Option<String> {
+    // An approval-gated action that was approved carries `approved_by`,
+    // and the cu5 approve-and-run path then advances it through
+    // executing → completed|failed — transitions that PRESERVE
+    // `approved_by`. Treat any `approved_by`-stamped row as an "approve"
+    // decision so a re-decide stays idempotent (200, not a spurious 409)
+    // and undo still recognises the row as JSON-API-decided even after it
+    // has executed.
+    if rec.approved_by.is_some() {
+        return Some("approve".to_string());
+    }
     match rec.state.as_str() {
-        s if s == ActionState::Approved.as_str() => Some("approve".to_string()),
         s if s == ActionState::Cancelled.as_str() => rec
             .result
             .as_ref()

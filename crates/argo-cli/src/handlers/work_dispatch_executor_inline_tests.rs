@@ -184,6 +184,35 @@ async fn completed_outcome_writes_completed_row() {
     assert_eq!(result.get("ok"), Some(&serde_json::json!(true)));
 }
 
+/// cu5 (DEC-050 G5): an approval-gated record the operator has just
+/// APPROVED (state `approved`, `requires_approval = true`) runs to
+/// `completed` through the SAME [`run_one`] seam — the operator's approval,
+/// not the auto-eligibility gate, is what cleared it for execution.
+#[tokio::test]
+async fn approved_gated_action_executes_to_completed() {
+    let (memory, ws) = open_test_memory().await;
+    let mut rec = autonomous_low_record("act-approved");
+    rec.requires_approval = true;
+    rec.risk_level = "high".into();
+    rec.state = "approved".into();
+    rec.approved_by = Some("operator".into());
+    rec.approved_at = Some(chrono::Utc::now().to_rfc3339());
+    seed(&memory, ws, &rec).await;
+    let cwd = std::env::temp_dir();
+    let exec = MockExecutor {
+        outcome: MockOutcome::Completed,
+    };
+
+    run_one(&memory, ws, &rec, &exec, &cwd)
+        .await
+        .expect("run_one ok");
+
+    assert_eq!(
+        current_state(&memory, ws, "act-approved").await,
+        "completed"
+    );
+}
+
 #[tokio::test]
 async fn human_handoff_leaves_row_executing() {
     let (memory, ws) = open_test_memory().await;

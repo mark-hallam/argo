@@ -50,7 +50,7 @@ use super::worker_actions_executor_promotion::{
 use super::worker_actions_transitions;
 use argo_memory::MemoryStore;
 use argo_store::SessionStore;
-use argo_types::{ArgoResult, TenantId, WorkspaceId};
+use argo_types::{ArgoError, ArgoResult, TenantId, WorkspaceId};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -121,6 +121,38 @@ pub(crate) async fn dispatch_emitted_actions_inline(
         }
     }
     dispatched
+}
+
+/// Execute an action the operator has just EXPLICITLY APPROVED in the
+/// `/approvals` inbox (cu5 · DEC-050 G5 — the approval→work loop).
+///
+/// Unlike the autonomous path [`dispatch_emitted_actions_inline`], this is
+/// NOT gated by `ARGO_EXECUTION_GRADUATION` or the static
+/// [`is_auto_eligible`] predicate: the operator's approval IS the
+/// authorization, so an approval-gated / medium-or-high-risk action runs
+/// here precisely because a human cleared it. The per-worker circuit
+/// (probation) gate is still honoured — an open circuit holds the action
+/// even after approval.
+///
+/// `rec` must already be in `approved` (or a `pending` autonomous-safe)
+/// state; [`run_one`] drives `approved → executing → completed|failed`,
+/// reusing the SAME resolve + dispatch + transition helpers the CLI
+/// `argo worker actions execute` path uses. Returns `Ok(())` on a
+/// completed / human-handoff dispatch and `Err` on a resolve / dispatch
+/// failure (the row is transitioned to `failed` before the error returns).
+pub(crate) async fn execute_approved_action_inline(
+    store: &Arc<SessionStore>,
+    memory: &MemoryStore,
+    workspace: WorkspaceId,
+    tenant: TenantId,
+    vertical_id: &str,
+    rec: &ActionRecord,
+) -> ArgoResult<()> {
+    worker_actions_auto_approval::ensure_circuit_allows_dispatch(memory, workspace, &rec.action_id)
+        .await?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let executor = resolve_for(store, tenant, vertical_id, rec).await?;
+    run_one(memory, workspace, rec, executor.as_ref(), &cwd).await
 }
 
 /// Resolve the executor the bound vertical declares for `rec`'s

@@ -120,6 +120,22 @@ async fn latest_action_record(action_id: &str) -> ActionRecord {
         .unwrap_or_else(|| panic!("no row for {action_id}"))
 }
 
+/// Find the `approved` transition row in an action's history. cu5
+/// (DEC-050 G5) advances an approved action through the executor
+/// (`approved → executing`) in the same decide call, so the *latest* row
+/// is no longer `approved` — but the decider-role stamp lives on the
+/// `approved` transition row, which this returns from the full history.
+async fn approved_history_record(action_id: &str) -> ActionRecord {
+    use crate::handlers::worker_actions_transitions::{full_history, open_workspace_memory};
+    let (memory, ws) = open_workspace_memory().await.expect("open memory");
+    full_history(&memory, ws, action_id)
+        .await
+        .expect("history")
+        .into_iter()
+        .find(|r| r.state == "approved")
+        .unwrap_or_else(|| panic!("no approved row for {action_id}"))
+}
+
 #[tokio::test]
 async fn decide_blocks_guest_role_with_403() {
     let _g = crate::handlers::gateway::shared_env_lock().await;
@@ -168,8 +184,9 @@ async fn decide_admin_role_succeeds_and_stamps_decider_role_into_audit_row() {
     .await;
     unlock_production_mode();
     assert_eq!(status, "200 OK");
-    let rec = latest_action_record("act-admin").await;
-    assert_eq!(rec.state, "approved");
+    // cu5: the latest row has advanced past `approved` (the executor ran);
+    // the decider-role stamp lives on the `approved` history row.
+    let rec = approved_history_record("act-admin").await;
     assert_eq!(
         decider_role_from_record(&rec).as_deref(),
         Some("admin"),
@@ -199,7 +216,7 @@ async fn decide_user_role_succeeds_at_floor() {
     .await;
     unlock_production_mode();
     assert_eq!(status, "200 OK");
-    let rec = latest_action_record("act-user").await;
+    let rec = approved_history_record("act-user").await;
     assert_eq!(decider_role_from_record(&rec).as_deref(), Some("user"));
 }
 
