@@ -65,6 +65,21 @@ are BINDING prerequisites on the operator flag-flip (NOT on the merged wiring):
    when a tenant has zero workspaces it falls back to a cwd-derived workspace,
    discarding `worker.tenant_id` — a tenant-binding smell to close when arming.
 
+4. **Computer-use approval floor (DEC-050 G3 / #2816 review, 2026-06-11).** The
+   inline auto-execution gate (`!requires_approval && risk==low`) stamps those
+   fields verbatim from the manifest declaration — so a manifest can self-declare
+   an autonomous, no-approval `computer_use_native_macos` action, which would
+   drive the host Mac with NO approval the moment this flag flips. Platform-enforce
+   a floor BEFORE the flip: at validation require `requires_approval=true` for the
+   `computer_use*` executor family, AND make `is_auto_eligible_with_flag` treat any
+   computer-use executor as never-auto-eligible (belt-and-suspenders), + a negative
+   test. No real manifest declares autonomous computer-use today, so the floor is
+   non-breaking. (cu3/#2816 — register the macOS executor — is HELD pending this.)
+5. **Tenant-blind cu-macos audit (pre-existing).** The inline path runs cu-macos
+   via `MacosCuExecutor::new_unguarded` with `TenantId(nil)`, so its audit rows
+   land under the nil tenant rather than the real one. Single-host, limited blast
+   radius, but cu-macos audit attribution should be tenant-bound before the flip.
+
 Same posture as DEC-049's `ARGO_WORKER_SWARM` flip-gate: default-off, operator-only
 flip after these land + a fresh adversarial re-verify.
 
