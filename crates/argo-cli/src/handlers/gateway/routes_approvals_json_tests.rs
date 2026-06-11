@@ -17,7 +17,7 @@ fn workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
-fn set_test_env(tmp: &std::path::Path) {
+pub(super) fn set_test_env(tmp: &std::path::Path) {
     // ARGO_HOME isolates the SQLite store per tempdir; the workspace
     // is keyed off (cwd_basename, cwd) inside ensure_workspace, but
     // since each test gets a fresh DB the workspace row is always
@@ -54,7 +54,7 @@ fn pending_record_with_payload(id: &str, payload: serde_json::Value) -> ActionRe
     }
 }
 
-async fn seed_action(action_id: &str) {
+pub(super) async fn seed_action(action_id: &str) {
     seed_action_record(pending_record(action_id)).await;
 }
 
@@ -72,11 +72,11 @@ async fn seed_action_record(rec: ActionRecord) {
         .expect("append memory row");
 }
 
-fn parse(body: &str) -> Value {
+pub(super) fn parse(body: &str) -> Value {
     serde_json::from_str(body).expect("response is JSON")
 }
 
-fn auth_post(path: &str, body: &str) -> String {
+pub(super) fn auth_post(path: &str, body: &str) -> String {
     format!(
         "POST {path} HTTP/1.1\r\nAuthorization: Bearer test\r\nContent-Length: {len}\r\n\r\n{body}",
         len = body.len()
@@ -235,67 +235,7 @@ async fn decide_approve_transitions_state() {
     assert_eq!(parse(&body)["items"].as_array().unwrap().len(), 0);
 }
 
-/// cu5 (DEC-050 G5): approving a held action EXECUTES it in one click —
-/// the response carries an `execution` field and the worker-action row
-/// advances past `approved` (the `post_listing` fixture resolves to the
-/// keyless `human` executor, which writes a real handoff bundle and
-/// leaves the row at `executing`).
-#[tokio::test]
-async fn decide_approve_executes_held_action() {
-    let _g = crate::handlers::gateway::shared_env_lock().await;
-    let tmp = tempfile::tempdir().expect("tempdir");
-    set_test_env(tmp.path());
-    seed_action("act-run").await;
-    let (status, body) = decide_response(
-        "act-run",
-        &auth_post(
-            "/api/v1/approvals/act-run/decide",
-            r#"{"decision":"approve"}"#,
-        ),
-    )
-    .await;
-    assert_eq!(status, "200 OK");
-    let v = parse(&body);
-    assert_eq!(v["ok"], true);
-    assert_eq!(v["decision"], "approve");
-    // The approval re-dispatched the action through its executor.
-    assert_eq!(
-        v["execution"], "dispatched",
-        "approve must report the execution outcome, got {:?}",
-        v["execution"]
-    );
-    // The worker-action ledger moved past `approved` — the human executor
-    // leaves an approval-gated action at `executing` (HumanHandoff).
-    let (memory, ws) = open_workspace_memory().await.expect("memory");
-    let state = crate::handlers::worker_actions_transitions::find_action(&memory, ws, "act-run")
-        .await
-        .unwrap()
-        .expect("action present")
-        .record
-        .state;
-    assert_eq!(state, "executing", "approve-and-run advanced the ledger");
-}
 
-/// cu5: re-approving an action that has ALREADY been approved-and-executed
-/// stays idempotent (200), not a spurious 409. After execution the row is
-/// `executing`/`completed`/`failed`, not `approved`, so the idempotency
-/// check must recognise the preserved `approved_by` stamp.
-#[tokio::test]
-async fn decide_reapprove_after_execution_is_idempotent_200() {
-    let _g = crate::handlers::gateway::shared_env_lock().await;
-    let tmp = tempfile::tempdir().expect("tempdir");
-    set_test_env(tmp.path());
-    seed_action("act-rerun").await;
-    let req = auth_post(
-        "/api/v1/approvals/act-rerun/decide",
-        r#"{"decision":"approve"}"#,
-    );
-    let (s1, _) = decide_response("act-rerun", &req).await;
-    assert_eq!(s1, "200 OK");
-    let (s2, b2) = decide_response("act-rerun", &req).await;
-    assert_eq!(s2, "200 OK", "re-approve after execution must be idempotent");
-    assert_eq!(parse(&b2)["decision"], "approve");
-}
 
 /// cu5 acceptance #2: an operator in workspace A cannot approve (or
 /// execute) a held action that lives in workspace B. The action is seeded

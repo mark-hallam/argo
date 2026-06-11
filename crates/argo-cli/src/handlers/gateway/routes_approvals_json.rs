@@ -463,5 +463,9 @@ pub(super) fn decider_role_from_record(rec: &ActionRecord) -> Option<String> {
 mod tests;
 
 #[cfg(test)]
+#[path = "routes_approvals_execute_tests.rs"]
+mod execute_tests;
+
+#[cfg(test)]
 #[path = "routes_approvals_role_gate_tests.rs"]
 mod role_gate_tests;
