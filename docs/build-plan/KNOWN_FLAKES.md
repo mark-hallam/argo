@@ -178,6 +178,37 @@ that lands, treat them as pre-existing — do NOT mark BLOCKED.
   `gateway_smoke_streaming::*`, or `gateway_smoke_audit_costs::*`
   surfaces a new failure, treat it as a genuine break and open a
   follow-up brief — do not boundary-note it.
+- `argo-store::migration_chain::migration_chain_applies_and_h_stack_tables_accept_inserts`
+  — RESOLVED. This was the swarm's #1 carry-noted failure
+  (`migration_chain` boundary-noted 18× per
+  `scripts/capture-recurring-nits.py`, DEC-042 B-3). It had **two** root
+  classes, both now structurally guarded — the test passes deterministically
+  on current `origin/main` (verified green 3× in a row, 2026-06-12):
+  1. **`19__worker_fs_root.sql` — a `;` inside an `--` SQL comment** (the
+     earliest failures, ~2026-05-11/12) broke the test's naive split-on-`;`.
+     Fixed two ways: the statement splitter is now comment-aware
+     (`skip_line_comment`, `migration_chain.rs:90-93,115-120`), and the file
+     was renumbered out of the raw-apply range by
+     [#1735](https://github.com/mark-hallam/argo/pull/1735) — slots 12–29 are
+     now skipped via `is_reconciled_versioned_raw`.
+  2. **`53__forge_run_cost.sql` duplicate column `llm_input_tokens`** (the
+     bulk, ~2026-05-14→23) — raw slot 53 re-runs an `ALTER TABLE forge_run
+     ADD COLUMN llm_input_tokens` that the registered `v49.rs` migration
+     already applied. The collision still exists in source (by design — both
+     are real migrations), but is tolerated by the `is_clean_idempotent_error`
+     catch-all added in
+     [#2158](https://github.com/mark-hallam/argo/pull/2158)
+     (`migration_chain.rs:64,387-390`), which absorbs any
+     `duplicate column name` / `already exists` on the non-idempotent first
+     pass. That catch-all covers the whole class, so no new per-slot predicate
+     is needed when a future `vN.rs`/raw `.sql` pair overlaps.
+  The 18 ledger occurrences were the **same** note carried forward verbatim in
+  BUILD_STATUS.md row history, not 18 fresh failures. **If
+  `migration_chain` is GREEN on your branch** (it will be), it was carry-noted
+  — drop the boundary-note, do not re-add it. **If it is RED on clean current
+  `origin/main`**, that is a genuine NEW regression (a new raw migration the
+  catch-all doesn't cover, or a real schema break) — fix it or open a
+  follow-up brief; do NOT boundary-note it.
 - `web/__tests__/brand-execution-polish.test.tsx > no off-grid 1.5
   spacing utilities` — RESOLVED in
   [#1952](https://github.com/mark-hallam/argo/pull/1952) (the
