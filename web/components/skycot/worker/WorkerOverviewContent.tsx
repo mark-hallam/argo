@@ -60,11 +60,10 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
   // Probation state derived ONLY from the last run response (the
   // worker-detail / overview payloads don't expose probation — see
   // `lib/api/worker-overview.ts`; we don't invent backend fields
-  // beyond the two additive ones on the run envelope).
-  const [heldRun, setHeldRun] = useState<{
-    sessionId: string;
-    heldTools: string[];
-  } | null>(null);
+  // beyond the additive ones on the run envelope). Only the held tool
+  // list is needed: approval now rides ON the next run
+  // (`approve_tools`), not on the finished run's session.
+  const [heldTools, setHeldTools] = useState<string[] | null>(null);
   const [inProbation, setInProbation] = useState(false);
   const toggleMutation = useToggleDuty(workerId);
 
@@ -123,52 +122,72 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
   // of the inert-stub trap by routing through a real endpoint that
   // emits a real `worker.run` audit row — see brief
   // `fix-worker-detail-run-now-action-and-endpoint`.
-  const onRunNow = useCallback(async () => {
-    if (running) return;
-    setRunning(true);
-    try {
-      const result = await triggerWorkerRun(workerId);
-      const workerName = workerQuery.data?.name ?? "Worker";
-      // Day-1 unblock FIX 1 (NO-THEATER): the run envelope's additive
-      // `held_tools` / `probation` fields say whether the 24h probation
-      // window held the teammate's tools. A green "running now" toast
-      // over a held run is theater — surface the honest state and the
-      // in-SPA approval card instead. Both fields are optional so older
-      // gateways keep the previous behavior.
-      setInProbation(Boolean(result.probation));
-      const heldTools = result.held_tools ?? [];
-      if (heldTools.length > 0) {
-        if (result.session_id) {
-          setHeldRun({ sessionId: result.session_id, heldTools });
+  //
+  // `approveTools` is the keystone "Approve & run" path: ONE call that
+  // runs the teammate WITH the operator's per-tool one-time OK riding
+  // on it (`approve_tools` → one-shot grants on the NEW run's session),
+  // instead of approving the finished run's dead session and watching
+  // the next run hold the same tools again.
+  const runNow = useCallback(
+    async (approveTools?: string[]) => {
+      if (running) return;
+      setRunning(true);
+      try {
+        const result = await triggerWorkerRun(workerId, undefined, approveTools);
+        const workerName = workerQuery.data?.name ?? "Worker";
+        const approved = approveTools !== undefined && approveTools.length > 0;
+        // Day-1 unblock FIX 1 (NO-THEATER): the run envelope's additive
+        // `held_tools` / `probation` fields say whether the 24h probation
+        // window held the teammate's tools. A green "running now" toast
+        // over a held run is theater — surface the honest state and the
+        // in-SPA approval card instead. Both fields are optional so older
+        // gateways keep the previous behavior.
+        setInProbation(Boolean(result.probation));
+        const held = result.held_tools ?? [];
+        if (held.length > 0) {
+          // Progressive approval: the approved tools fired and the
+          // teammate reached a NEW set — the card re-renders with it.
+          setHeldTools(held);
+          toast.warning(
+            approved
+              ? `${workerName} got further, but reached more held tools`
+              : `${workerName} ran, but their tools are held by the probation window`,
+            {
+              description: approved
+                ? "Approve the new tools below to keep going — it's a one-time OK."
+                : "Approve the held tools below — your OK rides on the next run.",
+            },
+          );
+          return;
         }
-        toast.warning(
-          `${workerName} ran, but their tools are held by the probation window`,
+        setHeldTools(null);
+        toast.success(
+          approved
+            ? `${workerName} did the work`
+            : `${workerName} is running now`,
           {
-            description: result.session_id
-              ? "Approve the held tools below — it's a one-time OK."
-              : "Approve the held tools to let the work go through.",
+            description: approved
+              ? "Approved tools ran — see the audit trail and approvals for the full record."
+              : "Action queued. The audit row is live.",
+            action: {
+              label: "View in audit",
+              onClick: () => {
+                window.location.href = `/audit/action/${encodeURIComponent(result.action_id)}`;
+              },
+            },
           },
         );
-        return;
+      } catch (err) {
+        toast.error("Couldn't trigger a run", {
+          description: err instanceof Error ? err.message : undefined,
+        });
+      } finally {
+        setRunning(false);
       }
-      setHeldRun(null);
-      toast.success(`${workerName} is running now`, {
-        description: "Action queued. The audit row is live.",
-        action: {
-          label: "View in audit",
-          onClick: () => {
-            window.location.href = `/audit/action/${encodeURIComponent(result.action_id)}`;
-          },
-        },
-      });
-    } catch (err) {
-      toast.error("Couldn't trigger a run", {
-        description: err instanceof Error ? err.message : undefined,
-      });
-    } finally {
-      setRunning(false);
-    }
-  }, [running, workerId, workerQuery.data?.name, toast]);
+    },
+    [running, workerId, workerQuery.data?.name, toast],
+  );
+  const onRunNow = useCallback(() => runNow(), [runNow]);
 
   if (overviewQuery.isPending) {
     return (
@@ -263,15 +282,11 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
           </Button>
         </span>
       </div>
-      {heldRun ? (
+      {heldTools && heldTools.length > 0 ? (
         <ProbationApprovalCard
           workerName={workerQuery.data?.name ?? "This teammate"}
-          sessionId={heldRun.sessionId}
-          heldTools={heldRun.heldTools}
-          onRunAgain={() => {
-            setHeldRun(null);
-            void onRunNow();
-          }}
+          heldTools={heldTools}
+          onApproveAndRun={(tools) => runNow(tools)}
         />
       ) : null}
       <WhatTheyDoCard

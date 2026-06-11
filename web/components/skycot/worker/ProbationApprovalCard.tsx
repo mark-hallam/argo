@@ -1,27 +1,32 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Check, Play, ShieldAlert } from "lucide-react";
+import { Play, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
-import { approveSessionTools } from "@/lib/api/session-approvals";
-import { useToast } from "@/lib/ui/use-toast";
 
 /**
- * "Needs your approval" card (day-1 unblock FIX 1).
+ * "Needs your approval" card — now ONE atomic action (keystone fix).
  *
  * Rendered on the worker overview when a Run-now response comes back
  * with `held_tools` — the run happened, but the teammate's tools are
  * held by the 24-hour probation window pending a one-time human OK.
- * Without this card the held state was invisible: the SPA showed a
- * green "running now" toast and the only remediation was a CLI
- * command a web user can't run.
  *
- * Flow: list the held tools → [Approve tools] grants each one via
- * `POST /api/sessions/<id>/approve` → on success flip to a [Run
- * again] affordance that re-invokes Run now. Approve failure surfaces
- * the gateway error envelope message in a destructive toast and stays
- * retryable.
+ * The old two-step flow (approve the FINISHED run's session, then "Run
+ * again") never converged: grants are session-scoped, every run mints
+ * a fresh session, so the next run held the SAME tools again. The
+ * primary button is now **Approve & run**: one call to run-now with
+ * `approve_tools = heldTools`, so the gateway mints ONE-SHOT grants on
+ * the NEW run's session before the turn — the approved tools actually
+ * fire and the teammate does real work.
+ *
+ * The parent owns the run call (`onApproveAndRun`) and clears/refreshes
+ * this card from the new run's response: converged → card unmounts and
+ * the success toast points at the audit trail; new tools held → the
+ * card re-renders with the new set (progressive approval).
+ *
+ * Direct session-grant approval (`lib/api/session-approvals.ts`) still
+ * exists for other surfaces; this card no longer routes through it.
  *
  * Brand register: brand-restrained worker-overview card — existing
  * Card/Button idioms + CSS variables only (DESIGN_SYSTEM.md tokens).
@@ -30,45 +35,36 @@ import { useToast } from "@/lib/ui/use-toast";
 export interface ProbationApprovalCardProps {
   /** Display name for copy ("Ava ran, but…"). */
   workerName: string;
-  /** Session the held run executed under. */
-  sessionId: string;
   /** Tools held by the probation window — non-empty. */
   heldTools: string[];
-  /** Re-invoke Run now after the tools are granted. */
-  onRunAgain: () => void;
+  /**
+   * Run again WITH `approve_tools = heldTools` — one atomic operator
+   * action. The promise resolves when the run round-trips; the parent
+   * updates/clears the card from the response.
+   */
+  onApproveAndRun: (tools: string[]) => Promise<void>;
   className?: string;
 }
 
-type Phase = "idle" | "approving" | "approved";
+type Phase = "idle" | "running";
 
 export function ProbationApprovalCard({
   workerName,
-  sessionId,
   heldTools,
-  onRunAgain,
+  onApproveAndRun,
   className,
 }: ProbationApprovalCardProps) {
-  const toast = useToast();
   const [phase, setPhase] = useState<Phase>("idle");
 
   const onApprove = useCallback(async () => {
-    if (phase === "approving") return;
-    setPhase("approving");
+    if (phase === "running") return;
+    setPhase("running");
     try {
-      await approveSessionTools(sessionId, heldTools, {
-        note: "approved from worker overview (probation window)",
-      });
-      setPhase("approved");
-      toast.success("Tools approved", {
-        description: `${workerName} can use ${heldTools.length === 1 ? "this tool" : "these tools"} now — run them again to do the work.`,
-      });
-    } catch (err) {
+      await onApproveAndRun(heldTools);
+    } finally {
       setPhase("idle");
-      toast.error("Couldn't approve the tools", {
-        description: err instanceof Error ? err.message : undefined,
-      });
     }
-  }, [phase, sessionId, heldTools, workerName, toast]);
+  }, [phase, heldTools, onApproveAndRun]);
 
   return (
     <Card
@@ -82,30 +78,16 @@ export function ProbationApprovalCard({
             aria-hidden="true"
             className="grid size-6 place-items-center rounded-full bg-[var(--primary)]/10 text-[var(--primary)]"
           >
-            {phase === "approved" ? (
-              <Check className="size-3.5" />
-            ) : (
-              <ShieldAlert className="size-3.5" />
-            )}
+            <ShieldAlert className="size-3.5" />
           </span>
-          {phase === "approved" ? "Tools approved" : "Needs your approval"}
+          Needs your approval
         </CardTitle>
       </CardHeader>
       <CardBody className="pt-1 space-y-3">
         <p className="text-sm text-[var(--muted-foreground)]">
-          {phase === "approved" ? (
-            <>
-              {workerName} can use{" "}
-              {heldTools.length === 1 ? "this tool" : "these tools"} now. Run
-              them again to do the work.
-            </>
-          ) : (
-            <>
-              {workerName} ran, but these tools are held. New teammates work
-              under a 24-hour probation window — every tool needs your
-              one-time OK.
-            </>
-          )}
+          {workerName} ran, but these tools are held. New teammates work
+          under a 24-hour probation window — every tool needs your one-time
+          OK. Approving runs them again with your OK applied to that run.
         </p>
         <ul
           role="list"
@@ -123,29 +105,17 @@ export function ProbationApprovalCard({
           ))}
         </ul>
         <div className="flex items-center gap-2">
-          {phase === "approved" ? (
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              onClick={onRunAgain}
-              data-testid="probation-run-again"
-            >
-              <Play aria-hidden="true" />
-              Run again
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              onClick={onApprove}
-              loading={phase === "approving"}
-              data-testid="probation-approve-tools"
-            >
-              Approve {heldTools.length === 1 ? "tool" : "tools"}
-            </Button>
-          )}
+          <Button
+            type="button"
+            variant="primary"
+            size="md"
+            onClick={onApprove}
+            loading={phase === "running"}
+            data-testid="probation-approve-and-run"
+          >
+            <Play aria-hidden="true" />
+            Approve &amp; run
+          </Button>
         </div>
       </CardBody>
     </Card>

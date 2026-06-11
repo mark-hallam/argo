@@ -193,6 +193,56 @@ describe("lib/api/workers", () => {
     expect(result.held_tools).toBeUndefined();
     expect(result.probation).toBeUndefined();
   });
+
+  // Keystone "Approve & run" fix: the operator's held-tool list rides
+  // on the run request as `approve_tools` so the gateway mints one-shot
+  // grants on the NEW run's session — and the response's
+  // `approved_tools` reports what was actually granted.
+  it("triggerWorkerRun sends approve_tools and parses approved_tools", async () => {
+    installMock(async (req) => {
+      expect(req.url).toMatch(/\/api\/workers\/w-1\/run$/);
+      const body = (await req.json()) as Record<string, unknown>;
+      expect(body.approve_tools).toEqual(["send_email", "web_search"]);
+      expect(body.trigger_source).toBe("manual_run_now");
+      return makeResponse({
+        body: {
+          action_id: "a3",
+          audit_id: "a3",
+          trigger_id: "t3",
+          queued_at: "2026-06-11T00:00:00Z",
+          session_id: "019e6785-928a-7270-a766-f945b6cd7162",
+          held_tools: [],
+          probation: true,
+          approved_tools: ["send_email", "web_search"],
+        },
+      });
+    });
+
+    const result = await triggerWorkerRun("w-1", undefined, [
+      "send_email",
+      "web_search",
+    ]);
+    expect(result.approved_tools).toEqual(["send_email", "web_search"]);
+    expect(result.held_tools).toEqual([]);
+  });
+
+  it("triggerWorkerRun omits approve_tools when none are given", async () => {
+    installMock(async (req) => {
+      const body = (await req.json()) as Record<string, unknown>;
+      expect(body).not.toHaveProperty("approve_tools");
+      return makeResponse({
+        body: {
+          action_id: "a4",
+          audit_id: "a4",
+          trigger_id: "t4",
+          queued_at: "2026-06-11T00:00:00Z",
+        },
+      });
+    });
+
+    const result = await triggerWorkerRun("w-1", undefined, []);
+    expect(result.action_id).toBe("a4");
+  });
 });
 
 const UUIDV7_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
