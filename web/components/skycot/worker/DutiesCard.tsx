@@ -108,17 +108,31 @@ export function DutiesCard({
             No schedules yet.
           </p>
         ) : (
-          <ul role="list" className="divide-y divide-[var(--border)]/60">
-            {duties.map((d) => (
-              <DutyRow
-                key={d.id}
-                duty={d}
-                canEdit={toggleEnabled}
-                onToggle={onToggle}
-                onEditDuty={onEditDuty}
-              />
-            ))}
-          </ul>
+          <>
+            <ul role="list" className="divide-y divide-[var(--border)]/60">
+              {duties.map((d) => (
+                <DutyRow
+                  key={d.id}
+                  duty={d}
+                  canEdit={toggleEnabled}
+                  onToggle={onToggle}
+                  onEditDuty={onEditDuty}
+                />
+              ))}
+            </ul>
+            {/* Honest-labelling hint (day-1 unblock FIX 4): the toggles
+                above read as "armed", but schedules only fire once the
+                platform's scheduler is armed (autofire is a server-side
+                flag the SPA can't read), so say so instead of implying
+                the next run is imminent. */}
+            <p
+              data-testid="duties-autofire-hint"
+              className="mt-2 text-xs text-[var(--muted-foreground)]"
+            >
+              Schedules run automatically once the platform&rsquo;s scheduler
+              is armed — to get work moving today, use Run now.
+            </p>
+          </>
         )}
       </CardBody>
       <CardFooter>
