@@ -167,6 +167,16 @@ export default function SamlConfigModal({ initial, onCancel, onSaved }: ModalPro
         data-testid="saml-modal"
         ref={dialogRef}
         tabIndex={-1}
+        onKeyDown={(event) => {
+          // Self-documented Escape-to-dismiss on the dialog itself. The shared
+          // useFocusTrap also closes on Escape (document capture phase), so this
+          // is belt-and-braces: it keeps the keyboard contract local to the
+          // component and never double-fires (the trap stops propagation first).
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            onCancel();
+          }
+        }}
       >
         <h2 id="saml-modal-title">Configure SAML SSO</h2>
         <p id="saml-modal-description" className="saml-sr-only">
