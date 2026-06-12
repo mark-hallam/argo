@@ -9,6 +9,12 @@
 
 #![allow(unused_imports)]
 
+use argo_agent_runner::run_turn_with_events;
+use argo_store::{SessionCreate, SessionStore, WorkerId};
+use argo_types::{ArgoError, SessionId};
+use std::sync::Arc;
+use tempfile::TempDir;
+
 #[tokio::test]
 #[ignore = "FINDINGS-ONLY: pins finding 3.1 (audit writes must be in-tx with mutation)"]
 async fn append_message_and_audit_write_must_share_transaction() {
@@ -37,24 +43,106 @@ async fn append_message_and_audit_write_must_share_transaction() {
     );
 }
 
+/// Stand up an in-memory store + workspace + a session whose worker is
+/// frozen — the fixture for the pre-turn-freeze-audit pin. Extracted so the
+/// test body stays under the 80-LOC fn budget.
+async fn setup_frozen_session() -> (Arc<SessionStore>, TempDir, SessionId, WorkerId) {
+    let cwd = TempDir::new().expect("tempdir");
+    let store = Arc::new(SessionStore::open(":memory:").await.expect("open store"));
+    store.migrate().await.expect("migrate");
+    let (tenant, workspace) = store
+        .ensure_workspace("freeze-audit", cwd.path().to_string_lossy().as_ref())
+        .await
+        .expect("ensure workspace");
+
+    let worker = WorkerId::new();
+    let session = store
+        .create_session_with_worker(SessionCreate {
+            tenant_id: tenant,
+            workspace_id: workspace,
+            model: "test-model",
+            provider: "test-provider",
+            title: Some("freeze-audit"),
+            vertical_id: None,
+            worker_id: Some(worker),
+        })
+        .await
+        .expect("create session");
+
+    argo_store::worker_freeze::freeze(
+        store.pool(),
+        &tenant.to_string(),
+        &worker.to_string(),
+        "principal:owner",
+        "incident response",
+    )
+    .await
+    .expect("freeze worker");
+
+    (store, cwd, session, worker)
+}
+
 #[tokio::test]
-#[ignore = "FINDINGS-ONLY: pins finding 3.2 (pre-turn freeze must produce audit row)"]
 async fn pre_turn_freeze_rejection_must_emit_worker_freeze_blocked() {
-    // Scenario: freeze worker_a, then start a turn against a
-    // session bound to worker_a. The turn rejects (correct)
-    // but currently emits ZERO `WorkerFreezeBlocked` audit
-    // rows — the pre-turn freeze check at
-    // `turn_run_loop.rs:57-71` returns Err BEFORE the audit
-    // sink is constructed (line 80).
+    // Scenario: freeze the session's worker, then start a turn
+    // bound to it. The turn rejects (correct) at the pre-turn
+    // freeze gate — which fires BEFORE manifest load and any
+    // provider work, so no mock server is needed.
     //
-    // Expected behavior post-fix: exactly one
-    // `WorkerFreezeBlocked` row at the pre-turn gate, with
-    // `phase: "pre_turn"`, plus the existing per-dispatch
-    // `phase: "pre_dispatch"` row for any tool call.
-    panic!(
-        "FINDINGS-ONLY: pending fix-pre-turn-freeze-audit. \
-         See docs/skycot/evals/scheduled/2026-05-23/eval-argo-agent-runner-turn-lifecycle.md \
-         §3.2."
+    // Post-fix (fix-pre-turn-freeze-audit / finding 3.2): the
+    // audit sink is hoisted above the freeze gate, so the
+    // rejection now leaves exactly one `WorkerFreezeBlocked`
+    // row (`phase: "pre_turn"`) on the tamper-evident trail.
+    // Synchronous audit writes so the row is visible without a flush.
+    std::env::set_var("ARGO_STORE_BATCHED_WRITES", "0");
+
+    let (store, cwd, session, worker) = setup_frozen_session().await;
+
+    // The turn must reject with the cooperative freeze invariant.
+    // `TurnResult` is not `Debug`, so match the Result by hand rather
+    // than `expect_err`.
+    match run_turn_with_events(&store, cwd.path(), session, Some("hello"), false, 1, None).await {
+        Err(ArgoError::Invariant(m)) => {
+            assert!(m.contains("is frozen by"), "expected freeze invariant, got: {m}");
+        }
+        Err(other) => panic!("expected freeze invariant, got: {other:?}"),
+        Ok(_) => panic!("frozen worker turn must reject, but it succeeded"),
+    }
+    store.flush_pending_writes().await.expect("flush");
+
+    // Exactly one WorkerFreezeBlocked row, tagged phase=pre_turn.
+    let rows = store
+        .list_audit_for_session(session)
+        .await
+        .expect("list audit");
+    let freeze_rows: Vec<_> = rows
+        .iter()
+        .filter(|r| r.kind == "worker_freeze_blocked")
+        .collect();
+    assert_eq!(
+        freeze_rows.len(),
+        1,
+        "expected exactly one worker_freeze_blocked row, got {}: {rows:?}",
+        freeze_rows.len()
+    );
+    let payload: serde_json::Value =
+        serde_json::from_str(&freeze_rows[0].payload_json).expect("payload is json");
+    assert_eq!(
+        payload.get("phase").and_then(|v| v.as_str()),
+        Some("pre_turn"),
+        "expected phase=pre_turn in payload, got: {payload}"
+    );
+    assert_eq!(
+        payload.get("worker_id").and_then(|v| v.as_str()),
+        Some(worker.to_string().as_str()),
+        "expected worker id in payload, got: {payload}"
+    );
+
+    // The pre-turn gate fires before any provider/tool work, so it is
+    // the ONLY freeze row — no TurnStart, no per-dispatch row.
+    assert!(
+        rows.iter().all(|r| r.kind != "turn_start"),
+        "frozen turn must reject before TurnStart: {rows:?}"
     );
 }
 

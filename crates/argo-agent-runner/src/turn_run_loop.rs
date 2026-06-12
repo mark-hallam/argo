@@ -51,9 +51,20 @@ pub(crate) async fn run_turn_with_events_inner(
         }
     }
 
+    // The audit sink only needs `store` + `session.tenant_id`, both
+    // available here. Construct it BEFORE the pre-turn freeze gate
+    // (fix-pre-turn-freeze-audit / finding 3.2) so a frozen-worker
+    // rejection leaves a row on the tamper-evident trail instead of
+    // returning silently — the operator must be able to see that a
+    // frozen worker was prevented from acting.
+    let audit = AuditSink::new_with_tenant(store.clone(), session.tenant_id.to_string());
+
     // mission-pm-kill-switch-2-runner: pre-turn freeze gate. Refuses
-    // to start a turn for a frozen worker before any provider work or
-    // audit emission. No-op when the session has no `worker_id`.
+    // to start a turn for a frozen worker before any provider work.
+    // Emits exactly one `WorkerFreezeBlocked` row (`phase: "pre_turn"`)
+    // before the rejection; the per-dispatch path
+    // (`turn_helpers_freeze::emit_blocked_audit`) covers in-turn tool
+    // calls. No-op when the session has no `worker_id`.
     if let Some(wid) = session.worker_id {
         if let Some(rec) = argo_store::worker_freeze::is_frozen(
             store.pool(),
@@ -62,6 +73,19 @@ pub(crate) async fn run_turn_with_events_inner(
         )
         .await?
         {
+            audit
+                .write(
+                    Some(session_id),
+                    AuditKind::WorkerFreezeBlocked,
+                    serde_json::json!({
+                        "worker_id": wid.to_string(),
+                        "phase": "pre_turn",
+                        "frozen_by": rec.frozen_by,
+                        "reason": rec.reason,
+                    }),
+                    None,
+                )
+                .await?;
             return Err(ArgoError::Invariant(turn_helpers_freeze::freeze_message(
                 &rec,
             )));
@@ -77,7 +101,6 @@ pub(crate) async fn run_turn_with_events_inner(
 
     let manifest = load_manifest(cwd, &session.provider)?;
     let provider_id = manifest.provider.id.clone();
-    let audit = AuditSink::new_with_tenant(store.clone(), session.tenant_id.to_string());
     // mission-claim-3-runtime-wiring-v1x: consult the tier router
     // *before* picking the model for this turn. Sessions with no
     // routing_policy or a non-tier policy (the v1.0 default) skip
