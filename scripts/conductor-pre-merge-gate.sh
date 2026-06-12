@@ -245,8 +245,18 @@ fi
 # IF the diff touches any web/** file. The helper auto-skips for
 # Rust-only PRs (zero cost). Closes the gap that let #2404 + #2366 TS
 # regressions land on main between evaluator rounds.
+#
+# Pass --pr when known: the helper then uses GitHub's authoritative file
+# list to decide whether to run, instead of the git-diff heuristic that
+# went degenerate and silently SKIPPED web-only #2860 (the local checkout
+# ref made `origin/main...HEAD` empty). Without --pr it falls back to the
+# local heuristic (unchanged for the existing local-only invocations).
 log "[7/9] web typecheck (auto-skips if no web/** files touched)"
-if ! bash scripts/pre-merge-web-typecheck.sh; then
+gate7_args=()
+if [[ -n "$PR_NUMBER" ]]; then
+  gate7_args+=(--pr "$PR_NUMBER")
+fi
+if ! bash scripts/pre-merge-web-typecheck.sh ${gate7_args[@]+"${gate7_args[@]}"}; then
   fail "web typecheck FAILED — see output above"
 fi
 
