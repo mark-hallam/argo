@@ -338,6 +338,12 @@ async fn dispatch_worker_simple_verb(
             super::routes_worker_skills::list_response(id_with_suffix, req, store).await,
         );
     }
+    // launch-cloud-file-ingress — list the teammate's fs_root (names + sizes).
+    if tail.starts_with("files ") || tail.starts_with("files?") {
+        return Some(
+            super::routes_worker_files::list_response(id_with_suffix, req, store).await,
+        );
+    }
     // tg1 — pending capability requests (fence denies) backing the
     // connect-on-demand grant card.
     if tail.starts_with("capability-requests ") || tail.starts_with("capability-requests?") {

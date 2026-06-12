@@ -68,6 +68,12 @@ pub(super) enum Action {
     /// `[tools].allowed` (revoke removes it), so it is as sensitive as
     /// executor-promotion: owner only.
     WorkerCapabilityGrant,
+    /// `POST /api/v1/workers/<id>/files` + `DELETE …/files/<name>`
+    /// (launch-cloud-file-ingress) — ingest / remove a file inside the
+    /// teammate's `fs_root`. It writes to the teammate's working folder
+    /// (the proven value loop's input), so owner only — the same floor as
+    /// the other fence-touching mutations.
+    WorkerFileUpload,
     /// `POST /api/v1/connectors/<id>/{authorize,credentials}` (tg2) — store a
     /// tenant-scoped provider credential for a token/API-key connector. It
     /// loosens the perimeter for the tenant (a previously-unconnected tool can
@@ -136,6 +142,7 @@ impl Action {
             Self::WorkerHardDelete => "worker.hard_delete",
             Self::WorkerExecutorPromote => "worker.executor_promote",
             Self::WorkerCapabilityGrant => "worker.capability_grant",
+            Self::WorkerFileUpload => "worker.file_upload",
             Self::ConnectorAuthorize => "connector.authorize",
             Self::WorkerSettingsPatch => "worker.settings_patch",
             Self::ApprovalDecide => "approval.decide",
@@ -164,6 +171,7 @@ pub(super) fn required_role(action: Action) -> UserTenantRole {
         Action::WorkerHardDelete
         | Action::WorkerExecutorPromote
         | Action::WorkerCapabilityGrant
+        | Action::WorkerFileUpload
         | Action::ConnectorAuthorize
         | Action::AuditCrossTenant
         | Action::DataExport

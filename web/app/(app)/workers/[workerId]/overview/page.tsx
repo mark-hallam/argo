@@ -6,6 +6,7 @@ import { WorkerOverviewContent } from "@/components/skycot/worker/WorkerOverview
 import { ScorecardCard } from "@/components/skycot/worker/ScorecardCard";
 import { EvalScorecard } from "@/components/skycot/worker/EvalScorecard";
 import { RunOutputCard } from "@/components/skycot/worker/RunOutputCard";
+import { WorkerFilesCard } from "@/components/skycot/worker/WorkerFilesCard";
 import { RecentChangesPanel } from "@/components/skycot/worker/RecentChangesPanel";
 import { WorkerPersonalityCard } from "@/components/skycot/worker/WorkerPersonalityCard";
 import { findDemoWorker } from "@/lib/api/demo-roster-store";
@@ -36,6 +37,7 @@ export default function WorkerOverviewPage({
       <ScorecardCard workerId={workerId} />
       <EvalScorecard workerId={workerId} />
       <RunOutputCard workerId={workerId} />
+      <WorkerFilesCard workerId={workerId} />
       <RecentChangesPanel workerId={workerId} />
     </div>
   );

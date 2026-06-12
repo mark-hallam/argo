@@ -33,6 +33,10 @@ pub(super) async fn dispatch_workers(
                 super::routes_worker_trust_grade::recompute_response(parts[0], req, store).await,
             );
         }
+        // launch-cloud-file-ingress — `POST /api/v1/workers/<id>/files`.
+        if parts.len() == 2 && parts[1] == "files" {
+            return Some(super::routes_worker_files::upload_response(parts[0], req, store).await);
+        }
     }
     None
 }
