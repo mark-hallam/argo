@@ -78,7 +78,11 @@ impl GateJudgeClient {
 #[async_trait]
 impl GenesisJudgeClient for GateJudgeClient {
     async fn judge(&self, prompt: &str) -> ArgoResult<String> {
-        match complete_once(&self.provider_id, prompt).await {
+        // Hire-gate safety judge: operator-authed + bounded (one call per hire,
+        // flag-gated), NOT a pre-auth stranger surface — gated by construction
+        // but uncapped (`None`). The money-burning genesis GENERATION path
+        // (classify/synthesize/author) carries the real anonymous cap.
+        match complete_once(&self.provider_id, prompt, None).await {
             Ok(text) => Ok(text),
             Err(e) => {
                 self.transport_failed.store(true, Ordering::Relaxed);

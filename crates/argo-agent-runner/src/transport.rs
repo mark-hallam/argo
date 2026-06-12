@@ -3,6 +3,7 @@
 //! to `$ARGO_MANIFESTS_DIR/providers/<id>.toml` when the
 //! workspace doesn't carry its own copy) to a live
 //! `Box<dyn Transport>`.
+use crate::transport_gate::TransportGate;
 use argo_provider::{
     AnthropicTransport, BedrockTransport, ClaudeCodeCliTransport, DedupCache,
     OpenAiCompatTransport, OpenAiResponsesTransport, ProviderFamily, ProviderManifest,
@@ -26,7 +27,24 @@ use std::path::{Path, PathBuf};
 /// (Bring Your Own Key, DEC-053 Enterprise tier) resolution where a
 /// tenant's own key must WIN over the platform key, use
 /// [`build_transport_for_tenant`].
-pub async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Box<dyn Transport>> {
+///
+/// `gate` is the **required** hard-`[budget.ceiling]` spend context
+/// ([`TransportGate`]). It is mandatory by design: the returned transport
+/// is gated *by construction*, so no call site can obtain a bare,
+/// un-metered transport (the WS5 open-wallet close). Pass
+/// [`TransportGate::InternalTrusted`] for operator-run CLI tooling,
+/// [`TransportGate::Anonymous`] for pre-auth gateway paths, or
+/// [`TransportGate::Session`] for an authenticated `(tenant, session)`.
+pub async fn build_transport(
+    manifest: ProviderManifest,
+    gate: TransportGate<'_>,
+) -> ArgoResult<Box<dyn Transport>> {
+    Ok(gate.wrap(build_transport_inner(manifest).await?))
+}
+
+/// Raw transport construction (no spend gate). Private so the gate cannot
+/// be bypassed — every public path runs through [`build_transport`].
+async fn build_transport_inner(manifest: ProviderManifest) -> ArgoResult<Box<dyn Transport>> {
     // Subprocess-kind manifests use no API key — dispatch first so the
     // missing `manifest.auth.api_key_env` value (it's only a placeholder
     // for these manifests) doesn't trigger the `not set` error below.
@@ -68,6 +86,22 @@ pub async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Box<dyn T
 /// manifests carry no per-tenant API key and behave as in
 /// [`build_transport`].
 pub async fn build_transport_for_tenant(
+    manifest: ProviderManifest,
+    workspace: &Path,
+    tenant_id: &TenantId,
+    allow_platform_fallback: bool,
+    gate: TransportGate<'_>,
+) -> ArgoResult<Box<dyn Transport>> {
+    let inner =
+        build_transport_for_tenant_inner(manifest, workspace, tenant_id, allow_platform_fallback)
+            .await?;
+    Ok(gate.wrap(inner))
+}
+
+/// Raw per-tenant transport construction (no spend gate). Private so the
+/// gate cannot be bypassed — every public path runs through
+/// [`build_transport_for_tenant`].
+async fn build_transport_for_tenant_inner(
     manifest: ProviderManifest,
     workspace: &Path,
     tenant_id: &TenantId,

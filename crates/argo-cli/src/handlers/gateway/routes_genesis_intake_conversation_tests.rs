@@ -12,7 +12,7 @@ fn store() -> (tempfile::TempDir, IntakeStore) {
 
 /// Drive one wizard turn (no provider) and return the JSON envelope.
 async fn turn(store: &IntakeStore, tenant: &str, conv: &str, message: Option<&str>, confirm: bool) -> Value {
-    let (status, value) = run_turn(store, tenant, conv, message, confirm, None)
+    let (status, value) = run_turn(store, tenant, conv, message, confirm, None, None)
         .await
         .expect("turn succeeds");
     assert_eq!(status, "200 OK");
@@ -302,7 +302,7 @@ async fn cross_tenant_header_cannot_read_or_poison_b_intake() {
     // Drive the turn against a temp intake store under the resolved tenant —
     // exactly what `respond` does, minus the global default dir.
     let (_d, intake) = store();
-    run_turn(&intake, &resolved, "c1", Some("Be my support agent"), false, None)
+    run_turn(&intake, &resolved, "c1", Some("Be my support agent"), false, None, None)
         .await
         .expect("turn");
 

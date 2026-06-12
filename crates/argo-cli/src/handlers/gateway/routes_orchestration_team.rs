@@ -58,7 +58,11 @@ pub(super) async fn create_response(
     let run = if super::routes_orchestration_team_llm::llm_executor_enabled() {
         let provider = super::routes_orchestration_team_llm::resolve_provider_id();
         let executor = Arc::new(
-            super::routes_orchestration_team_llm::RuntimeStepExecutor::new(persist, provider),
+            super::routes_orchestration_team_llm::RuntimeStepExecutor::new(
+                persist,
+                provider,
+                Some(Arc::clone(store)),
+            ),
         );
         Supervisor::new(executor).run_team(&plan, tenant, handoff_id).await
     } else {

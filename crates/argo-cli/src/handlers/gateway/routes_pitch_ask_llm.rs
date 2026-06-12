@@ -30,17 +30,19 @@ use super::routes_pitch_ask::PitchChannel;
 // (routes_pitch_ask.rs + the tests module) keep resolving after the
 // facts loader moved to a sibling module to satisfy the LOC ceiling.
 pub(super) use super::routes_pitch_ask_llm_facts::CompanyFacts;
-use argo_agent_runner::{build_transport, load_manifest};
+use argo_agent_runner::{build_transport, load_manifest, TransportGate};
 use argo_capability::{
     evaluate_claim, ChannelKind, ClaimCandidate, ClaimDisposition, TruthBoundaryPolicy,
 };
 use argo_provider::{ProviderRequest, ProviderResponse, Sampling, Transport};
 use argo_skill::canonical_qa::CanonicalQaIndex;
+use argo_store::SessionStore;
 use argo_types::{
     ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, SessionId,
 };
 use chrono::Utc;
 use sha2::{Digest, Sha256};
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// One LLM-path response. Mirrored on the wire by `routes_pitch_ask.rs`
@@ -94,6 +96,7 @@ pub(super) struct CanonicalRefusal {
 /// # Errors
 /// Surfaces transport / manifest / credential errors as
 /// `ArgoError::Provider` so the gateway can map them to a 503.
+#[allow(clippy::too_many_arguments)] // pitch ask carries its full truth-boundary context
 pub(super) async fn ask_with_llm(
     question: &str,
     channel: PitchChannel,
@@ -101,6 +104,7 @@ pub(super) async fn ask_with_llm(
     index: &CanonicalQaIndex,
     facts: &CompanyFacts,
     provider_id: &str,
+    store: Option<&Arc<SessionStore>>,
 ) -> ArgoResult<LlmAskOutcome> {
     let system = render_system_prompt(channel, policy, facts);
     let req = ProviderRequest {
@@ -114,7 +118,7 @@ pub(super) async fn ask_with_llm(
             ..Sampling::default()
         },
     };
-    let transport = build_pitch_transport(provider_id).await?;
+    let transport = build_pitch_transport(provider_id, store).await?;
     let resp: ProviderResponse = transport.complete(&req).await?;
     let draft = resp.text.unwrap_or_default();
     finalize_outcome(
@@ -295,12 +299,17 @@ const PITCH_MAX_TOKENS: u32 = 500;
 ///
 /// Boxed (not `Arc<AnthropicTransport>`) so the subprocess driver can
 /// flow through the same return type; the caller only needs `complete`.
-pub(super) async fn build_pitch_transport(provider_id: &str) -> ArgoResult<Box<dyn Transport>> {
+pub(super) async fn build_pitch_transport(
+    provider_id: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> ArgoResult<Box<dyn Transport>> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let manifest = load_manifest(&cwd, provider_id).map_err(|e| {
         ArgoError::Provider(format!("pitch llm: load provider `{provider_id}` manifest: {e}"))
     })?;
-    build_transport(manifest).await
+    // Internet-facing, pre-auth: gate against the capped anonymous tenant so
+    // a stranger cannot burn unbounded LLM dollars (WS5 / ws5-4b).
+    build_transport(manifest, TransportGate::Anonymous { store, cwd: &cwd }).await
 }
 
 pub(super) fn user_message(prompt: &str) -> Message {

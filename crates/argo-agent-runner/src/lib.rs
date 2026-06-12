@@ -46,6 +46,7 @@ mod helpers;
 /// Runtime instrumentation hooks (Skill IR live-trace, etc.).
 pub mod instrumentation;
 mod transport;
+mod transport_gate;
 mod turn;
 /// Per-turn hook into the subtask budget tree (Stream
 /// `mission-delegation-budget-tree`).
@@ -73,6 +74,7 @@ pub use helpers::{
 pub use transport::{
     build_transport, build_transport_for_tenant, load_manifest, resolve_provider_api_key,
 };
+pub use transport_gate::{anonymous_tenant_id, TransportGate};
 pub use turn::turn_planner::{maybe_decompose, DecomposeOutcome, PlannerHook};
 pub use turn::{
     compose_system_prompt_for_diagnostics, run_turn, run_turn_with_events,

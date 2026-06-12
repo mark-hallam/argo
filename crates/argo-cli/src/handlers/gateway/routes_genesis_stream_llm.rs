@@ -27,15 +27,17 @@
 //! [`GenesisLlmAdapter::fired`] afterward and surfaces `llm` / `broad` /
 //! `keyword` in the SSE progress detail + audit row.
 
-use argo_agent_runner::{build_transport, load_manifest};
+use argo_agent_runner::{build_transport, load_manifest, TransportGate};
 use argo_genesis::{
     plan, plan_or_broad, Archetype, BroadRoleClient, GenesisConfig, GenesisError, GenesisPlan,
     ProviderClient,
 };
 use argo_provider::{ProviderRequest, ProviderResponse, Sampling};
+use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, SessionId};
 use chrono::Utc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// Explicit opt-in for the real-LLM archetype classifier. Defaults
@@ -111,6 +113,7 @@ pub(super) fn resolve_provider_id() -> String {
 pub(super) async fn resolve_plan(
     role_description: &str,
     persona: &str,
+    store: Option<&Arc<SessionStore>>,
 ) -> Result<(GenesisPlan, &'static str), GenesisError> {
     if !llm_classifier_enabled() {
         return Ok((plan(role_description, persona)?, "keyword"));
@@ -131,7 +134,7 @@ pub(super) async fn resolve_plan(
     // would hard-fail the whole pipeline on any transport hiccup (the exact
     // self-inflicted DoS the design doc's degraded mode exists to prevent),
     // so the judge fires once, correctly, at the gate.
-    let adapter = GenesisLlmAdapter::new(resolve_provider_id());
+    let adapter = GenesisLlmAdapter::new(resolve_provider_id(), store.cloned());
     let config = GenesisConfig {
         use_llm_classifier: true,
     };
@@ -153,7 +156,7 @@ pub(super) async fn resolve_plan(
     // persona/responsibilities/onboarding flow into prompts/system.md +
     // persona.md via the unchanged write path.
     if let Some(spec) = built.spec.take() {
-        built.spec = Some(super::routes_genesis_author::run_author_pass(spec).await);
+        built.spec = Some(super::routes_genesis_author::run_author_pass(spec, store).await);
         // The manifest was materialized from the spec's *templated* fallback
         // descriptions BEFORE the author pass enriched them. Push the (possibly
         // authored) per-action `intent` into the manifest's `[actions]` so the
@@ -193,14 +196,17 @@ fn outcome_mode(outcome: &argo_genesis::GenesisOutcome, adapter: &GenesisLlmAdap
 pub(super) struct GenesisLlmAdapter {
     provider_id: String,
     fired: AtomicBool,
+    /// Live store for the anonymous spend gate (`None` off the prod path).
+    store: Option<Arc<SessionStore>>,
 }
 
 impl GenesisLlmAdapter {
     /// Build an adapter for `provider_id` (see [`resolve_provider_id`]).
-    pub(super) fn new(provider_id: String) -> Self {
+    pub(super) fn new(provider_id: String, store: Option<Arc<SessionStore>>) -> Self {
         Self {
             provider_id,
             fired: AtomicBool::new(false),
+            store,
         }
     }
 
@@ -216,7 +222,7 @@ impl GenesisLlmAdapter {
 #[async_trait::async_trait]
 impl ProviderClient for GenesisLlmAdapter {
     async fn classify(&self, prompt: &str) -> ArgoResult<String> {
-        let raw = complete_once(&self.provider_id, prompt).await?;
+        let raw = complete_once(&self.provider_id, prompt, self.store.as_ref()).await?;
         // The `claude-code-cli` model occasionally wraps the slug in
         // reasoning prose ("developer_advocate / not in the list /
         // research_analyst"). `argo_genesis::classify_llm` matches the
@@ -243,7 +249,7 @@ impl BroadRoleClient for GenesisLlmAdapter {
         // is tolerant of surrounding prose, so pass the raw response through.
         // (The safety judge runs separately at the hire gate, with the
         // degraded-mode distinction — see `resolve_plan`.)
-        complete_once(&self.provider_id, prompt).await
+        complete_once(&self.provider_id, prompt, self.store.as_ref()).await
     }
 }
 
@@ -269,14 +275,20 @@ fn extract_archetype_slug(raw: &str) -> Option<String> {
 /// pitch path's `build_pitch_transport` exactly: load the manifest from
 /// `<cwd>/manifests/providers/<id>.toml` (subprocess vs HTTP decided by
 /// the manifest), then `complete` a single user turn at temperature 0.
-pub(super) async fn complete_once(provider_id: &str, prompt: &str) -> ArgoResult<String> {
+pub(super) async fn complete_once(
+    provider_id: &str,
+    prompt: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> ArgoResult<String> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let manifest = load_manifest(&cwd, provider_id).map_err(|e| {
         ArgoError::Provider(format!(
             "genesis llm: load provider `{provider_id}` manifest: {e}"
         ))
     })?;
-    let transport = build_transport(manifest).await?;
+    // Internet-facing, pre-auth Genesis path: gate against the capped
+    // anonymous tenant (WS5 / ws5-4b open-wallet close).
+    let transport = build_transport(manifest, TransportGate::Anonymous { store, cwd: &cwd }).await?;
     let req = ProviderRequest {
         model: GENESIS_MODEL.to_string(),
         messages: vec![user_message(prompt)],

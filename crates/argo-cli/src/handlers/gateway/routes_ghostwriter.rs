@@ -65,7 +65,7 @@ pub(super) async fn draft_from_prompt_response(
     // configured the draft comes from the real transport; on ANY provider
     // failure (or when the pass is disabled) the deterministic offline
     // template runs instead — graceful degrade, never a 500.
-    let provider = provider_client_if_enabled();
+    let provider = provider_client_if_enabled(Some(store));
     let primary: Option<&dyn GhostwriterClient> =
         provider.as_ref().map(|c| c as &dyn GhostwriterClient);
     let offline = OfflineGhostwriterClient;

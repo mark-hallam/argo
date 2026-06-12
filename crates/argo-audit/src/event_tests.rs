@@ -23,8 +23,22 @@ fn all_kind_count_tracks_declared_variants() {
     // VoiceTranscriptTurn (live-voice transcript persistence),
     // EnterpriseInquiryReceived (WS6-2 enterprise EOI capture), and
     // WorkerOnboardingQuizExchange (Genesis Phase 2 sandbox-quiz gate),
-    // ApprovalVoteRecorded, and WorkerCapabilityGrantChanged (tg3b grant).
-    assert_eq!(AuditKind::all().len(), 89);
+    // ApprovalVoteRecorded, WorkerCapabilityGrantChanged (tg3b grant), and
+    // BudgetCeilingBlocked (WS5 hard [budget.ceiling] open-wallet close).
+    assert_eq!(AuditKind::all().len(), 90);
+}
+
+#[test]
+fn budget_ceiling_blocked_round_trips_and_listed() {
+    assert_eq!(
+        AuditKind::from_label("budget.ceiling_blocked"),
+        Some(AuditKind::BudgetCeilingBlocked)
+    );
+    assert_eq!(
+        AuditKind::BudgetCeilingBlocked.label(),
+        "budget.ceiling_blocked"
+    );
+    assert!(AuditKind::all().contains(&AuditKind::BudgetCeilingBlocked));
 }
 
 #[test]

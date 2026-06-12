@@ -163,6 +163,7 @@ async fn handle_miss(
         &bundle.index,
         &facts,
         &provider_id,
+        store,
     )
     .await;
     let total_latency_ms = start.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;

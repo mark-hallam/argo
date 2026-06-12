@@ -212,7 +212,7 @@ pub(super) async fn serve_genesis_stream(
     open_sse_stream(out, &cors_headers).await?;
     write_progress(out, "drafting_persona", "Resolving persona slug", 10).await?;
 
-    let (mut plan, gen_mode) = match resolve_plan(&role_description, &persona).await {
+    let (mut plan, gen_mode) = match resolve_plan(&role_description, &persona, store).await {
         Ok(pair) => pair,
         // A role-refusal (the model returned prose / declined a destructive
         // role, so the broad-role parser found no JSON object) is a GRACEFUL,

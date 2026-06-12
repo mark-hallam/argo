@@ -1,7 +1,7 @@
 //! LLM-driven skill-body mutator used by `argo forge optimize`.
 //! Lives in its own file so `forge_optimize.rs` stays under
 //! the 500-LOC budget. Pure helper — no orchestration logic.
-use argo_agent_runner::{build_transport, load_manifest};
+use argo_agent_runner::{build_transport, load_manifest, TransportGate};
 use argo_eval::{EvalRecord, EvalTask};
 use argo_provider::{ProviderRequest, Sampling, ToolSchema};
 use argo_types::ArgoResult;
@@ -55,7 +55,10 @@ pub(super) async fn mutate_via_llm(
     );
 
     let manifest = load_manifest(cwd, provider_id)?;
-    let transport = build_transport(manifest).await?;
+    // `argo forge optimize` is operator-run CLI tooling (skill tuning), not an
+    // internet-facing or autonomous-unbounded path — the operator's own
+    // provider quota bounds it. Explicit, greppable opt-out of the spend gate.
+    let transport = build_transport(manifest, TransportGate::InternalTrusted).await?;
     let req = ProviderRequest {
         model: model.to_string(),
         messages: vec![argo_types::Message {

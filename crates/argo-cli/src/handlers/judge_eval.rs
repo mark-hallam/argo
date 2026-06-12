@@ -13,10 +13,7 @@ use argo_judge::{
     load_fixtures, run_disagreement_eval, DisagreementReport, LlmJudge, Rubric,
     DEFAULT_FIXTURES_DIR,
 };
-use argo_provider::{
-    AnthropicTransport, BedrockTransport, OpenAiCompatTransport, OpenAiResponsesTransport,
-    ProviderFamily, ProviderManifest, Transport,
-};
+use argo_provider::{ProviderManifest, Transport};
 use argo_types::{ArgoError, ArgoResult, ProviderModel};
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -110,7 +107,7 @@ fn print_json(report: &DisagreementReport) {
 
 async fn build_judge(provider_id: &str, model_id: &str) -> ArgoResult<LlmJudge> {
     let manifest = load_manifest(provider_id)?;
-    let transport = build_transport(manifest).await?;
+    let transport = build_judge_transport(manifest).await?;
     Ok(LlmJudge::new(
         transport,
         ProviderModel {
@@ -132,32 +129,17 @@ fn load_manifest(provider_id: &str) -> ArgoResult<ProviderManifest> {
     ProviderManifest::from_toml_str(&body)
 }
 
-async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Arc<dyn Transport>> {
-    let api_env = manifest.auth.api_key_env.clone();
-    let family = manifest.provider.family;
-    let transport: Arc<dyn Transport> = match family {
-        ProviderFamily::Bedrock => {
-            let cfg = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-            Arc::new(BedrockTransport::from_manifest(manifest, &cfg)?)
-        }
-        ProviderFamily::Anthropic => {
-            // tenant-unscoped: single-tenant CLI invocation
-            let api_key = argo_config::cred::get_unscoped(&api_env)
-                .map_err(|_| ArgoError::Provider(format!("{api_env} not set")))?;
-            Arc::new(AnthropicTransport::from_manifest(manifest, &api_key)?)
-        }
-        ProviderFamily::OpenaiCompatible => {
-            // tenant-unscoped: single-tenant CLI invocation
-            let api_key = argo_config::cred::get_unscoped(&api_env)
-                .map_err(|_| ArgoError::Provider(format!("{api_env} not set")))?;
-            Arc::new(OpenAiCompatTransport::from_manifest(manifest, &api_key)?)
-        }
-        ProviderFamily::OpenaiResponses => {
-            // tenant-unscoped: single-tenant CLI invocation
-            let api_key = argo_config::cred::get_unscoped(&api_env)
-                .map_err(|_| ArgoError::Provider(format!("{api_env} not set")))?;
-            Arc::new(OpenAiResponsesTransport::from_manifest(manifest, &api_key)?)
-        }
-    };
+async fn build_judge_transport(manifest: ProviderManifest) -> ArgoResult<Arc<dyn Transport>> {
+    // Operator-run eval/judge CLI: route through the SINGLE canonical
+    // `build_transport` choke point (no parallel transport-construction path)
+    // so the spend gate can never be bypassed. `InternalTrusted` — bounded by
+    // the operator's own provider quota, not an internet-facing path.
+    let transport: Arc<dyn Transport> = Arc::from(
+        argo_agent_runner::build_transport(
+            manifest,
+            argo_agent_runner::TransportGate::InternalTrusted,
+        )
+        .await?,
+    );
     Ok(transport)
 }

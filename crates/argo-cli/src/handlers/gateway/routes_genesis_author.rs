@@ -24,8 +24,10 @@
 
 use super::routes_genesis_stream_llm::{complete_once, resolve_provider_id};
 use argo_genesis::{apply_authored, author_teammate, AuthorClient, CapabilitySpec};
+use argo_store::SessionStore;
 use argo_types::ArgoResult;
 use async_trait::async_trait;
+use std::sync::Arc;
 
 /// Explicit override for the LLM-authoring pass. When set it wins outright
 /// (`1`/`true`/`on`/`yes` forces on, `0`/`false`/`off`/`no` forces off). When
@@ -68,12 +70,16 @@ pub(super) fn author_enabled() -> bool {
 /// - Flag off → `spec` returned unchanged (no provider call).
 /// - Flag on, authoring failed (transport/parse) → `spec` unchanged.
 /// - Flag on, authoring succeeded → persona/responsibilities/onboarding enriched.
-pub(super) async fn run_author_pass(spec: CapabilitySpec) -> CapabilitySpec {
+pub(super) async fn run_author_pass(
+    spec: CapabilitySpec,
+    store: Option<&Arc<SessionStore>>,
+) -> CapabilitySpec {
     if !author_enabled() {
         return spec;
     }
     let client = GateAuthorClient {
         provider_id: resolve_provider_id(),
+        store: store.cloned(),
     };
     match author_teammate(&spec, &client).await {
         Some(authored) => apply_authored(spec, authored),
@@ -85,12 +91,14 @@ pub(super) async fn run_author_pass(spec: CapabilitySpec) -> CapabilitySpec {
 /// the archetype classifier / safety judge / rubric grader.
 struct GateAuthorClient {
     provider_id: String,
+    /// Live store for the anonymous spend gate (`None` off the prod path).
+    store: Option<Arc<SessionStore>>,
 }
 
 #[async_trait]
 impl AuthorClient for GateAuthorClient {
     async fn author(&self, prompt: &str) -> ArgoResult<String> {
-        complete_once(&self.provider_id, prompt).await
+        complete_once(&self.provider_id, prompt, self.store.as_ref()).await
     }
 }
 

@@ -84,6 +84,7 @@ pub(super) async fn respond(
         message.as_deref(),
         confirm,
         provider.as_deref(),
+        session_store,
     )
     .await
     {
@@ -124,6 +125,7 @@ async fn resolve_intake_tenant(req: &str, session_store: Option<&Arc<SessionStor
 /// on disk keep working. Returns `Ok(Some(envelope))` when DEC-048's quality
 /// bar wants ONE follow-up (the turn returns that "asking" envelope now, having
 /// persisted state), or `Ok(None)` to continue the turn.
+#[allow(clippy::too_many_arguments)] // mirrors run_turn's bounded-turn inputs
 async fn apply_operator_answer(
     store: &IntakeStore,
     state: &mut IntakeState,
@@ -131,6 +133,7 @@ async fn apply_operator_answer(
     conversation_id: &str,
     message: Option<&str>,
     provider: Option<&str>,
+    session_store: Option<&Arc<SessionStore>>,
 ) -> Result<Option<(&'static str, Value)>, String> {
     let Some(msg) = message.map(str::trim).filter(|m| !m.is_empty()) else {
         return Ok(None);
@@ -146,7 +149,7 @@ async fn apply_operator_answer(
         state.mark_optional_resolved(slot);
         return Ok(None);
     }
-    apply_answer(state, slot, msg, provider).await;
+    apply_answer(state, slot, msg, provider, session_store).await;
     if IntakeSlot::OPTIONAL.contains(&slot) {
         state.mark_optional_resolved(slot);
     }
@@ -179,6 +182,7 @@ async fn apply_operator_answer(
 
 /// Run one conversation turn against the persisted state. `provider` is
 /// `Some(id)` to enable the two bounded LLM calls, `None` for the pure wizard.
+#[allow(clippy::too_many_arguments)] // one bounded conversation turn's full inputs
 async fn run_turn(
     store: &IntakeStore,
     tenant: &str,
@@ -186,14 +190,22 @@ async fn run_turn(
     message: Option<&str>,
     confirm: bool,
     provider: Option<&str>,
+    session_store: Option<&Arc<SessionStore>>,
 ) -> Result<(&'static str, Value), String> {
     let mut state = store.load(tenant, conversation_id).unwrap_or_default();
 
     // Apply the operator's answer (if any) and, if DEC-048's quality bar wants
     // ONE follow-up, return that "asking" envelope now.
-    if let Some(envelope) =
-        apply_operator_answer(store, &mut state, tenant, conversation_id, message, provider)
-            .await?
+    if let Some(envelope) = apply_operator_answer(
+        store,
+        &mut state,
+        tenant,
+        conversation_id,
+        message,
+        provider,
+        session_store,
+    )
+    .await?
     {
         return Ok(envelope);
     }
@@ -212,7 +224,8 @@ async fn run_turn(
 
     let envelope = match state.next_step() {
         NextStep::Ask { slot, question } => {
-            let question = enrich_question(&state, slot, &question, provider).await;
+            let question =
+                enrich_question(&state, slot, &question, provider, session_store).await;
             state.record_assistant(&question);
             state.pending_slot = Some(slot);
             json!({
@@ -254,9 +267,15 @@ async fn run_turn(
 /// Fill `slot` from the operator's raw answer, preferring the LLM slot-delta
 /// extraction and ALWAYS falling back to the deterministic wizard fill so the
 /// targeted slot is never left empty (the conversation always advances).
-async fn apply_answer(state: &mut IntakeState, slot: IntakeSlot, msg: &str, provider: Option<&str>) {
+async fn apply_answer(
+    state: &mut IntakeState,
+    slot: IntakeSlot,
+    msg: &str,
+    provider: Option<&str>,
+    session_store: Option<&Arc<SessionStore>>,
+) {
     if let Some(provider) = provider {
-        let client = ConversationClient::new(provider);
+        let client = ConversationClient::new(provider, session_store.cloned());
         if let Some(delta) = extract_delta(slot, msg, &client).await {
             state.apply_delta(delta);
         }
@@ -273,9 +292,10 @@ async fn enrich_question(
     slot: IntakeSlot,
     wizard: &str,
     provider: Option<&str>,
+    session_store: Option<&Arc<SessionStore>>,
 ) -> String {
     if let Some(provider) = provider {
-        let client = ConversationClient::new(provider);
+        let client = ConversationClient::new(provider, session_store.cloned());
         if let Some(question) = propose_question(state, slot, &client).await {
             return question;
         }
@@ -330,12 +350,15 @@ fn transcript(state: &IntakeState) -> Value {
 /// the archetype classifier / author / rubric grader (`complete_once`).
 struct ConversationClient {
     provider_id: String,
+    /// Live store for the anonymous spend gate (`None` off the prod path).
+    store: Option<Arc<SessionStore>>,
 }
 
 impl ConversationClient {
-    fn new(provider_id: &str) -> Self {
+    fn new(provider_id: &str, store: Option<Arc<SessionStore>>) -> Self {
         Self {
             provider_id: provider_id.to_string(),
+            store,
         }
     }
 }
@@ -343,7 +366,7 @@ impl ConversationClient {
 #[async_trait]
 impl IntakeClient for ConversationClient {
     async fn complete(&self, prompt: &str) -> ArgoResult<String> {
-        complete_once(&self.provider_id, prompt).await
+        complete_once(&self.provider_id, prompt, self.store.as_ref()).await
     }
 }
 

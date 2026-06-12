@@ -236,7 +236,7 @@ async fn runtime_executor_falls_back_to_deterministic_detail_when_no_provider() 
     let tenant = TenantId::new();
     let p = plan();
     let persist = Arc::new(PersistingExecutor::new(Arc::clone(&orch)));
-    let exec = Arc::new(RuntimeStepExecutor::new(persist, resolve_provider_id()));
+    let exec = Arc::new(RuntimeStepExecutor::new(persist, resolve_provider_id(), None));
     let result = Supervisor::new(exec)
         .run_team(&p, tenant, Some("lead-handoff-1".into()))
         .await

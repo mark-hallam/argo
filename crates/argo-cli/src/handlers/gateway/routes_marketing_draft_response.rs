@@ -206,7 +206,7 @@ pub(super) async fn draft_response(
         },
     };
 
-    let transport = match build_pitch_transport(&provider).await {
+    let transport = match build_pitch_transport(&provider, store).await {
         Ok(t) => t,
         Err(e) => return service_unavailable(&format!("marketing llm transport: {e}")),
     };

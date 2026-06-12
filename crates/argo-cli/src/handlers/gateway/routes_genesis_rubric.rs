@@ -114,7 +114,11 @@ impl GateRubricClient {
 #[async_trait]
 impl RubricClient for GateRubricClient {
     async fn grade(&self, prompt: &str) -> ArgoResult<String> {
-        match complete_once(&self.provider_id, prompt).await {
+        // Hire-gate rubric grader: operator-authed + bounded (one call per hire,
+        // default-OFF flag), NOT a pre-auth stranger surface — gated by
+        // construction but uncapped (`None`). The genesis GENERATION path
+        // carries the real anonymous cap.
+        match complete_once(&self.provider_id, prompt, None).await {
             Ok(text) => Ok(text),
             Err(e) => {
                 self.transport_failed.store(true, Ordering::Relaxed);

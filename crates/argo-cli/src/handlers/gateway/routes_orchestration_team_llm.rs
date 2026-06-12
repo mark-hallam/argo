@@ -45,8 +45,9 @@
 
 use std::sync::Arc;
 
-use argo_agent_runner::{build_transport, load_manifest};
+use argo_agent_runner::{build_transport, load_manifest, TransportGate};
 use argo_orchestrator::{PersistingExecutor, StepContext, StepExecutor, StepId, TeamPlan};
+use argo_store::SessionStore;
 use argo_provider::{ProviderRequest, Sampling};
 use argo_types::{
     ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, SessionId, TenantId,
@@ -138,6 +139,8 @@ struct StepOutput {
 pub(super) struct RuntimeStepExecutor {
     persist: Arc<PersistingExecutor>,
     provider_id: String,
+    /// Live store for the anonymous spend gate (`None` off the prod path).
+    store: Option<Arc<SessionStore>>,
     /// Per-step real outputs, captured in execution order for the lead
     /// synthesis. Behind a mutex because the engine fans steps out
     /// concurrently within a layer.
@@ -147,10 +150,15 @@ pub(super) struct RuntimeStepExecutor {
 impl RuntimeStepExecutor {
     /// Build over a [`PersistingExecutor`] (reused for persistence) and
     /// the resolved provider id.
-    pub(super) fn new(persist: Arc<PersistingExecutor>, provider_id: String) -> Self {
+    pub(super) fn new(
+        persist: Arc<PersistingExecutor>,
+        provider_id: String,
+        store: Option<Arc<SessionStore>>,
+    ) -> Self {
         Self {
             persist,
             provider_id,
+            store,
             outputs: Mutex::new(Vec::new()),
         }
     }
@@ -160,7 +168,7 @@ impl RuntimeStepExecutor {
     /// the (possibly truncated) text plus whether it is genuine model
     /// output.
     async fn step_output(&self, ctx: &StepContext) -> (String, bool) {
-        match complete_once(&self.provider_id, &delegation_prompt(ctx)).await {
+        match complete_once(&self.provider_id, &delegation_prompt(ctx), self.store.as_ref()).await {
             Ok(text) if !text.trim().is_empty() => {
                 (truncate(text.trim(), MAX_STEP_OUTPUT_CHARS), true)
             }
@@ -226,7 +234,13 @@ impl RuntimeStepExecutor {
         if !outputs.iter().any(|o| o.real) {
             return None;
         }
-        match complete_once(&self.provider_id, &synthesis_prompt(plan, outputs)).await {
+        match complete_once(
+            &self.provider_id,
+            &synthesis_prompt(plan, outputs),
+            self.store.as_ref(),
+        )
+        .await
+        {
             Ok(text) if !text.trim().is_empty() => {
                 Some(truncate(text.trim(), MAX_SYNTHESIS_CHARS))
             }
@@ -292,14 +306,20 @@ fn truncate(s: &str, max: usize) -> String {
 /// pitch/genesis paths exactly: load the manifest from
 /// `<cwd>/manifests/providers/<id>.toml` (subprocess vs HTTP decided by
 /// the manifest), then `complete` a single user turn at temperature 0.
-async fn complete_once(provider_id: &str, prompt: &str) -> ArgoResult<String> {
+async fn complete_once(
+    provider_id: &str,
+    prompt: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> ArgoResult<String> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let manifest = load_manifest(&cwd, provider_id).map_err(|e| {
         ArgoError::Provider(format!(
             "orch llm: load provider `{provider_id}` manifest: {e}"
         ))
     })?;
-    let transport = build_transport(manifest).await?;
+    // Internet-facing gateway orchestration path: gate against the capped
+    // anonymous tenant (WS5 open-wallet close).
+    let transport = build_transport(manifest, TransportGate::Anonymous { store, cwd: &cwd }).await?;
     let req = ProviderRequest {
         model: ORCH_MODEL.to_string(),
         messages: vec![user_message(prompt)],

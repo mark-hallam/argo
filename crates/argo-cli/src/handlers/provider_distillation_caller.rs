@@ -23,7 +23,7 @@
 //! manifest id (default `anthropic`; set `claude-code-cli` to route
 //! through the subprocess driver / Claude Code subscription).
 
-use argo_agent_runner::{build_transport, load_manifest};
+use argo_agent_runner::{build_transport, load_manifest, TransportGate};
 use argo_provider::{ProviderRequest, Sampling, Transport};
 use argo_skill::dreams_distillation::{Cohort, DistillationResult, SkillDistillationCaller};
 use argo_types::{
@@ -120,7 +120,15 @@ impl ProviderDistillationCaller {
                 self.provider_id
             ))
         })?;
-        let boxed: Box<dyn Transport> = build_transport(manifest).await?;
+        // Distillation runs only from the operator-invoked `argo skill
+        // self-improve` tick, opt-in behind ARGO_SKILL_DISTILL_LIVE (default
+        // OFF / deterministic), bounded by the operator's own provider quota.
+        // It is NOT internet-facing and has no unattended scheduler caller, so
+        // it opts out of the spend gate. If a future autonomous loop drives
+        // this, the choke point forces that call site to choose a real
+        // (Session/Anonymous) gate — the type can't be skipped.
+        let boxed: Box<dyn Transport> =
+            build_transport(manifest, TransportGate::InternalTrusted).await?;
         Ok(Arc::from(boxed))
     }
 }

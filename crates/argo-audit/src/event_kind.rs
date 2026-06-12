@@ -318,4 +318,14 @@ pub enum AuditKind {
     /// verified `granted_by`/`revoked_by` session identity (never the raw
     /// header). Denials keep [`Self::RbacDeny`]; this kind is success only.
     WorkerCapabilityGrantChanged,
+    /// A hard `[budget.ceiling]` cap blocked a provider call **before** the
+    /// inner transport was invoked (`launch-wire-spendgate-llm-cost-ceiling`,
+    /// the WS5 open-wallet close). Written by the `SpendGate` enforcer the
+    /// instant a projected charge would push a `(tenant, session)` past its
+    /// session/day/month USD ceiling, so a stopped runaway-spend is never a
+    /// silent failure. Tenant-scoped. Payload carries `window`
+    /// (`session`|`day`|`month`), `used_micros`, `ceiling_micros`, and
+    /// `projected_cost_micros`. Distinct from the soft budget-notification
+    /// kinds: this kind means the call was REFUSED, money was NOT spent.
+    BudgetCeilingBlocked,
 }

@@ -83,7 +83,7 @@ async fn provider_id_ignores_blank_env() {
 
 #[test]
 fn classifier_starts_not_fired() {
-    let c = GenesisLlmAdapter::new("claude-code-cli".to_string());
+    let c = GenesisLlmAdapter::new("claude-code-cli".to_string(), None);
     assert!(!c.fired(), "fired() must be false before any provider call");
 }
 
@@ -144,6 +144,7 @@ async fn resolve_plan_uses_keyword_when_classifier_disabled() {
     let (plan, mode) = resolve_plan(
         "be my marketing intern, run weekly campaigns to cold leads",
         "maya",
+        None,
     )
     .await
     .expect("keyword plan builds");
@@ -170,6 +171,7 @@ async fn resolve_plan_falls_back_to_keyword_when_provider_manifest_missing() {
     let (plan, mode) = resolve_plan(
         "be my marketing intern, run weekly campaigns to cold leads",
         "maya",
+        None,
     )
     .await
     .expect("plan builds via keyword fallback");

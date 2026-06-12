@@ -122,7 +122,7 @@ pub(crate) async fn run_turn_with_events_inner(
     // this entirely; sessions opting into `RoutingPolicy::Tiered`
     // get their model overridden to the tier's `chosen_provider_model`.
     let routing_decision =
-        crate::turn_routing::maybe_route_turn(store, &session, manifest.clone(), user, &audit)
+        crate::turn_routing::maybe_route_turn(store, &session, manifest.clone(), user, &audit, cwd)
             .await?;
     let effective_model: String = routing_decision
         .as_ref()
@@ -135,8 +135,23 @@ pub(crate) async fn run_turn_with_events_inner(
     // a tenant who never set a BYOK key is served the platform key
     // exactly as before. Enterprise fail-closed (fallback OFF) is wired
     // when the per-tenant tier bit is plumbed through.
-    let transport: Box<dyn Transport> =
-        build_transport_for_tenant(manifest, cwd, &session.tenant_id, true).await?;
+    // Hard `[budget.ceiling]` gate (WS5 open-wallet close): the authed turn
+    // path projects each provider call against this `(tenant, session)`'s
+    // live ceilings. READ-ONLY here — `record_turn_spend` (below) is the
+    // single writer, so the gate must not double-count.
+    let transport: Box<dyn Transport> = build_transport_for_tenant(
+        manifest,
+        cwd,
+        &session.tenant_id,
+        true,
+        crate::TransportGate::Session {
+            store,
+            tenant_id: session.tenant_id,
+            session_id,
+            cwd,
+        },
+    )
+    .await?;
 
     // Vertical lookup: when the session is bound, load the
     // declared role/system_prompt + carry the slug into the audit

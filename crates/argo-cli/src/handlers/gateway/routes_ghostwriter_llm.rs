@@ -26,13 +26,15 @@
 //! key-less test runs stay deterministic).
 
 use super::routes_genesis_stream_llm::resolve_provider_id;
-use argo_agent_runner::{build_transport, load_manifest};
+use argo_agent_runner::{build_transport, load_manifest, TransportGate};
 use argo_provider::{ProviderRequest, ProviderResponse, Sampling};
 use argo_skill::ir::{generate_from_prompt, GhostwriterClient, GhostwriterError, SkillGraph};
+use argo_store::SessionStore;
 use argo_types::{
     ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, SessionId,
 };
 use async_trait::async_trait;
+use std::sync::Arc;
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -78,9 +80,12 @@ pub(super) fn ghostwriter_llm_enabled() -> bool {
 /// The real-provider draft client if the pass is enabled, else `None`.
 /// `None` makes [`draft_with_fallback`] take the deterministic path with no
 /// provider call at all (the key-less test / demo default).
-pub(super) fn provider_client_if_enabled() -> Option<GhostwriterProviderClient> {
+pub(super) fn provider_client_if_enabled(
+    store: Option<&Arc<SessionStore>>,
+) -> Option<GhostwriterProviderClient> {
     ghostwriter_llm_enabled().then(|| GhostwriterProviderClient {
         provider_id: resolve_provider_id(),
+        store: store.cloned(),
     })
 }
 
@@ -120,12 +125,14 @@ pub(super) async fn draft_with_fallback(
 /// machinery as the Genesis author / classifier and the Pitch Agent.
 pub(super) struct GhostwriterProviderClient {
     provider_id: String,
+    /// Live store for the anonymous spend gate (`None` off the prod path).
+    store: Option<Arc<SessionStore>>,
 }
 
 #[async_trait]
 impl GhostwriterClient for GhostwriterProviderClient {
     async fn generate(&self, prompt: &str) -> ArgoResult<String> {
-        complete_draft(&self.provider_id, prompt).await
+        complete_draft(&self.provider_id, prompt, self.store.as_ref()).await
     }
 }
 
@@ -135,14 +142,20 @@ impl GhostwriterClient for GhostwriterProviderClient {
 /// manifest), but with a draft-sized [`GHOSTWRITER_MAX_TOKENS`] budget and a
 /// low (not zero) temperature so the graph stays well-formed without being
 /// rigidly canned.
-async fn complete_draft(provider_id: &str, prompt: &str) -> ArgoResult<String> {
+async fn complete_draft(
+    provider_id: &str,
+    prompt: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> ArgoResult<String> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let manifest = load_manifest(&cwd, provider_id).map_err(|e| {
         ArgoError::Provider(format!(
             "ghostwriter llm: load provider `{provider_id}` manifest: {e}"
         ))
     })?;
-    let transport = build_transport(manifest).await?;
+    // Internet-facing gateway draft path: gate against the capped anonymous
+    // tenant (WS5 open-wallet close).
+    let transport = build_transport(manifest, TransportGate::Anonymous { store, cwd: &cwd }).await?;
     let req = ProviderRequest {
         model: GHOSTWRITER_MODEL.to_string(),
         messages: vec![user_message(prompt)],

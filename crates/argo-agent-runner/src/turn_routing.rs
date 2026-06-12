@@ -14,11 +14,13 @@
 //! agent-loop's per-turn inputs into a [`RoutingContext`] and emits
 //! an `AuditKind::RoutingDecision` row for every routed turn.
 use crate::transport::build_transport;
+use crate::TransportGate;
 use argo_audit::{AuditKind, AuditSink};
 use argo_provider::{ProviderManifest, Transport};
 use argo_routing::{Router, RoutingContext, TieredRouter};
 use argo_store::{SessionHeader, SessionStore};
 use argo_types::{ArgoResult, Message, ProviderModel, RoutingDecision, RoutingPolicy, SessionId};
+use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -35,8 +37,9 @@ const DEFAULT_ROUTING_DEADLINE_MS: u64 = 5_000;
 /// `Box<dyn Transport>` for the main turn without cloning.
 pub async fn build_classifier_transport(
     manifest: ProviderManifest,
+    gate: TransportGate<'_>,
 ) -> ArgoResult<Arc<dyn Transport>> {
-    Ok(Arc::from(build_transport(manifest).await?))
+    Ok(Arc::from(build_transport(manifest, gate).await?))
 }
 
 /// Run the tier router when the session carries
@@ -49,6 +52,7 @@ pub async fn maybe_route_turn(
     manifest: ProviderManifest,
     user_message: Option<&str>,
     audit: &AuditSink,
+    cwd: &Path,
 ) -> ArgoResult<Option<RoutingDecision>> {
     let Some(policy) = session.routing_policy.as_ref() else {
         return Ok(None);
@@ -56,7 +60,16 @@ pub async fn maybe_route_turn(
     if !matches!(policy, RoutingPolicy::Tiered(_)) {
         return Ok(None);
     }
-    let classifier = build_classifier_transport(manifest).await?;
+    // Same hard `[budget.ceiling]` gate as the main turn: the small
+    // classifier round-trip is an authed `(tenant, session)` provider call,
+    // so it is refused once the tenant is at its ceiling. READ-ONLY.
+    let gate = TransportGate::Session {
+        store,
+        tenant_id: session.tenant_id,
+        session_id: session.id,
+        cwd,
+    };
+    let classifier = build_classifier_transport(manifest, gate).await?;
     maybe_route_turn_with_transport(store, session, classifier, user_message, audit).await
 }
 
