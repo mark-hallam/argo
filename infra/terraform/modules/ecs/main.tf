@@ -92,6 +92,15 @@ locals {
     { name = "ARGO_GATEWAY_PROFILE", value = "production" },
     { name = "ARGO_HOME", value = "/data" },
     { name = "RUST_LOG", value = "info" },
+    # On-disk truth-boundary policy + pitch corpus locations. The container image
+    # (root Dockerfile) bakes these same ENV defaults, so the task def is a
+    # belt-and-suspenders restatement: it pins resolution to the bundled /app
+    # paths even if a future image ever drops the ENV, so a policy-dependent
+    # route (POST /api/v1/pitch/ask) never falls back to a missing
+    # workspace_root() path (the "policy-less gateway" failure class WS5 #2763
+    # deleted). Read by routes_pitch_ask.rs corpus_dir()/policy_dir().
+    { name = "ARGO_PITCH_CORPUS_DIR", value = "/app/skill-library/canonical-qa/corpora/skycot" },
+    { name = "ARGO_PITCH_POLICY_DIR", value = "/app/policies/truth-boundary" },
   ], local.proxy_env, local.email_env)
 
   container_def = [{

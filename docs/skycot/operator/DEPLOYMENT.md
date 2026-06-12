@@ -298,9 +298,16 @@ they're solved):
 
 ---
 
-## Scale-later path (deferred — when onboarding real users)
+## Scale-later path → the paying-customer runbook
 
-When the gated demo becomes a real product with real users:
+> **When the gated demo becomes a real product with real users, the
+> step-by-step paying-customer deployment shape is its own runbook:
+> [`PRODUCTION-RUNBOOK.md`](PRODUCTION-RUNBOOK.md)** (ECS Fargate +
+> production-auth mode + magic-link/SES + Stripe + Cloudflare/ACM, on the
+> `infra/terraform` IaC). This section is the short orientation; the runbook is
+> the operative procedure.
+
+The shape inverts this demo's load-bearing decisions:
 
 - **Gateway** → ECS Fargate or App Runner (bind non-loopback → **production-auth
   mode on**), with `ARGO_GATEWAY_BEARER_TOKEN` set and wired through the SPA's
