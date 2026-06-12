@@ -367,34 +367,32 @@ fn pinned_current_handshake_is_strict_string_equality() {
 }
 
 // ---------------------------------------------------------------------
-// 9. FINDINGS-ONLY (#[ignore]'d) — forward-compat gap on PreToolCallVerdict
+// 9. Forward-compat fallback on PreToolCallVerdict (was FINDINGS-ONLY)
 // ---------------------------------------------------------------------
 //
-// FINDING: `PreToolCallVerdict` is exhaustive on deserialize. If a
-// newer plugin SDK adds a verdict variant (e.g. `{"action": "defer"}`),
-// the current host will fail to decode with a serde error, breaking
-// the call rather than gracefully rejecting the verdict.
-//
-// Forward-compat policy says additive variants on a wire enum SHOULD
-// decode to an "unknown — treat as deny" fallback so a newer plugin
-// against an older host degrades safely instead of crashing the call.
-//
-// Fix-brief: `mission-plugin-verdict-unknown-fallback` — wrap
-// `PreToolCallVerdict` in a sum with `Unknown(Value)` via
-// `#[serde(other)]` (or move to a manual `Deserialize` impl) so the
-// older host treats unknown variants as a structured deny rather than
-// a hard decode failure. ~80 LOC; touches `protocol.rs` + adds tests.
-//
-// This test is FINDINGS-ONLY (#[ignore]'d) per the brief's
-// "real broken-wire found" clause. Un-ignore in the fix-brief.
+// FIXED in `fix-plugin-verdict-unknown-fallback`: `PreToolCallVerdict`
+// now carries a `#[serde(other)]` `Unknown` fallback variant, so a
+// verdict `action` value this host doesn't recognize (e.g. a 4th
+// `{"action": "defer"}` a newer plugin SDK introduces) decodes to
+// `Unknown` instead of hard-erroring. The security-critical
+// pre-tool-call gate enforces `Unknown` as `Deny` (fail closed) via
+// `PreToolCallVerdict::fail_closed()` — never a panic, never a silent
+// allow. This test (previously `#[ignore]`'d FINDINGS-ONLY) now pins
+// that behavior.
 
 #[test]
-#[ignore = "FINDINGS-ONLY: forward-compat gap; fix in mission-plugin-verdict-unknown-fallback"]
 fn finding_unknown_verdict_variant_should_decode_as_deny() {
-    // Today: this would fail with serde "unknown variant" error.
-    // After fix: should decode to a structured Deny/Unknown fallback.
+    // A future verdict `action` must decode (not hard-error) ...
     let raw = json!({"action": "defer", "until_ms": 5000});
-    let result: Result<PreToolCallVerdict, _> = from_value(raw);
-    // Post-fix expectation: Ok(_) with a safe-deny fallback variant.
-    assert!(result.is_ok(), "unknown verdict variant must not hard-error");
+    let verdict: PreToolCallVerdict =
+        from_value(raw).expect("unknown verdict variant must not hard-error");
+    assert!(
+        matches!(verdict, PreToolCallVerdict::Unknown),
+        "unrecognized action must decode to the Unknown fallback"
+    );
+    // ... and the gate must fail CLOSED: Unknown enforces as Deny.
+    assert!(
+        matches!(verdict.fail_closed(), PreToolCallVerdict::Deny { .. }),
+        "unknown verdict must fail closed to Deny, never Allow"
+    );
 }
