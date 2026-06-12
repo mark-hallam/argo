@@ -12,8 +12,7 @@
 use super::routes_auth::require_identity;
 use super::routes_auth_principal::{parse_principal_header, principal_id_for_audit};
 use super::routes_post::create_session_response;
-use argo_store::tenant_quota::TenantQuotaStore;
-use argo_store::tenant_quota_kinds::{QuotaActionKind, QuotaError};
+use argo_store::tenant_quota_kinds::QuotaActionKind;
 use argo_store::SessionStore;
 use std::sync::Arc;
 use tracing::Instrument;
@@ -48,44 +47,12 @@ fn request_id_header(req: &str) -> &str {
         .unwrap_or("")
 }
 
-/// Resolve the cwd-derived tenant id and ask the quota store
-/// whether one more `kind` action would exceed the configured
-/// cap. Returns `Some((status, body))` to short-circuit dispatch
-/// with HTTP 429; returns `None` on pass or on internal error
-/// (fail-open — the gate is not authoritative when the store is
-/// unreachable; observability still records the underlying
-/// failure via the existing summary read path).
-pub(super) async fn check_quota_or_reject(
-    store: &Arc<SessionStore>,
-    kind: QuotaActionKind,
-) -> Option<(&'static str, String)> {
-    let cwd = std::env::current_dir().ok()?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await.ok()?;
-    let tenant_id = tenant.0.to_string();
-    let quotas = TenantQuotaStore::new(store.pool());
-    match quotas
-        .check_or_reject(&tenant_id, kind, 1, chrono::Utc::now())
-        .await
-    {
-        Ok(()) => None,
-        Err(QuotaError::Exceeded {
-            kind,
-            current,
-            limit,
-        }) => Some((
-            "429 Too Many Requests",
-            format!(
-                "{{\"error\":\"quota_exceeded\",\"kind\":\"{kind}\",\"current\":{current},\"limit\":{limit}}}"
-            ),
-        )),
-        Err(QuotaError::Internal(_)) => None,
-    }
-}
+// The per-action quota seam (`check_quota_or_reject`) now lives in
+// `quota_middleware.rs` — the single metered-action gate that clears the
+// operator-override caps AND the tier baseline, metering one action
+// against the tenant's monthly usage. Call sites here and in
+// `routes_dispatch_post_paths.rs` reach it via
+// `super::quota_middleware::check_quota_or_reject`.
 
 /// Dispatch every POST verb. Returns `None` when no match,
 /// letting `dispatch_route` fall through to its other branches
@@ -484,7 +451,9 @@ async fn top_level_dispatch(
         return None;
     }
     if let Some(s) = store {
-        if let Some(resp) = check_quota_or_reject(s, QuotaActionKind::Sessions).await {
+        if let Some(resp) =
+            super::quota_middleware::check_quota_or_reject(s, QuotaActionKind::Sessions).await
+        {
             return Some(resp);
         }
     }

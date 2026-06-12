@@ -1,10 +1,13 @@
 //! Unit tests for the tier-aware quota middleware.
 //!
 //! Cover: under-quota allows; at-cap denies with the expected JSON
-//! body shape; tier promotion lifts the limit; calendar-month rollover
-//! resets the counter.
+//! body shape (incl. the upgrade path); tier promotion lifts the limit;
+//! calendar-month rollover resets the counter; and the combined
+//! per-action seam meters usage AND enforces the cap.
 
-use super::{check_tier_quota_or_reject, clear_cache_for_test};
+use super::{check_quota_or_reject, check_tier_quota_or_reject, clear_cache_for_test};
+use argo_store::tenant_quota::set_workspace_tier;
+use argo_store::tenant_quota_kinds::QuotaActionKind;
 use argo_store::{tenant_query, SessionStore};
 use argo_types::TenantId;
 use chrono::{TimeZone, Utc};
@@ -86,6 +89,10 @@ async fn free_tier_at_cap_returns_429_quota_exceeded() {
     assert!(body.contains(r#""limit":100"#), "{body}");
     assert!(body.contains(r#""used":100"#), "{body}");
     assert!(body.contains(r#""retry_after_ts":"#), "{body}");
+    // The structured upgrade path names the next tier + the in-product
+    // page that lifts the cap (launch-wire-tier-quota-and-usage-metering).
+    assert!(body.contains(r#""upgrade_to":"pro""#), "{body}");
+    assert!(body.contains(r#""upgrade_url":"/billing""#), "{body}");
 }
 
 #[tokio::test]
@@ -120,4 +127,46 @@ async fn enterprise_tier_is_unlimited() {
         .unwrap();
     let res = check_tier_quota_or_reject(&store, tenant).await;
     assert!(res.is_none(), "enterprise should never deny on quota");
+}
+
+/// The combined per-action seam: a metered action increments the
+/// tenant's monthly usage (Acceptance 1 "Pro increments visibly" /
+/// Acceptance 2 real counts), and the Free cap is enforced with the
+/// structured upgrade error (Acceptance 1 — would FAIL pre-wire when
+/// the gate was dead code). Resolves the cwd-derived workspace tenant
+/// the seam meters against, so it holds the shared env lock.
+#[tokio::test]
+async fn seam_meters_usage_then_rejects_at_free_cap() {
+    let _g = crate::handlers::gateway::shared_env_lock().await;
+    clear_cache_for_test();
+    let store = store().await;
+    let cwd = std::env::current_dir().expect("cwd");
+    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, _) = store.ensure_workspace(name, &root).await.expect("workspace");
+    set_workspace_tier(&store, tenant, "free", "Free")
+        .await
+        .expect("set free");
+    clear_cache_for_test();
+
+    // First metered action passes AND bumps the counter to 1.
+    let pass = check_quota_or_reject(&store, QuotaActionKind::Sessions).await;
+    assert!(pass.is_none(), "first action under cap should pass: {pass:?}");
+    let (used, _) = tenant_query::tenant_usage_for_period(&store, tenant, Utc::now())
+        .await
+        .expect("usage");
+    assert_eq!(used, 1, "the seam must meter exactly one action");
+
+    // Seed to the Free cap, then the next action is refused with the
+    // structured upgrade error.
+    tenant_query::increment_tenant_usage(&store, tenant, 99, Utc::now())
+        .await
+        .unwrap();
+    let (status, body) = check_quota_or_reject(&store, QuotaActionKind::Sessions)
+        .await
+        .expect("at cap should reject");
+    assert_eq!(status, "429 Too Many Requests");
+    assert!(body.contains(r#""error":"quota_exceeded""#), "{body}");
+    assert!(body.contains(r#""upgrade_to":"pro""#), "{body}");
+    assert!(body.contains(r#""upgrade_url":"/billing""#), "{body}");
 }

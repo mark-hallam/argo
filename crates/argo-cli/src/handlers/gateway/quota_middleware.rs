@@ -1,27 +1,31 @@
-//! Tier-aware monthly-action quota check for the gateway.
+//! Per-action quota gate + tier-aware usage metering for the gateway.
 //!
-//! Note: `check_tier_quota_or_reject` is `pub(super)` and tested in
-//! isolation, but the dispatch wiring (calling it at the top of
-//! `routes_dispatch_post::dispatch_post`) is intentionally out of
-//! this brief's may-touch list — `routes_dispatch_post.rs` is
-//! reserved for a follow-up "wire-up" brief. The `#[allow(dead_code)]`
-//! markers below acknowledge the temporary state; remove them in the
-//! follow-up that wires the call.
+//! This module owns the single metered-action seam. Every metered
+//! action (`POST /sessions`, forge runs, channel messages) flows through
+//! [`check_quota_or_reject`], which:
+//!   1. resolves the cwd-derived workspace tenant,
+//!   2. clears the operator-configurable [`TenantQuotaStore`] caps
+//!      (the override layer), then
+//!   3. clears the **tier baseline** via [`check_tier_quota_or_reject`],
+//!      which bumps the period-to-date usage counter on success and
+//!      rejects with a structured upgrade error at the cap.
 //!
-//! Reads the tenant's pricing tier (`workspace.tier`), resolves it to
-//! a [`RuntimeTierLimits`] via the const operational table, and
-//! short-circuits dispatch with a `429 Too Many Requests` JSON payload
-//! when the period-to-date counter has reached the tier cap. On
-//! success the counter is bumped by one and the request proceeds.
+//! "One seam, no parallel counter": the tier usage counter
+//! (`tenant_usage`) is written in exactly one place —
+//! `tenant_query::increment_tenant_usage`, called from
+//! [`check_tier_quota_or_reject`] — so the `/billing` meter and
+//! `GET /api/v1/tenant/usage` read a true number under every pricing
+//! model. The counter is metered on Pro too (not just at the Free cap)
+//! because it feeds whichever pricing model the operator picks.
 //!
-//! Pattern mirrors the existing `check_quota_or_reject` helper in
-//! `routes_dispatch_post.rs` (which guards the `TenantQuotaStore`
-//! operator-configurable caps). The two paths are independent: this
-//! one enforces the **tier baseline**, the other enforces
-//! **operator-overrides on top of the baseline**. Both must clear
-//! before the request runs.
+//! [`check_tier_quota_or_reject`] reads the tenant's pricing tier
+//! (`workspace.tier`), resolves it to a [`RuntimeTierLimits`] via the
+//! const operational table, and short-circuits dispatch with a
+//! `429 Too Many Requests` JSON payload when the period-to-date counter
+//! has reached the tier cap. On success the counter is bumped by one and
+//! the request proceeds.
 //!
-//! # 429 payload shape
+//! # Quota-exceeded payload shape
 //!
 //! ```json
 //! {
@@ -29,12 +33,18 @@
 //!   "tier": "free",
 //!   "limit": 100,
 //!   "used": 100,
+//!   "upgrade_to": "pro",
+//!   "upgrade_url": "/billing",
 //!   "retry_after_ts": 1735689600
 //! }
 //! ```
 //!
 //! `retry_after_ts` is the Unix-epoch-seconds boundary of the next
-//! calendar month (UTC), matching Stripe invoice periods.
+//! calendar month (UTC), matching Stripe invoice periods. `upgrade_to`
+//! names the next tier up and `upgrade_url` the in-product page that
+//! lifts the cap. Each rejection also emits a best-effort
+//! `quota.exceeded` audit row so the over-quota event is forensically
+//! visible.
 //!
 //! # Tier cache
 //!
@@ -42,21 +52,23 @@
 //! best-effort 60-second LRU keeps the hot path off the database.
 //! Cache miss falls back to a live `tenant_query::tenant_tier` read.
 
+use argo_audit::{AuditKind, AuditSink};
 use argo_identity::tier::Tier;
 use argo_identity::tier_limits::RuntimeTierLimits;
+use argo_store::tenant_quota::TenantQuotaStore;
+use argo_store::tenant_quota_kinds::{QuotaActionKind, QuotaError};
 use argo_store::tenant_query;
 use argo_store::SessionStore;
 use argo_types::TenantId;
 use chrono::{DateTime, Datelike, TimeZone, Utc};
 use dashmap::DashMap;
+use serde_json::json;
 use std::str::FromStr;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
-#[allow(dead_code, reason = "wired by follow-up brief that touches routes_dispatch_post.rs")]
 const TIER_CACHE_TTL: Duration = Duration::from_secs(60);
 
-#[allow(dead_code, reason = "wired by follow-up brief that touches routes_dispatch_post.rs")]
 #[derive(Debug, Clone)]
 struct CachedTier {
     tier: Tier,
@@ -81,7 +93,6 @@ pub(super) fn init_tier_cache() {
 /// [`Tier::Free`] (fail-closed) when the tier value on disk is
 /// unrecognised — a misconfigured workspace shouldn't quietly inherit
 /// the unlimited enterprise budget.
-#[allow(dead_code, reason = "wired by follow-up brief that touches routes_dispatch_post.rs")]
 async fn resolve_tier(store: &SessionStore, tenant: TenantId) -> Tier {
     let key = tenant.to_string();
     let now = Instant::now();
@@ -104,11 +115,62 @@ async fn resolve_tier(store: &SessionStore, tenant: TenantId) -> Tier {
     tier
 }
 
+/// The single metered-action seam: clear the operator-configurable
+/// [`TenantQuotaStore`] override caps, then the tier baseline, metering
+/// one action against the tenant's monthly usage. Returns
+/// `Some((status, body))` to short-circuit dispatch (HTTP 429) when
+/// either gate trips; `None` when the action is allowed (and the tier
+/// usage counter has been bumped by one).
+///
+/// Tenant is resolved from the cwd-derived workspace, mirroring the
+/// per-tenant override gate this helper replaced. On an unresolvable
+/// workspace the call fails open (returns `None`) — the gate is not
+/// authoritative when the store is unreachable, and the underlying
+/// failure is still observable via the usage read path.
+pub(super) async fn check_quota_or_reject(
+    store: &Arc<SessionStore>,
+    kind: QuotaActionKind,
+) -> Option<(&'static str, String)> {
+    let cwd = std::env::current_dir().ok()?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, _ws) = store.ensure_workspace(name, &root).await.ok()?;
+    let tenant_id = tenant.to_string();
+    // 1. Operator-configurable override caps (independent of tier).
+    let quotas = TenantQuotaStore::new(store.pool());
+    match quotas
+        .check_or_reject(&tenant_id, kind, 1, Utc::now())
+        .await
+    {
+        Ok(()) => {}
+        Err(QuotaError::Exceeded {
+            kind,
+            current,
+            limit,
+        }) => {
+            return Some((
+                "429 Too Many Requests",
+                format!(
+                    "{{\"error\":\"quota_exceeded\",\"kind\":\"{kind}\",\"current\":{current},\"limit\":{limit}}}"
+                ),
+            ));
+        }
+        // Fail-open on internal error — the gate is not authoritative
+        // when the store is unreachable.
+        Err(QuotaError::Internal(_)) => return None,
+    }
+    // 2. Tier baseline + usage metering (the one true counter).
+    check_tier_quota_or_reject(store, tenant).await
+}
+
 /// Apply the tier-baseline monthly action quota to `tenant`. On
 /// success increments the counter and returns `None`; on quota
-/// exhaustion returns `Some((status_line, body))` for the caller to
-/// frame as the gateway response.
-#[allow(dead_code, reason = "wired by follow-up brief that touches routes_dispatch_post.rs")]
+/// exhaustion emits a `quota.exceeded` audit row and returns
+/// `Some((status_line, body))` for the caller to frame as the gateway
+/// response.
 pub(super) async fn check_tier_quota_or_reject(
     store: &Arc<SessionStore>,
     tenant: TenantId,
@@ -126,21 +188,58 @@ pub(super) async fn check_tier_quota_or_reject(
     let cap = u64::from(limits.monthly_actions);
     if used >= cap {
         let retry_after_ts = next_month_boundary_ts(now);
+        let upgrade_to = next_tier_slug(tier);
         let body = format!(
-            "{{\"error\":\"quota_exceeded\",\"tier\":\"{tier}\",\"limit\":{cap},\"used\":{used},\"retry_after_ts\":{retry_after_ts}}}",
+            "{{\"error\":\"quota_exceeded\",\"tier\":\"{tier}\",\"limit\":{cap},\"used\":{used},\"upgrade_to\":\"{upgrade_to}\",\"upgrade_url\":\"/billing\",\"retry_after_ts\":{retry_after_ts}}}",
             tier = tier.as_str(),
         );
+        emit_quota_exceeded_audit(store, tenant, tier, cap, used, upgrade_to).await;
         return Some(("429 Too Many Requests", body));
     }
     let _ = tenant_query::increment_tenant_usage(store, tenant, 1, now).await;
     None
 }
 
+/// The tier a quota-capped tenant upgrades INTO to lift the cap. Free →
+/// Pro, Pro → Enterprise. Enterprise is unlimited and never reaches this
+/// path, but maps to itself for totality.
+fn next_tier_slug(tier: Tier) -> &'static str {
+    match tier {
+        Tier::Free => "pro",
+        Tier::Pro => "enterprise",
+        Tier::Enterprise => "enterprise",
+    }
+}
+
+/// Best-effort `quota.exceeded` audit row. Truth-bounded forensic
+/// breadcrumb of an over-quota rejection; a write failure never blocks
+/// the response (the 429 is the authoritative caller-facing signal).
+async fn emit_quota_exceeded_audit(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    tier: Tier,
+    limit: u64,
+    used: u64,
+    upgrade_to: &str,
+) {
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
+    let payload = json!({
+        "action_type": "quota.exceeded",
+        "verb": "hit the monthly action quota",
+        "endpoint": "quota.tier",
+        "tier": tier.as_str(),
+        "limit": limit,
+        "used": used,
+        "upgrade_to": upgrade_to,
+        "upgrade_url": "/billing",
+    });
+    let _ = sink.write(None, AuditKind::HttpRequest, payload, None).await;
+}
+
 /// Calendar-month boundary (UTC) AFTER `now`, returned as Unix seconds.
 /// December rolls over to January of the next year. Saturates to
 /// `now.timestamp()` if year arithmetic overflows — which would only
 /// happen near `i32::MAX` years from now and is safe to ignore.
-#[allow(dead_code, reason = "wired by follow-up brief that touches routes_dispatch_post.rs")]
 fn next_month_boundary_ts(now: DateTime<Utc>) -> i64 {
     let (year, month) = if now.month() == 12 {
         (now.year().saturating_add(1), 1)
