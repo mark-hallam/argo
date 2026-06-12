@@ -31,7 +31,7 @@
 //! ```
 
 use crate::learn::SkillCandidate;
-use crate::skill::Skill;
+use crate::skill::{LifecycleState, Skill};
 use crate::store::SkillStore;
 use argo_judge::Judge;
 use argo_types::{ArgoError, ArgoResult, SessionId};
@@ -304,6 +304,70 @@ pub async fn distill_and_propose_judged_for_tenant(
             &cohort.vertical_id,
             judge,
             None,
+            tenant_id,
+        )
+        .await?;
+    Ok((skill, result))
+}
+
+/// Eval-floor-gated variant of [`distill_and_propose_judged_for_tenant`]
+/// (DEC-042 Stage-2 P-1, dec042-p1b-eval-floor-gates-distilled-proposal).
+///
+/// The self-improve tick A/B-evals the candidate and decides BEFORE the
+/// distilled proposal enters the review queue, so the eval floor is a
+/// checkable GATE, not an advisory note an operator can override:
+///
+/// - `ab_reject_reason = None` → identical to
+///   [`distill_and_propose_judged_for_tenant`] (the eval-set / judge gate
+///   inside `propose_for_review_judged_with_evals_for_tenant` decides;
+///   `PendingReview` on pass).
+/// - `ab_reject_reason = Some(reason)` → the measured A/B eval REJECTED
+///   the candidate, so the distilled skill is installed straight into
+///   [`LifecycleState::Rejected`] — the row exists (audit coherence) but
+///   never lands in `PendingReview`. Reuses the SAME insert path
+///   (`insert_row_with_state`) the propose function ends in; only the
+///   lifecycle differs, so this does not fork the proposal policy.
+///
+/// # Errors
+/// - Propagates [`distill_cohort`] errors (cohort too small, caller failure).
+/// - Propagates parse / lookup / insert errors.
+pub async fn distill_and_propose_judged_for_tenant_gated(
+    cohort: &Cohort,
+    caller: &dyn SkillDistillationCaller,
+    store: &SkillStore,
+    session_id: SessionId,
+    judge: Option<&dyn Judge>,
+    tenant_id: &str,
+    ab_reject_reason: Option<&str>,
+) -> ArgoResult<(Skill, DistillationResult)> {
+    let Some(reason) = ab_reject_reason else {
+        return distill_and_propose_judged_for_tenant(
+            cohort, caller, store, session_id, judge, tenant_id,
+        )
+        .await;
+    };
+    let (candidate, result) = distill_cohort(cohort, caller).await?;
+    let raw = render_dreams_skill_md(&candidate, &result);
+    let (frontmatter, body) = crate::parse::parse_skill_md(&raw)?;
+    if store.find_active_by_name(&frontmatter.name).await?.is_some() {
+        return Err(ArgoError::Schema(format!(
+            "skill '{}' already installed; use supersede() to bump",
+            frontmatter.name
+        )));
+    }
+    tracing::info!(
+        target: "argo_skill::ab_eval::reject",
+        skill = %frontmatter.name,
+        reason = %reason,
+        "A/B-eval rejected distilled candidate; installing as Rejected (eval floor is a gate, never PendingReview)"
+    );
+    let skill = store
+        .insert_row_with_state(
+            frontmatter,
+            body,
+            Some(session_id),
+            Some(&cohort.vertical_id),
+            LifecycleState::Rejected,
             tenant_id,
         )
         .await?;

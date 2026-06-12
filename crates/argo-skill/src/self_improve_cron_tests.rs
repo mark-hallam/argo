@@ -69,6 +69,25 @@ async fn seed_stable_family(skills: &SkillStore, name: &str, required: &str) {
         .expect("supersede");
 }
 
+/// Install a baseline (v1, PASSES its eval) superseded by a candidate
+/// (v2, FAILS its eval) — a clear A/B LOSER: the candidate regresses
+/// 1.0 -> 0.0, past the 0.05 reject floor, so `decide_promotion` -> Reject.
+async fn seed_loser_family(skills: &SkillStore, name: &str, required: &str) {
+    let good = format!("be helpful; {required}");
+    skills
+        .install(&skill_doc(name, "v1", &good, required), None)
+        .await
+        .expect("install baseline");
+    skills
+        .supersede(
+            &skill_doc(name, "v2", "be helpful", required),
+            None,
+            crate::skill::PrincipalOverride::Agent,
+        )
+        .await
+        .expect("supersede candidate");
+}
+
 /// Insert one `TRACE_AUDIT_KIND` audit row for `tenant` whose payload
 /// names `skill_name` (baseline v1 / candidate v2) and carries
 /// `action_sequence` + `success`.
@@ -315,6 +334,55 @@ async fn distilled_proposal_never_leaks_across_tenants() {
         !pending.iter().any(|t| t == crate::store::PLACEHOLDER_TENANT_ID),
         "no placeholder-bound leak: {pending:?}"
     );
+}
+
+/// DEC-042 Stage-2 P-1 (dec042-p1b): the eval floor is a GATE, not
+/// advisory. A candidate whose measured A/B eval triggers `Reject` must
+/// NOT sit in `pending_review` after the tick — it is installed as
+/// `Rejected` (row exists for audit, never queued for operator approval).
+#[tokio::test]
+async fn rejected_candidate_is_not_in_pending_review() {
+    let skills = skills().await;
+    let tenant = TenantId::new().to_string();
+    seed_loser_family(&skills, "loser-skill", "refund window is 30 days").await;
+    seed_cluster(&skills, &tenant, "loser-skill").await;
+
+    let report = self_improve_tick(&skills).await.expect("tick runs");
+
+    assert_eq!(report.promoted, 0, "a regression is never promoted");
+    assert_eq!(report.outcomes.len(), 1, "still records the decision");
+    assert!(
+        matches!(report.outcomes[0].decision, PromotionDecision::Reject { .. }),
+        "got {:?}",
+        report.outcomes[0].decision
+    );
+    // The negative pin: NOTHING is in pending_review — the distilled
+    // proposal was gated to Rejected before the queue, not after.
+    assert!(
+        pending_review_tenants(&skills).await.is_empty(),
+        "a rejected candidate must NOT be in pending_review"
+    );
+    // Audit coherence: the distilled row still EXISTS, as Rejected, bound
+    // to the originating tenant.
+    let rejected: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM skill WHERE lifecycle_state = 'rejected' AND tenant_id = ?",
+    )
+    .bind(&tenant)
+    .fetch_one(skills.pool())
+    .await
+    .expect("count rejected");
+    assert_eq!(
+        rejected, 1,
+        "distilled proposal installed as Rejected, bound to tenant"
+    );
+    assert!(
+        report.outcomes[0].proposed_skill_id.is_some(),
+        "the gated (Rejected) proposal still carries a skill id for the audit row"
+    );
+    // Decision-audit coverage preserved on Reject.
+    let rows = decision_rows(&skills).await;
+    assert_eq!(rows.len(), 1, "one decision audit row even on reject");
+    assert_eq!(rows[0]["outcome_status"], "reject");
 }
 
 #[tokio::test]

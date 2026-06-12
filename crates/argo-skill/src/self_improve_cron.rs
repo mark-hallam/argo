@@ -9,11 +9,18 @@
 //! audit rows ─since cursor, tenant-scoped─▶ TraceFingerprint
 //!   ─cluster_traces─▶ TraceCluster ─distillation_candidates─▶ candidate
 //!   ─cluster_to_cohort─▶ Cohort
-//!   ─distill_and_propose_judged (deterministic caller)─▶ proposed skill
 //!   ─run_ab_eval─▶ SkillAbEvalReport ─decide_promotion─▶ PromotionDecision
+//!   ─distill_and_propose_..._gated (deterministic caller; Reject ─▶
+//!       Rejected, else PendingReview)─▶ proposed skill
 //!   ─[on Promote]─▶ promote_with_regression_gate
 //!   ─▶ ONE hash-chained per-skill decision audit row (tenant-stamped)
 //! ```
+//!
+//! The A/B-eval + [`decide_promotion`] gate runs BEFORE the proposal
+//! enters the review queue (DEC-042 Stage-2 P-1): a candidate the eval
+//! would Reject is installed as [`crate::skill::LifecycleState::Rejected`],
+//! never `PendingReview`, so the eval floor is a checkable gate, not an
+//! advisory note an operator could approve past.
 //!
 //! Mirrors [`crate::per_worker_learning_cron`]'s tick + hash-chained
 //! audit + `Option<TenantId>` filter shape — it does NOT fork a parallel
@@ -44,12 +51,11 @@
 //! promotion stage measures + gates that named family. One decision
 //! audit row is emitted per cluster outcome regardless.
 
-use crate::ab_eval::run_ab_eval;
 use crate::ab_test::{create_run, ensure_ab_schema, promote_with_regression_gate};
-use crate::dreams_distillation::{distill_and_propose_judged_for_tenant, Cohort, DistillationResult,
-    SkillDistillationCaller};
+use crate::dreams_distillation::{distill_and_propose_judged_for_tenant_gated, Cohort,
+    DistillationResult, SkillDistillationCaller};
 use crate::self_improve_loop::{
-    cluster_to_cohort, decide_promotion, PromotionDecision, PromotionPolicy, TraceMember,
+    cluster_to_cohort, PromotionDecision, PromotionPolicy, TraceMember,
 };
 use crate::store::SkillStore;
 use crate::trace_cluster::{
@@ -266,42 +272,40 @@ pub async fn self_improve_tick_with(
         let Some(cohort) = cohort_for_cluster(cluster, &traces, rep) else {
             continue;
         };
-        // Bind the distilled proposal to the SAME tenant the trace was
-        // read under (DEC-042 Stage-2 P-1). `rep.tenant_id` is the audit
-        // row's tenant column, so the proposal lands under the
-        // originating tenant even when the tick runs cross-tenant
-        // (config.tenant_id = None) — per-trace binding, not config-level.
-        let proposed_skill_id = match distill_and_propose_judged_for_tenant(
+        // Eval-floor GATE (DEC-042 Stage-2 P-1): A/B-eval + decide BEFORE
+        // the distilled proposal enters the review queue, so the eval
+        // result controls the lifecycle rather than sitting advisory
+        // beside an already-queued candidate.
+        let Some((ab_report, decision)) =
+            helpers::eval_and_decide(skills, rep, &config.promotion_policy).await
+        else {
+            continue;
+        };
+        // Reject → the distilled proposal is installed as Rejected, never
+        // PendingReview. Hold/Promote → existing PendingReview path. The
+        // proposal is still bound to the SAME tenant the trace was read
+        // under (`rep.tenant_id`), even on an unscoped cross-tenant tick.
+        let ab_reject_reason = match &decision {
+            PromotionDecision::Reject { reason } => Some(reason.as_str()),
+            _ => None,
+        };
+        let proposed_skill_id = match distill_and_propose_judged_for_tenant_gated(
             &cohort,
             caller,
             skills,
             SessionId::new(),
             judge,
             &rep.tenant_id,
+            ab_reject_reason,
         )
         .await
         {
-                Ok((skill, _)) => Some(skill.id.to_string()),
-                Err(err) => {
-                    tracing::warn!(target: "argo_skill::self_improve_cron", error = %err, "cluster skipped: distill/propose");
-                    continue;
-                }
-            };
-        let ab_report = match run_ab_eval(
-            skills,
-            &rep.skill_name,
-            &rep.baseline_version,
-            &rep.candidate_version,
-        )
-        .await
-        {
-            Ok(r) => r,
+            Ok((skill, _)) => Some(skill.id.to_string()),
             Err(err) => {
-                tracing::warn!(target: "argo_skill::self_improve_cron", skill = %rep.skill_name, error = %err, "cluster skipped: ab-eval");
+                tracing::warn!(target: "argo_skill::self_improve_cron", error = %err, "cluster skipped: distill/propose");
                 continue;
             }
         };
-        let decision = decide_promotion(&ab_report, &config.promotion_policy);
         if decision.is_promote() {
             apply_promotion(skills, rep, &config).await?;
             report.promoted += 1;

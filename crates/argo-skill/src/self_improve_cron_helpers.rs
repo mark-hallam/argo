@@ -4,8 +4,8 @@
 //! tenant-stamped decision audit row each cluster outcome emits.
 
 use super::{SelfImproveTrace, DECISION_ACTION, DECISION_AUDIT_KIND};
-use crate::ab_eval::SkillAbEvalReport;
-use crate::self_improve_loop::PromotionDecision;
+use crate::ab_eval::{run_ab_eval, SkillAbEvalReport};
+use crate::self_improve_loop::{decide_promotion, PromotionDecision, PromotionPolicy};
 use crate::store::SkillStore;
 use argo_types::{ArgoError, ArgoResult};
 use chrono::Utc;
@@ -111,4 +111,31 @@ fn chain_hash(parent: &[u8; 32], kind: &str, payload: &str) -> [u8; 32] {
     let mut buf = [0u8; 32];
     buf.copy_from_slice(&out);
     buf
+}
+
+/// A/B-eval the cluster representative and decide promotion. `None` skips
+/// the cluster (the eval errored — non-fatal to the tick). Lives here so
+/// `self_improve_tick_with` stays under the 80-LOC fn budget and
+/// `self_improve_cron.rs` stays under the 500-LOC file ceiling.
+pub(super) async fn eval_and_decide(
+    skills: &SkillStore,
+    rep: &SelfImproveTrace,
+    policy: &PromotionPolicy,
+) -> Option<(SkillAbEvalReport, PromotionDecision)> {
+    let ab_report = match run_ab_eval(
+        skills,
+        &rep.skill_name,
+        &rep.baseline_version,
+        &rep.candidate_version,
+    )
+    .await
+    {
+        Ok(r) => r,
+        Err(err) => {
+            tracing::warn!(target: "argo_skill::self_improve_cron", skill = %rep.skill_name, error = %err, "cluster skipped: ab-eval");
+            return None;
+        }
+    };
+    let decision = decide_promotion(&ab_report, policy);
+    Some((ab_report, decision))
 }
