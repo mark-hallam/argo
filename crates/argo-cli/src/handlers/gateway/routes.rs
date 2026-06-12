@@ -261,19 +261,25 @@ async fn dispatch_route_inner(
     if req.starts_with("GET /api/v1/packs ") || req.starts_with("GET /api/v1/packs?") {
         return super::routes_packs::list_response(req);
     }
-    // Bearer-gated billing POSTs (checkout, portal). Auth runs here
-    // because dispatch_post (which carries the standard POST bearer
-    // gate) hasn't been reached yet.
+    // Bearer-gated billing POSTs (checkout, portal, cap). Auth runs
+    // here because dispatch_post (which carries the standard POST
+    // bearer gate) hasn't been reached yet. Owner-RBAC on the cap
+    // mutation itself is enforced inside `set_cap_response`.
     if req.starts_with("POST /api/v1/billing/checkout ")
         || req.starts_with("POST /api/v1/billing/checkout?")
         || req.starts_with("POST /api/v1/billing/portal ")
         || req.starts_with("POST /api/v1/billing/portal?")
+        || req.starts_with("POST /api/v1/billing/cap ")
+        || req.starts_with("POST /api/v1/billing/cap?")
     {
         if let Some(resp) = require_identity(req) {
             return resp;
         }
         if req.starts_with("POST /api/v1/billing/checkout") {
             return super::billing::checkout_response(req, store).await;
+        }
+        if req.starts_with("POST /api/v1/billing/cap") {
+            return super::billing_meter::set_cap_response(req, store).await;
         }
         return super::billing::portal_response(req, store).await;
     }

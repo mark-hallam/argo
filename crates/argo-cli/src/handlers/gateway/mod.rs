@@ -12,6 +12,7 @@ mod service_token_binding_sweeper;
 mod approval_reminder;
 mod auth_magic_link;
 mod billing;
+mod billing_meter;
 mod boot;
 mod boot_helpers;
 mod boot_router;

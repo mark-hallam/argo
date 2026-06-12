@@ -125,6 +125,13 @@ pub(super) async fn dispatch_scim_and_team(
     {
         return Some(super::usage_endpoint::show_response(req, store).await);
     }
+    // DEC-053 honest Pro meter: included vs used vs overage + the
+    // effective hard cap (pricing-stripe-metered-overage-and-caps).
+    if req.starts_with("GET /api/v1/billing/meter ")
+        || req.starts_with("GET /api/v1/billing/meter?")
+    {
+        return Some(super::billing_meter::meter_response(req, store).await);
+    }
     // UF A7 — tenant-scoped dollar surface. The `/tenant/costs/...`
     // prefix is disjoint from the rollups above; the more-specific
     // `by-worker` suffix is matched before the `total` read.

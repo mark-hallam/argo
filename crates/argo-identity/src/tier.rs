@@ -106,6 +106,23 @@ pub struct TierLimits {
     /// Calendar-month action budget; `0` = unlimited.
     #[serde(default)]
     pub max_actions_per_month: u64,
+    /// DEC-053 metered-overage allowance: the monthly action count
+    /// bundled into the flat tier price before overage billing begins.
+    /// `0` (the default for tiers without an allowance) means no metered
+    /// overage applies — every in-budget action is "included".
+    #[serde(default)]
+    pub included_actions: u64,
+    /// DEC-053 overage multiplier applied to token cost for usage beyond
+    /// [`Self::included_actions`] (Pro: `1.4`). `0.0` (the default)
+    /// disables overage display. Kept in the TOML, never hardcoded, so
+    /// the operator can tune margin without a code change.
+    #[serde(default)]
+    pub overage_multiplier: f64,
+    /// DEC-053 customer-visible default monthly hard spend cap in whole
+    /// USD, pre-seeded on `/billing`. SpendGate stops usage at the cap
+    /// rather than surprise-billing. `0` = no default cap.
+    #[serde(default)]
+    pub default_monthly_cap_usd: u32,
     /// Opaque feature flags the tier unlocks (e.g. `"channel_voice"`).
     #[serde(default)]
     pub features: Vec<String>,

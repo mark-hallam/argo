@@ -108,6 +108,11 @@ pub(super) enum Action {
     /// Owner + admin (the Members page promise "guests cannot see
     /// billing").
     BillingView,
+    /// `POST /api/v1/billing/cap` — set the customer's hard monthly
+    /// spend cap (DEC-053). Owner only: the cap is the load-bearing
+    /// "stop, don't surprise-bill" control, so only the workspace owner
+    /// may move it, stricter than the admin-level `BillingView` read.
+    BillingManage,
     /// `POST /api/v1/me/export` and any GDPR-style data-export route.
     /// Owner only — exports include other users' rows in shared
     /// workspaces.
@@ -153,6 +158,7 @@ impl Action {
             Self::WorkflowEdit => "workflow.edit",
             Self::SupportTickets => "support.tickets",
             Self::BillingView => "billing.view",
+            Self::BillingManage => "billing.manage",
             Self::DataExport => "data.export",
             Self::KnowledgeRead => "knowledge.read",
             Self::KnowledgeWrite => "knowledge.write",
@@ -175,6 +181,7 @@ pub(super) fn required_role(action: Action) -> UserTenantRole {
         | Action::ConnectorAuthorize
         | Action::AuditCrossTenant
         | Action::DataExport
+        | Action::BillingManage
         | Action::KnowledgeDelete => UserTenantRole::Owner,
         // admin+: hiring, freeze (legacy CapabilityEngine matched this
         // — user role lacks `WorkerFreeze`), lifecycle, archive,

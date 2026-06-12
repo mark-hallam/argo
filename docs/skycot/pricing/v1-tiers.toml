@@ -23,6 +23,15 @@ display_name      = "Pro"
 price_monthly_usd = 49
 max_workers       = 5
 max_actions_per_month = 5000
+# DEC-053 metered-overage tunables (single source of truth, NOT hardcoded).
+# `included_actions` is the per-teammate monthly allowance bundled in the
+# $49; usage beyond it bills as metered overage at token-cost ×
+# `overage_multiplier`. `default_monthly_cap_usd` is the customer-visible
+# hard spend cap pre-seeded on /billing — SpendGate stops usage at the cap
+# rather than surprise-billing (the DEC-053 "stop, don't surprise" invariant).
+included_actions        = 1500
+overage_multiplier      = 1.4
+default_monthly_cap_usd = 200
 features = [
     "provider_real_keys",
     "support_email",

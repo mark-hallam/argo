@@ -36,6 +36,28 @@ fn enterprise_tier_is_unlimited() {
 }
 
 #[test]
+fn pro_tier_carries_dec053_overage_tunables() {
+    let cfg = TierConfig::default_config();
+    let pro = cfg.limits(Tier::Pro).expect("pro");
+    // DEC-053: allowance + ×1.4 overage + customer-visible default cap,
+    // all sourced from v1-tiers.toml (never hardcoded).
+    assert_eq!(pro.included_actions, 1500);
+    assert!((pro.overage_multiplier - 1.4).abs() < f64::EPSILON);
+    assert_eq!(pro.default_monthly_cap_usd, 200);
+}
+
+#[test]
+fn free_tier_defaults_overage_tunables_to_zero() {
+    let cfg = TierConfig::default_config();
+    let free = cfg.limits(Tier::Free).expect("free");
+    // Tiers without an allowance leave the overage tunables at their
+    // `#[serde(default)]` zero — no metered overage applies.
+    assert_eq!(free.included_actions, 0);
+    assert_eq!(free.overage_multiplier, 0.0);
+    assert_eq!(free.default_monthly_cap_usd, 0);
+}
+
+#[test]
 fn allow_action_under_quota() {
     let cfg = TierConfig::default_config();
     let limits = cfg.limits(Tier::Pro).expect("pro");

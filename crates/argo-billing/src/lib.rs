@@ -36,7 +36,15 @@ pub mod tier_store;
 /// `codex-billing-webhook-resilience`). Reads the canonical
 /// `raw_payload` and re-runs the same classify-then-apply path.
 pub mod replay;
+/// DEC-053 metered-overage reporting — compute period-to-date overage
+/// units from the live usage meter and push them to a Stripe metered
+/// price, idempotently (`action=set` + `Idempotency-Key`).
+pub mod overage;
 
+pub use overage::{
+    est_overage_cost_micros, idempotency_key, overage_units, plan_overage, report_overage_usage,
+    OverageReport, STRIPE_PRICE_PRO_OVERAGE_ENV,
+};
 pub use replay::{replay_event, replay_since, ReplayOutcome};
 pub use stripe_client::{StripeClient, StripeConfig};
 pub use webhook::{

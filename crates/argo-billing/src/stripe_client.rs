@@ -105,6 +105,31 @@ impl StripeClient {
         decode(path, "POST", resp).await
     }
 
+    /// POST a form-encoded body with a Stripe `Idempotency-Key` header.
+    ///
+    /// Stripe deduplicates retries that carry the same key for 24h, so
+    /// re-running a usage-report job with a stable key (keyed on
+    /// tenant + period) never double-bills even on transient retry. Used
+    /// by [`crate::overage::report_overage_usage`].
+    pub async fn post_form_idempotent(
+        &self,
+        path: &str,
+        form: &[(String, String)],
+        idempotency_key: &str,
+    ) -> Result<serde_json::Value, StripeError> {
+        let url = format!("{}{}", self.config.base_url, path);
+        let resp = self
+            .http
+            .post(&url)
+            .bearer_auth(&self.config.secret_key)
+            .header("Idempotency-Key", idempotency_key)
+            .form(form)
+            .send()
+            .await
+            .map_err(|e| StripeError::Http(format!("POST {path}: {e}")))?;
+        decode(path, "POST", resp).await
+    }
+
     /// GET a Stripe resource and decode the JSON response.
     pub async fn get(&self, path: &str) -> Result<serde_json::Value, StripeError> {
         let url = format!("{}{}", self.config.base_url, path);
