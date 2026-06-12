@@ -56,6 +56,42 @@ VOLATILE_PATHS=(
     'web/public/brand'
 )
 
+# alert_claim_regex_reject <repo> <brief_id>
+#   Emit a LOUD, distinctive alert when a claim fails to match a row that
+#   the case-statement in main() already classified as TODO. This is NOT a
+#   race and NOT routine backoff — it is a ledger-FORMAT bug (e.g. an empty
+#   col-4 `| TODO | |`) that makes the claim regex reject a genuinely
+#   claimable row. Because workers claim the first eligible TODO by document
+#   order, ONE such malformed row fast-fails EVERY worker and silently
+#   starves the whole swarm (observed 2026-06-12: swarm at 0 loops for hours
+#   while 14 claimable TODOs waited, surfacing only as anonymous
+#   `5 fast-fails in a row; cooling down 15min` backoff noise). The root fix
+#   (tolerant col-4 regex in apply_edit) is below; this is the
+#   defense-in-depth DETECTOR so any future un-anticipated ledger-format
+#   reject surfaces in the next conductor tick within minutes, not hours.
+#
+#   SHARED_MD_PATH override lets the unit test redirect the append to a
+#   throwaway file (mirrors FAKE_SHARED_MD_PATH in
+#   scripts/pre-merge-pr-body-anti-theater-scan.sh).
+alert_claim_regex_reject() {
+    local repo="$1" brief_id="$2"
+    local ts
+    ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    # 1) LOUD stderr marker — visually distinct from the routine
+    #    `non-fast-forward` backoff noise so supervisor.err.log / worker
+    #    logs make a ledger-format starvation unmistakable.
+    echo "🚨 LEDGER-FORMAT BUG: claim regex REJECTED an existing TODO row for '${brief_id}' (e.g. empty col-4 '| TODO | |'). This starves the WHOLE queue (workers claim first-TODO-by-doc-order). Fix the row format in BUILD_STATUS.md NOW." >&2
+    # 2) SHARED.md append so the next conductor tick's handoff scan catches
+    #    it (matches the supervisor's `[supervisor-ram-pressure]` idiom at
+    #    scripts/worker-supervisor.sh). Local append is the established
+    #    sufficient mechanism — the conductor reads SHARED.md from the same
+    #    on-disk checkout.
+    local shared="${SHARED_MD_PATH:-$repo/docs/skycot/agents/SHARED.md}"
+    if [[ -f "$shared" ]]; then
+        echo "- $ts [claim-regex-reject] brief '${brief_id}' is TODO in BUILD_STATUS.md but claim-with-retry's regex rejected the row — a ledger-FORMAT bug (likely an empty col-4 '| TODO | |'). This silently starves EVERY worker (first-TODO-by-doc-order). Fix the row format immediately. See docs/build-plan/streams/fix-claim-regex-empty-col4-starves-queue.md." >> "$shared"
+    fi
+}
+
 # stash_volatile_state <repo>
 #   0 → stash created; caller must call restore_volatile_state.
 #   1 → no volatile-state dirt present; caller skips restore.
@@ -235,8 +271,17 @@ with open(ledger) as f:
 # Description body (last cell) may contain literal pipes — e.g. brief authors
 # embed shell snippets like `--horizon eod|eom|eoq`. Match the body greedily
 # up to the trailing pipe + EOL instead of `[^|\n]*`.
+#
+# Col-4 (PR/commit) is `[^|]*` — ZERO-or-more, absorbing the bracketing
+# spaces — NOT `[^|]+`. An unstarted TODO legitimately has an EMPTY col-4
+# (`| TODO | |`, a single space between pipes); a `[^|]+` (or even a
+# space-bracketed `[^|]*`) requires content there and so REJECTS the row,
+# making the claim fail rc=2. Because workers claim the first eligible TODO
+# by doc order, one such malformed first row fast-fails EVERY worker and
+# silently starves the whole queue (root-caused 2026-06-12 — swarm at 0
+# loops for hours). `\|[^|]*\|` matches `| — |`, `|  |`, `| |`, and `||`.
 pat = re.compile(
-    rf'^(\| {re.escape(brief_id)} \| [^|]+ \|) TODO \| [^|]+ \|(.*)\|$',
+    rf'^(\| {re.escape(brief_id)} \| [^|]+ \|) TODO \|[^|]*\|(.*)\|$',
     re.MULTILINE,
 )
 def repl(m):
@@ -249,7 +294,16 @@ with open(ledger, 'w') as f:
 PY
     }
 
-    apply_edit || { echo "FAIL: could not match TODO row for ${BRIEF_ID}" >&2; exit 2; }
+    # apply_edit failing HERE means the case-statement above already
+    # classified the row as TODO (row_status==todo), yet the anchored claim
+    # regex rejected it — i.e. the awk/grep that picks the row and this
+    # regex disagree on what's claimable. That is a ledger-FORMAT bug, not a
+    # race; emit the LOUD detector so it cannot masquerade as routine backoff.
+    apply_edit || {
+        echo "FAIL: could not match TODO row for ${BRIEF_ID}" >&2
+        alert_claim_regex_reject "$REPO_ROOT" "$BRIEF_ID"
+        exit 2
+    }
     git -C "$REPO_ROOT" add docs/build-plan/BUILD_STATUS.md
     git -C "$REPO_ROOT" commit -m "status: claim ${BRIEF_ID}" >/dev/null
 

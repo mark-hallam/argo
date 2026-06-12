@@ -54,6 +54,7 @@ setup_remote() {
 |---|---|---|---|---|
 | test-todo-row | claude | TODO | — | initial state |
 | test-other-todo | claude | TODO | — | unrelated row |
+| test-empty-col4-row | claude or codex | TODO | | empty col-4 (no PR yet) |
 | test-claimed-row | claude | CLAIMED | — | claimed by other tab |
 | test-blocked-row | claude | BLOCKED | — | needs unblock |
 EOF
@@ -202,6 +203,44 @@ assert_eq "$rc" "0" "race-recover: rc=0"
 git -C "$tmp/w1" pull --ff-only origin main >/dev/null 2>&1
 assert_grep "$tmp/w1/docs/build-plan/BUILD_STATUS.md" "test-todo-row.*CLAIMED" "race-recover: row CLAIMED after retry"
 [[ -f "$tmp/w1/UNRELATED.md" ]] && { echo "✓ race-recover: w2's unrelated commit absorbed"; PASSED=$((PASSED+1)); } || { echo "✗ race-recover: w2 commit missing"; FAILED=$((FAILED+1)); }
+rm -rf "$tmp"
+
+# ── Test 10: empty col-4 TODO row is claimable ────────────────────
+# Regression for the swarm-starvation bug (root-caused 2026-06-12): a TODO
+# row with an EMPTY col-4 (`| TODO | |`) is a legal "no PR yet" state and
+# MUST claim cleanly. Before the tolerant-regex fix the `[^|]+` col-4 match
+# rejected it (rc=2), fast-failing every worker.
+echo "[10/11] empty col-4 TODO is claimable"
+tmp="$(mktemp -d)"
+setup_remote "$tmp"
+clone_worker "$tmp" "w1"
+rc=0
+run_script "$tmp/w1" test-empty-col4-row >/tmp/argo-test10.out 2>&1 || rc=$?
+assert_eq "$rc" "0" "empty-col4: rc=0"
+git -C "$tmp/w1" pull --ff-only origin main >/dev/null 2>&1
+assert_grep "$tmp/w1/docs/build-plan/BUILD_STATUS.md" "test-empty-col4-row.*CLAIMED" "empty-col4: row marked CLAIMED"
+# col-4 must be rewritten from empty to the em-dash placeholder on claim.
+assert_grep "$tmp/w1/docs/build-plan/BUILD_STATUS.md" "test-empty-col4-row | claude or codex | CLAIMED | — |" "empty-col4: col-4 rewritten to —"
+rm -rf "$tmp"
+
+# ── Test 11: claim-regex reject on an existing TODO row alerts ────
+# The alert_claim_regex_reject helper must emit a LOUD stderr marker AND
+# append a [claim-regex-reject] line to SHARED.md so a future un-anticipated
+# ledger-format reject surfaces in the next conductor tick, not as silent
+# rc=2 + backoff noise. Source the script (like the volatile-state helpers)
+# and exercise the helper directly against a throwaway SHARED.md.
+echo "[11/11] claim-regex-reject emits SHARED.md alert"
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/repo/docs/skycot/agents"
+: > "$tmp/repo/docs/skycot/agents/SHARED.md"
+# shellcheck source=/dev/null
+source "$SCRIPT"
+export SHARED_MD_PATH="$tmp/repo/docs/skycot/agents/SHARED.md"
+alert_claim_regex_reject "$tmp/repo" "test-malformed-brief" 2>/tmp/argo-test11.err
+unset SHARED_MD_PATH
+assert_grep /tmp/argo-test11.err "LEDGER-FORMAT BUG" "alert: loud stderr marker"
+assert_grep "$tmp/repo/docs/skycot/agents/SHARED.md" "\[claim-regex-reject\]" "alert: SHARED.md line appended"
+assert_grep "$tmp/repo/docs/skycot/agents/SHARED.md" "test-malformed-brief" "alert: SHARED.md names the brief"
 rm -rf "$tmp"
 
 # ── Summary ───────────────────────────────────────────────────────

@@ -216,6 +216,17 @@ if ! brief_files_output="$("${REPO_ROOT}/scripts/check-brief-files-exist.sh" --q
   warn "active BUILD_STATUS.md rows cite missing docs/build-plan/streams/*.md files"
 fi
 
+# --- Check 7: no TODO row may have an empty col-4 (PR) ---
+# An empty col-4 on a TODO row (`| TODO | |`) made claim-with-retry's regex
+# reject the row, fast-failing EVERY worker (first-TODO-by-doc-order) and
+# silently starving the whole swarm (root-caused 2026-06-12). The claim regex
+# is now tolerant, but keep the malformed format out of the ledger at the
+# source. See docs/build-plan/streams/fix-claim-regex-empty-col4-starves-queue.md.
+if ! ledger_col4_output="$("${REPO_ROOT}/scripts/check-ledger-no-empty-col4-todo.sh" --quiet 2>&1)"; then
+  echo "$ledger_col4_output" >&2
+  warn "BUILD_STATUS.md has TODO row(s) with an empty col-4 (PR) — use a '—' placeholder, not '| TODO | |' (starves the swarm)"
+fi
+
 # --- Summary ---
 if [[ "$findings" -gt 0 ]]; then
   if [[ "$ENFORCE" -eq 1 ]]; then
