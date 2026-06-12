@@ -10,17 +10,21 @@ import { getCustomerStory } from "@/lib/content/customers";
 import { getTemplate, type TemplateStepKind } from "@/lib/workflow-templates";
 
 /**
- * Representative customer-profile detail — `/customers/[slug]`, exempt from auth.
+ * Representative customer-SCENARIO detail — `/customers/[slug]`, exempt from auth.
  *
- * Brand-loud register matching the index. 7-section layout:
- *   1. Hero strip (logo + name + industry/size + headline KPI)
- *   2. Editorial pull-quote
- *   3. The setup — 3-4 paragraph story
+ * These are illustrative deployment scenarios, NOT real named customers:
+ * third person, no fabricated person-quotes, no compliance claims voiced by a
+ * fictional person (shakedown F3). Brand-loud register matching the index.
+ * Layout:
+ *   1. Hero strip (logo + name + industry/size + modeled-outcome headline)
+ *   2. Scenario description ("What this looks like") — third person, no attribution
+ *   3. The setup — 3-4 paragraph narrative
  *   4. Workflow showcase — embedded step list pulled from
  *      `web/lib/workflow-templates.ts` so there is no parallel
  *      workflow source of truth
- *   5. 3-tile metrics block
- *   6. Second quote from a different stakeholder
+ *   5. 3-tile metrics block (illustrative modeled outcomes)
+ *   6. "What this profile shows" — third-person takeaway, no attribution
+ *   6b. Compliance posture (regulated verticals only) — SKYCOT's OWN voice
  *   7. Final CTA band
  *
  * Slug → story lookup goes through `getCustomerStory`. Unknown slug →
@@ -83,16 +87,15 @@ export default function CustomerStoryPage({ params }: { params: Promise<{ slug: 
 
           {story.dataPending ? (
             <p className="cs-pending-note">
-              Representative profile: metrics and quotes are illustrative; the workflow showcase
-              uses current SKYCOT template data.
+              Representative scenario, not a real named customer. The metrics are illustrative
+              modeled outcomes; the workflow showcase uses current SKYCOT template data.
             </p>
           ) : null}
 
-          {/* 2. Editorial pull-quote */}
-          <div className="cs-section-label">Quote</div>
+          {/* 2. Scenario description (third person — not a quote) */}
+          <div className="cs-section-label">What this looks like</div>
           <section className="cs-pull">
-            <p className="cs-pull-text">&ldquo;{story.heroPullQuote}&rdquo;</p>
-            <div className="cs-pull-author">— {story.heroQuoteAuthor}</div>
+            <p className="cs-pull-text">{story.heroPullQuote}</p>
           </section>
 
           {/* 3. The setup */}
@@ -133,8 +136,8 @@ export default function CustomerStoryPage({ params }: { params: Promise<{ slug: 
             </p>
           </section>
 
-          {/* 5. Metrics block */}
-          <div className="cs-section-label">In the numbers</div>
+          {/* 5. Metrics block — illustrative modeled outcomes */}
+          <div className="cs-section-label">Modeled outcomes</div>
           <section className="cs-metrics">
             {story.metrics.map((m, i) => (
               <div key={i} className="cs-metric">
@@ -144,12 +147,24 @@ export default function CustomerStoryPage({ params }: { params: Promise<{ slug: 
             ))}
           </section>
 
-          {/* 6. Second quote */}
-          <div className="cs-section-label">Another voice</div>
+          {/* 6. What this profile demonstrates (third person — not a quote) */}
+          <div className="cs-section-label">What this profile shows</div>
           <section className="cs-second">
-            <p className="cs-second-text">&ldquo;{story.secondQuote}&rdquo;</p>
-            <div className="cs-second-author">— {story.secondQuoteAuthor}</div>
+            <p className="cs-second-text">{story.secondQuote}</p>
           </section>
+
+          {/* 6b. Compliance posture — SKYCOT's own voice, /security-grade honesty */}
+          {story.compliancePosture ? (
+            <>
+              <div className="cs-section-label">SKYCOT&apos;s compliance posture</div>
+              <section className="cs-posture">
+                <p className="cs-posture-text">{story.compliancePosture}</p>
+                <Link href="/security" className="cs-posture-link">
+                  See what we do and don&apos;t claim <ArrowRight size={13} />
+                </Link>
+              </section>
+            </>
+          ) : null}
 
           {/* 7. Final CTA */}
           <section className="cs-final">

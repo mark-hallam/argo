@@ -69,7 +69,7 @@
 .cs-section-label { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; margin: 40px 0 14px; }
 
 .cs-pull { padding: 36px 32px; border-radius: 22px; background: var(--card); border: 1px solid var(--line); border-left: 4px solid; border-image: linear-gradient(180deg, var(--brand-primary), var(--brand-pink)) 1; box-shadow: 0 14px 28px -16px color-mix(in oklch, var(--brand-primary) 18%, transparent); }
-.cs-pull-text { font-family: "Inter", sans-serif; font-size: 22px; line-height: 1.45; font-weight: 400; color: var(--ink); margin: 0 0 18px; font-style: italic; }
+.cs-pull-text { font-family: "Inter", sans-serif; font-size: 22px; line-height: 1.45; font-weight: 400; color: var(--ink); margin: 0; }
 @media (max-width: 700px) { .cs-pull-text { font-size: 18px; } .cs-pull { padding: 24px 22px; } }
 .cs-pull-author { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--purple); }
 
@@ -96,8 +96,13 @@
 .cs-metric-lbl { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; }
 
 .cs-second { padding: 28px 32px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); }
-.cs-second-text { font-size: 18px; line-height: 1.5; color: var(--ink); margin: 0 0 12px; font-style: italic; }
+.cs-second-text { font-size: 18px; line-height: 1.5; color: var(--ink); margin: 0; }
 .cs-second-author { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--purple); }
+
+/* Compliance posture — SKYCOT's own voice, /security-grade honesty (regulated verticals). */
+.cs-posture { padding: 24px 28px; border-radius: 18px; background: color-mix(in oklch, var(--brand-primary) 6%, transparent); border: 1px solid color-mix(in oklch, var(--brand-primary) 16%, transparent); }
+.cs-posture-text { font-size: 15px; line-height: 1.6; color: var(--ink-2); margin: 0 0 14px; }
+.cs-posture-link { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--purple); text-decoration: none; }
 
 .cs-final { margin: 56px 0 0; padding: 56px 40px; border-radius: 24px; background: var(--brand-gradient-3); color: var(--brand-primary-foreground); text-align: center; position: relative; overflow: hidden; }
 @media (max-width: 700px) { .cs-final { padding: 40px 24px; } }

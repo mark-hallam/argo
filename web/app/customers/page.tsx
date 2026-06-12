@@ -11,10 +11,12 @@ import { MarketingFooter } from "@/components/marketing/MarketingFooter";
  *
  * Brand-loud register matching `/landing` and `/pricing`. 6-card grid +
  * "become a design partner" CTA band. Each card links to a representative
- * profile page at `/customers/[slug]`.
+ * scenario page at `/customers/[slug]`.
  *
- * NOTE: placeholder customers — every story carries `dataPending: true`
- * for trivial bulk-replace when real design-partner content lands.
+ * NOTE: these are REPRESENTATIVE SCENARIOS, not real named customers — third
+ * person, no fabricated person-quotes, no compliance claims in a fictional
+ * mouth (shakedown F3). Every story carries `dataPending: true` for trivial
+ * bulk-replace when real, cleared design-partner content lands.
  */
 
 export default function CustomersPage() {
@@ -42,7 +44,7 @@ export default function CustomersPage() {
               key={c.slug}
               href={`/customers/${c.slug}`}
               className="cus-card"
-              data-pending-real-quote={c.dataPending ? "true" : undefined}
+              data-pending-real-scenario={c.dataPending ? "true" : undefined}
             >
               <div className="cus-card-head">
                 <div className="cus-card-logo" style={{ background: c.logoGradient }}>
@@ -53,12 +55,11 @@ export default function CustomersPage() {
                   <div className="cus-card-meta">{c.industry} · {c.size}</div>
                 </div>
               </div>
-              <span className="cus-status-chip">Representative profile</span>
+              <span className="cus-status-chip">Representative scenario · not a real customer</span>
               <p className="cus-kpi-line">
                 <strong>{c.cardKpi}</strong>
               </p>
-              <blockquote className="cus-quote">&ldquo;{c.cardQuote}&rdquo;</blockquote>
-              <div className="cus-quote-author">{c.cardQuoteAuthor}</div>
+              <p className="cus-scenario">{c.cardQuote}</p>
               <div className="cus-card-foot">
                 <span className="cus-vertical-chip">{c.vertical}</span>
                 <span className="cus-card-cta">

@@ -177,12 +177,12 @@
   background-clip: text;
   color: transparent;
 }
-.cus-quote {
+/* Third-person scenario description (NOT a quote — no italics, no attribution). */
+.cus-scenario {
   font-size: 14px;
   color: var(--ink-2);
   line-height: 1.55;
   margin: 0;
-  font-style: italic;
   padding-left: 14px;
   border-left: 3px solid;
   border-image: linear-gradient(180deg, var(--brand-primary), var(--brand-pink)) 1;
