@@ -186,6 +186,16 @@ pub(super) async fn hire_response(
     // surfaced, because the worker is already committed.
     bridge_hire_duties(store, tenant_id, new_id, &draft).await;
 
+    // DEC-053: a new hire raises the billed seat quantity — re-assert it
+    // (best-effort; the hire is already committed, Stripe outage never
+    // fails it; the invoice-webhook reconcile heals any miss).
+    super::billing_seat_sync::best_effort_seat_sync(
+        store,
+        tenant_id,
+        argo_billing::quantity_sync::QuantityChangeReason::Hire,
+    )
+    .await;
+
     // UF Phase-B · B3 / DEC-041 "A": auto-graduate the SAFE TIER (low-risk +
     // no-approval actions) onto the internal `document` executor. No-op unless
     // `ARGO_EXECUTION_GRADUATION` is on (default-OFF) — so this is dormant and

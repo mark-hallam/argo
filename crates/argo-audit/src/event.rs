@@ -104,6 +104,7 @@ impl AuditKind {
             Self::WorkerOnboardingQuizExchange => "worker.onboarding_quiz_exchange",
             Self::WorkerCapabilityGrantChanged => "worker.capability_grant_changed",
             Self::BudgetCeilingBlocked => "budget.ceiling_blocked",
+            Self::SeatQuantitySynced => "billing.seat_quantity_synced",
         }
     }
 
@@ -203,6 +204,7 @@ impl AuditKind {
             "worker.onboarding_quiz_exchange" => Self::WorkerOnboardingQuizExchange,
             "worker.capability_grant_changed" => Self::WorkerCapabilityGrantChanged,
             "budget.ceiling_blocked" => Self::BudgetCeilingBlocked,
+            "billing.seat_quantity_synced" => Self::SeatQuantitySynced,
             _ => return None,
         })
     }
@@ -302,6 +304,7 @@ impl AuditKind {
             Self::WorkerOnboardingQuizExchange,
             Self::WorkerCapabilityGrantChanged,
             Self::BudgetCeilingBlocked,
+            Self::SeatQuantitySynced,
         ];
         v.sort_by_key(|k| k.label());
         v

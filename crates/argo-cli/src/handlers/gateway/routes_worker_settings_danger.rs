@@ -67,6 +67,13 @@ pub(crate) async fn post_resume(
             return server_error(&format!("clear archive: {e}"));
         }
         emit_audit(store, req, &worker, "worker.recovered", json!({})).await;
+        // DEC-053: a restored teammate resumes billing (best-effort).
+        super::super::billing_seat_sync::best_effort_seat_sync(
+            store,
+            tenant,
+            argo_billing::quantity_sync::QuantityChangeReason::Unpause,
+        )
+        .await;
         return (
             "200 OK",
             json!({ "status": "idle", "recovered": true }).to_string(),
@@ -98,6 +105,13 @@ pub(crate) async fn post_archive(
         return server_error(&format!("archive: {e}"));
     }
     emit_audit(store, req, &worker, "worker.archived", json!({})).await;
+    // DEC-053: an archived teammate stops billing (best-effort).
+    super::super::billing_seat_sync::best_effort_seat_sync(
+        store,
+        tenant,
+        argo_billing::quantity_sync::QuantityChangeReason::Delete,
+    )
+    .await;
     let archived_at = Utc::now();
     let recoverable = archived_at + Duration::days(RECOVERABLE_DAYS);
     let body = json!({

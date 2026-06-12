@@ -13,6 +13,7 @@ mod approval_reminder;
 mod auth_magic_link;
 mod billing;
 mod billing_meter;
+mod billing_seat_sync;
 mod boot;
 mod boot_helpers;
 mod boot_router;

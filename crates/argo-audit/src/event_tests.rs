@@ -25,7 +25,7 @@ fn all_kind_count_tracks_declared_variants() {
     // WorkerOnboardingQuizExchange (Genesis Phase 2 sandbox-quiz gate),
     // ApprovalVoteRecorded, WorkerCapabilityGrantChanged (tg3b grant), and
     // BudgetCeilingBlocked (WS5 hard [budget.ceiling] open-wallet close).
-    assert_eq!(AuditKind::all().len(), 90);
+    assert_eq!(AuditKind::all().len(), 91);
 }
 
 #[test]

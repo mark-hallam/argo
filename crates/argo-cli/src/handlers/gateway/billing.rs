@@ -176,6 +176,15 @@ pub(super) async fn webhook_response(
             // been provisioned yet (rows_touched == 0).
             match apply_subscription_event(store, &sub, now).await {
                 Ok(out) => {
+                    // DEC-053 reconcile (best-effort, never fails the ack):
+                    // re-asserts the absolute seat count, healing any
+                    // lifecycle sync a Stripe outage missed.
+                    super::billing_seat_sync::best_effort_seat_sync(
+                        store,
+                        sub.tenant_id,
+                        argo_billing::quantity_sync::QuantityChangeReason::Reconcile,
+                    )
+                    .await;
                     let body = json!({
                         "outcome": "applied",
                         "tier": sub.tier.as_str(),

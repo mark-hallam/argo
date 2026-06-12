@@ -156,6 +156,26 @@ pub async fn set_workspace_tier(
 /// LAST so a mid-apply failure leaves `stripe_event` empty for this
 /// id and Stripe's redelivery (or the operator `argo billing
 /// replay`) can re-attempt cleanly. `upsert_stripe_customer` and
+/// The Stripe subscription id mapped to `tenant`, if any — written by
+/// [`apply_subscription_event`] via the `stripe_customer` upsert. The
+/// lifecycle seat-sync call sites resolve the subscription from the
+/// tenant's OWN stored mapping (never from request input), so a caller
+/// can never pair tenant A with subscription B.
+pub async fn subscription_id_for_tenant(
+    store: &SessionStore,
+    tenant: TenantId,
+) -> ArgoResult<Option<String>> {
+    ensure_billing_schema(store).await?;
+    let row: Option<Option<String>> = sqlx::query_scalar(
+        "SELECT subscription_id FROM stripe_customer WHERE tenant_id = ?",
+    )
+    .bind(tenant.0.as_bytes().as_slice())
+    .fetch_optional(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("subscription_id_for_tenant: {e}")))?;
+    Ok(row.flatten())
+}
+
 /// `set_workspace_tier` are themselves idempotent — re-running the
 /// same event yields the same row state.
 pub async fn apply_subscription_event(

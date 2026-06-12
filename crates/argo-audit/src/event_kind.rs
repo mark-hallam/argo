@@ -328,4 +328,15 @@ pub enum AuditKind {
     /// `projected_cost_micros`. Distinct from the soft budget-notification
     /// kinds: this kind means the call was REFUSED, money was NOT spent.
     BudgetCeilingBlocked,
+    /// A per-teammate seat-quantity sync was attempted against Stripe
+    /// (`pricing-wire-quantity-sync-lifecycle-callsites`, DEC-053).
+    /// Written best-effort at the lifecycle seams (hire / pause /
+    /// unpause / archive) and the invoice-webhook reconcile. Payload
+    /// carries `reason` (hire|pause|unpause|delete|reconcile),
+    /// `subscription_item_id`, `old_quantity`, `new_quantity` on an
+    /// applied change; `outcome: "noop"` when already in sync; and
+    /// `outcome: "error"` + `error` when Stripe was unreachable (the
+    /// customer mutation still committed — the webhook reconcile heals
+    /// the drift). Tenant-scoped.
+    SeatQuantitySynced,
 }

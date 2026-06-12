@@ -78,6 +78,14 @@ pub(super) async fn post_freeze(
         Err(e) => return server_error(&format!("freeze: {e}")),
     };
     emit_success(store, req, &worker, "worker.frozen", &record).await;
+    // DEC-053: a paused teammate stops billing — re-assert the seat
+    // quantity (best-effort; the freeze is already committed).
+    super::billing_seat_sync::best_effort_seat_sync(
+        store,
+        tenant,
+        argo_billing::quantity_sync::QuantityChangeReason::Pause,
+    )
+    .await;
     ("200 OK", freeze_response(&record))
 }
 
@@ -110,6 +118,15 @@ pub(super) async fn post_unfreeze(
         Err(e) => return server_error(&format!("unfreeze: {e}")),
     };
     emit_unfreeze(store, req, &worker, changed).await;
+    // DEC-053: a reactivated teammate resumes billing (best-effort).
+    if changed {
+        super::billing_seat_sync::best_effort_seat_sync(
+            store,
+            tenant,
+            argo_billing::quantity_sync::QuantityChangeReason::Unpause,
+        )
+        .await;
+    }
     let body = json!({
         "worker_id": worker.id.to_string(),
         "unfrozen": changed,
