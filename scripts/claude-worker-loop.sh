@@ -145,6 +145,19 @@ with_ledger_lock() {
   fi
 }
 
+# --- One ledger row-parser, two callers (fix-picker-awk-column-anchor). Source
+# the column-anchored TODO parser shared with the claimer (claim-with-retry.sh)
+# so the PICK side and the CLAIM side can never again disagree about what a
+# TODO row is. Defines ledger_todo_ids / ledger_first_todo / ledger_status_of.
+# The prior inline picker awk regex-matched the whole line (`/^\| .* \| .* \|
+# TODO \|/`); its greedy `.*` atoms match pipes, so a literal `| TODO |` inside
+# a DESCRIPTION cell was mis-picked regardless of real status — the 2026-06-12
+# second-starvation vector. See scripts/ledger-first-todo.sh header.
+if [ -r "$REPO/scripts/ledger-first-todo.sh" ]; then
+  # shellcheck source=scripts/ledger-first-todo.sh disable=SC1091
+  . "$REPO/scripts/ledger-first-todo.sh"
+fi
+
 # --- DEC-042 B-2: source the stop-gate enforcement helper (defines
 # stop_gate_enforce). Additive + default-OFF: stop_gate_enforce returns 0
 # immediately unless ARGO_STOP_GATE=1, so with the flag unset the loop's ship
@@ -318,21 +331,25 @@ while true; do
     fi
     BRIEF_ID="$candidate"
     break
-  done < <(awk -F'|' '
-    # 2026-05-27: regex relaxed from "(claude|codex)" exact-match in field 3
-    # (owner column) to permissive — workers claim ANY TODO row regardless of
-    # owner column content. Aligns with the documented behavior in
-    # docs/build-plan/SWARM_PROTOCOL.md:180 ("any worker may claim any TODO row
-    # regardless of prefix") and PROTOCOL.md:170 ("owner column is a sizing
-    # hint, not a hard lock"). The prior strict regex silently skipped rows
-    # whose owner column wasn'\''t exactly "claude" or "codex" (e.g. "claude or
-    # codex" became invisible to workers — caught by the 2026-05-27T08:00Z
-    # audit that found R97 P0 substrate fix had been sitting unclaimed for 3
-    # hours). Status column (field 4) must be TODO; everything else is open.
-    /^\| .* \| .* \| TODO \|/ {
-      gsub(/^[ \t]+|[ \t]+$/, "", $2)
-      print $2
-    }' docs/build-plan/BUILD_STATUS.md)
+  done < <(
+    # Column-anchored TODO list via the shared parser (ledger-first-todo.sh),
+    # the SAME parser the claimer uses — so pick and claim agree on what a TODO
+    # row is. ledger_todo_ids tests the status column (field 4) directly: it
+    # ignores the owner column (any worker may claim any TODO row regardless of
+    # owner — SWARM_PROTOCOL.md HARD RULE 11; the strict (claude|codex)
+    # owner-match was removed 2026-05-27 after R97 sat unclaimed 3h) AND a
+    # literal `| TODO |` inside a DESCRIPTION cell no longer false-matches (the
+    # 2026-06-12 second-starvation vector). Fallback to the inline awk keeps
+    # the picker working if the helper is somehow absent (additive, no behavior
+    # change) — but it carries the SAME field-4 anchor, not the old line regex.
+    if command -v ledger_todo_ids >/dev/null 2>&1; then
+      ledger_todo_ids docs/build-plan/BUILD_STATUS.md
+    else
+      awk -F'|' 'NF >= 5 {
+        s = $4; gsub(/^[ \t]+|[ \t]+$/, "", s)
+        if (s == "TODO") { id = $2; gsub(/^[ \t]+|[ \t]+$/, "", id); if (id != "") print id }
+      }' docs/build-plan/BUILD_STATUS.md
+    fi)
 
   if [ -z "$BRIEF_ID" ]; then
     echo "[$(date +%H:%M:%S)] No claimable TODO row (or all remaining refused by ceiling check). Sleeping 120s."

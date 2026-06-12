@@ -173,6 +173,19 @@ main() {
         exit 2
     fi
 
+    # One ledger row-parser, two callers (fix-picker-awk-column-anchor). Source
+    # the column-anchored parser the PICKER (claude-worker-loop.sh) also uses so
+    # pick and claim can never disagree about what a TODO row is. row_status()
+    # below prefers ledger_status_of (field-4 anchored) when the helper is
+    # present; the legacy glob fallback stays for the missing-helper case (it
+    # has the same latent line-match weakness this fix removes, so the anchored
+    # path is strictly better when available).
+    CLAIM_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+    if [[ -r "$CLAIM_SCRIPT_DIR/ledger-first-todo.sh" ]]; then
+        # shellcheck source=scripts/ledger-first-todo.sh disable=SC1091
+        . "$CLAIM_SCRIPT_DIR/ledger-first-todo.sh"
+    fi
+
     # Volatile-state pre-stash (added 2026-05-26 by watchdog as root-cause fix for
     # the recurring hourly worker-outage pattern). Concurrent writers (evaluator
     # heartbeat, conductor heartbeat, evaluator round reports, SHARED.md appends)
@@ -229,6 +242,16 @@ main() {
     fi
 
     row_status() {
+        # Prefer the shared field-4-anchored parser (same one the picker uses)
+        # so pick and claim agree. It tests the status COLUMN, not the whole
+        # line, so a literal `| TODO |` inside a description cell can't
+        # misclassify an IN_REVIEW/MERGED row as todo.
+        if command -v ledger_status_of >/dev/null 2>&1; then
+            ledger_status_of "$LEDGER" "$BRIEF_ID"
+            return
+        fi
+        # Legacy glob fallback (helper absent). Kept verbatim for behavioral
+        # parity in the unlikely missing-helper case.
         local row
         row="$(grep -E "^\| ${BRIEF_ID} \|" "$LEDGER" | head -1)"
         if [[ -z "$row" ]]; then echo "not-found"; return; fi
