@@ -13,13 +13,15 @@
 //! algorithm — this module is a pure consumer that adapts the
 //! agent-loop's per-turn inputs into a [`RoutingContext`] and emits
 //! an `AuditKind::RoutingDecision` row for every routed turn.
-use crate::transport::build_transport;
+use crate::transport::build_transport_for_tenant;
 use crate::TransportGate;
 use argo_audit::{AuditKind, AuditSink};
 use argo_provider::{ProviderManifest, Transport};
 use argo_routing::{Router, RoutingContext, TieredRouter};
 use argo_store::{SessionHeader, SessionStore};
-use argo_types::{ArgoResult, Message, ProviderModel, RoutingDecision, RoutingPolicy, SessionId};
+use argo_types::{
+    ArgoResult, Message, ProviderModel, RoutingDecision, RoutingPolicy, SessionId, TenantId,
+};
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -30,16 +32,27 @@ use std::time::{Duration, Instant};
 const DEFAULT_ROUTING_DEADLINE_MS: u64 = 5_000;
 
 /// Build a classifier `Transport` for the session's provider
-/// manifest. The classifier model id is taken from
-/// `TieredRouting::classifier_model.model` at request time, so this
-/// is the same wire-up as `build_transport`; we just hand back an
-/// `Arc<dyn Transport>` so the agent loop can keep its own
+/// manifest, honoring per-tenant BYOK key precedence (DEC-053
+/// Enterprise). The classifier model id is taken from
+/// `TieredRouting::classifier_model.model` at request time; we hand
+/// back an `Arc<dyn Transport>` so the agent loop can keep its own
 /// `Box<dyn Transport>` for the main turn without cloning.
+///
+/// This is the same per-tenant wire-up as the main turn loop
+/// ([`build_transport_for_tenant`]): a BYOK tenant's own provider key
+/// (stored under `[credentials.tenant.<tid>]`) WINS over the platform
+/// key, so an Enterprise tenant's routing-stage classifier call bills
+/// THEIR account, not SKYCOT's. `allow_platform_fallback = true` keeps
+/// non-BYOK tenants byte-identical to the previous platform-key path.
 pub async fn build_classifier_transport(
     manifest: ProviderManifest,
+    workspace: &Path,
+    tenant_id: &TenantId,
     gate: TransportGate<'_>,
 ) -> ArgoResult<Arc<dyn Transport>> {
-    Ok(Arc::from(build_transport(manifest, gate).await?))
+    Ok(Arc::from(
+        build_transport_for_tenant(manifest, workspace, tenant_id, true, gate).await?,
+    ))
 }
 
 /// Run the tier router when the session carries
@@ -69,7 +82,8 @@ pub async fn maybe_route_turn(
         session_id: session.id,
         cwd,
     };
-    let classifier = build_classifier_transport(manifest, gate).await?;
+    let classifier =
+        build_classifier_transport(manifest, cwd, &session.tenant_id, gate).await?;
     maybe_route_turn_with_transport(store, session, classifier, user_message, audit).await
 }
 
@@ -140,4 +154,60 @@ async fn count_user_turns(store: &Arc<SessionStore>, session_id: SessionId) -> u
         return 0;
     };
     u32::try_from(rows.iter().filter(|m| m.role == "user").count()).unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Load the shipped anthropic manifest and rewrite its
+    /// `api_key_env` to a unique per-test name so the env reads can't
+    /// race the parallel harness, and so the platform env for that key
+    /// is naturally absent.
+    fn manifest_with_env(api_key_env: &str) -> ProviderManifest {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(std::path::Path::parent)
+            .expect("workspace root")
+            .join("manifests/providers/anthropic.toml");
+        let body = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("read fixture {}: {e}", path.display()))
+            .replace(
+                "api_key_env = \"ANTHROPIC_API_KEY\"",
+                &format!("api_key_env = \"{api_key_env}\""),
+            );
+        ProviderManifest::from_toml_str(&body).expect("parse manifest")
+    }
+
+    /// Pins that the routing-stage classifier resolves the BYOK
+    /// per-tenant key (DEC-053 Enterprise). The discriminator: a UNIQUE
+    /// `api_key_env` whose process-env value is absent — so the only way
+    /// to build a transport is via the tenant's OWN stored key. If
+    /// `build_classifier_transport` had used the platform-only
+    /// `build_transport`, this would fail with "<env> not set" because
+    /// the platform key is absent. Success therefore proves the
+    /// routing-stage transport flows through `build_transport_for_tenant`.
+    #[tokio::test]
+    async fn routing_stage_resolves_tenant_byok_key() {
+        let ws = tempfile::tempdir().expect("ws tempdir");
+        let tenant = TenantId::new();
+        let env_key = "BYOK_ROUTING_STAGE_TENANT_WINS";
+        argo_config::cred::set_tenant(ws.path(), &tenant, env_key, "TENANT-ROUTING-KEY")
+            .expect("set tenant key");
+        let manifest = manifest_with_env(env_key);
+
+        // InternalTrusted gate keeps the test free of a live store — the
+        // gate is a no-op wrapper and is orthogonal to key resolution.
+        let result =
+            build_classifier_transport(manifest, ws.path(), &tenant, TransportGate::InternalTrusted)
+                .await;
+
+        assert!(
+            result.is_ok(),
+            "routing-stage classifier must resolve the tenant's BYOK key \
+             (platform env {env_key} is absent, so success proves per-tenant \
+             resolution via build_transport_for_tenant); got: {:?}",
+            result.err()
+        );
+    }
 }
