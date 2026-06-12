@@ -113,11 +113,14 @@ describe("public page polish", () => {
     expect(within(table).getByRole("columnheader", { name: "Enterprise" })).toBeInTheDocument();
     expect(within(table).getAllByRole("img", { name: "Included" }).length).toBeGreaterThan(0);
 
-    const faqButton = screen.getByRole("button", { name: /per-teammate billing/i });
+    // Option D (DEC-053): the first FAQ states Pro's per-teammate billing +
+    // included allowance. Copy derives from v1-tiers.toml, so assert on the
+    // stable phrasing, not the exact number.
+    const faqButton = screen.getByRole("button", { name: /how does pro billing work/i });
     expect(faqButton).toHaveAttribute("aria-expanded", "true");
     const controls = faqButton.getAttribute("aria-controls");
     expect(controls).toBeTruthy();
-    expect(document.getElementById(controls!)).toHaveTextContent(/every named teammate/i);
+    expect(document.getElementById(controls!)).toHaveTextContent(/per named teammate/i);
   });
 
   it("uses runtime brand tokens on the touched public CSS surfaces", () => {

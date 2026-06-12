@@ -15,14 +15,19 @@ import {
   type SelectedPlan,
 } from "@/lib/onboarding/use-onboarding-draft";
 import { useCheckout, redirectToCheckout } from "@/lib/billing/use-checkout";
+import { TIERS, MATRIX, FAQ, type Tier } from "@/lib/pricing/pricing-content";
 
 /**
  * Public pricing page — `/pricing`, exempt from auth middleware.
  *
  * Brand-loud-marketing register matching `/landing` and `/customers`.
- * Three tiers (Free / Pro / Enterprise) mirror the `/billing` PLANS
- * constant in `web/app/(app)/billing/page.tsx`. Feature comparison
- * matrix + FAQ + final CTA.
+ * Three tiers (Free / Pro / Enterprise) state the Option D model (DEC-053):
+ * Free = on-platform action quota; Pro = a flat fee per named teammate with
+ * an included allowance, then metered overage capped by a self-set spend limit;
+ * Enterprise = bring-your-own keys + flat platform fee + SSO/SLA. Tier
+ * numbers, the feature matrix, and the FAQ all DERIVE from the canonical
+ * `docs/skycot/pricing/v1-tiers.toml` via `@/lib/pricing/*` — there are no
+ * hardcoded prices, allowances, or multipliers in this JSX (DEC-035).
  *
  * Per-tier CTAs. Signed-out → /auth/signup?plan=<tier> (you must have a
  * workspace before you can pay). Signed-in Pro → invokes `useCheckout()`
@@ -31,142 +36,7 @@ import { useCheckout, redirectToCheckout } from "@/lib/billing/use-checkout";
  * rather than a fake success (NO THEATER). The selected plan is persisted on
  * the onboarding draft store so the post-signup welcome step can hop to
  * checkout. `?featured=pro` campaign param visually expands the Pro card.
- *
- * V1 ships static copy; CMS-driven feature matrix arrives in a
- * follow-up brief.
  */
-
-type Tier = "free" | "pro" | "enterprise";
-
-interface TierCard {
-  tier: Tier;
-  title: string;
-  price: string;
-  period: string;
-  blurb: string;
-  features: string[];
-  cta: string;
-  /** Static signed-out target; Pro overrides this when signed in. */
-  signedOutHref: string;
-  signedInHref: string;
-  /** Default featured (visually highlighted) state. */
-  featured?: boolean;
-}
-
-const TIERS: TierCard[] = [
-  {
-    tier: "free",
-    title: "Free",
-    price: "$0",
-    period: "forever",
-    blurb: "Try SKYCOT with the mock provider. No credit card.",
-    features: [
-      "1 teammate",
-      "100 actions / month",
-      "Community support",
-      "Mock provider only",
-      "Single channel (web inbox)",
-    ],
-    cta: "Choose Free",
-    signedOutHref: "/auth/signup?plan=free",
-    signedInHref: "/onboarding/welcome",
-  },
-  {
-    tier: "pro",
-    title: "Pro",
-    price: "$49",
-    period: "per teammate / month",
-    blurb: "Real provider keys, multi-channel, marketplace skills.",
-    features: [
-      "5 teammates",
-      "5,000 actions / month",
-      "Email support",
-      "Real provider keys (OpenAI / Anthropic / Bedrock)",
-      "Multi-channel (Slack / iMessage / Email)",
-      "Approval flows + trust ratchet",
-      "Marketplace skills",
-      "Versioned workflows + rollback",
-    ],
-    cta: "Choose Pro",
-    signedOutHref: "/auth/signup?plan=pro",
-    signedInHref: "/billing/subscribe?plan=pro",
-    featured: true,
-  },
-  {
-    tier: "enterprise",
-    title: "Enterprise",
-    price: "Custom",
-    period: "talk to us",
-    blurb: "SSO, audit export, custom verticals, priority queue.",
-    features: [
-      "Unlimited teammates",
-      "Unlimited actions",
-      "Dedicated support",
-      "SSO / SAML",
-      "Audit export (S3 / GCS / Azure)",
-      "Custom verticals + private marketplace",
-      "Priority queue + dedicated infra",
-      "On-prem / single-binary deploy",
-    ],
-    cta: "Talk to sales",
-    signedOutHref: "mailto:hello@skycot.com?subject=Skycot%20Enterprise%20inquiry",
-    signedInHref: "mailto:hello@skycot.com?subject=Skycot%20Enterprise%20inquiry",
-  },
-];
-
-interface MatrixRow {
-  label: string;
-  free: boolean;
-  pro: boolean;
-  enterprise: boolean;
-}
-
-const MATRIX: MatrixRow[] = [
-  { label: "SOC 2-ready audit trail", free: true, pro: true, enterprise: true },
-  { label: "GDPR workflow tools", free: true, pro: true, enterprise: true },
-  { label: "HIPAA-aligned redaction", free: false, pro: true, enterprise: true },
-  { label: "ISO 27001 controls supported", free: false, pro: true, enterprise: true },
-  { label: "Hash-chain + immutable log (regulator-ready)", free: false, pro: false, enterprise: true },
-  { label: "Encryption-at-rest (SQLCipher)", free: true, pro: true, enterprise: true },
-  { label: "Per-action role permissions", free: true, pro: true, enterprise: true },
-  { label: "Forensic audit chain", free: true, pro: true, enterprise: true },
-  { label: "Sub-workflows + delegation", free: false, pro: true, enterprise: true },
-  { label: "Custom verticals + prompt packs", free: false, pro: false, enterprise: true },
-  { label: "BYO model keys", free: false, pro: true, enterprise: true },
-  { label: "SSO / SAML", free: false, pro: false, enterprise: true },
-];
-
-interface FaqItem {
-  q: string;
-  a: string;
-}
-
-const FAQ: FaqItem[] = [
-  {
-    q: "How does per-teammate billing work?",
-    a: "On Pro, every named teammate you hire (Mariah, Priya, Jamal, etc.) is $49/month. You only pay for teammates that are actively working — pause them and billing stops. Enterprise is a flat negotiated rate regardless of teammate count.",
-  },
-  {
-    q: "Can I bring my own AI model keys?",
-    a: "Yes, on Pro and Enterprise. Add your OpenAI, Anthropic, Bedrock, or self-hosted endpoint keys in Settings → Providers. SKYCOT routes through them transparently and you pay the model provider directly for inference.",
-  },
-  {
-    q: "What happens if my teammate goes over my action limit?",
-    a: "On Free, the teammate pauses and asks you to upgrade. On Pro, you get overage at $0.01 per action with an alert at 80% used. On Enterprise, limits are negotiated up-front — no surprises.",
-  },
-  {
-    q: "Is data shared between tenants?",
-    a: "No. Each customer workspace is fully isolated — every audit entry, skill run, integration call, and memory key carries the workspace stamp, and our automated checks block any code that could leak across the boundary. Tenant isolation is the load-bearing security guarantee.",
-  },
-  {
-    q: "Can I self-host SKYCOT?",
-    a: "Yes, on Enterprise. SKYCOT ships as a single binary with SQLite + SQLCipher, runs on a Mac mini or any Linux server, and includes a Docker image. The same binary you run locally runs in production — no separate self-host build.",
-  },
-  {
-    q: "How is this different from Zapier / n8n?",
-    a: "Zapier and n8n call them 'zaps' and 'workflows'. SKYCOT teammates have names, traits, and signature behaviors — they show up in Slack like a colleague, ask before they act, and earn trust over time. See /compare for the side-by-side breakdown.",
-  },
-];
 
 function AvailabilityMark({ included }: { included: boolean }) {
   if (included) {
@@ -248,7 +118,9 @@ function PricingPageContent() {
             Hire teammates. Pay like they&apos;re <strong>real</strong>.
           </h1>
           <p className="pri-sub">
-            Start free. Add a Pro tier when you&apos;re ready for production. Talk to us for enterprise.
+            Start free. Pro is per named teammate with an action allowance, then
+            metered overage that stops at a cap you set — no surprise bills.
+            Enterprise brings your own keys.
           </p>
         </section>
 
