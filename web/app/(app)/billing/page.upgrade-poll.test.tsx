@@ -58,10 +58,13 @@ vi.mock("@/lib/api/usage", async (orig) => ({
   fetchTenantUsage: () => fetchTenantUsageSpy(),
 }));
 
-// SpendPanel fires its own cost + roster queries; stub it so this test
-// stays focused on the usage-poll contract.
+// SpendPanel + MeterPanel fire their own cost / meter / roster queries;
+// stub them so this test stays focused on the usage-poll contract.
 vi.mock("@/components/billing/SpendPanel", () => ({
   SpendPanel: () => null,
+}));
+vi.mock("@/components/billing/MeterPanel", () => ({
+  MeterPanel: () => null,
 }));
 
 import BillingPage from "./page";

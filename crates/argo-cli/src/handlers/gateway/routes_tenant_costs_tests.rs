@@ -8,6 +8,7 @@
 //! `ensure_workspace` to act as "tenant B".
 
 use super::{by_worker_response, total_response};
+use argo_identity::{IdentityStore, Persona, Role, Worker};
 use argo_store::{SessionStore, WorkerId};
 use argo_types::{SessionId, TenantId};
 use serde_json::Value;
@@ -108,6 +109,43 @@ async fn by_worker_groups_per_teammate_and_excludes_other_tenants() {
     // The NULL worker_id bucket surfaces as JSON null.
     assert!(rows[2]["worker_id"].is_null());
     assert_eq!(rows[2]["spent_usd_micros"], 250_000);
+}
+
+#[tokio::test]
+async fn by_worker_joins_worker_name_from_store() {
+    // Shakedown F11 regression: a row whose worker_id resolves to a real
+    // teammate carries that teammate's name server-side, so the SPA never
+    // has to fall back to "Unknown teammate". A spend row for an id that
+    // resolves to no worker carries `worker_name: null`.
+    let store = mem_store().await;
+    let a = cwd_tenant(&store).await;
+    let identities = IdentityStore::new(&store);
+    let ivy = Worker::draft(
+        a,
+        "collections",
+        Persona::named("Ivy", "Collections Coordinator"),
+        Role::new("Chase invoices."),
+    );
+    identities.create_worker(&ivy).await.expect("create worker");
+
+    seed(&store, a, Some(ivy.id), 8_600).await; // Ivy's $0.0086 run
+    let ghost = WorkerId::new(); // recorded id with no matching worker row
+    seed(&store, a, Some(ghost), 1_000).await;
+
+    let (status, body) = by_worker_response(&by_worker_req(), Some(&store)).await;
+    assert_eq!(status, "200 OK", "body: {body}");
+    let v: Value = serde_json::from_str(&body).expect("json");
+    let rows = v["by_worker"].as_array().expect("array");
+    let ivy_row = rows
+        .iter()
+        .find(|r| r["worker_id"] == ivy.id.to_string())
+        .expect("ivy row");
+    assert_eq!(ivy_row["worker_name"], "Ivy");
+    let ghost_row = rows
+        .iter()
+        .find(|r| r["worker_id"] == ghost.to_string())
+        .expect("ghost row");
+    assert!(ghost_row["worker_name"].is_null());
 }
 
 #[tokio::test]

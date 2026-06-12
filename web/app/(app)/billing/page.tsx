@@ -33,6 +33,7 @@ import { useCheckout, redirectToCheckout } from "@/lib/billing/use-checkout";
 import { usePortal, redirectToPortal } from "@/lib/billing/use-portal";
 import { fetchTenantUsage, type UsageResponse } from "@/lib/api/usage";
 import { UsageMeter } from "@/components/billing/UsageMeter";
+import { MeterPanel } from "@/components/billing/MeterPanel";
 import { SpendPanel } from "@/components/billing/SpendPanel";
 
 interface PlanOffer {
@@ -113,6 +114,9 @@ function BillingContent() {
   const { data, isLoading, error, refetch } = useQuery<UsageResponse>({
     queryKey: ["billing", "usage"],
     queryFn: fetchTenantUsage,
+    // Bounded: one quick retry then surface the error state, so the plan
+    // header never sits on a perpetual "Loading usage…" (shakedown F11).
+    retry: 1,
   });
   const checkout = useCheckout();
   const portal = usePortal();
@@ -163,6 +167,7 @@ function BillingContent() {
           </p>
         )}
         {data && <UsageMeter usage={data} />}
+        <MeterPanel />
         <div className="mt-4 flex gap-2">
           <Button
             type="button"

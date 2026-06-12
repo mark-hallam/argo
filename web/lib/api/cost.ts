@@ -30,6 +30,16 @@ export interface WorkerCost {
   /** Canonical worker UUID (matches `/api/v1/workers` ids), or `null`
    *  for system / non-teammate spend. */
   worker_id: string | null;
+  /**
+   * Server-resolved teammate name (joined from the worker store on the
+   * gateway). `null` when the row is system spend (no `worker_id`) or the
+   * id resolves to no current worker. Preferring this over a client-side
+   * roster join is what fixes the "Unknown teammate" label for Genesis
+   * hires (shakedown F11) — the roster fetch can fall back to a demo
+   * sample or omit archived workers, but this name is always authoritative.
+   * Additive: absent on older gateways (treat as `undefined`).
+   */
+  worker_name?: string | null;
   /** This teammate's spend in USD micros. */
   spent_usd_micros: number;
 }

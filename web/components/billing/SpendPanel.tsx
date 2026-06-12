@@ -9,9 +9,14 @@
  * (`/api/v1/tenant/costs/{total,by-worker}`), so it is this tenant's
  * spend only.
  *
- * Teammate names come from the live roster (`useTeam`); spend rows whose
- * `worker_id` doesn't resolve to a current teammate (or is `null` —
- * system / non-teammate spend) fall back to a "System" label. NO
+ * Teammate names come from the server-resolved `worker_name` the
+ * by-worker endpoint joins from the worker store; the live roster
+ * (`useTeam`) is only a fallback for older gateways that don't send it.
+ * A row with a `worker_id` that resolves to neither falls back to
+ * "Unknown teammate"; a `null` `worker_id` (system / non-teammate spend)
+ * shows as "System". Preferring the server name fixes the "Unknown
+ * teammate" label for Genesis hires (shakedown F11), where the roster
+ * fetch can fall back to a demo sample or omit archived workers. NO
  * THEATER: every dollar shown traces to a `spend_ledger` row.
  */
 
@@ -82,7 +87,9 @@ export function SpendPanel() {
             >
               <span className="truncate">
                 {row.worker_id
-                  ? (nameById.get(row.worker_id) ?? "Unknown teammate")
+                  ? (row.worker_name ??
+                    nameById.get(row.worker_id) ??
+                    "Unknown teammate")
                   : "System"}
               </span>
               <span className="tabular-nums font-medium">
