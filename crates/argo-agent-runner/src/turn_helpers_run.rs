@@ -432,6 +432,17 @@ async fn resolve_tool_call(
         }
         super::turn_helpers_gate::GateDecision::Dispatch { consume_grant } => consume_grant,
     };
+    // tg1 — make a silent capability-fence deny LEGIBLE. The vertical
+    // gate above said "dispatch", but the worker's derived capability
+    // profile may still refuse this tool at the `engine.check` dispatch
+    // seam. Record a pending `capability_request` BEFORE dispatch so the
+    // connect-on-demand grant card learns "this teammate needed
+    // <connector>". Observe-only: dispatch below is unchanged and still
+    // returns its own deny to the model.
+    super::turn_helpers_capability_request::maybe_record_capability_request(
+        ctx, store, session_id, audit, events, call,
+    )
+    .await;
     let res = dispatch_one_with_runtime(
         &ctx.registry,
         &ctx.engine,

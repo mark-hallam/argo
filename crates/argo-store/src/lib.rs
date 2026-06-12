@@ -46,6 +46,10 @@ pub mod batched_writer;
 pub mod billing_dlq_query;
 /// Budget rollups over skills and spend.
 pub mod budget;
+/// Pending capability requests recorded when a worker's fence denies a
+/// tool/connector — the connect-on-demand backend (Stream
+/// `tg1-emit-capability-request-on-fenced-tool-deny`).
+pub mod capability_request;
 /// Data classification tags (Stream `claude-data-classification`).
 pub mod classification;
 /// Fleet-wide skill-cohort aggregation (Stream
@@ -387,7 +391,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 93;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 94;
 
 #[cfg(test)]
 #[path = "handoff_stats_query_tests.rs"]

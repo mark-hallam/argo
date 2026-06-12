@@ -169,6 +169,9 @@ mod turn_helpers_context;
 #[path = "turn_helpers_freeze.rs"]
 mod turn_helpers_freeze;
 
+#[path = "turn_helpers_capability_request.rs"]
+mod turn_helpers_capability_request;
+
 #[path = "turn_helpers_gate.rs"]
 mod turn_helpers_gate;
 

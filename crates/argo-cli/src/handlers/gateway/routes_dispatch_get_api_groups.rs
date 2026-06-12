@@ -338,6 +338,14 @@ async fn dispatch_worker_simple_verb(
             super::routes_worker_skills::list_response(id_with_suffix, req, store).await,
         );
     }
+    // tg1 — pending capability requests (fence denies) backing the
+    // connect-on-demand grant card.
+    if tail.starts_with("capability-requests ") || tail.starts_with("capability-requests?") {
+        return Some(
+            super::routes_worker_capability_requests::list_response(id_with_suffix, req, store)
+                .await,
+        );
+    }
     None
 }
 
