@@ -234,6 +234,13 @@ export function middleware(req: NextRequest) {
     // public marketing vertical landing lives at `/for/marketing`, which is
     // covered by the `/for/` prefix below.
     pathname.startsWith("/teammates") ||
+    // `/pitch-demo` is the PUBLIC, read-only truth-boundary proof page
+    // (web-public-pitch-demo-route). It runs over the anonymous, per-IP
+    // rate-limited `POST /api/v1/pitch/ask/public` and grants no access to
+    // the rest of the app, so it is safe to serve logged-out. NB: this
+    // does NOT allowlist the auth-gated operator console at `(app)/pitch`
+    // — `startsWith("/pitch-demo")` is exact to the demo lane.
+    pathname.startsWith("/pitch-demo") ||
     pathname.startsWith("/pricing") ||
     pathname.startsWith("/customers") ||
     pathname.startsWith("/compare") ||

@@ -122,6 +122,20 @@ describe("middleware", () => {
     expect(res.headers.get("location")).toBeNull();
   });
 
+  // web-public-pitch-demo-route: the public truth-boundary proof page must be
+  // reachable logged-out (it was bouncing to signin via the auth-gated
+  // `(app)/pitch`), but the auth-gated operator console at `/pitch` must NOT
+  // be opened up by the new allowlist entry.
+  it("lets the public /pitch-demo route through unauthenticated", () => {
+    const res = middleware(makeRequest("http://localhost:3000/pitch-demo"));
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("still redirects the auth-gated /pitch console to signin when logged out", () => {
+    const res = middleware(makeRequest("http://localhost:3000/pitch"));
+    expect(res.headers.get("location")).toContain("/auth/signin");
+  });
+
   // Loopback-host canonicalization (sprint-ws1): the `__Host-session`
   // cookie is host-pinned to `localhost`, so a visit to `127.0.0.1` drops
   // the session. The front door redirects the non-canonical loopback host

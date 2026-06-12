@@ -142,7 +142,12 @@ const DIFFERENTIATORS = [
     blurb:
       "A claim-level truth boundary gates what a teammate may assert — not just what it can access. Portia, our Pitch Agent, literally cannot state a number she can't back up. She defers to a human instead.",
     proofLabel: "Watch Portia refuse to overclaim",
-    proofHref: "/pitch",
+    // PUBLIC truth-boundary proof lane (web-public-pitch-demo-route). The old
+    // target `/pitch` is in the auth-gated `(app)/` group, so a logged-out
+    // prospect clicking this card bounced to /auth/signin — the demo was
+    // unreachable for exactly the audience it convinces. `/pitch-demo` is the
+    // zero-friction public page over the same live, rate-limited public ask.
+    proofHref: "/pitch-demo",
   },
   {
     num: "03",
