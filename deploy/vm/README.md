@@ -90,18 +90,55 @@ Auto-renewal: `/etc/cron.d/skycot-certbot` runs twice daily at `:23`
 past hours 3 and 15 UTC (jittered to dodge the LE thundering-herd at
 midnight UTC). Force a renewal dry-run: `sudo certbot renew --dry-run`.
 
-## Backups
+## Backups (offsite, verified, drillable)
 
-Postgres + `/var/lib/argo` together hold complete platform state. Root
-crontab:
+> The old `pg_dump` recipe here was stale — the platform's state is a
+> **SQLite** store written by the argo binary, not a Postgres database.
+> Use the first-class `argo backup` tooling instead.
 
-```cron
-0 4 * * * sudo -u argo pg_dump argo > /var/lib/argo/backups/$(date -u +\%F).sql && find /var/lib/argo/backups -name '*.sql' -mtime +14 -delete
-0 * * * * rsync -a /var/lib/argo/backups/ backup-host:/srv/skycot-backups/
+All platform state lives in the gateway's data dir (`sessions.db` plus,
+during live operation, its WAL sidecars). **Backups require the gateway
+to store that db under `<workspace>/.argo/`** — i.e. run it with
+`ARGO_HOME=/var/lib/argo/.argo` and `WorkingDirectory=/var/lib/argo`, so
+`argo backup create` (which snapshots `<cwd>/.argo`) captures the real
+db. One-time migration for an existing host:
+
+```bash
+sudo systemctl stop argo
+sudo -u argo mkdir -p /var/lib/argo/.argo
+sudo -u argo bash -c 'mv /var/lib/argo/sessions.db /var/lib/argo/.bootstrap-token /var/lib/argo/credentials.toml /var/lib/argo/.argo/ 2>/dev/null || true'
+# set ARGO_HOME=/var/lib/argo/.argo in /etc/argo/argo.env, then:
+sudo systemctl start argo
 ```
 
-Restore: `pg_restore -d argo /var/lib/argo/backups/<date>.sql` then
-`systemctl restart argo web`.
+Then install the scheduled offsite backup (create → verify → S3 → prune):
+
+```bash
+sudo cp scripts/backup-cron.sh /usr/local/bin/argo-backup-cron.sh
+sudo cp deploy/systemd/argo-backup.{service,timer} /etc/systemd/system/
+# S3_BUCKET / S3_PREFIX / RETENTION_DAYS / ARGO_WORKSPACE=/var/lib/argo
+sudoedit /etc/argo/backup.env
+sudo systemctl daemon-reload && sudo systemctl enable --now argo-backup.timer
+systemctl list-timers argo-backup.timer            # confirm next run
+```
+
+`backup-cron.sh` is **truth-bounded**: it fails loud (non-zero, unit goes
+`failed`) if the db is missing, a verify fails, or the S3 upload does not
+land — it never reports a silent empty backup as ok.
+
+**Restore drill — run it; a backup that has never restored is
+unverified.** `restore-drill.sh` pulls the latest tarball from S3,
+restores it into a throwaway dir, boots a gateway against the restored
+db, and asserts `/readyz` is ok:
+
+```bash
+S3_BUCKET=skycot-prod-backups bash scripts/restore-drill.sh            # from S3
+bash scripts/restore-drill.sh --local /var/lib/argo/.argo/backups/<ts>.tar.gz
+```
+
+Real disaster recovery into the live host: stop argo, `argo restore
+<tarball>` into `/var/lib/argo` (reproduces `.argo/`), `systemctl start
+argo web`.
 
 ## Hardening
 

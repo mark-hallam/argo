@@ -218,8 +218,30 @@ For "point a handful of investors at it," basic-auth is the right amount of gate
   Harden to **SSM Parameter Store / Secrets Manager** (the compose `env_file`
   becomes a fetch-on-boot) when it matters. Never commit secrets.
 - **Data persistence:** the gateway's SQLite (`$ARGO_HOME` → `/data`) lives on
-  the EBS volume → survives container restarts + redeploys. Back it up with an
-  EBS snapshot before any risky change. (Postgres/RDS is the scale-later path.)
+  the EBS volume → survives container restarts + redeploys. (Postgres/RDS is the
+  scale-later path.)
+- **Offsite backups + restore drill (do this before taking real signups).** An
+  EBS snapshot is host-local and replicates logical corruption; ship an
+  independent, *verified* copy to S3 instead. Set the gateway's
+  `ARGO_HOME=/data/.argo` (so `argo backup create`, which snapshots
+  `<cwd>/.argo`, captures the live db — a one-time `mv /data/sessions.db
+  /data/.argo/` migrates an existing deploy), then run the backup sidecar:
+
+  ```bash
+  # add S3_BUCKET (+ AWS creds or instance role) to deploy/.env.deploy, then:
+  docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.backup.yml \
+    --env-file deploy/.env.deploy up -d            # daily create→verify→S3→prune
+  ```
+
+  Prove it restores — *a backup that has never restored is unverified*:
+
+  ```bash
+  S3_BUCKET=<bucket> SKYCOT_DB_KEY_BASE64=<same as gateway> \
+    bash scripts/restore-drill.sh                  # restore → boot → assert /readyz ok
+  ```
+
+  Full setup (systemd timer variant, IAM, S3 lifecycle) is in step 13b of
+  [`docs/skycot/deploy/AWS_DEPLOY_RUNBOOK.md`](../deploy/AWS_DEPLOY_RUNBOOK.md).
 
 ---
 

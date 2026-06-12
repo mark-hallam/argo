@@ -1,0 +1,21 @@
+# systemd timer — runs argo-backup.service daily at 03:17 UTC.
+#
+# 03:17 (not 03:00) dodges the top-of-hour thundering herd of every
+# other cron on the box. Persistent=true means a missed run (host was
+# off) fires once on next boot rather than silently skipping a day.
+#
+# Adjust cadence with OnCalendar (e.g. `*-*-* 03,15:17:00` for twice
+# daily). Pair with scripts/restore-drill.sh on a weekly schedule to
+# keep "restore actually works" continuously verified.
+
+[Unit]
+Description=Daily argo offsite backup
+Documentation=https://github.com/mark-hallam/Argo-Agent/blob/main/docs/skycot/deploy/AWS_DEPLOY_RUNBOOK.md
+
+[Timer]
+OnCalendar=*-*-* 03:17:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

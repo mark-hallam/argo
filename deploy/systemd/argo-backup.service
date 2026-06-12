@@ -1,0 +1,39 @@
+# systemd oneshot — offsite SQLite backup for the argo gateway.
+#
+# Install:
+#   sudo cp deploy/systemd/argo-backup.{service,timer} /etc/systemd/system/
+#   sudo cp scripts/backup-cron.sh /usr/local/bin/argo-backup-cron.sh
+#   # put S3_BUCKET / S3_PREFIX / ARGO_WORKSPACE / RETENTION_DAYS in:
+#   sudoedit /etc/argo/backup.env          # mode 0640 root:argo
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now argo-backup.timer
+#
+# Triggered by argo-backup.timer (daily). Runs as the argo user so it
+# can read the gateway's data dir. The script is truth-bounded: it exits
+# non-zero (and the unit goes `failed`, visible in `systemctl
+# list-timers` / alerting) if the db is missing, a verify fails, or the
+# S3 upload does not land — a silent empty backup is never reported ok.
+#
+# AWS auth: prefer an EC2 instance profile / IAM role (no static keys on
+# disk). If you must use static keys, add them to /etc/argo/backup.env.
+
+[Unit]
+Description=Argo offsite SQLite backup (create + verify + S3 + prune)
+Documentation=https://github.com/mark-hallam/Argo-Agent/blob/main/docs/skycot/deploy/AWS_DEPLOY_RUNBOOK.md
+After=network-online.target argo.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=argo
+Group=argo
+EnvironmentFile=/etc/argo/backup.env
+ExecStart=/usr/local/bin/argo-backup-cron.sh
+
+# Hardening — the backup only needs to read the data dir and write the
+# local tarball before shipping it offsite.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/argo

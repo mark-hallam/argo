@@ -1,0 +1,57 @@
+# SKYCOT offsite-backup sidecar — compose OVERLAY.
+#
+# The systemd timer (deploy/systemd/argo-backup.timer) is the recommended
+# production path on a single VM. This overlay is the equivalent for a
+# fully-containerised deploy: a long-running sidecar that runs
+# scripts/backup-cron.sh on an interval.
+#
+#   docker compose \
+#     -f deploy/docker-compose.yml \
+#     -f deploy/docker-compose.backup.yml \
+#     --env-file deploy/.env.deploy up -d
+#
+# Required env (deploy/.env.deploy): S3_BUCKET, plus SKYCOT_DB_KEY_BASE64
+# (already there for the gateway). AWS auth: prefer an instance role; or
+# add AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_DEFAULT_REGION.
+#
+# Why the symlink: the live gateway stores its db at /data/sessions.db
+# (ARGO_HOME=/data). `argo backup create` snapshots `<cwd>/.argo`, so the
+# sidecar exposes /data AS .argo via a symlink and runs the backup from
+# /backuproot — capturing the real db WITHOUT moving the running
+# gateway's data. The SQLCipher-encrypted db is copied byte-for-byte;
+# the same SKYCOT_DB_KEY_BASE64 opens the restored copy in a drill.
+
+services:
+  backup:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.gateway   # reuse: bundles the argo binary
+    network_mode: host
+    restart: unless-stopped
+    env_file: .env.deploy
+    environment:
+      ARGO_WORKSPACE: /backuproot
+      S3_BUCKET: ${S3_BUCKET:?set S3_BUCKET in deploy/.env.deploy}
+      S3_PREFIX: ${S3_PREFIX:-argo-backups}
+      RETENTION_DAYS: ${RETENTION_DAYS:-14}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+    volumes:
+      - argo-data:/data
+      - ../scripts/backup-cron.sh:/usr/local/bin/argo-backup-cron.sh:ro
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        command -v aws >/dev/null 2>&1 || {
+          apt-get update && apt-get install -y --no-install-recommends awscli
+          rm -rf /var/lib/apt/lists/*
+        }
+        mkdir -p /backuproot && ln -sfn /data /backuproot/.argo
+        echo "[backup] sidecar up; interval=$${BACKUP_INTERVAL_SECONDS}s bucket=$${S3_BUCKET}"
+        while true; do
+          /usr/local/bin/argo-backup-cron.sh || echo "[backup] cron run failed (see JSON line above)"
+          sleep "$${BACKUP_INTERVAL_SECONDS}"
+        done
+    depends_on:
+      - gateway

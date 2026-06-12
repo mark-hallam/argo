@@ -682,6 +682,49 @@ signup → hire → approve journey per [`docs/skycot/deploy/README.md`](README.
 **Truth-bounded note:** a 503 at the ALB means no healthy targets are registered
 yet — re-check the ECS rollout (step 6) and CloudWatch Logs `/aws/ecs/skycot-prod-argo`.
 
+## 13b. Offsite SQLite backups + restore drill (operator runs)
+
+EFS gives you filesystem-level durability, but a logical corruption (a bad
+migration, an accidental wipe) replicates to every EFS snapshot. The
+application-level backup below is the independent, point-in-time, *verified*
+copy — and the drill proves it actually restores.
+
+**The `.argo` convention.** `argo backup create` snapshots `<cwd>/.argo`, and
+the gateway stores its db at `$ARGO_HOME/sessions.db`. They align only when
+`ARGO_HOME` is the `.argo` subdir of the backup working dir. On EFS that means
+mounting at e.g. `/data` and running the gateway with `ARGO_HOME=/data/.argo`.
+The bundled scripts fail loud (never ship a silent empty backup) if the db
+isn't where they expect.
+
+**Scheduled backup.** Run `scripts/backup-cron.sh` daily — either as an
+EventBridge-scheduled ECS `RunTask` mounting the same EFS access point, or via
+the compose/systemd units in `deploy/` on any host that mounts the EFS volume:
+
+```sh
+# Env the task/timer needs:
+#   S3_BUCKET=skycot-prod-backups  S3_PREFIX=argo-backups
+#   ARGO_WORKSPACE=/data  RETENTION_DAYS=14
+#   SKYCOT_DB_KEY_BASE64=<same at-rest key as the gateway>  (to drill)
+# AWS auth: the task role / instance profile — no static keys on disk.
+bash scripts/backup-cron.sh        # create → verify → s3 cp → prune; JSON on stdout
+```
+
+Add an S3 lifecycle rule on the bucket for remote retention (e.g. expire after
+35 days, transition to Glacier after 7). The encrypted-at-rest SQLCipher db is
+copied byte-for-byte; the same key opens the restored copy.
+
+**Restore drill — schedule it; an un-restored backup is unverified.**
+
+```sh
+S3_BUCKET=skycot-prod-backups SKYCOT_DB_KEY_BASE64=<key> \
+  bash scripts/restore-drill.sh                 # latest from S3 → restore → boot → /readyz
+```
+
+The drill restores into a throwaway dir, boots a real gateway against the
+restored db, and asserts `/readyz` is ok plus a positive `schema_version` — it
+exits non-zero on any failure. `scripts/backup-consistency-test.sh` separately
+proves the snapshot is crash-consistent under concurrent writes.
+
 ## 14. Rollback + teardown (operator runs only if needed)
 
 ### Image rollout / rollback
@@ -753,8 +796,11 @@ terraform destroy
 - **A cumulative dollar LLM-spend ceiling.** WAF only does request-rate caps; the
   $-cap is a separate app-layer follow-up.
 - **Secret-rotation automation** (Lambda rotation). Post-launch follow-up.
-- **Backups beyond the EFS default policy.** Filesystem snapshots only;
-  application-level SQLite snapshots TBD.
+- **Backups beyond the EFS default policy.** Application-level, offsite,
+  verified SQLite backups + a restore drill now ship (step 13b:
+  `scripts/backup-cron.sh` + `scripts/restore-drill.sh`); the *Terraform*
+  wiring of the scheduled task / S3 bucket lifecycle is still operator-run, not
+  in this module.
 - **Multi-instance / horizontal scale.** Single-task, single-writer SQLite on EFS
   is the v1.0 architecture (do not raise `desired_count` / `maximum_percent`
   without redesigning the store layer).
