@@ -34,6 +34,7 @@
 pub mod db_key;
 
 mod io;
+mod io_decrypt;
 pub use io::{
     clear, clear_all, export_lines, import_current_env, set, set_tenant,
 };
@@ -330,7 +331,7 @@ fn decrypt_tenant_entry(
     match entry {
         CredentialEntry::Plain(value) => Ok(value),
         CredentialEntry::Encrypted { value } => {
-            io::decrypt_tenant_value_with_migration(workspace, tenant_id, key, &value)
+            io_decrypt::decrypt_tenant_value_with_migration(workspace, tenant_id, key, &value)
                 .map_err(|_| VarError::NotPresent)
         }
     }
@@ -341,7 +342,7 @@ fn decrypt_tenant_entry(
 /// decrypt.
 ///
 /// Tenant-scoped reads resolve their per-tenant key inside
-/// [`decrypt_tenant_entry`] (and [`io::decrypt_tenant_value_with_migration`])
+/// [`decrypt_tenant_entry`] (and [`io_decrypt::decrypt_tenant_value_with_migration`])
 /// rather than going through this helper — keeping the two paths
 /// separate lets `decrypt_value_with_fallback` carry the legacy key in
 /// as an explicit `Option` only when the lazy-migration path actually
@@ -462,7 +463,7 @@ pub fn load_tenant(
     // `io::set_tenant`), so they must be decrypted with the per-tenant key
     // (legacy global key is the fallback only). Using the legacy key alone
     // here would fail with "No matching keys found" on per-tenant blobs.
-    io::decrypt_tenant_section(tenant_id, section)
+    io_decrypt::decrypt_tenant_section(tenant_id, section)
 }
 
 #[cfg(test)]
