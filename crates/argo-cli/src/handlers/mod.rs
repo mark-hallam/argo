@@ -41,6 +41,7 @@ pub mod backup_list;
 pub mod backup_restore;
 pub mod backup_verify;
 pub mod billing_dlq;
+pub mod billing_overage;
 pub mod billing_replay;
 pub mod budget;
 pub mod budget_alerts_list;

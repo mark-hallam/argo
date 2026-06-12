@@ -263,6 +263,7 @@ async fn billing_dispatch(cmd: cli::BillingCmd) -> ArgoResult<()> {
     match cmd {
         cli::BillingCmd::Replay(args) => handlers::billing_replay::run(args).await,
         cli::BillingCmd::Dlq { cmd } => handlers::billing_dlq::dispatch(cmd).await,
+        cli::BillingCmd::ReportOverage(args) => handlers::billing_overage::run(args).await,
     }
 }
 

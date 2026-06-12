@@ -44,6 +44,10 @@ pub mod overage;
 /// subscription's licensed-item quantity to the tenant's active
 /// (non-archived, non-frozen) teammate count.
 pub mod quantity_sync;
+/// DEC-053 overage-report **job**: the batch caller that turns a
+/// snapshot of every Pro tenant's live meter into Stripe usage records
+/// (`pricing-wire-overage-report-and-cap-enforcement`).
+pub mod overage_job;
 
 pub use quantity_sync::{
     count_active_teammates, desired_quantity, plan_reconcile, sync_seat_quantity, QuantityChange,
@@ -52,6 +56,10 @@ pub use quantity_sync::{
 pub use overage::{
     est_overage_cost_micros, idempotency_key, overage_units, plan_overage, report_overage_usage,
     OverageReport, STRIPE_PRICE_PRO_OVERAGE_ENV,
+};
+pub use overage_job::{
+    plan_overage_reports, run_overage_reports, OverageRunSummary, PlannedOverageReport,
+    TenantOverageMeter,
 };
 pub use replay::{replay_event, replay_since, ReplayOutcome};
 pub use stripe_client::{StripeClient, StripeConfig};

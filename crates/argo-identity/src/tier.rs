@@ -119,8 +119,11 @@ pub struct TierLimits {
     #[serde(default)]
     pub overage_multiplier: f64,
     /// DEC-053 customer-visible default monthly hard spend cap in whole
-    /// USD, pre-seeded on `/billing`. SpendGate stops usage at the cap
-    /// rather than surprise-billing. `0` = no default cap.
+    /// USD, pre-seeded on `/billing`. Stored here and surfaced on the
+    /// billing page; the per-tenant cap (`tenant_quota.max_usd_micros`)
+    /// is enforced at the action-dispatch choke point, which refuses
+    /// further spending actions once period-to-date spend reaches it.
+    /// `0` = no default cap.
     #[serde(default)]
     pub default_monthly_cap_usd: u32,
     /// Opaque feature flags the tier unlocks (e.g. `"channel_voice"`).

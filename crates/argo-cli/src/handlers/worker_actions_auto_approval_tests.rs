@@ -133,3 +133,6 @@ mod persistence;
 
 #[path = "worker_actions_auto_approval_tests_regression.rs"]
 mod regression;
+
+#[path = "worker_actions_auto_approval_tests_cap.rs"]
+mod cap;

@@ -308,6 +308,28 @@ async fn maybe_auto_approve_with_pool(
     }
 }
 
+/// Enforce the tenant's hard spend cap (`tenant_quota.max_usd_micros`)
+/// at the action-dispatch choke point, BEFORE the pending→executing
+/// transition, for EVERY action regardless of approval path
+/// (auto-approved, human-approved, or autonomous-safe
+/// `requires_approval == false`).
+///
+/// This closes the two holes the prior AutoApprove-only call left open
+/// (DEC-029 NO-THEATER — the cap now actually halts usage, it no longer
+/// just claims to):
+///   1. The check ran only inside the AutoApprove branch of
+///      `maybe_auto_approve_with_pool`, so human-approved and
+///      autonomous-safe actions bypassed the cap entirely.
+///   2. It used the action's *estimated* cost, which is `0` whenever the
+///      executor declares no budget — so a tenant exactly at its cap
+///      could still dispatch unlimited zero-estimate actions.
+///
+/// Both are closed by reserving at least one micro of headroom for the
+/// USD cap (`estimated_usd_micros.max(1)`): once period-to-date spend
+/// reaches the cap there is zero headroom, so `used + 1 > cap` and even
+/// a zero-estimate action is refused. Read-only — the spend ledger
+/// (`worker_budget`) remains the sole write path, so calling this on
+/// every dispatch never double-counts.
 async fn ensure_tenant_quota_allows(
     pool: &Pool<Sqlite>,
     worker_id: &str,
@@ -319,7 +341,9 @@ async fn ensure_tenant_quota_allows(
         return Ok(());
     };
     for (kind, amount) in [
-        (TenantQuotaKind::UsdMicros, estimated_usd_micros),
+        // `.max(1)` makes "at the cap" a hard stop even for a
+        // zero-estimate action (closes hole #2 above).
+        (TenantQuotaKind::UsdMicros, estimated_usd_micros.max(1)),
         (TenantQuotaKind::Actions, 1),
         (TenantQuotaKind::Workers, 0),
     ] {
@@ -333,6 +357,31 @@ async fn ensure_tenant_quota_allows(
         }
     }
     Ok(())
+}
+
+/// Universal dispatch-time cap gate. Loads the action, resolves its
+/// worker → tenant + estimated cost, and enforces
+/// [`ensure_tenant_quota_allows`]. Called from
+/// `worker_actions_dispatch::execute` for every action before it
+/// advances pending→executing, so the hard cap halts usage across all
+/// approval paths (not just AutoApprove). A missing action is a no-op
+/// here — the dispatch path surfaces that error immediately after.
+pub(crate) async fn ensure_tenant_cap_allows_dispatch(
+    memory: &MemoryStore,
+    workspace: WorkspaceId,
+    pool: &Pool<Sqlite>,
+    action_id: &str,
+    now: DateTime<Utc>,
+) -> ArgoResult<()> {
+    let Some(located) =
+        worker_actions_transitions::find_action(memory, workspace, action_id).await?
+    else {
+        return Ok(());
+    };
+    let worker_id = worker_id_for_action(&located.record);
+    let decl = manifest_decl_for(&located.record.action_type);
+    let estimated = estimated_cost_micros(decl.as_ref());
+    ensure_tenant_quota_allows(pool, &worker_id, estimated, now).await
 }
 
 fn estimated_cost_micros(decl: Option<&ActionDeclaration>) -> u64 {

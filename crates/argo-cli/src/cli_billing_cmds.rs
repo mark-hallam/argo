@@ -17,6 +17,22 @@ pub enum BillingCmd {
         #[command(subcommand)]
         cmd: BillingDlqCmd,
     },
+    /// Push DEC-053 Pro metered-overage usage to Stripe. Reads each Pro
+    /// tenant's live action meter, reports `used − included` units to the
+    /// `STRIPE_PRICE_PRO_OVERAGE` metered price, idempotently. Safe to run
+    /// on a schedule (cron / launchd).
+    ReportOverage(BillingReportOverageArgs),
+}
+
+/// Args for `argo billing report-overage`.
+#[derive(clap::Args, Debug)]
+pub struct BillingReportOverageArgs {
+    /// Plan the per-tenant overage records without pushing to Stripe.
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Emit a JSON envelope to stdout instead of human text.
+    #[arg(long)]
+    pub json: bool,
 }
 
 /// Args for `argo billing replay`. Exactly one of `--event-id` or

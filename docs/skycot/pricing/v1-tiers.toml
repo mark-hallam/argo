@@ -27,8 +27,10 @@ max_actions_per_month = 5000
 # `included_actions` is the per-teammate monthly allowance bundled in the
 # $49; usage beyond it bills as metered overage at token-cost ×
 # `overage_multiplier`. `default_monthly_cap_usd` is the customer-visible
-# hard spend cap pre-seeded on /billing — SpendGate stops usage at the cap
-# rather than surprise-billing (the DEC-053 "stop, don't surprise" invariant).
+# hard spend cap pre-seeded on /billing; the per-tenant cap
+# (tenant_quota.max_usd_micros) is enforced at the action-dispatch choke
+# point, which refuses further spending actions once period-to-date spend
+# reaches the cap (the DEC-053 "stop, don't surprise" invariant).
 included_actions        = 1500
 overage_multiplier      = 1.4
 default_monthly_cap_usd = 200

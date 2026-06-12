@@ -9,13 +9,50 @@ use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 use sqlx::{Row, Sqlite};
 use std::collections::BTreeMap;
+use uuid::Uuid;
 
 use crate::SessionStore;
 
 use super::tenant_query::{
-    collect_tenants, count_blob, count_text, format_epoch_auto, has_column,
+    collect_tenants, count_blob, count_text, ensure_pricing_schema, format_epoch_auto, has_column,
     list_tenants_with_stats, table_exists, workspace_text, BLOB_TENANT_TABLES, TEXT_TENANT_TABLES,
 };
+
+/// List every tenant whose workspace row carries the given pricing
+/// `tier` slug (e.g. `"pro"`). Returns an empty vec on a pre-tier or
+/// workspace-less store. Drives the overage-report job
+/// (`argo billing report-overage`), which only meters Pro tenants.
+/// Re-exported through [`crate::tenant_query`] so callers import it as
+/// `argo_store::tenant_query::list_tenants_on_tier`.
+///
+/// ```no_run
+/// # async fn run() -> argo_types::ArgoResult<()> {
+/// use argo_store::{tenant_query::list_tenants_on_tier, SessionStore};
+/// let store = SessionStore::open(":memory:").await?;
+/// store.migrate().await?;
+/// let pro = list_tenants_on_tier(&store, "pro").await?;
+/// assert!(pro.is_empty()); // fresh store has no Pro tenants
+/// # Ok(()) }
+/// ```
+pub async fn list_tenants_on_tier(store: &SessionStore, tier: &str) -> ArgoResult<Vec<TenantId>> {
+    ensure_pricing_schema(store).await?;
+    if !has_column(store, "workspace", "tier").await? {
+        return Ok(Vec::new());
+    }
+    let rows = sqlx::query("SELECT DISTINCT tenant_id FROM workspace WHERE tier = ?")
+        .bind(tier)
+        .fetch_all(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("list tenants on tier {tier}: {e}")))?;
+    let mut tenants = Vec::new();
+    for row in rows {
+        let raw: Vec<u8> = row.get("tenant_id");
+        if let Ok(uuid) = Uuid::from_slice(&raw) {
+            tenants.push(TenantId(uuid));
+        }
+    }
+    Ok(tenants)
+}
 
 /// Load one tenant detail object.
 pub async fn show_tenant(

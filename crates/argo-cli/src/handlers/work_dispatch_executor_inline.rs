@@ -154,6 +154,19 @@ pub(crate) async fn execute_approved_action_inline(
 ) -> ArgoResult<()> {
     worker_actions_auto_approval::ensure_circuit_allows_dispatch(memory, workspace, &rec.action_id)
         .await?;
+    // Hard per-tenant spend cap (DEC-053 "stop, don't surprise-bill"):
+    // the gateway approve path dispatches HERE, not through
+    // `worker_actions_dispatch::execute`, so it must run the same
+    // dispatch-time cap gate or an at-cap tenant keeps burning money via
+    // /approvals. Human approval authorizes the ACTION, not an overdraft.
+    worker_actions_auto_approval::ensure_tenant_cap_allows_dispatch(
+        memory,
+        workspace,
+        store.pool(),
+        &rec.action_id,
+        chrono::Utc::now(),
+    )
+    .await?;
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     // operator_approved=true: the operator cleared this action in /approvals,
     // so promotions are honoured regardless of ARGO_EXECUTION_GRADUATION

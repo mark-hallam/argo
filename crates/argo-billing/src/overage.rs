@@ -20,11 +20,18 @@
 //!
 //! # The cap invariant (DEC-053 "stop, don't surprise")
 //!
-//! Billing never exceeds the customer's self-set hard cap because usage
-//! *stops* at the cap — SpendGate (sibling brief) refuses actions once
-//! the cap is reached, so `used_actions` freezes and the overage units
-//! computed here stop growing. This module reports what happened; it
-//! does not bill past what the gate allowed.
+//! The customer's self-set hard cap (`tenant_quota.max_usd_micros`) is
+//! enforced at the action-dispatch choke point
+//! (`worker_actions_dispatch::execute` →
+//! `worker_actions_auto_approval::ensure_tenant_cap_allows_dispatch`):
+//! once period-to-date spend reaches the cap, further spending actions
+//! are refused across every approval path, so `used_actions` stops
+//! climbing and the overage units computed here stop growing. (The
+//! separate `argo_provider::SpendGate`, wired at `build_transport`,
+//! caps raw LLM provider cost against the `[budget]` ceilings — a
+//! distinct limit from this per-tenant dollar cap.) This module only
+//! reports what already happened; it does not itself bill past what the
+//! gate allowed.
 
 use crate::stripe_client::{StripeClient, StripeError};
 

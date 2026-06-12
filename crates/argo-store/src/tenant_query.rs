@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::SessionStore;
 
-pub use crate::tenant_query_inspect::{rename_tenant, show_tenant};
+pub use crate::tenant_query_inspect::{list_tenants_on_tier, rename_tenant, show_tenant};
 
 const ENSURE_TIER_COLUMN_SQL: &str =
     include_str!("../migrations/104__tenant_tier.sql");
