@@ -4,6 +4,7 @@ import { CalendarClock, Sparkles, X } from "lucide-react";
 import { use, useEffect, useState } from "react";
 import { WorkerOverviewContent } from "@/components/skycot/worker/WorkerOverviewContent";
 import { ScorecardCard } from "@/components/skycot/worker/ScorecardCard";
+import { EvalScorecard } from "@/components/skycot/worker/EvalScorecard";
 import { RunOutputCard } from "@/components/skycot/worker/RunOutputCard";
 import { RecentChangesPanel } from "@/components/skycot/worker/RecentChangesPanel";
 import { WorkerPersonalityCard } from "@/components/skycot/worker/WorkerPersonalityCard";
@@ -33,6 +34,7 @@ export default function WorkerOverviewPage({
       <WorkerPersonalityCard workerId={workerId} />
       <WorkerOverviewContent workerId={workerId} />
       <ScorecardCard workerId={workerId} />
+      <EvalScorecard workerId={workerId} />
       <RunOutputCard workerId={workerId} />
       <RecentChangesPanel workerId={workerId} />
     </div>
