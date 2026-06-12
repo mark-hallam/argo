@@ -82,8 +82,24 @@ async fn skill_usage_response(
     let Some(store) = store else {
         return super::store_unavailable();
     };
+    // WS1 tenant-isolation: resolve the caller's tenant FIRST, then scope
+    // the active-skill lookup to it so `/skills/<name>/usage` can neither
+    // return nor probe the existence of another tenant's skill.
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                json_error(&format!("resolve tenant: {e}")),
+            );
+        }
+    };
+
     let skills = SkillStore::new(Arc::clone(store));
-    let active = match skills.find_active_by_name(name).await {
+    let active = match skills
+        .find_active_by_name_for_tenant(name, &tenant.to_string())
+        .await
+    {
         Ok(Some(s)) => s,
         Ok(None) => {
             return (
@@ -95,16 +111,6 @@ async fn skill_usage_response(
             return (
                 "500 Internal Server Error",
                 json_error(&format!("skill lookup: {e}")),
-            );
-        }
-    };
-
-    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
-        Ok(t) => t,
-        Err(e) => {
-            return (
-                "500 Internal Server Error",
-                json_error(&format!("resolve tenant: {e}")),
             );
         }
     };

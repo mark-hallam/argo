@@ -65,6 +65,47 @@ impl SkillStore {
         row.map(Skill::try_from).transpose()
     }
 
+    /// Tenant-scoped analogue of [`Self::find_active_by_name`]: the
+    /// active (non-superseded, non-rejected) version of `name` that
+    /// belongs to `tenant_id`, if any.
+    ///
+    /// This is the canonical **strict** read path (WS1
+    /// tenant-isolation). The non-tenant [`Self::find_active_by_name`]
+    /// stays as the legacy permissive seam documented in migration
+    /// `131__skill_tenant_id.sql` ("legacy non-tenant read paths
+    /// continue to return workspace-global results during the v1
+    /// permissive seam window; the canonical strict path is the
+    /// tenant-aware variants"). Every tenant-aware caller — the
+    /// gateway client read routes — MUST use this so one tenant's
+    /// skill-name lookup can never surface (or probe the existence
+    /// of) another tenant's row. Same class #2836/p1a flagged for the
+    /// global lookup, now closed at the library layer.
+    ///
+    /// `tenant_id` is a `&str` (not `TenantId`) to match the TEXT
+    /// `skill.tenant_id` column and the `install_for_tenant` write
+    /// path; callers holding a [`argo_types::TenantId`] pass
+    /// `&tenant.to_string()`.
+    pub async fn find_active_by_name_for_tenant(
+        &self,
+        name: &str,
+        tenant_id: &str,
+    ) -> ArgoResult<Option<Skill>> {
+        let row: Option<RawSkill> = sqlx::query_as::<_, RawSkill>(
+            "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
+             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
+             s.lifecycle_state \
+             FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
+             WHERE s.name = ? AND s.tenant_id = ? AND s.lifecycle_state = 'active' \
+             AND s.superseded_by IS NULL",
+        )
+        .bind(name)
+        .bind(tenant_id)
+        .fetch_optional(self.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("skill lookup (tenant): {e}")))?;
+        row.map(Skill::try_from).transpose()
+    }
+
     /// Every row matching `name`, including superseded — i.e.
     /// the full version history for one skill, sorted oldest
     /// first by `created_at`. Used by `GET /skills/<name>/versions`
@@ -152,6 +193,32 @@ impl SkillStore {
         .fetch_all(self.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("skill list: {e}")))?;
+        rows.into_iter().map(Skill::try_from).collect()
+    }
+
+    /// Tenant-scoped analogue of [`Self::list_active`]: all active
+    /// (non-rejected, non-superseded) skills that belong to
+    /// `tenant_id`, ordered by name.
+    ///
+    /// Canonical **strict** read path (WS1 tenant-isolation) — see
+    /// [`Self::find_active_by_name_for_tenant`] for the permissive-seam
+    /// rationale and the `tenant_id: &str` convention. Keeps the same
+    /// lifecycle + supersede filters as [`Self::list_active`] and only
+    /// adds the `tenant_id` bind, so one tenant's active-skill list can
+    /// never enumerate another tenant's skills.
+    pub async fn list_active_for_tenant(&self, tenant_id: &str) -> ArgoResult<Vec<Skill>> {
+        let rows = sqlx::query_as::<_, RawSkill>(
+            "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
+             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
+             s.lifecycle_state \
+             FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
+             WHERE s.tenant_id = ? AND s.lifecycle_state = 'active' \
+             AND s.superseded_by IS NULL ORDER BY s.name ASC",
+        )
+        .bind(tenant_id)
+        .fetch_all(self.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("skill list (tenant): {e}")))?;
         rows.into_iter().map(Skill::try_from).collect()
     }
 }

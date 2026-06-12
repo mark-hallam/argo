@@ -80,6 +80,7 @@ pub(super) async fn dispatch_skills_family(
         let format = parse_query_kv(tail, "format");
         return Some(
             skills_response(
+                req,
                 store,
                 include_superseded,
                 name_contains.as_deref(),
@@ -100,7 +101,8 @@ pub(super) async fn dispatch_skills_family(
             if tail.starts_with("quality ") || tail.starts_with("quality?") {
                 let limit = parse_query_kv(tail, "limit").and_then(|v| v.parse::<usize>().ok());
                 return Some(
-                    super::routes_skills_quality::skill_quality_response(name, store, limit).await,
+                    super::routes_skills_quality::skill_quality_response(name, req, store, limit)
+                        .await,
                 );
             }
         }
@@ -113,8 +115,13 @@ pub(super) async fn dispatch_skills_family(
                 .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("format=")))
                 .map(str::to_string);
             return Some(
-                super::routes_meta::skill_show_response_with_format(name, store, format.as_deref())
-                    .await,
+                super::routes_meta::skill_show_response_with_format(
+                    name,
+                    req,
+                    store,
+                    format.as_deref(),
+                )
+                .await,
             );
         }
     }

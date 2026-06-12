@@ -25,6 +25,7 @@ use std::sync::Arc;
 /// dispatch convention.
 pub(super) async fn skill_quality_response(
     name: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
     limit: Option<usize>,
 ) -> (&'static str, String) {
@@ -32,8 +33,22 @@ pub(super) async fn skill_quality_response(
         return super::store_unavailable();
     };
     let limit = limit.unwrap_or(1).max(1);
+    // WS1 tenant-isolation: resolve the skill within the caller's tenant
+    // so the quality view can't read another tenant's skill score.
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                json_error(&format!("resolve tenant: {e}")),
+            );
+        }
+    };
     let skills = SkillStore::new(Arc::clone(store));
-    let skill = match skills.find_active_by_name(name).await {
+    let skill = match skills
+        .find_active_by_name_for_tenant(name, &tenant.to_string())
+        .await
+    {
         Ok(Some(s)) => s,
         Ok(None) => {
             return (

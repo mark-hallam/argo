@@ -22,6 +22,7 @@ pub(super) use super::routes_lists_memory::{
 /// `{id, name, version, lock, hash, created_at, superseded_by?}`.
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn skills_response(
+    req: &str,
     store: Option<&Arc<SessionStore>>,
     include_superseded: bool,
     name_contains: Option<&str>,
@@ -48,10 +49,25 @@ pub(super) async fn skills_response(
         }
     };
     let skills = argo_skill::SkillStore::new(Arc::clone(store));
+    // WS1 tenant-isolation: the active-skill list is scoped to the
+    // caller's tenant (JWT for a signed-in user, cwd/demo tenant for
+    // anonymous — which is exactly the tenant the demo seed installs
+    // under, so the demo `/skills` page is unaffected). The
+    // `?include-superseded=true` version-history path (`list_all`) is
+    // out of this brief's scope and stays on the permissive seam.
     let result = if include_superseded {
         skills.list_all().await
     } else {
-        skills.list_active().await
+        let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
+            Ok(t) => t,
+            Err(e) => {
+                return (
+                    "500 Internal Server Error",
+                    format!("{{\"error\":\"resolve tenant: {e}\"}}"),
+                );
+            }
+        };
+        skills.list_active_for_tenant(&tenant.to_string()).await
     };
     let needle = name_contains.map(str::to_lowercase);
     let body_needle = body_contains.map(str::to_lowercase);
@@ -122,6 +138,7 @@ pub(super) async fn skills_response(
 /// skills (or all versions). Mirrors the CLI's `argo skill
 /// count` (#430).
 pub(super) async fn skills_count_response(
+    req: &str,
     include_superseded: bool,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
@@ -129,10 +146,22 @@ pub(super) async fn skills_count_response(
         return store_unavailable();
     };
     let skills = argo_skill::SkillStore::new(Arc::clone(store));
+    // WS1 tenant-isolation: count only the caller's tenant's active
+    // skills (mirrors `skills_response`). `include-superseded` stays
+    // on the permissive `list_all` seam (out of brief scope).
     let result = if include_superseded {
         skills.list_all().await
     } else {
-        skills.list_active().await
+        let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
+            Ok(t) => t,
+            Err(e) => {
+                return (
+                    "500 Internal Server Error",
+                    format!("{{\"error\":\"resolve tenant: {e}\"}}"),
+                );
+            }
+        };
+        skills.list_active_for_tenant(&tenant.to_string()).await
     };
     match result {
         Ok(rows) => {

@@ -87,14 +87,30 @@ pub(super) async fn skill_versions_response(
 /// into `argo skill install`.
 pub(super) async fn skill_show_response_with_format(
     name: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
     format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return super::store_unavailable();
     };
+    // WS1 tenant-isolation: scope the single-skill show to the caller's
+    // tenant so `/skills/<name>` can neither return nor probe the
+    // existence of another tenant's skill.
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"resolve tenant: {e}\"}}"),
+            );
+        }
+    };
     let skills = argo_skill::SkillStore::new(Arc::clone(store));
-    match skills.find_active_by_name(name).await {
+    match skills
+        .find_active_by_name_for_tenant(name, &tenant.to_string())
+        .await
+    {
         Ok(Some(s)) => {
             if matches!(format, Some("markdown")) {
                 let mut out = String::from("---\n");

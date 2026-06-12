@@ -27,18 +27,31 @@ fn skill_md(name: &str, source: &str) -> String {
     )
 }
 
-async fn install_skill(skills: &SkillStore, name: &str) -> argo_types::SkillId {
+async fn install_skill(
+    skills: &SkillStore,
+    name: &str,
+    tenant: &argo_types::TenantId,
+) -> argo_types::SkillId {
     let row = skills
-        .install(&skill_md(name, "learned"), None)
+        .install_for_tenant(&skill_md(name, "learned"), &tenant.to_string(), None)
         .await
         .expect("install");
     row.id
 }
 
+/// A minimal HTTP request line carrying an explicit `?tenant=` override
+/// (no session cookie/bearer present), so `resolve_tenant_for_request`
+/// resolves deterministically to `tenant` rather than the cwd fallback.
+fn req_for_tenant(tenant: &argo_types::TenantId) -> String {
+    format!("GET /skills/x/quality?tenant={tenant} HTTP/1.1\r\n\r\n")
+}
+
 #[tokio::test]
 async fn unknown_skill_returns_404() {
     let store = session_store().await;
-    let (status, body) = skill_quality_response("does-not-exist", Some(&store), None).await;
+    let tenant = argo_types::TenantId::new();
+    let (status, body) =
+        skill_quality_response("does-not-exist", &req_for_tenant(&tenant), Some(&store), None).await;
     assert_eq!(status, "404 Not Found");
     assert!(body.contains("no active skill named 'does-not-exist'"));
 }
@@ -47,8 +60,10 @@ async fn unknown_skill_returns_404() {
 async fn no_quality_history_returns_200_with_null_latest() {
     let store = session_store().await;
     let skills = SkillStore::new(Arc::clone(&store));
-    install_skill(&skills, "alpha").await;
-    let (status, body) = skill_quality_response("alpha", Some(&store), None).await;
+    let tenant = argo_types::TenantId::new();
+    install_skill(&skills, "alpha", &tenant).await;
+    let (status, body) =
+        skill_quality_response("alpha", &req_for_tenant(&tenant), Some(&store), None).await;
     assert_eq!(status, "200 OK");
     let v: serde_json::Value = serde_json::from_str(&body).expect("json");
     assert_eq!(v["skill_name"], "alpha");
@@ -65,7 +80,8 @@ async fn no_quality_history_returns_200_with_null_latest() {
 async fn latest_score_is_returned_for_skill_with_history() {
     let store = session_store().await;
     let skills = SkillStore::new(Arc::clone(&store));
-    let id = install_skill(&skills, "beta").await;
+    let tenant = argo_types::TenantId::new();
+    let id = install_skill(&skills, "beta", &tenant).await;
     let qstore = SkillQualityStore::new(Arc::clone(&store));
     qstore.ensure_schema().await.expect("schema");
     let inputs = QualityInputs {
@@ -78,7 +94,8 @@ async fn latest_score_is_returned_for_skill_with_history() {
         .record(id, &inputs, chrono::Utc::now())
         .await
         .expect("record");
-    let (status, body) = skill_quality_response("beta", Some(&store), None).await;
+    let (status, body) =
+        skill_quality_response("beta", &req_for_tenant(&tenant), Some(&store), None).await;
     assert_eq!(status, "200 OK");
     let v: serde_json::Value = serde_json::from_str(&body).expect("json");
     assert_eq!(v["skill_name"], "beta");
@@ -97,7 +114,8 @@ async fn latest_score_is_returned_for_skill_with_history() {
 async fn history_limit_returns_prior_scores_newest_first() {
     let store = session_store().await;
     let skills = SkillStore::new(Arc::clone(&store));
-    let id = install_skill(&skills, "gamma").await;
+    let tenant = argo_types::TenantId::new();
+    let id = install_skill(&skills, "gamma", &tenant).await;
     let qstore = SkillQualityStore::new(Arc::clone(&store));
     qstore.ensure_schema().await.expect("schema");
     for success in [0.80, 0.85, 0.90, 0.95] {
@@ -114,7 +132,8 @@ async fn history_limit_returns_prior_scores_newest_first() {
         // tiny gap so timestamps are distinct
         tokio::time::sleep(std::time::Duration::from_millis(2)).await;
     }
-    let (status, body) = skill_quality_response("gamma", Some(&store), Some(3)).await;
+    let (status, body) =
+        skill_quality_response("gamma", &req_for_tenant(&tenant), Some(&store), Some(3)).await;
     assert_eq!(status, "200 OK");
     let v: serde_json::Value = serde_json::from_str(&body).expect("json");
     assert!(v["latest"].is_object(), "latest must be present");
@@ -139,7 +158,9 @@ async fn history_limit_returns_prior_scores_newest_first() {
 
 #[tokio::test]
 async fn store_unavailable_returns_503() {
-    let (status, body) = skill_quality_response("alpha", None, None).await;
+    let tenant = argo_types::TenantId::new();
+    let (status, body) =
+        skill_quality_response("alpha", &req_for_tenant(&tenant), None, None).await;
     assert!(
         status.starts_with("503"),
         "no-store path must return 503, got: {status} / {body}"

@@ -153,14 +153,22 @@ fn month_start_iso_pins_to_first_of_month_utc() {
 async fn skill_usage_endpoint_returns_provenance_and_workers() {
     let session = session_store().await;
     let skills = SkillStore::new(Arc::clone(&session));
-    install(&skills, "approval.route", "published:verified:market").await;
+    // WS1: the `/usage` route is now tenant-scoped, so install the skill
+    // under the tenant the request resolves to. With no session
+    // cookie/bearer, an explicit `?tenant=` override wins, so the request
+    // resolves to `tenant` deterministically.
+    let tenant = argo_types::TenantId::new();
+    skills
+        .install_for_tenant(
+            &skill_md("approval.route", "published:verified:market"),
+            &tenant.to_string(),
+            None,
+        )
+        .await
+        .expect("install skill");
 
-    let (status, body) = dispatch_route(
-        "GET /skills/approval.route/usage HTTP/1.1\r\n\r\n",
-        Some(&session),
-    )
-    .await
-    .expect("route");
+    let req = format!("GET /skills/approval.route/usage?tenant={tenant} HTTP/1.1\r\n\r\n");
+    let (status, body) = dispatch_route(&req, Some(&session)).await.expect("route");
     assert_eq!(status, "200 OK");
     let parsed: serde_json::Value = serde_json::from_str(&body).expect("json");
     assert_eq!(parsed["skill_name"], "approval.route");

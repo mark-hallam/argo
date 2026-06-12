@@ -43,7 +43,7 @@ pub(super) async fn dispatch_skills_count(
     let include_superseded = parse_query_kv(tail, "include-superseded")
         .map(|v| v == "true" || v == "1")
         .unwrap_or(false);
-    skills_count_response(include_superseded, store).await
+    skills_count_response(req, include_superseded, store).await
 }
 
 /// `GET /memory/count[?file&since-minutes]` dispatch.
