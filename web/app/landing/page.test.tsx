@@ -50,14 +50,21 @@ describe("MarketingLandingPage", () => {
     expect(screen.queryByTestId("waitlist-success")).not.toBeInTheDocument();
   });
 
-  it("shows a labeled demo-video placeholder (not a fake video)", () => {
+  it("points the demo slot at the live demo workspace (no dead play button, no fake video)", () => {
     render(<MarketingLandingPage />);
 
+    // While no MP4 is configured the slot is a REAL link into the live demo
+    // journey — not a play button with a dead handler.
     const slot = screen.getByTestId("demo-video-slot");
     expect(slot).toBeInTheDocument();
-    expect(screen.getByTestId("demo-pending-pill")).toHaveTextContent(/recording/i);
-    // No <video> element is rendered while the MP4 does not exist.
+    expect(slot.tagName).toBe("A");
+    expect(slot).toHaveAttribute("href", "/auth/signup");
+    expect(screen.getByTestId("demo-live-cta-pill")).toHaveTextContent(
+      /try it live.*no email/i,
+    );
+    // NO THEATER: no <video> element and no fake "recording" pill.
     expect(document.querySelector("video")).toBeNull();
+    expect(screen.queryByTestId("demo-pending-pill")).not.toBeInTheDocument();
   });
 
   it("renders the Portia embed as a LIVE, truth-bounded widget with an ask input", () => {

@@ -976,8 +976,15 @@
     #6d28d9 45%,
     var(--brand-pink) 100%);
 }
-.demo-poster.is-ready {
+.demo-poster.is-ready,
+.demo-poster.is-live-cta {
   cursor: pointer;
+}
+/* The live-demo CTA is a real <a> link — strip default anchor styling. */
+.demo-poster.is-live-cta {
+  display: block;
+  text-decoration: none;
+  color: inherit;
 }
 .demo-poster-art {
   position: absolute;
@@ -1006,11 +1013,9 @@
   box-shadow: 0 12px 40px -8px rgba(0,0,0,0.4);
   transition: transform 0.18s;
 }
-.demo-poster.is-ready:hover .demo-play-btn {
+.demo-poster.is-ready:hover .demo-play-btn,
+.demo-poster.is-live-cta:hover .demo-play-btn {
   transform: scale(1.06);
-}
-.demo-poster.is-pending .demo-play-btn {
-  opacity: 0.85;
 }
 .demo-poster-meta {
   position: absolute;
@@ -1036,8 +1041,9 @@
   backdrop-filter: blur(6px);
   border: 1px solid rgba(255,255,255,0.22);
 }
-.demo-meta-pending {
-  text-transform: uppercase;
+.demo-meta-live {
+  background: color-mix(in oklch, #000 18%, transparent);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 /* ---------- Talk-to-Portia embed ---------- */
