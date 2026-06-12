@@ -5,11 +5,10 @@
 //! `routes.rs` can fall through to its 404 default.
 //!
 //! Domain-grouped sub-dispatchers live in sibling files
-//! (`routes_dispatch_post_workers`, `_audit`, `_memory`,
-//! `_retros`, `_duties`, `_approvals`). Hub-local arms cover
-//! cross-domain plumbing (sessions/verticals/skills/cron/forge/
-//! db/metrics/judge/genesis/workspace) where a single sibling
-//! grouping would not help.
+//! (`routes_dispatch_post_workers`, `_audit`, `_memory`, `_retros`,
+//! `_duties`, `_approvals`). Hub-local arms cover cross-domain
+//! plumbing (sessions/verticals/skills/cron/forge/db/metrics/judge/
+//! genesis/workspace) where a single sibling grouping would not help.
 use super::routes_auth::require_identity;
 use super::routes_auth_principal::{parse_principal_header, principal_id_for_audit};
 use super::routes_post::create_session_response;
