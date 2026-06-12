@@ -371,6 +371,11 @@ async fn api_v1_dispatch(
     if let Some(resp) = super::routes_connectors::dispatch_post(req, store).await {
         return Some(resp);
     }
+    // BYOK (DEC-053 Enterprise) — `POST /api/v1/providers/keys` stores a
+    // tenant's OWN upstream provider key; owner-only, secret never echoed.
+    if let Some(resp) = super::routes_provider_keys::dispatch_post(req, store).await {
+        return Some(resp);
+    }
     if let Some(resp) = super::routes_skill_ir::dispatch_post(req, store).await {
         return Some(resp);
     }

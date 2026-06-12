@@ -8,7 +8,7 @@ use argo_provider::{
     OpenAiCompatTransport, OpenAiResponsesTransport, ProviderFamily, ProviderManifest,
     Transport, TransportKind,
 };
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::{ArgoError, ArgoResult, TenantId};
 use std::path::{Path, PathBuf};
 
 /// Resolve a `ProviderManifest` to a live `Transport`. Anthropic /
@@ -20,6 +20,12 @@ use std::path::{Path, PathBuf};
 /// driver. When `ARGO_PROVIDER_DEDUP_TTL_SECS` is a positive integer,
 /// the result is additionally wrapped with [`DedupCache`] so identical
 /// non-streaming requests in the TTL window collapse to one wire call.
+///
+/// This is the **process-global** entrypoint: the API key comes from
+/// the platform env / unscoped credential store. For per-tenant BYOK
+/// (Bring Your Own Key, DEC-053 Enterprise tier) resolution where a
+/// tenant's own key must WIN over the platform key, use
+/// [`build_transport_for_tenant`].
 pub async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Box<dyn Transport>> {
     // Subprocess-kind manifests use no API key — dispatch first so the
     // missing `manifest.auth.api_key_env` value (it's only a placeholder
@@ -30,30 +36,135 @@ pub async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Box<dyn T
         )));
     }
     if matches!(manifest.provider.family, ProviderFamily::Bedrock) {
-        let cfg = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-        return Ok(maybe_wrap_dedup(Box::new(BedrockTransport::from_manifest(
-            manifest, &cfg,
-        )?)));
+        return build_bedrock(manifest).await;
     }
     let api_key_env = manifest.auth.api_key_env.clone();
     // tenant-unscoped: provider API key resolved at transport layer (process-wide, not per-tenant)
     let api_key = argo_config::cred::get_unscoped(&api_key_env)
         .map_err(|_| ArgoError::Provider(format!("{api_key_env} not set")))?;
-    let t: Box<dyn Transport> = match manifest.provider.family {
-        ProviderFamily::Anthropic => {
-            Box::new(AnthropicTransport::from_manifest(manifest, &api_key)?)
+    Ok(maybe_wrap_dedup(transport_for_family(manifest, &api_key)?))
+}
+
+/// Per-tenant BYOK variant of [`build_transport`] (DEC-053 Enterprise).
+///
+/// API-key families resolve the key via [`resolve_provider_api_key`]:
+/// the tenant's own key (stored under `[credentials.tenant.<tid>]`)
+/// WINS over the platform/process key. `allow_platform_fallback`
+/// controls what happens when the tenant has NO key of their own:
+///
+/// * `true` (standard tier) — fall back to the platform/process key,
+///   exactly the [`build_transport`] behaviour. Backward-compatible:
+///   a tenant who never set a BYOK key is served the platform key.
+/// * `false` (enterprise BYOK default — OFF) — **fail closed** with an
+///   honest error rather than silently billing the platform key. A
+///   silent fallback would un-do the zero-COGS margin model.
+///
+/// Note the fail-closed contract is about a *missing* tenant key. A
+/// tenant whose own key is present-but-invalid is still built with that
+/// key, so the provider returns an honest auth error at call time —
+/// there is deliberately no retry-with-platform path here.
+///
+/// Subprocess (claude-code-cli OAuth) and Bedrock (AWS credentials)
+/// manifests carry no per-tenant API key and behave as in
+/// [`build_transport`].
+pub async fn build_transport_for_tenant(
+    manifest: ProviderManifest,
+    workspace: &Path,
+    tenant_id: &TenantId,
+    allow_platform_fallback: bool,
+) -> ArgoResult<Box<dyn Transport>> {
+    if matches!(manifest.provider.transport_kind, TransportKind::Subprocess) {
+        return Ok(maybe_wrap_dedup(Box::new(
+            ClaudeCodeCliTransport::from_manifest(manifest)?,
+        )));
+    }
+    if matches!(manifest.provider.family, ProviderFamily::Bedrock) {
+        return build_bedrock(manifest).await;
+    }
+    let api_key_env = manifest.auth.api_key_env.clone();
+    let api_key =
+        resolve_provider_api_key(workspace, tenant_id, &api_key_env, allow_platform_fallback)?;
+    Ok(maybe_wrap_dedup(transport_for_family(manifest, &api_key)?))
+}
+
+/// Resolve the provider API key for `tenant_id`, applying the BYOK
+/// precedence: the tenant's own stored key WINS over the platform key.
+///
+/// Resolution order:
+/// 1. The tenant's OWN key in `[credentials.tenant.<tid>]` — read via
+///    [`argo_config::cred::load_tenant`], which consults ONLY that
+///    tenant's section (never the process env, never the legacy
+///    root-level section), so one tenant's key can never resolve for
+///    another tenant.
+/// 2. No per-tenant key → the platform/process key, but ONLY when
+///    `allow_platform_fallback` is `true`.
+/// 3. Otherwise **fail closed** with an honest error.
+///
+/// The returned `String` is the exact key handed to the transport's
+/// `from_manifest`; the error messages name only the env-var KEY and
+/// the tenant id — never a secret value.
+///
+/// # Errors
+/// Returns [`ArgoError::Provider`] when no per-tenant key is set and
+/// either fallback is disabled, or fallback is enabled but the platform
+/// key is also absent.
+pub fn resolve_provider_api_key(
+    workspace: &Path,
+    tenant_id: &TenantId,
+    api_key_env: &str,
+    allow_platform_fallback: bool,
+) -> ArgoResult<String> {
+    // 1. Tenant's OWN key — tenant section only, no env / legacy fallback.
+    let tenant_creds = argo_config::cred::load_tenant(workspace, tenant_id).unwrap_or_default();
+    if let Some(key) = tenant_creds.get(api_key_env) {
+        let trimmed = key.trim();
+        if !trimmed.is_empty() {
+            return Ok(trimmed.to_string());
         }
+    }
+    // 2. No per-tenant key: platform key only when fallback is allowed.
+    if allow_platform_fallback {
+        // tenant-unscoped: standard-tier fallback to the platform key when the
+        // tenant has set no BYOK key of their own.
+        return argo_config::cred::get_unscoped(api_key_env)
+            .map_err(|_| ArgoError::Provider(format!("{api_key_env} not set")));
+    }
+    // 3. Fail closed — enterprise BYOK tenant with no key + fallback OFF.
+    Err(ArgoError::Provider(format!(
+        "no per-tenant {api_key_env} configured for tenant {tenant_id} \
+         and platform-key fallback is disabled for this tenant"
+    )))
+}
+
+/// Construct the AWS-credential Bedrock transport. Shared by both
+/// [`build_transport`] and [`build_transport_for_tenant`] — Bedrock
+/// authenticates via the AWS credential chain, not a per-tenant key.
+async fn build_bedrock(manifest: ProviderManifest) -> ArgoResult<Box<dyn Transport>> {
+    let cfg = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+    Ok(maybe_wrap_dedup(Box::new(BedrockTransport::from_manifest(
+        manifest, &cfg,
+    )?)))
+}
+
+/// Build the family-specific API-key transport from a resolved key.
+/// Bedrock is handled by [`build_bedrock`] before this is reached.
+fn transport_for_family(
+    manifest: ProviderManifest,
+    api_key: &str,
+) -> ArgoResult<Box<dyn Transport>> {
+    let t: Box<dyn Transport> = match manifest.provider.family {
+        ProviderFamily::Anthropic => Box::new(AnthropicTransport::from_manifest(manifest, api_key)?),
         ProviderFamily::OpenaiCompatible => {
-            Box::new(OpenAiCompatTransport::from_manifest(manifest, &api_key)?)
+            Box::new(OpenAiCompatTransport::from_manifest(manifest, api_key)?)
         }
         ProviderFamily::OpenaiResponses => {
-            Box::new(OpenAiResponsesTransport::from_manifest(manifest, &api_key)?)
+            Box::new(OpenAiResponsesTransport::from_manifest(manifest, api_key)?)
         }
-        // Already handled above; reachable only if a new family is
-        // added without wiring it through. Fail loud.
-        ProviderFamily::Bedrock => unreachable!("bedrock handled above"),
+        // Already handled by the caller; reachable only if a new family
+        // is added without wiring it through. Fail loud.
+        ProviderFamily::Bedrock => unreachable!("bedrock handled by caller"),
     };
-    Ok(maybe_wrap_dedup(t))
+    Ok(t)
 }
 
 /// Conditionally wrap `inner` with [`DedupCache`] when
@@ -251,6 +362,88 @@ mod tests {
         assert_eq!(
             m.provider.id, "anthropic",
             "cwd manifest must win over $ARGO_MANIFESTS_DIR fallback"
+        );
+    }
+
+    // ---- BYOK per-tenant key resolution (DEC-053 Enterprise) ----
+    //
+    // These pin the security contract for `resolve_provider_api_key`,
+    // the seam whose return value is handed verbatim to the transport's
+    // `from_manifest`. Each test uses a UNIQUE `api_key_env` name so the
+    // process-env reads never race the parallel test harness.
+
+    #[test]
+    fn tenant_key_wins_over_platform_env() {
+        let ws = tempfile::tempdir().expect("ws tempdir");
+        let tenant = TenantId::new();
+        let env_key = "BYOK_TEST_TENANT_WINS";
+        // Platform key present in process env...
+        // SAFETY: unique-per-test env name; restored below.
+        unsafe { std::env::set_var(env_key, "PLATFORM-KEY") };
+        // ...but the tenant set their OWN key, which must win.
+        argo_config::cred::set_tenant(ws.path(), &tenant, env_key, "TENANT-OWN-KEY")
+            .expect("set tenant key");
+        let resolved = resolve_provider_api_key(ws.path(), &tenant, env_key, true)
+            .expect("resolves tenant key");
+        unsafe { std::env::remove_var(env_key) };
+        assert_eq!(
+            resolved, "TENANT-OWN-KEY",
+            "the tenant's own key must WIN over the platform env key"
+        );
+    }
+
+    #[test]
+    fn no_tenant_key_falls_back_to_platform_when_allowed() {
+        let ws = tempfile::tempdir().expect("ws tempdir");
+        let tenant = TenantId::new();
+        let env_key = "BYOK_TEST_PLATFORM_FALLBACK";
+        // SAFETY: unique-per-test env name; restored below.
+        unsafe { std::env::set_var(env_key, "PLATFORM-KEY") };
+        let resolved = resolve_provider_api_key(ws.path(), &tenant, env_key, true)
+            .expect("falls back to platform key");
+        unsafe { std::env::remove_var(env_key) };
+        assert_eq!(
+            resolved, "PLATFORM-KEY",
+            "a tenant with no BYOK key gets the platform key when fallback is allowed"
+        );
+    }
+
+    #[test]
+    fn fail_closed_when_no_tenant_key_and_fallback_off() {
+        let ws = tempfile::tempdir().expect("ws tempdir");
+        let tenant = TenantId::new();
+        // fallback=false path never reads the process env, so we don't
+        // touch it — the absence of a tenant key alone must fail closed.
+        let err = resolve_provider_api_key(ws.path(), &tenant, "BYOK_TEST_FAIL_CLOSED", false)
+            .expect_err("must fail closed");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("BYOK_TEST_FAIL_CLOSED") && msg.contains("fallback is disabled"),
+            "fail-closed error must name the env key + the disabled fallback; got: {msg}"
+        );
+    }
+
+    #[test]
+    fn cross_tenant_isolation_no_key_leak() {
+        let ws = tempfile::tempdir().expect("ws tempdir");
+        let tenant_a = TenantId::new();
+        let tenant_b = TenantId::new();
+        let env_key = "BYOK_TEST_CROSS_TENANT";
+        let secret_a = "SECRET-FOR-TENANT-A-9f3";
+        argo_config::cred::set_tenant(ws.path(), &tenant_a, env_key, secret_a)
+            .expect("set tenant A key");
+        // Tenant A resolves their own key.
+        let a = resolve_provider_api_key(ws.path(), &tenant_a, env_key, false)
+            .expect("tenant A resolves own key");
+        assert_eq!(a, secret_a);
+        // Tenant B (who set nothing) must NOT see tenant A's key, even
+        // though it lives in the same credentials file — fail closed.
+        let err = resolve_provider_api_key(ws.path(), &tenant_b, env_key, false)
+            .expect_err("tenant B must not inherit tenant A's key");
+        let msg = format!("{err}");
+        assert!(
+            !msg.contains(secret_a),
+            "secret must NEVER appear in the error surfaced to another tenant; got: {msg}"
         );
     }
 }

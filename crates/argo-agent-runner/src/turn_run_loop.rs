@@ -6,7 +6,7 @@
 //! tool-dispatch loop.
 
 use crate::helpers::{emit_event, price_for, RunEventSink, SpendCtx};
-use crate::transport::{build_transport, load_manifest};
+use crate::transport::{build_transport_for_tenant, load_manifest};
 use crate::turn_vertical::{
     build_session_grant_state, build_turn_start_payload, build_vertical_approval_set,
     build_vertical_deny_set, resolve_vertical_for_session,
@@ -129,7 +129,14 @@ pub(crate) async fn run_turn_with_events_inner(
         .map(|d| d.chosen_provider_model.model.clone())
         .unwrap_or_else(|| session.model.clone());
     let pricing = price_for(&manifest, &effective_model);
-    let transport: Box<dyn Transport> = build_transport(manifest).await?;
+    // BYOK (DEC-053 Enterprise): a tenant's own provider key (stored
+    // under `[credentials.tenant.<tid>]`) WINS over the platform key.
+    // `allow_platform_fallback = true` keeps this backward-compatible —
+    // a tenant who never set a BYOK key is served the platform key
+    // exactly as before. Enterprise fail-closed (fallback OFF) is wired
+    // when the per-tenant tier bit is plumbed through.
+    let transport: Box<dyn Transport> =
+        build_transport_for_tenant(manifest, cwd, &session.tenant_id, true).await?;
 
     // Vertical lookup: when the session is bound, load the
     // declared role/system_prompt + carry the slug into the audit

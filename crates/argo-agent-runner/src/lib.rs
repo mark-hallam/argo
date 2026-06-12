@@ -70,7 +70,9 @@ pub use helpers::{
     build_assistant_content, emit_event, lift_tool_blocks, message_from_row, price_for,
     record_turn_spend, stream_one_round, turn_cost_usd, RoundResp, RunEventSink, SpendCtx,
 };
-pub use transport::{build_transport, load_manifest};
+pub use transport::{
+    build_transport, build_transport_for_tenant, load_manifest, resolve_provider_api_key,
+};
 pub use turn::turn_planner::{maybe_decompose, DecomposeOutcome, PlannerHook};
 pub use turn::{
     compose_system_prompt_for_diagnostics, run_turn, run_turn_with_events,
