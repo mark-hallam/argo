@@ -1,5 +1,5 @@
 use super::{deliver_magic_link, error_resp, looks_like_email, mint_token, sha256_hex};
-use super::{DeliveryStatus, IpAddr, SessionStore};
+use super::{MagicLinkDeliveryStatus, IpAddr, SessionStore};
 use crate::handlers::gateway::rate_limit_ip::{self, RateLimitIpCheckResult};
 use crate::handlers::gateway::signup_protection::{SignupFields, SignupProtectionOutcome};
 use argo_store::user_account;
@@ -90,6 +90,6 @@ pub(crate) async fn signup_response(
 /// bot-protection `SilentOk` path deliberately keeps the unconditional
 /// [`SIGNUP_SENT_BODY`] so a probing bot learns nothing about delivery
 /// configuration.
-fn signup_status_body(status: DeliveryStatus) -> String {
+fn signup_status_body(status: MagicLinkDeliveryStatus) -> String {
     serde_json::json!({ "status": status.as_response_status() }).to_string()
 }

@@ -13,7 +13,7 @@ use std::sync::OnceLock;
 /// the stranger "sent". A user whose email never goes out then waits
 /// forever for a link that was never delivered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum DeliveryStatus {
+pub(crate) enum MagicLinkDeliveryStatus {
     /// A real provider accepted the message for delivery.
     Sent,
     /// A real provider was configured but the send failed (network,
@@ -27,14 +27,14 @@ pub(crate) enum DeliveryStatus {
     NotConfigured,
 }
 
-impl DeliveryStatus {
+impl MagicLinkDeliveryStatus {
     /// Client-facing status string for the signup JSON response. The
     /// SPA's check-email page keys its honest copy on these literals.
     pub(crate) fn as_response_status(self) -> &'static str {
         match self {
-            DeliveryStatus::Sent => "sent",
-            DeliveryStatus::DeliveryFailed => "delivery_failed",
-            DeliveryStatus::NotConfigured => "not_configured",
+            MagicLinkDeliveryStatus::Sent => "sent",
+            MagicLinkDeliveryStatus::DeliveryFailed => "delivery_failed",
+            MagicLinkDeliveryStatus::NotConfigured => "not_configured",
         }
     }
 }
@@ -56,7 +56,7 @@ pub(crate) fn base_url_from(raw: Option<String>) -> String {
         .unwrap_or_else(|| "https://app.skycot.com".to_string())
 }
 
-pub(crate) async fn deliver_magic_link(email: &str, raw_token: &str) -> DeliveryStatus {
+pub(crate) async fn deliver_magic_link(email: &str, raw_token: &str) -> MagicLinkDeliveryStatus {
     deliver_with_config(outbound_config(), email, raw_token).await
 }
 
@@ -67,7 +67,7 @@ pub(crate) async fn deliver_with_config(
     cfg: &EmailOutboundConfig,
     email: &str,
     raw_token: &str,
-) -> DeliveryStatus {
+) -> MagicLinkDeliveryStatus {
     let magic_url = format!("{}/auth/verify?token={raw_token}", public_base_url());
     let rendered = MagicLinkEmail {
         magic_url: magic_url.clone(),
@@ -97,10 +97,10 @@ pub(crate) async fn deliver_with_config(
     // for an operator to copy.
     if cfg.provider == EmailOutboundProvider::Noop {
         let _ = email_outbound::send(cfg, msg).await;
-        return DeliveryStatus::NotConfigured;
+        return MagicLinkDeliveryStatus::NotConfigured;
     }
     match email_outbound::send(cfg, msg).await {
-        Ok(()) => DeliveryStatus::Sent,
+        Ok(()) => MagicLinkDeliveryStatus::Sent,
         Err(reason) => {
             // Provider detail stays server-side (log + audit); the
             // client only ever sees the generic `delivery_failed`.
@@ -111,7 +111,7 @@ pub(crate) async fn deliver_with_config(
                 reason = %reason,
                 "outbound email failed; magic link still in trace log for operator copy",
             );
-            DeliveryStatus::DeliveryFailed
+            MagicLinkDeliveryStatus::DeliveryFailed
         }
     }
 }

@@ -438,13 +438,13 @@ async fn verify_emits_auth_succeeded_and_auth_failed_audit_rows() {
 
 #[test]
 fn delivery_status_response_strings_are_stable() {
-    assert_eq!(DeliveryStatus::Sent.as_response_status(), "sent");
+    assert_eq!(MagicLinkDeliveryStatus::Sent.as_response_status(), "sent");
     assert_eq!(
-        DeliveryStatus::DeliveryFailed.as_response_status(),
+        MagicLinkDeliveryStatus::DeliveryFailed.as_response_status(),
         "delivery_failed"
     );
     assert_eq!(
-        DeliveryStatus::NotConfigured.as_response_status(),
+        MagicLinkDeliveryStatus::NotConfigured.as_response_status(),
         "not_configured"
     );
 }
@@ -457,7 +457,7 @@ async fn deliver_noop_provider_reports_not_configured() {
         ..EmailOutboundConfig::default()
     };
     let status = deliver_with_config(&cfg, "ada@example.com", "tok-abc").await;
-    assert_eq!(status, DeliveryStatus::NotConfigured);
+    assert_eq!(status, MagicLinkDeliveryStatus::NotConfigured);
 }
 
 #[tokio::test]
@@ -472,7 +472,7 @@ async fn deliver_send_error_reports_delivery_failed() {
         ..EmailOutboundConfig::default()
     };
     let status = deliver_with_config(&cfg, "ada@example.com", "tok-abc").await;
-    assert_eq!(status, DeliveryStatus::DeliveryFailed);
+    assert_eq!(status, MagicLinkDeliveryStatus::DeliveryFailed);
 }
 
 #[test]

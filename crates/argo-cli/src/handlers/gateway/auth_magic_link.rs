@@ -46,7 +46,7 @@ pub(super) use auth_audit::{
     emit_auth_failed, emit_auth_succeeded, error_resp, verify_rate_limit_check,
     VERIFY_RATE_LIMIT_WINDOW,
 };
-pub(super) use auth_delivery::{deliver_magic_link, looks_like_email, DeliveryStatus};
+pub(super) use auth_delivery::{deliver_magic_link, looks_like_email, MagicLinkDeliveryStatus};
 #[cfg(test)]
 pub(super) use auth_delivery::{base_url_from, deliver_with_config};
 pub(super) use auth_signup::signup_response;
