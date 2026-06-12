@@ -284,6 +284,108 @@ LAST_BRIEF=""
 LAST_BRIEF_FAILS=0
 MAX_SAME_BRIEF_FAILS=2
 
+# --- Quota-sleep tunables + probe-resume (fix-worker-quota-sleep-overshoot) --
+# Background: on 2026-06-12 both slots hit the 5h rolling window but parsed the
+# NEXT-DAY weekly-cap reset out of the same error message and armed a ~22h
+# sleep for a ~3h outage. A conductor probe (claude -p) returned OK at 05:17
+# while the slots still showed 928min remaining — ~7h of build time lost. Three
+# defenses below make the parsed reset ADVISORY rather than load-bearing:
+#   1. QUOTA_SLEEP_CAP_SECS clamps the parsed sleep so a misparse can never
+#      strand a slot for a day.
+#   2. Every QUOTA_PROBE_INTERVAL_TICKS heartbeat, fire the operator-authorized
+#      1-token probe (feedback_watchdog_quota_probe_authorized); on success,
+#      resume early — at most one cap-window of over-sleep is ever lost.
+#   3. Background-sleep + `wait` so SIGHUP/TERM/INT traps fire mid-sleep (the
+#      old foreground `sleep` swallowed SIGTERM until the tick elapsed; the
+#      conductor needed SIGKILL to recover the wedged slot).
+QUOTA_SLEEP_CAP_SECS="${QUOTA_SLEEP_CAP_SECS:-7200}"          # 2h ceiling on the parsed sleep
+QUOTA_HEARTBEAT_INTERVAL="${QUOTA_HEARTBEAT_INTERVAL:-300}"   # 5min heartbeat tick
+QUOTA_PROBE_INTERVAL_TICKS="${QUOTA_PROBE_INTERVAL_TICKS:-6}" # probe every 6th tick (~30min); 0 disables
+QUOTA_PROBE_TIMEOUT_SECS="${QUOTA_PROBE_TIMEOUT_SECS:-60}"    # 60s ceiling on the probe itself
+
+# quota_probe_ok — the operator-authorized 1-token quota probe.
+# Fires `claude -p "say ok"` under a hard ceiling (memory
+# feedback_watchdog_quota_probe_authorized locks this exact pattern). Returns 0
+# when the CLI answers with non-empty text (quota window is open again),
+# non-zero on timeout/empty/error (still rate-limited). QUOTA_HIT is cleared in
+# the probe env so a stray sentinel can't confuse a nested invocation. macOS
+# ships no `timeout`, so the ceiling uses the portable background-watcher
+# fallback (same shape as scripts/stop-gate-verify-agent.sh `bounded`).
+quota_probe_ok() {
+  local out rc
+  if command -v timeout >/dev/null 2>&1; then
+    out=$(QUOTA_HIT="" timeout "${QUOTA_PROBE_TIMEOUT_SECS}" claude -p "say ok" 2>/dev/null); rc=$?
+  elif command -v gtimeout >/dev/null 2>&1; then
+    out=$(QUOTA_HIT="" gtimeout "${QUOTA_PROBE_TIMEOUT_SECS}" claude -p "say ok" 2>/dev/null); rc=$?
+  else
+    # No coreutils timeout: run claude in the background, kill it after the
+    # ceiling. A wedged probe can never out-live QUOTA_PROBE_TIMEOUT_SECS.
+    local tmp pid watcher
+    tmp=$(mktemp)
+    ( QUOTA_HIT="" claude -p "say ok" >"$tmp" 2>/dev/null ) & pid=$!
+    ( sleep "${QUOTA_PROBE_TIMEOUT_SECS}"; kill -TERM "$pid" 2>/dev/null ) & watcher=$!
+    wait "$pid" 2>/dev/null; rc=$?
+    kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
+    out=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"
+  fi
+  [ "$rc" -eq 0 ] && [ -n "$out" ]
+}
+
+# clamp_quota_sleep SECS — echo SECS clamped to QUOTA_SLEEP_CAP_SECS. Pure;
+# extracted so the cap is unit-testable.
+clamp_quota_sleep() {
+  local secs="$1"
+  if [ "$secs" -gt "$QUOTA_SLEEP_CAP_SECS" ]; then
+    echo "$QUOTA_SLEEP_CAP_SECS"
+  else
+    echo "$secs"
+  fi
+}
+
+# quota_sleep_with_probe REMAINING [RESUME_AT]
+# Sleeps REMAINING seconds in QUOTA_HEARTBEAT_INTERVAL ticks, heartbeating each
+# tick. Background-sleeps each tick (`sleep & wait`) so the clean-stop trap
+# fires immediately on SIGHUP/TERM/INT. Every QUOTA_PROBE_INTERVAL_TICKS ticks
+# fires quota_probe_ok; on success it logs and returns 0 EARLY so the caller can
+# `continue` the loop. Always returns 0 when the window elapses normally.
+quota_sleep_with_probe() {
+  local remaining="$1"
+  local resume_at="${2:-after sleep}"
+  local tick_count=0
+  local this_tick mins
+  while [ "$remaining" -gt 0 ]; do
+    this_tick=$remaining
+    [ "$this_tick" -gt "$QUOTA_HEARTBEAT_INTERVAL" ] && this_tick=$QUOTA_HEARTBEAT_INTERVAL
+    # Background sleep + wait: bash defers traps while blocked on a FOREGROUND
+    # child, but `wait` is interruptible, so SIGTERM reaches release_on_signal
+    # within this tick instead of after the whole sleep.
+    sleep "$this_tick" & wait $! || true
+    remaining=$((remaining - this_tick))
+    tick_count=$((tick_count + 1))
+    if [ "$remaining" -gt 0 ]; then
+      mins=$((remaining / 60))
+      echo "[$(date +%H:%M:%S)] 💤 quota-sleep — ${mins}min remaining (resume ~${resume_at})"
+    fi
+    if [ "$QUOTA_PROBE_INTERVAL_TICKS" -gt 0 ] \
+       && [ $((tick_count % QUOTA_PROBE_INTERVAL_TICKS)) -eq 0 ]; then
+      echo "[$(date +%H:%M:%S)] 🔎 quota probe (tick ${tick_count})…"
+      if quota_probe_ok; then
+        echo "[$(date +%H:%M:%S)] ✅ quota probe OK — resuming early"
+        return 0
+      fi
+      echo "[$(date +%H:%M:%S)] quota probe still limited — keep sleeping"
+    fi
+  done
+  return 0
+}
+
+# Allow tests to source this file for its functions without running the loop.
+if [ -n "${CLAUDE_WORKER_LOOP_SOURCE_ONLY:-}" ]; then
+  # `return` works when sourced; `exit` is the unreachable run-directly fallback.
+  # shellcheck disable=SC2317  # reached only when run directly (not sourced)
+  return 0 2>/dev/null || exit 0
+fi
+
 while true; do
   # Halt sentinels: /tmp/argo-stop is transient (wiped by macOS reboot),
   # ~/.argo/stop is persistent (survives reboot). Either halts the worker.
@@ -813,6 +915,16 @@ except Exception:
 PY
 )
 
+    # Clamp the parsed sleep to the cap. With probe-resume in place a short cap
+    # costs at most one failed probe per cap window, and a misparsed far-future
+    # reset (e.g. a NEXT-DAY weekly-cap time read for a 5h-window outage) can
+    # never strand a slot for a day. See QUOTA_SLEEP_CAP_SECS above.
+    CLAMPED_SECS=$(clamp_quota_sleep "$SLEEP_SECS")
+    if [ "$CLAMPED_SECS" != "$SLEEP_SECS" ]; then
+      echo "[$(date +%H:%M:%S)] parsed sleep ${SLEEP_SECS}s exceeds cap ${QUOTA_SLEEP_CAP_SECS}s — clamping to ${CLAMPED_SECS}s (probe-resume covers the rest)."
+      SLEEP_SECS=$CLAMPED_SECS
+    fi
+
     # Release the just-claimed row → TODO so a fresh worker (this loop, post-sleep)
     # can re-claim. Salvage note points at /tmp/<brief-id> for any partial WIP.
     # Note: regex captures up-to-but-not-including the trailing ` |` so the
@@ -846,23 +958,14 @@ PY
     RESUME_AT=$(date -v+"${SLEEP_SECS}"S +%H:%M:%S 2>/dev/null \
              || date -d "@$(($(date +%s)+SLEEP_SECS))" +%H:%M:%S 2>/dev/null \
              || echo "after sleep")
-    echo "[$(date +%H:%M:%S)] Sleeping ${SLEEP_SECS}s until quota reset (+5min buffer). Resume at ${RESUME_AT}."
+    echo "[$(date +%H:%M:%S)] Sleeping up to ${SLEEP_SECS}s until quota reset (+5min buffer). Resume at ${RESUME_AT}."
     # Heartbeat every 5 min during the long sleep so the operator sees that
     # the tab is alive and waiting (instead of looking like a dead terminal).
-    # SIGHUP/TERM/INT trap above still applies — the tab can be Ctrl-C'd
-    # cleanly during this sleep and the claim will be released.
-    REMAINING=$SLEEP_SECS
-    HEARTBEAT_INTERVAL=300  # 5 minutes
-    while [ "$REMAINING" -gt 0 ]; do
-      THIS_TICK=$REMAINING
-      [ "$THIS_TICK" -gt "$HEARTBEAT_INTERVAL" ] && THIS_TICK=$HEARTBEAT_INTERVAL
-      sleep "$THIS_TICK"
-      REMAINING=$((REMAINING - THIS_TICK))
-      if [ "$REMAINING" -gt 0 ]; then
-        MINS=$((REMAINING / 60))
-        echo "[$(date +%H:%M:%S)] 💤 quota-sleep — ${MINS}min remaining (resume ~${RESUME_AT})"
-      fi
-    done
+    # Every ~30min the loop fires the operator-authorized quota probe and
+    # resumes early if the window has reopened (the parsed reset is advisory).
+    # SIGHUP/TERM/INT trap above still applies — and now fires MID-tick because
+    # quota_sleep_with_probe background-sleeps and `wait`s.
+    quota_sleep_with_probe "$SLEEP_SECS" "$RESUME_AT"
     echo "[$(date +%H:%M:%S)] ✅ Quota window expected open. Resuming loop."
     continue
   fi
