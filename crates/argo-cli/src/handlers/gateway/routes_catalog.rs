@@ -162,6 +162,8 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/api/v1/workspace/members", "list workspace members (?role&status)"),
         ("POST", "/api/v1/workspace/members/invite", "invite a workspace member ({email, role})"),
         ("POST", "/api/v1/workspace/members/accept", "accept a workspace-member invite ({token})"),
+        ("GET", "/api/v1/connectors", "list connectors + per-tenant connection status (tenant-scoped)"),
+        ("POST", "/api/v1/connectors/<id>/authorize", "attach a credential to a connector (owner-only, tenant-scoped; secret in body, never logged)"),
         ("GET", "/api/v1/team", "deprecated alias of /api/v1/workers — legacy SPA shim"),
         ("GET", "/api/v1/workers", "list AI teammates (?status&cohort&vertical&format=markdown)"),
         ("POST", "/api/v1/workers", "hire a new teammate ({worker_draft, problem, answers})"),

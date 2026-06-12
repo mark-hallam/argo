@@ -30,5 +30,9 @@ pub(super) async fn dispatch_api_get(
     if let Some(resp) = super::routes_inbound_channels::dispatch_get(req, store).await {
         return Some(resp);
     }
+    // tg2 — `GET /api/v1/connectors` tenant-scoped connection roster.
+    if let Some(resp) = super::routes_connectors::dispatch_get(req, store).await {
+        return Some(resp);
+    }
     None
 }

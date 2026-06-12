@@ -365,6 +365,12 @@ async fn api_v1_dispatch(
     if let Some(resp) = super::routes_api_keys::dispatch_post(req, store).await {
         return Some(resp);
     }
+    // tg2 — tenant-scoped connector authorize (Tier-2 tiered-gating). Stores a
+    // token/API-key credential for `POST /api/v1/connectors/<id>/authorize`
+    // (and the SPA's `/credentials` alias); owner-only, secret never echoed.
+    if let Some(resp) = super::routes_connectors::dispatch_post(req, store).await {
+        return Some(resp);
+    }
     if let Some(resp) = super::routes_skill_ir::dispatch_post(req, store).await {
         return Some(resp);
     }

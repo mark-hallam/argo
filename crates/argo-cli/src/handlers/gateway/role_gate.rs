@@ -68,6 +68,12 @@ pub(super) enum Action {
     /// `[tools].allowed` (revoke removes it), so it is as sensitive as
     /// executor-promotion: owner only.
     WorkerCapabilityGrant,
+    /// `POST /api/v1/connectors/<id>/{authorize,credentials}` (tg2) — store a
+    /// tenant-scoped provider credential for a token/API-key connector. It
+    /// loosens the perimeter for the tenant (a previously-unconnected tool can
+    /// now be used), so owner only — the same floor as the other
+    /// credential-/fence-loosening mutations.
+    ConnectorAuthorize,
     /// `PATCH /api/v1/workers/<id>/{channels,quiet-hours,budget,autonomy}`.
     /// Anyone can flip autonomy today — gate to admin+.
     WorkerSettingsPatch,
@@ -130,6 +136,7 @@ impl Action {
             Self::WorkerHardDelete => "worker.hard_delete",
             Self::WorkerExecutorPromote => "worker.executor_promote",
             Self::WorkerCapabilityGrant => "worker.capability_grant",
+            Self::ConnectorAuthorize => "connector.authorize",
             Self::WorkerSettingsPatch => "worker.settings_patch",
             Self::ApprovalDecide => "approval.decide",
             Self::ApprovalUndo => "approval.undo",
@@ -157,6 +164,7 @@ pub(super) fn required_role(action: Action) -> UserTenantRole {
         Action::WorkerHardDelete
         | Action::WorkerExecutorPromote
         | Action::WorkerCapabilityGrant
+        | Action::ConnectorAuthorize
         | Action::AuditCrossTenant
         | Action::DataExport
         | Action::KnowledgeDelete => UserTenantRole::Owner,
