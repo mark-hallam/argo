@@ -458,23 +458,11 @@ pub fn load_tenant(
         Some(section) => section.clone(),
         None => return Ok(BTreeMap::new()),
     };
-    let master_key = if section.values().any(CredentialEntry::is_encrypted) {
-        Some(argo_credentials::MasterKey::resolve(None).map_err(|e| {
-            ArgoError::Provider(format!(
-                "decrypt credential: master key not configured: {e}"
-            ))
-        })?)
-    } else {
-        None
-    };
-    let mut credentials = BTreeMap::new();
-    for (key, entry) in section {
-        let value = entry
-            .into_plain(master_key.as_ref())
-            .map_err(|e| ArgoError::Provider(format!("decrypt {key}: {e}")))?;
-        credentials.insert(key, value);
-    }
-    Ok(credentials)
+    // Tenant entries are encrypted under the PER-TENANT master key (see
+    // `io::set_tenant`), so they must be decrypted with the per-tenant key
+    // (legacy global key is the fallback only). Using the legacy key alone
+    // here would fail with "No matching keys found" on per-tenant blobs.
+    io::decrypt_tenant_section(tenant_id, section)
 }
 
 #[cfg(test)]

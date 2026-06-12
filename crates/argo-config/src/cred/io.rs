@@ -35,7 +35,18 @@ pub fn set(workspace: &Path, key: &str, value: &str) -> ArgoResult<()> {
     write_document(workspace, &document)
 }
 
-/// Set one credential value scoped to a specific tenant.
+/// Set one credential value scoped to a specific tenant, **encrypted at
+/// rest** under the per-tenant master key.
+///
+/// This is the write path behind BYOK provider keys
+/// (`POST /api/v1/providers/keys`) and tenant connector tokens. The
+/// stored value is wrapped as [`CredentialEntry::Encrypted`] whenever a
+/// per-tenant master key resolves (the steady state in any configured
+/// deployment). When no master key is configured — a key-less dev/test
+/// workspace — it logs a one-shot warning and falls back to
+/// [`CredentialEntry::Plain`] so those environments keep round-tripping.
+/// The read path ([`super::get`] / [`super::load_tenant`]) decrypts both
+/// shapes transparently, so callers never see the difference.
 ///
 /// # Errors
 /// Returns an [`ArgoError`] when the key is invalid or the file cannot
@@ -47,14 +58,55 @@ pub fn set_tenant(
     value: &str,
 ) -> ArgoResult<()> {
     validate_key(key)?;
+    let entry = encrypt_tenant_value(*tenant_id, value);
     let mut document = load_document(workspace)?;
     document
         .credentials
         .tenant
         .entry(tenant_id.to_string())
         .or_default()
-        .insert(key.to_string(), CredentialEntry::Plain(value.to_string()));
+        .insert(key.to_string(), entry);
     write_document(workspace, &document)
+}
+
+/// Wrap a tenant credential for storage, encrypting at rest under the
+/// per-tenant master key.
+///
+/// Returns [`CredentialEntry::Encrypted`] when
+/// [`MasterKey::resolve_for_tenant`] succeeds. When no master key source
+/// is configured (`ARGO_WORKSPACE_ROOT_KEY` / `ARGO_CREDENTIALS_MASTER_KEY`
+/// both absent and no key file on disk), it emits a one-shot
+/// `tracing::warn!` per tenant and falls back to
+/// [`CredentialEntry::Plain`] so key-less workspaces keep working. This
+/// mirrors the read path's existing tolerance of mixed plain/encrypted
+/// entries — encrypt when we can, never break a write because no key is
+/// configured, but make the downgrade observable.
+fn encrypt_tenant_value(tenant_id: TenantId, value: &str) -> CredentialEntry {
+    match MasterKey::resolve_for_tenant(tenant_id)
+        .and_then(|key| encrypt_value(value, key.as_ref()))
+    {
+        Ok(blob) => CredentialEntry::Encrypted { value: blob },
+        Err(_) => {
+            warn_plaintext_fallback(tenant_id);
+            CredentialEntry::Plain(value.to_string())
+        }
+    }
+}
+
+fn warn_plaintext_fallback(tenant_id: TenantId) {
+    static SEEN: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+    let set = SEEN.get_or_init(|| Mutex::new(HashSet::new()));
+    if let Ok(mut guard) = set.lock() {
+        if !guard.insert(tenant_id.to_string()) {
+            return;
+        }
+    }
+    tracing::warn!(
+        target: "argo_config::cred",
+        tenant_id = %tenant_id,
+        "tenant credential stored UNENCRYPTED at rest: no master key configured \
+         (set ARGO_WORKSPACE_ROOT_KEY or ARGO_CREDENTIALS_MASTER_KEY to encrypt)"
+    );
 }
 
 /// Remove one credential value (legacy root-level). Returns `true` when the key existed.
@@ -171,6 +223,58 @@ pub(super) fn decrypt_tenant_value_with_migration(
         warn_legacy_migration(tenant_id, key);
     }
     Ok(plaintext)
+}
+
+/// Decrypt a whole tenant section for bulk loaders ([`super::load_tenant`],
+/// the hot path behind `resolve_provider_api_key`), using the **per-tenant**
+/// master key with a legacy global-key fallback.
+///
+/// This mirrors the per-read [`decrypt_tenant_value_with_migration`] key
+/// resolution so writes (encrypted under the per-tenant key by
+/// [`set_tenant`]) and bulk reads agree on which key decrypts. Unlike the
+/// per-read path it does NOT write back lazily-migrated blobs: bulk loaders
+/// are read-only, and the `get`/`decrypt_tenant_value_with_migration` path
+/// owns the lazy-migration write-back.
+///
+/// # Errors
+/// Returns [`ArgoError`] when the per-tenant key cannot be resolved (and a
+/// section entry is encrypted) or when a blob cannot be decrypted under
+/// either the per-tenant or the legacy key.
+pub(super) fn decrypt_tenant_section(
+    tenant_id: &TenantId,
+    section: BTreeMap<String, CredentialEntry>,
+) -> ArgoResult<BTreeMap<String, String>> {
+    let needs_key = section.values().any(CredentialEntry::is_encrypted);
+    let primary = if needs_key {
+        Some(MasterKey::resolve_for_tenant(*tenant_id)?)
+    } else {
+        None
+    };
+    let legacy = if needs_key {
+        MasterKey::resolve(None).ok()
+    } else {
+        None
+    };
+    let mut out = BTreeMap::new();
+    for (key, entry) in section {
+        let value = match entry {
+            CredentialEntry::Plain(v) => v,
+            CredentialEntry::Encrypted { value } => {
+                // `needs_key` is set whenever any entry is encrypted, so
+                // `primary` is always `Some` on this arm.
+                let primary = primary.as_ref().ok_or_else(|| {
+                    ArgoError::Provider(
+                        "decrypt tenant credential: master key not configured".to_string(),
+                    )
+                })?;
+                decrypt_value_with_fallback(&value, primary, legacy.as_ref())
+                    .map(|d| d.plaintext)
+                    .map_err(|e| ArgoError::Provider(format!("decrypt {key}: {e}")))?
+            }
+        };
+        out.insert(key, value);
+    }
+    Ok(out)
 }
 
 fn rewrite_tenant_entry(

@@ -116,6 +116,70 @@ fn malformed_encrypted_blob_returns_typed_error() {
 }
 
 #[test]
+fn set_tenant_encrypts_byok_key_at_rest() {
+    // Acceptance (pricing-byok-encrypt-keys-at-rest): a tenant-scoped key
+    // written via `set_tenant` lands ENCRYPTED — the plaintext secret must
+    // not appear on disk — and the read path decrypts it back unchanged.
+    with_master_key(|_| {
+        let dir = tempfile::tempdir().unwrap();
+        let tenant = argo_types::TenantId::new();
+        let secret = "sk-ant-byok-supersecret-do-not-leak";
+        env::remove_var("ANTHROPIC_API_KEY");
+
+        set_tenant(dir.path(), &tenant, "ANTHROPIC_API_KEY", secret).unwrap();
+
+        // On-disk TOML must NOT contain the plaintext secret.
+        let body = fs::read_to_string(credentials_path(dir.path())).unwrap();
+        assert!(
+            !body.contains(secret),
+            "plaintext provider key leaked to disk: {body}"
+        );
+
+        // Read path (used by `resolve_provider_api_key` via `load_tenant`)
+        // transparently decrypts back to the original.
+        let via_get = get_from_workspace(dir.path(), &tenant, "ANTHROPIC_API_KEY").unwrap();
+        assert_eq!(via_get, secret);
+        let loaded = load_tenant(dir.path(), &tenant).unwrap();
+        assert_eq!(
+            loaded.get("ANTHROPIC_API_KEY").map(String::as_str),
+            Some(secret)
+        );
+    });
+}
+
+#[test]
+fn set_tenant_falls_back_to_plain_without_master_key() {
+    // Key-less workspace: no master key configured → graceful plaintext
+    // fallback (with a one-shot warn) so dev/test environments keep
+    // round-tripping. The read path handles the plain shape.
+    let _guard = env_mutex().lock().unwrap_or_else(|e| e.into_inner());
+    let dir = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    let tenant = argo_types::TenantId::new();
+    let prior_root = env::var(argo_credentials::WORKSPACE_ROOT_KEY_ENV).ok();
+    let prior_key = env::var(argo_credentials::MASTER_KEY_ENV).ok();
+    let prior_home = env::var("HOME").ok();
+    env::remove_var(argo_credentials::WORKSPACE_ROOT_KEY_ENV);
+    env::remove_var(argo_credentials::MASTER_KEY_ENV);
+    env::set_var("HOME", home.path());
+    env::remove_var("PLAIN_FALLBACK_TOKEN");
+
+    set_tenant(dir.path(), &tenant, "PLAIN_FALLBACK_TOKEN", "plain-val").unwrap();
+
+    let body = fs::read_to_string(credentials_path(dir.path())).unwrap();
+    assert!(
+        body.contains("plain-val"),
+        "expected plaintext fallback when no master key configured: {body}"
+    );
+    let got = get_from_workspace(dir.path(), &tenant, "PLAIN_FALLBACK_TOKEN").unwrap();
+    assert_eq!(got, "plain-val");
+
+    restore_env(argo_credentials::WORKSPACE_ROOT_KEY_ENV, prior_root);
+    restore_env(argo_credentials::MASTER_KEY_ENV, prior_key);
+    restore_env("HOME", prior_home);
+}
+
+#[test]
 fn migrate_plaintext_format_round_trips_through_load() {
     with_master_key(|key| {
         let dir = tempfile::tempdir().unwrap();
