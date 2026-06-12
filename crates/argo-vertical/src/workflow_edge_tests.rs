@@ -151,27 +151,19 @@ fn rejects_typoed_field_inside_step() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// FINDINGS-ONLY: cycle detection is NOT implemented today.
+// CYCLE DETECTION (implemented by fix-workflow-cycle-detection).
 // ─────────────────────────────────────────────────────────────
-// `validate_workflow` only checks that every name in
-// `depends_on` resolves to an existing step. It does not build
-// the dependency DAG, so a graph with cycles passes validation.
-// The runner today walks steps in declaration order — so a
-// cycle is benign at runtime. But the workflow.rs docstring
-// explicitly flags "An ordering-graph upgrade in Phase 5+" for
-// `depends_on`; that upgrade would infinite-loop on these
-// inputs unless cycle detection lands first.
-//
-// These tests are `#[ignore]`'d and will start passing as soon
-// as cycle detection is added. Fix-brief: `claude-vertical-
-// workflow-cycle-detection` (see PR body).
+// `validate_workflow` now builds the `depends_on` graph and runs
+// a depth-first back-edge scan, so any cyclic graph is rejected
+// at parse/validate time with a "dependency cycle detected"
+// error. These tests (formerly `#[ignore]`'d findings) now pass;
+// the matching LOCK-IN test that asserted a 2-cycle was accepted
+// has been removed in the same PR.
 
-/// FINDINGS-ONLY: a step that lists ITSELF as a dependency is
-/// not detected today. Should be rejected after the fix-brief
-/// lands.
+/// A step that lists ITSELF as a dependency (`A → A`) is a
+/// self-cycle and must be rejected.
 #[test]
-#[ignore = "cycle detection not implemented yet — see claude-vertical-workflow-cycle-detection"]
-fn findings_only_self_dependency_should_be_rejected() {
+fn self_dependency_is_rejected() {
     let mut a = step("a", "prompt");
     a.depends_on = vec!["a".to_string()];
     let wf = workflow_with_steps(vec![a]);
@@ -179,10 +171,9 @@ fn findings_only_self_dependency_should_be_rejected() {
     assert!(format!("{err}").to_lowercase().contains("cycle"));
 }
 
-/// FINDINGS-ONLY: a 2-node cycle A→B→A is not detected today.
+/// A 2-node cycle `A → B → A` must be rejected.
 #[test]
-#[ignore = "cycle detection not implemented yet — see claude-vertical-workflow-cycle-detection"]
-fn findings_only_two_node_cycle_should_be_rejected() {
+fn two_node_cycle_is_rejected() {
     let mut a = step("a", "prompt");
     let mut b = step("b", "prompt");
     a.depends_on = vec!["b".to_string()];
@@ -192,10 +183,9 @@ fn findings_only_two_node_cycle_should_be_rejected() {
     assert!(format!("{err}").to_lowercase().contains("cycle"));
 }
 
-/// FINDINGS-ONLY: a 3-node cycle A→B→C→A is not detected today.
+/// A 3-node cycle `A → C → B → A` must be rejected.
 #[test]
-#[ignore = "cycle detection not implemented yet — see claude-vertical-workflow-cycle-detection"]
-fn findings_only_three_node_cycle_should_be_rejected() {
+fn three_node_cycle_is_rejected() {
     let mut a = step("a", "prompt");
     let mut b = step("b", "prompt");
     let mut c = step("c", "prompt");
@@ -207,16 +197,19 @@ fn findings_only_three_node_cycle_should_be_rejected() {
     assert!(format!("{err}").to_lowercase().contains("cycle"));
 }
 
-/// LOCK-IN: current behaviour — a 2-node cycle parses cleanly.
-/// This test fails when cycle detection lands, signalling that
-/// the lock-in test above should be removed in the same PR.
+/// A valid DAG with shared dependencies and a diamond shape
+/// (`d → b,c`; `b,c → a`) must still pass — cycle detection must
+/// not reject a graph merely because a node is reachable by more
+/// than one path.
 #[test]
-fn current_behaviour_two_node_cycle_passes_validation() {
-    let mut a = step("a", "prompt");
+fn valid_diamond_dag_still_passes() {
+    let a = step("a", "prompt");
     let mut b = step("b", "prompt");
-    a.depends_on = vec!["b".to_string()];
+    let mut c = step("c", "prompt");
+    let mut d = step("d", "prompt");
     b.depends_on = vec!["a".to_string()];
-    let wf = workflow_with_steps(vec![a, b]);
-    validate_workflow(&wf)
-        .expect("today a 2-cycle is accepted; remove this test once detection lands");
+    c.depends_on = vec!["a".to_string()];
+    d.depends_on = vec!["b".to_string(), "c".to_string()];
+    let wf = workflow_with_steps(vec![a, b, c, d]);
+    validate_workflow(&wf).expect("a valid diamond DAG must pass cycle detection");
 }

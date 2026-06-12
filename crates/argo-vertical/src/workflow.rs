@@ -161,7 +161,74 @@ pub fn validate_workflow(wf: &Workflow) -> ArgoResult<()> {
             }
         }
     }
+    validate_no_cycles(wf)?;
     Ok(())
+}
+
+/// Reject `depends_on` graphs that contain a cycle.
+///
+/// Edges run step → dependency. A depth-first search marks nodes
+/// white (unvisited) / gray (on the current path) / black (fully
+/// explored); encountering a gray node means a back-edge, i.e. a
+/// cycle. Both a self-dependency (`A → A`) and a multi-node cycle
+/// (`A → B → A`) are rejected with the offending path named. This
+/// is pure validation — it runs unconditionally at parse time and
+/// has no effect on how a valid workflow loads.
+fn validate_no_cycles(wf: &Workflow) -> ArgoResult<()> {
+    use std::collections::HashMap;
+    let adj: HashMap<&str, &[String]> = wf
+        .steps
+        .iter()
+        .map(|s| (s.name.as_str(), s.depends_on.as_slice()))
+        .collect();
+    // 0 = white (unvisited), 1 = gray (on path), 2 = black (done).
+    let mut state: HashMap<&str, u8> = HashMap::new();
+    let mut path: Vec<&str> = Vec::new();
+    for step in &wf.steps {
+        if let Some(cycle) = dfs_find_cycle(step.name.as_str(), &adj, &mut state, &mut path) {
+            return Err(ArgoError::Schema(format!(
+                "workflow '{}': dependency cycle detected: {}",
+                wf.workflow.name,
+                cycle.join(" -> ")
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// DFS helper for [`validate_no_cycles`]. Returns the cycle path
+/// (from the repeated node back to itself) on a back-edge, else
+/// `None`. Recursion depth is bounded by the step count.
+fn dfs_find_cycle<'a>(
+    node: &'a str,
+    adj: &std::collections::HashMap<&'a str, &'a [String]>,
+    state: &mut std::collections::HashMap<&'a str, u8>,
+    path: &mut Vec<&'a str>,
+) -> Option<Vec<&'a str>> {
+    match state.get(node) {
+        Some(2) => return None,
+        Some(1) => {
+            // Back-edge: slice the current path from the first
+            // occurrence of `node` and close the loop on itself.
+            let start = path.iter().position(|n| *n == node).unwrap_or(0);
+            let mut cycle: Vec<&str> = path[start..].to_vec();
+            cycle.push(node);
+            return Some(cycle);
+        }
+        _ => {}
+    }
+    state.insert(node, 1);
+    path.push(node);
+    if let Some(deps) = adj.get(node) {
+        for dep in deps.iter() {
+            if let Some(cycle) = dfs_find_cycle(dep.as_str(), adj, state, path) {
+                return Some(cycle);
+            }
+        }
+    }
+    path.pop();
+    state.insert(node, 2);
+    None
 }
 
 fn validate_step_kind(workflow_name: &str, step: &WorkflowStep) -> ArgoResult<()> {
