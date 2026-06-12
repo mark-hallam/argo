@@ -82,6 +82,13 @@ docker compose -f deploy/docker-compose.yml run --rm gateway argo gateway --help
 # 5. Eyeball the secrets file is filled + locked (this does NOT print values):
 ls -l deploy/.env.deploy            # expect -rw------- (chmod 600)
 grep -c '=' deploy/.env.deploy      # sanity: the expected count of set vars
+
+# 6. PRE-DEPLOY GATE — bring the SAME canonical images up locally end-to-end and
+#    assert /health + the SPA + the hire/approve/metrics routes actually serve.
+#    This is the proof the stack RUNS (not just "builds"); the last green run is
+#    recorded in deploy/smoke/LAST-PASS.md. Requires a local Docker daemon + host
+#    ports 8080/3000 free (override with SMOKE_GATEWAY_PORT / SMOKE_SPA_PORT).
+bash deploy/smoke/run.sh             # exit 0 = stack came up + all checks green
 ```
 
 **Read each artifact before building from it.** `cat deploy/Dockerfile.gateway`,
@@ -91,6 +98,7 @@ conductor walks each line with you so you know what every container does.
 **Pre-flight checklist — tick every box before the `up` in step 5:**
 - [ ] `docker compose … config` renders cleanly (no env/syntax errors).
 - [ ] `docker compose … build` succeeds for **both** images.
+- [ ] `bash deploy/smoke/run.sh` exits 0 (the pre-deploy gate — stack comes up + all checks green; see `deploy/smoke/LAST-PASS.md` for the last recorded PASS).
 - [ ] `nginx -t` reports the config is OK.
 - [x] CONFIRMED against the binary (2026-06-01): `argo gateway start --bind 127.0.0.1 --port 7400`; provision via `argo tenant create <NAME> --json` then `argo demo seed --tenant <ID> [--skip-pass-a-turns]` (resolves refine-item #2).
 - [ ] Security group exposes **only** 443 + 22 (your IP); `3000`/`7400` are NOT public.

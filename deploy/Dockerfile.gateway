@@ -13,11 +13,13 @@
 # ---- builder ----
 FROM rust:1.83-slim-bookworm AS builder
 WORKDIR /src
-# reqwest TLS needs pkg-config + libssl. (Refine-item #4 in DEPLOYMENT.md: if
-# the release build links sqlcipher, add libsqlcipher-dev here + libsqlcipher
-# in the runtime stage.)
+# reqwest TLS needs pkg-config + libssl. The bundled-sqlcipher feature's
+# vendored-OpenSSL build (openssl-src) drives an OpenSSL Configure+make from
+# source, which needs `make` AND the FULL `perl` package: the rust slim image
+# ships only `perl-base`, so OpenSSL's ./Configure dies with "Can't locate
+# FindBin.pm" (a perl-modules file). `cc` already ships in the image.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        pkg-config libssl-dev libdbus-1-dev && rm -rf /var/lib/apt/lists/*
+        pkg-config libssl-dev libdbus-1-dev make perl && rm -rf /var/lib/apt/lists/*
 COPY . .
 # The project's default release profile (lto=fat, codegen-units=1) needs >7.6 GB
 # to LINK the ~60-crate argo binary — more than Docker's memory cap and more than
@@ -27,12 +29,20 @@ COPY . .
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true \
     CARGO_PROFILE_RELEASE_LTO=thin \
     CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
-RUN cargo build --release --bin argo
+# --features bundled-sqlcipher: production mode mandates an encrypted-at-rest
+# DB (SQLCipher). The boot guard enforce_enterprise_encryption() fails closed
+# unless the binary is SQLCipher-linked AND a key_source is set (see .env.smoke
+# SKYCOT_DB_KEY_BASE64). Plain `--bin argo` exits 1 at boot in production mode.
+RUN cargo build --release --features bundled-sqlcipher --bin argo
 
 # ---- runtime ----
 FROM debian:bookworm-slim AS runtime
+# libdbus-1-3: the argo binary dynamically links libdbus-1.so.3 (pulled in via
+# the secret-service/keyring credential crate). Without it the runtime container
+# exits 127 (loader: "libdbus-1.so.3: cannot open shared object file") before
+# the gateway ever binds. Found on the deploy-smoke first-green run 2026-06-12.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
+        ca-certificates libssl3 libdbus-1-3 && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /src/target/release/argo /usr/local/bin/argo
 # On-disk runtime deps + env overrides so the gateway never falls back to a

@@ -53,21 +53,39 @@ services:
         condition: service_healthy
     environment:
       ARGO_GATEWAY_BEARER_TOKEN: ${ARGO_GATEWAY_BEARER_TOKEN:?ARGO_GATEWAY_BEARER_TOKEN must be set in .env.smoke}
+      # Auth bypass is the documented smoke escape hatch (see deploy/smoke/README.md
+      # "Auth bypass — CI ONLY"). It must reach the gateway PROCESS, not just the
+      # --env-file: forwarding it here (a) frees the smoke of bearer-token ceremony
+      # and (b) disables the production JWT-secret boot guard (startup_check.rs
+      # jwt_guard_active), which otherwise exit-78s a non-loopback bind that has no
+      # SKYCOT_AUTH_JWT_SECRET. NEVER set this in production.
+      ARGO_GATEWAY_AUTH_BYPASS: ${ARGO_GATEWAY_AUTH_BYPASS:-1}
       DATABASE_URL: ${DATABASE_URL:-postgres://argo:${POSTGRES_PASSWORD}@postgres:5432/argo}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ARGO_TENANT_DEFAULT: ${ARGO_TENANT_DEFAULT:-default}
       ARGO_LOG_LEVEL: ${ARGO_LOG_LEVEL:-info}
+      # CI-ONLY throwaway encrypted-store key (see .env.smoke). Production mode
+      # requires a SQLCipher-linked binary + non-none key_source; the gateway
+      # exits 1 at boot without it. Forwarded to the container PROCESS (the
+      # --env-file only drives compose substitution, not the container env).
+      SKYCOT_DB_KEY_BASE64: ${SKYCOT_DB_KEY_BASE64:?SKYCOT_DB_KEY_BASE64 must be set in .env.smoke}
     volumes:
       - argo-data:/data
     ports:
-      - "8080:8080"
+      # Host port is parameterized (SMOKE_GATEWAY_PORT, default 8080) so a smoke
+      # run can dodge a host-port collision — e.g. a dev gateway/SPA already bound.
+      # Container port stays 8080 (matches the --port below).
+      - "${SMOKE_GATEWAY_PORT:-8080}:8080"
     # The canonical image's CMD binds 127.0.0.1:7400 (loopback, nginx-fronted).
-    # For the host-port-exposed smoke we override to 0.0.0.0:8080. --insecure-bind
-    # is required for a non-loopback bind (argo ships without TLS; the smoke is
-    # behind no public ingress). Policies/corpus stay bundled from the image.
+    # For the host-port-exposed smoke we override to 0.0.0.0:8080. A non-loopback
+    # bind requires the two-flag override --bind-non-loopback
+    # --accept-insecure-bind-warning (the old single --insecure-bind flag is now
+    # rejected at runtime; see cmd_dispatch::resolve_non_loopback_override). argo
+    # ships without TLS and the smoke is behind no public ingress, so the override
+    # is the intended path here. Policies/corpus stay bundled from the image.
     command:
-      ["argo", "gateway", "start", "--bind", "0.0.0.0", "--port", "8080", "--insecure-bind"]
+      ["argo", "gateway", "start", "--bind", "0.0.0.0", "--port", "8080", "--bind-non-loopback", "--accept-insecure-bind-warning"]
     # `argo gateway probe live` is the in-binary K8s-style probe already in the
     # image (the slim runtime ships no curl). Web's depends_on uses this.
     healthcheck:
@@ -90,7 +108,10 @@ services:
       # Override to 0.0.0.0 so the host port mapping below is reachable.
       HOSTNAME: "0.0.0.0"
     ports:
-      - "3000:3000"
+      # Host port is parameterized (SMOKE_SPA_PORT, default 3000) so a smoke run
+      # can dodge a host-port collision — e.g. a dev SPA already bound on :3000.
+      # Container port stays 3000.
+      - "${SMOKE_SPA_PORT:-3000}:3000"
 
 volumes:
   pg-data:

@@ -50,12 +50,20 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
+# Host ports are parameterized so a run can dodge a collision with an
+# already-bound dev gateway/SPA (CI uses the defaults; a dev box can override,
+# e.g. SMOKE_SPA_PORT=3001 when :3000 is taken). These are exported so the
+# compose host-port mappings (`${SMOKE_GATEWAY_PORT:-8080}:8080` etc.) resolve.
+export SMOKE_GATEWAY_PORT="${SMOKE_GATEWAY_PORT:-8080}"
+export SMOKE_SPA_PORT="${SMOKE_SPA_PORT:-3000}"
+
 # Port-conflict detection: bail early rather than racing with whatever
 # is already bound. Best-effort — ss/lsof availability varies.
-for port in 8080 3000; do
+for port in "${SMOKE_GATEWAY_PORT}" "${SMOKE_SPA_PORT}"; do
   if (command -v ss >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ":${port} ") \
    || (command -v lsof >/dev/null 2>&1 && lsof -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1); then
-    echo "FAIL: port ${port} already bound; smoke needs it free" >&2
+    echo "FAIL: port ${port} already bound; smoke needs it free \
+(override with SMOKE_GATEWAY_PORT / SMOKE_SPA_PORT)" >&2
     exit 1
   fi
 done
@@ -102,8 +110,8 @@ wait_for() {
   return 1
 }
 
-GATEWAY_URL="${SMOKE_GATEWAY_URL:-http://localhost:8080}"
-SPA_URL="${SMOKE_SPA_URL:-http://localhost:3000}"
+GATEWAY_URL="${SMOKE_GATEWAY_URL:-http://localhost:${SMOKE_GATEWAY_PORT}}"
+SPA_URL="${SMOKE_SPA_URL:-http://localhost:${SMOKE_SPA_PORT}}"
 
 # The argo image's HEALTHCHECK uses `argo gateway probe live` (no curl
 # in distroless). Compose may still report unhealthy briefly during
@@ -129,5 +137,40 @@ if grep -q '"ok":false' checks.out; then
   "${COMPOSE[@]}" --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" logs --no-color || true
   exit 1
 fi
+
+# --- record the green run -----------------------------------------------------
+# Refresh LAST-PASS.md so a PASS leaves committed, machine-readable evidence
+# (the DEC-029 "authored + builds != works" gate). Best-effort: never let the
+# evidence write flip a green run red.
+record_last_pass() {
+  local out="${SMOKE_DIR}/LAST-PASS.md"
+  local stamp gw_digest web_digest
+  stamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  gw_digest="$(docker image inspect argo:dev --format '{{.Id}}' 2>/dev/null || echo 'unknown')"
+  web_digest="$(docker image inspect argo-web:dev --format '{{.Id}}' 2>/dev/null || echo 'unknown')"
+  {
+    echo "# deploy/smoke — LAST PASS"
+    echo
+    echo "Auto-written by \`deploy/smoke/run.sh\` on every green run. Do NOT edit by"
+    echo "hand — it is the recorded evidence that the smoke stack actually came up"
+    echo "and served its endpoints on a real machine (DEC-029: \"authored + builds\""
+    echo "is not \"works\")."
+    echo
+    echo "- **Last green run (UTC):** ${stamp}"
+    echo "- **Host:** $(uname -srm 2>/dev/null || echo unknown)"
+    echo "- **Gateway image (argo:dev) id:** \`${gw_digest}\`"
+    echo "- **Web image (argo-web:dev) id:** \`${web_digest}\`"
+    echo "- **Gateway URL polled:** ${GATEWAY_URL}/health (200)"
+    echo "- **SPA URL polled:** ${SPA_URL}/ (200)"
+    echo
+    echo "## checks.ts output (all \`\"ok\":true\`)"
+    echo
+    echo '```json'
+    cat checks.out
+    echo '```'
+  } > "${out}"
+  echo "--- recorded evidence to ${out} ---"
+}
+record_last_pass || echo "WARN: record_last_pass failed (smoke still PASS)" >&2
 
 echo "--- smoke PASS ---"
