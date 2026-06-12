@@ -10,6 +10,12 @@ function makeRequest(url: string) {
   return new NextRequest(new URL(url, "http://localhost:3000"));
 }
 
+function makePost(url: string) {
+  return new NextRequest(new URL(url, "http://localhost:3000"), {
+    method: "POST",
+  });
+}
+
 function restoreEnv() {
   Object.defineProperty(process.env, "NODE_ENV", {
     configurable: true,
@@ -102,5 +108,47 @@ describe("middleware auth gate — internal /marketing console is cookie-gated",
     const res = middleware(makeRequest("http://localhost:3000/for/marketing"));
 
     expect(res.headers.get("location")).toBeNull();
+  });
+});
+
+// web-waitlist-failure-ux-and-anon-post-bypass (shakedown F2): the anonymous
+// marketing lead-capture POST proxies (`/api/v1/waitlist`,
+// `/api/v1/enterprise-inquiry`) are mounted ahead of the gateway's bearer-auth
+// gate and are public by design. They MUST pass through to the gateway rewrite,
+// never the `/auth/signin?returnTo=%2Fapi%2Fv1%2Fwaitlist` chain — bouncing an
+// anonymous POST into signin silently loses the lead. The exemption is scoped
+// to those exact paths; the rest of `/api/v1/*` stays cookie-gated.
+describe("middleware — anonymous marketing POST proxies bypass the signin redirect", () => {
+  beforeEach(() => {
+    Object.defineProperty(process.env, "NODE_ENV", {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: "test",
+    });
+    delete process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
+    delete process.env.NEXT_PUBLIC_ARGO_DEMO_MODE;
+  });
+
+  afterEach(() => {
+    restoreEnv();
+  });
+
+  for (const path of ["/api/v1/waitlist", "/api/v1/enterprise-inquiry"]) {
+    it(`lets an unauthenticated POST ${path} pass through (no signin redirect)`, () => {
+      const res = middleware(makePost(`http://localhost:3000${path}`));
+
+      // NextResponse.next() carries no Location header; a redirect would.
+      expect(res.headers.get("location")).toBeNull();
+    });
+  }
+
+  it("still redirects an unauthenticated POST to a non-exempt /api/v1 route", () => {
+    const res = middleware(makePost("http://localhost:3000/api/v1/workers"));
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe(
+      "http://localhost:3000/auth/signin?returnTo=%2Fapi%2Fv1%2Fworkers",
+    );
   });
 });

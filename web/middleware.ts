@@ -213,6 +213,16 @@ export function middleware(req: NextRequest) {
   if (
     pathname.startsWith("/auth") ||
     pathname.startsWith("/api/auth") ||
+    // Anonymous, pre-auth marketing POST proxies. These two gateway routes
+    // are mounted AHEAD of the bearer-auth gate and are public/anonymous-safe
+    // by design (per-IP rate-limited + honeypot-guarded server-side). They
+    // must reach the gateway rewrite, never the
+    // `/auth/signin?returnTo=%2Fapi%2Fv1%2Fwaitlist` chain — bouncing an
+    // anonymous lead-capture POST into signin silently loses the lead
+    // (shakedown F2, web-waitlist-failure-ux-and-anon-post-bypass). Scoped to
+    // these exact paths so the rest of `/api/v1/*` stays cookie-gated.
+    pathname === "/api/v1/waitlist" ||
+    pathname === "/api/v1/enterprise-inquiry" ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
     pathname.startsWith("/landing") ||

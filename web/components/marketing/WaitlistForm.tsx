@@ -15,11 +15,23 @@ import { ApiError } from "@/lib/api/types";
  * routing/deploy fault and surfaces as a clearly-labeled, honest error — it is
  * no longer treated as an expected "backend not built" state.
  *
+ * Conversion resilience (shakedown F2): a single transient failure triggers
+ * one automatic retry before any error is shown, so a brief gateway blip does
+ * not cost the lead. On a persistent failure the entered email is retained in
+ * the field and the copy says so — the lead is never lost silently.
+ *
  * `source` lets the same component distinguish the hero capture from the
  * final-CTA capture in the backend's analytics.
  */
 
 type Phase = "idle" | "submitting" | "queued" | "error";
+
+/**
+ * Delay before the single automatic retry. A real gateway blip (the failure
+ * mode this guards) usually clears within a fraction of a second; a brief
+ * pause gives it that window without making the user feel the form stalled.
+ */
+const RETRY_DELAY_MS = 400;
 
 export interface WaitlistFormProps {
   /** Origin tag forwarded to the backend, e.g. "landing-hero". */
@@ -48,15 +60,27 @@ export function WaitlistForm({ source = "landing", size = "lg" }: WaitlistFormPr
       try {
         await joinWaitlist({ email: trimmed, source });
         setPhase("queued");
-      } catch (err) {
-        // The route is live, so any failure is a genuine routing/server
-        // fault — surface it honestly, never a "backend not built" excuse.
-        setPhase("error");
-        setErrorMsg(
-          err instanceof ApiError && err.message
-            ? err.message
-            : "Something went wrong. Please try again.",
-        );
+      } catch {
+        // One automatic retry — a single gateway blip must not cost the lead.
+        // (The first error is intentionally swallowed; only a persistent
+        // failure after the retry is surfaced to the visitor.)
+        try {
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+          await joinWaitlist({ email: trimmed, source });
+          setPhase("queued");
+        } catch (retryErr) {
+          // Persistent failure. The email is never cleared from state, so it
+          // stays in the field on re-render — and we say so explicitly. Never
+          // lose the lead silently.
+          const detail =
+            retryErr instanceof ApiError && retryErr.message
+              ? ` (${retryErr.message})`
+              : "";
+          setPhase("error");
+          setErrorMsg(
+            `We couldn't reach the server${detail}. Your email is saved here — please try again in a moment.`,
+          );
+        }
       }
     },
     [email, phase, source],
