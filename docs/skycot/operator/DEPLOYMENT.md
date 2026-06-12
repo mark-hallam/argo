@@ -132,6 +132,7 @@ Only when every box is ticked do we run the `up`.
 | `deploy/docker-compose.yml` | gateway + web + nginx, **host networking** (so the gateway is reachable on the host loopback without binding non-loopback), persistent `/data` volume. |
 | `deploy/nginx.conf` | TLS + **basic-auth gate** + path routing (`/api`, `/health`, `/inbox/ws` → gateway; everything else → SPA). |
 | `deploy/.env.deploy.example` | Every env var + secret to set (copy to `.env.deploy`, fill, keep `chmod 600`). |
+| `deploy/{prometheus,alertmanager,grafana}/*` | **Monitoring plane** (opt-in `--profile monitoring`): Prometheus scrape + alert rules, env-fed Alertmanager (SES email), auto-provisioned Grafana dashboards. See [Monitoring](#monitoring-optional----profile-monitoring). |
 
 ---
 
@@ -295,6 +296,53 @@ they're solved):
    fetch real gateway data. Verify the app pages render behind the nginx gate
    without requiring a magic-link session; if any page hard-gates on a session,
    that's the one thing to patch for the gated demo.
+
+---
+
+## Monitoring (optional — `--profile monitoring`)
+
+The alert rules + 4 Grafana dashboards live in `deploy/` as code; this profile
+turns them into a *running* monitoring plane so an outage or a spend-burn pages
+you instead of waiting for a customer email. Off by default (the plain demo
+stays lean). Three operator steps:
+
+1. **Fill the SES alert env in `deploy/.env.deploy`** (reuses the gateway's own
+   SES SMTP creds — one credential set drives sign-in email *and* alerts):
+   `SKYCOT_SMTP_HOST` / `SKYCOT_SMTP_PORT` / `SKYCOT_SMTP_USERNAME` /
+   `SKYCOT_SMTP_PASSWORD`, `SKYCOT_EMAIL_FROM_ADDRESS` (an SES-verified sender),
+   and `SKYCOT_ALERT_EMAIL_TO` (the inbox that should receive pages).
+
+2. **Bring the profile up alongside the demo:**
+
+   ```bash
+   docker compose -f deploy/docker-compose.yml --env-file deploy/.env.deploy \
+     --profile monitoring up -d
+   ```
+
+   This adds three host-networked, **loopback-only** services: Prometheus
+   (`127.0.0.1:9090`, scrapes the gateway `/metrics` on `127.0.0.1:7400`),
+   Alertmanager (`127.0.0.1:9093`, renders its SES receiver from the env above
+   at start), and Grafana (`127.0.0.1:3001` — *not* `:3000`, the SPA owns that;
+   dashboards + datasource auto-provisioned).
+
+3. **Reach the UIs over an SSH tunnel** (they bind `127.0.0.1` only — never
+   exposed through nginx):
+
+   ```bash
+   ssh -L 9090:127.0.0.1:9090 -L 9093:127.0.0.1:9093 -L 3001:127.0.0.1:3001 <host>
+   # then open http://localhost:9090 / :9093 / :3001
+   ```
+
+The config is gate-validated in `deploy/smoke/run.sh`
+(`validate_monitoring_stack`): `docker compose --profile monitoring config -q`,
+`promtool check` on the rules + Prometheus config, and `amtool check-config` on
+the rendered Alertmanager config. The 4 dashboards' queries were cross-checked
+against the live metric families in `crates/argo-telemetry` + the gateway
+metrics routes — no label drift (see `deploy/grafana/README.md`).
+
+---
+
+## Scale-later path (deferred — when onboarding real users)
 
 ---
 

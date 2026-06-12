@@ -1,0 +1,74 @@
+# Alertmanager config TEMPLATE for the gated-demo compose stack.
+#
+# This is a template, NOT the live config: the `__TOKEN__` placeholders are
+# substituted at container start by the alertmanager service entrypoint in
+# deploy/docker-compose.yml (a `sed` pass that reads the SES/SMTP env vars from
+# deploy/.env.deploy and writes the rendered /tmp/alertmanager.yml the daemon
+# actually loads). This keeps the SES password OUT of a committed file while
+# still shipping a real, ready-to-run receiver.
+#
+# Env consumed (same names the gateway's magic-link sender uses — see
+# auth_magic_link_delivery.rs, so one set of SES creds drives both):
+#   SKYCOT_SMTP_HOST       e.g. email-smtp.ap-southeast-2.amazonaws.com
+#   SKYCOT_SMTP_PORT       e.g. 587  (SES STARTTLS)
+#   SKYCOT_SMTP_USERNAME   SES SMTP username
+#   SKYCOT_SMTP_PASSWORD   SES SMTP password (secret)
+#   SKYCOT_EMAIL_FROM_ADDRESS   verified SES From: address (e.g. noreply@skycot.com)
+#   SKYCOT_ALERT_EMAIL_TO  operator inbox that should receive pages
+#
+# Validate the rendered form with: amtool check-config <rendered.yml>
+# (deploy/smoke/run.sh runs this in a throwaway prom/alertmanager container).
+global:
+  smtp_smarthost: '__SMTP_HOST__:__SMTP_PORT__'
+  smtp_from: '__SMTP_FROM__'
+  smtp_auth_username: '__SMTP_USERNAME__'
+  smtp_auth_password: '__SMTP_PASSWORD__'
+  smtp_require_tls: true
+  resolve_timeout: 5m
+
+# Severity routing. The rules in deploy/alertmanager/rules.yml tag every alert
+# `severity=page` (urgent: 5xx burst, audit-chain break) or `severity=slack`
+# (warn: p99, signup spike, spend burn). Both land in the operator inbox here;
+# `page` repeats faster. Add a Slack receiver below to split the warn stream.
+route:
+  receiver: skycot-email
+  group_by: ['alertname', 'team']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers:
+        - severity="page"
+      receiver: skycot-email
+      repeat_interval: 1h
+    - matchers:
+        - severity="slack"
+      receiver: skycot-email
+
+receivers:
+  - name: skycot-email
+    email_configs:
+      - to: '__ALERT_EMAIL_TO__'
+        send_resolved: true
+        headers:
+          Subject: '[SKYCOT] {{ .Status | toUpper }}: {{ .CommonLabels.alertname }}'
+
+  # OPTIONAL Slack split for the warn stream. To enable:
+  #   1. add SKYCOT_ALERT_SLACK_WEBHOOK_URL to deploy/.env.deploy
+  #   2. add `-e "s|__SLACK_WEBHOOK_URL__|$${SKYCOT_ALERT_SLACK_WEBHOOK_URL}|g"`
+  #      to the alertmanager entrypoint sed in docker-compose.yml
+  #   3. uncomment this receiver and point the severity="slack" route at it
+  # - name: skycot-slack
+  #   slack_configs:
+  #     - api_url: '__SLACK_WEBHOOK_URL__'
+  #       channel: '#skycot-alerts'
+  #       send_resolved: true
+  #       title: '{{ .CommonLabels.alertname }} ({{ .Status }})'
+  #       text: '{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}'
+
+# Suppress the warn-stream noise while a page is already firing for the same
+# alertname (e.g. don't slack-warn p99 when we're already paging 5xx).
+inhibit_rules:
+  - source_matchers: [ severity="page" ]
+    target_matchers: [ severity="slack" ]
+    equal: ['alertname', 'team']

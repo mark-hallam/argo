@@ -1,0 +1,18 @@
+# Grafana dashboard provider for the gated-demo compose stack.
+# Auto-loads every JSON under deploy/grafana/dashboards (mounted read-only at
+# /var/lib/grafana/dashboards). The dashboards reference their datasource via a
+# `${DS_PROM}` input variable; with the provisioned "Prometheus" source set as
+# default (see datasources/prometheus.yml), the panels resolve to it. If a
+# panel ever shows "datasource not found", pick Prometheus in the dropdown.
+apiVersion: 1
+providers:
+  - name: skycot
+    orgId: 1
+    folder: SKYCOT
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

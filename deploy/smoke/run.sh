@@ -50,6 +50,73 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
+# --- monitoring-stack config validation --------------------------------------
+# Turns the AUTHORED monitoring config (deploy/{prometheus,alertmanager,grafana})
+# into a CHECKED gate (DEC-029: "authored + builds" is not "works"). Three asserts:
+#   1. the canonical compose's `--profile monitoring` parses (config -q),
+#   2. the Prometheus config + alert rules load (promtool check),
+#   3. the rendered Alertmanager config is valid (amtool check-config).
+# promtool/amtool run from local PATH if present, else from the prom images
+# (no daemon build needed — `docker run` for the tool only). The compose
+# config -q gate is mandatory; the prom-tool asserts degrade to WARN only if
+# neither a local binary nor a usable image is reachable (air-gapped CI).
+validate_monitoring_stack() {
+  local deploy_dir="${REPO_ROOT}/deploy"
+  local compose_canonical="${deploy_dir}/docker-compose.yml"
+  echo "--- validating monitoring stack config ---"
+
+  # config -q needs deploy/.env.deploy to exist (gateway service env_file).
+  # Provision a throwaway copy from the example just for the parse, then remove.
+  local provisioned_env=0
+  if [[ ! -f "${deploy_dir}/.env.deploy" && -f "${deploy_dir}/.env.deploy.example" ]]; then
+    cp "${deploy_dir}/.env.deploy.example" "${deploy_dir}/.env.deploy"
+    provisioned_env=1
+  fi
+  local rc=0
+  if ! "${COMPOSE[@]}" -f "${compose_canonical}" --profile monitoring config -q; then
+    echo "FAIL: 'docker compose --profile monitoring config -q' rejected the stack" >&2
+    rc=1
+  fi
+  (( provisioned_env )) && rm -f "${deploy_dir}/.env.deploy"
+  (( rc )) && return 1
+
+  # promtool: validate prometheus.yml + the alert rules it references.
+  local prom_img="prom/prometheus:v2.53.0"
+  if command -v promtool >/dev/null 2>&1; then
+    promtool check rules "${deploy_dir}/alertmanager/rules.yml" || return 1
+  elif docker image inspect "${prom_img}" >/dev/null 2>&1 || docker pull -q "${prom_img}" >/dev/null 2>&1; then
+    docker run --rm -v "${deploy_dir}/alertmanager/rules.yml:/rules.yml:ro" \
+      --entrypoint promtool "${prom_img}" check rules /rules.yml || return 1
+  else
+    echo "WARN: promtool unavailable (no local binary, image unreachable) — skipping rule check" >&2
+  fi
+
+  # amtool: render the alertmanager template with placeholder values (mirrors
+  # the compose entrypoint sed) and validate the result.
+  local am_img="prom/alertmanager:v0.27.0"
+  local rendered; rendered="$(mktemp)"
+  sed \
+    -e "s|__SMTP_HOST__|email-smtp.example.amazonaws.com|g" \
+    -e "s|__SMTP_PORT__|587|g" \
+    -e "s|__SMTP_USERNAME__|AKIAEXAMPLE|g" \
+    -e "s|__SMTP_PASSWORD__|placeholder|g" \
+    -e "s|__SMTP_FROM__|noreply@skycot.com|g" \
+    -e "s|__ALERT_EMAIL_TO__|ops@skycot.com|g" \
+    "${deploy_dir}/alertmanager/alertmanager.tmpl.yml" > "${rendered}"
+  if command -v amtool >/dev/null 2>&1; then
+    amtool check-config "${rendered}" || { rm -f "${rendered}"; return 1; }
+  elif docker image inspect "${am_img}" >/dev/null 2>&1 || docker pull -q "${am_img}" >/dev/null 2>&1; then
+    docker run --rm -v "${rendered}:/am.yml:ro" \
+      --entrypoint amtool "${am_img}" check-config /am.yml || { rm -f "${rendered}"; return 1; }
+  else
+    echo "WARN: amtool unavailable (no local binary, image unreachable) — skipping config check" >&2
+  fi
+  rm -f "${rendered}"
+  echo "--- monitoring stack config OK ---"
+}
+
+validate_monitoring_stack
+
 # Host ports are parameterized so a run can dodge a collision with an
 # already-bound dev gateway/SPA (CI uses the defaults; a dev box can override,
 # e.g. SMOKE_SPA_PORT=3001 when :3000 is taken). These are exported so the

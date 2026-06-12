@@ -44,5 +44,83 @@ services:
       - web
       - gateway
 
+  # --- Monitoring plane (opt-in: `--profile monitoring`) --------------------
+  # Turns the AUTHORED alert rules + dashboards into RUNNING monitoring.
+  # Off by default so the plain demo stays lean; bring it up with:
+  #   docker compose -f deploy/docker-compose.yml --env-file deploy/.env.deploy \
+  #     --profile monitoring up -d
+  # All three are host-networked + bound to 127.0.0.1 ONLY (reach them over an
+  # SSH tunnel, e.g. `ssh -L 9090:127.0.0.1:9090 host`). They scrape the
+  # gateway's /metrics on the host loopback (127.0.0.1:7400).
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    profiles: ["monitoring"]
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alertmanager/rules.yml:/etc/prometheus/rules/alerts.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.listen-address=127.0.0.1:9090
+    depends_on:
+      - gateway
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    profiles: ["monitoring"]
+    network_mode: host
+    restart: unless-stopped
+    env_file: .env.deploy        # reuses the SES SMTP creds (SKYCOT_SMTP_*)
+    volumes:
+      - ./alertmanager/alertmanager.tmpl.yml:/etc/alertmanager/alertmanager.tmpl.yml:ro
+      - alertmanager-data:/alertmanager
+    # Render the template from env at start (keeps the SES password out of any
+    # committed file), then exec the daemon on the rendered config. `$$` is a
+    # literal `$` to compose, so the vars expand in the CONTAINER shell from the
+    # env_file above — not at compose-config time.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        sed \
+          -e "s|__SMTP_HOST__|$${SKYCOT_SMTP_HOST}|g" \
+          -e "s|__SMTP_PORT__|$${SKYCOT_SMTP_PORT:-587}|g" \
+          -e "s|__SMTP_USERNAME__|$${SKYCOT_SMTP_USERNAME}|g" \
+          -e "s|__SMTP_PASSWORD__|$${SKYCOT_SMTP_PASSWORD}|g" \
+          -e "s|__SMTP_FROM__|$${SKYCOT_EMAIL_FROM_ADDRESS}|g" \
+          -e "s|__ALERT_EMAIL_TO__|$${SKYCOT_ALERT_EMAIL_TO}|g" \
+          /etc/alertmanager/alertmanager.tmpl.yml > /tmp/alertmanager.yml
+        exec /bin/alertmanager \
+          --config.file=/tmp/alertmanager.yml \
+          --storage.path=/alertmanager \
+          --web.listen-address=127.0.0.1:9093
+
+  # Optional dashboards UI. Bound to 127.0.0.1:3001 (NOT 3000 — the SPA owns
+  # that). Anonymous viewer access on; change the admin password before use.
+  grafana:
+    image: grafana/grafana:11.1.0
+    profiles: ["monitoring"]
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      GF_SERVER_HTTP_ADDR: "127.0.0.1"
+      GF_SERVER_HTTP_PORT: "3001"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-skycot-admin}"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
 volumes:
   argo-data:
+  prometheus-data:
+  alertmanager-data:
+  grafana-data:

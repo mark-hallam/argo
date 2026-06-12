@@ -1,0 +1,46 @@
+# Prometheus config for the CANONICAL gated-demo compose stack
+# (deploy/docker-compose.yml, `--profile monitoring`).
+#
+# Unlike deploy/prometheus/scrape-config.yml — which is the GENERIC
+# copy-to-/etc/prometheus template that targets compose-DNS `gateway:8080` —
+# this file is wired for the canonical stack's HOST-NETWORKING topology, where
+# the gateway binds the host loopback 127.0.0.1:7400 (see Dockerfile.gateway
+# CMD + docker-compose.yml `network_mode: host`). Prometheus, Alertmanager and
+# Grafana all run host-networked too, so they reach the gateway and each other
+# over 127.0.0.1.
+#
+# Mounted into the prometheus container at /etc/prometheus/prometheus.yml.
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    deployment: skycot
+rule_files:
+  - /etc/prometheus/rules/alerts.yml
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["127.0.0.1:9093"]
+scrape_configs:
+  # /metrics — SQL-derived gauges + registry production families
+  # (action/tenant/audit/workflow/provider). Recommended single target.
+  - job_name: skycot-gateway
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["127.0.0.1:7400"]
+        labels: { service: gateway }
+  # /openmetrics — registry-only view (gateway/rate-limit/provider).
+  # Optional; honor_labels avoids clobbering the gateway's own labels.
+  - job_name: skycot-gateway-openmetrics
+    metrics_path: /openmetrics
+    honor_labels: true
+    static_configs:
+      - targets: ["127.0.0.1:7400"]
+        labels: { service: gateway }
+  # Prometheus self-scrape — lets `up{job="prometheus"}` confirm the
+  # monitoring plane itself is alive on the dashboards.
+  - job_name: prometheus
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["127.0.0.1:9090"]
