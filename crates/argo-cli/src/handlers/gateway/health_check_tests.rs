@@ -25,7 +25,7 @@
 //! `cargo test` runs tests across threads by default and each
 //! thread shares the same env block.
 
-use super::{provider_key_present, run_startup_checks};
+use super::{open_store_for_probe_with_retry, provider_key_present, run_startup_checks};
 use argo_store::{SessionStore, EXPECTED_SCHEMA_VERSION};
 
 struct EnvVar {
@@ -409,4 +409,60 @@ async fn loopback_bind_missing_secret_boots() {
     run_startup_checks(false, "127.0.0.1:7400", &cwd)
         .await
         .expect("loopback --bind without a secret must still boot");
+}
+
+// ── fix-deploy-smoke-gateway-exit78-fresh-boot-race ────────────────
+//
+// The store-reachability probe now opens via a bounded in-process retry
+// (`open_store_for_probe_with_retry`) so a brand-new SQLCipher volume's
+// first-init transient is absorbed instead of fail-fast `exit 78`. These
+// pin the two endpoints of that helper: a fresh-path open succeeds (and
+// yields a queryable pool), and a permanently-unopenable path still
+// fails closed after exhausting the budget (so a real misconfig is never
+// retried into a false pass).
+
+/// A fresh DB path opens on the first attempt and the returned store is
+/// immediately queryable — the happy path the gateway hits on a clean
+/// volume, now routed through the retry wrapper.
+#[tokio::test]
+async fn store_probe_retry_opens_fresh_db() {
+    let _g = crate::handlers::gateway::shared_env_lock().await;
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db = dir.path().join("sessions.db");
+    let store = open_store_for_probe_with_retry(&db)
+        .await
+        .expect("fresh db must open via the retry probe");
+    // The pool is live: a trivial query succeeds.
+    sqlx::query("SELECT 1")
+        .fetch_one(store.pool())
+        .await
+        .expect("SELECT 1 on the probed store");
+    store.close().await;
+}
+
+/// A path that can never be opened as a SQLite database (parent is a
+/// regular file, so `create_if_missing` cannot create the file) fails
+/// closed after the bounded budget rather than hanging or passing. This
+/// proves the retry preserves the fail-closed property for a genuinely
+/// unreachable store.
+#[tokio::test]
+async fn store_probe_retry_fails_closed_on_unopenable_path() {
+    let _g = crate::handlers::gateway::shared_env_lock().await;
+    let dir = tempfile::tempdir().expect("tempdir");
+    // Make `not-a-dir` a regular file, then ask to open a DB *inside* it
+    // — `not-a-dir/sessions.db` can never be created (ENOTDIR).
+    let blocker = dir.path().join("not-a-dir");
+    std::fs::write(&blocker, b"x").expect("write blocker file");
+    let db = blocker.join("sessions.db");
+    // `SessionStore` is not `Debug`, so `expect_err` (which formats the
+    // Ok value) won't compile — match the result instead.
+    let err = match open_store_for_probe_with_retry(&db).await {
+        Ok(_) => panic!("an unopenable path must fail closed after the retry budget"),
+        Err(e) => e,
+    };
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("store unreachable") || msg.contains("startup check"),
+        "expected a store-unreachable error, got: {msg}"
+    );
 }

@@ -24,13 +24,24 @@ use argo_types::{ArgoError, ArgoResult};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 /// Exit code for critical startup-check failure. Matches the BSD
 /// `sysexits.h` `EX_CONFIG` convention so orchestrators (k8s,
 /// systemd) treat the pod as misconfigured rather than crash-looping
 /// indefinitely.
 pub(super) const STARTUP_CHECK_EXIT: i32 = 78;
+
+/// Bounded-retry budget for the store-reachability probe (see
+/// [`open_store_for_probe_with_retry`]). Attempts, initial backoff, and
+/// backoff ceiling. The worst-case wait before failing closed is
+/// roughly `250 + 500 + 1000 + 1000 = 2750 ms` — long enough to absorb
+/// a brand-new SQLCipher volume's first-init transient, short enough
+/// that a genuinely-unreachable store still surfaces as `exit 78`
+/// within a few seconds.
+const STORE_PROBE_ATTEMPTS: u32 = 5;
+const STORE_PROBE_BACKOFF_MS: u64 = 250;
+const STORE_PROBE_BACKOFF_CAP_MS: u64 = 1000;
 
 /// Sequential, sync (per-check) startup health gate. Runs four
 /// critical-path checks before the gateway binds its TCP listener:
@@ -86,13 +97,7 @@ async fn run_startup_checks_inner(skip: bool, bind: &str, cwd: &Path) -> ArgoRes
     let started = Instant::now();
     let home = resolve_home(cwd)?;
     ensure_dir(&home)?;
-    let store = SessionStore::open(&db_path(&home))
-        .await
-        .map_err(|e| ArgoError::Provider(format!("startup check: store unreachable: {e}")))?;
-    sqlx::query("SELECT 1")
-        .fetch_one(store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("startup check: SELECT 1: {e}")))?;
+    let store = open_store_for_probe_with_retry(&db_path(&home)).await?;
     let actual = store.schema_version().await?;
     if actual == 0 {
         eprintln!(
@@ -119,6 +124,84 @@ async fn run_startup_checks_inner(skip: bool, bind: &str, cwd: &Path) -> ArgoRes
         started.elapsed().as_millis()
     );
     Ok(())
+}
+
+/// Bounded-retry open of the session store for the startup
+/// reachability probe.
+///
+/// **Why this exists** (`fix-deploy-smoke-gateway-exit78-fresh-boot-race`):
+/// on a brand-new encrypted (SQLCipher) `/data` volume the very first
+/// `SessionStore::open` + `SELECT 1` occasionally fails while the fresh
+/// cipher header settles. The deploy-smoke first-green run saw the
+/// gateway `exit 78` on ~50% of FIRST fresh-volume `docker compose up`
+/// cycles, then boot Healthy on the NEXT container start — i.e. the
+/// exact same open succeeds once the file has been initialized. (The
+/// store is the only boot check that touches the fresh volume: nothing
+/// connects to postgres at boot — `DATABASE_URL` is scaffold-only — and
+/// the container healthcheck `argo gateway probe live` is a pure TCP
+/// GET that never opens the store.)
+///
+/// This replicates the successful retry-boot WITHIN a single boot: a
+/// small bounded backoff ([`STORE_PROBE_ATTEMPTS`] attempts, doubling
+/// from [`STORE_PROBE_BACKOFF_MS`], capped at
+/// [`STORE_PROBE_BACKOFF_CAP_MS`]) absorbs the transient first-init.
+/// Each attempt logs to stderr so the readiness wait is OBSERVABLE, and
+/// a store that stays unreachable past the budget still fails closed
+/// with the original error (→ `exit 78`).
+///
+/// This is a targeted in-process readiness gate on the one check that
+/// races first-init — NOT a blind container `restart: on-failure`
+/// (DEC-029: a green-on-retry that papers over an unknown failure is
+/// not a fix; a bounded readiness wait that closes the actual first-init
+/// race is). The config checks (JWT secret, provider keys, schema
+/// version) stay single-shot fail-fast so a genuine misconfig is never
+/// retried into a false pass.
+async fn open_store_for_probe_with_retry(db: &Path) -> ArgoResult<SessionStore> {
+    let mut backoff = Duration::from_millis(STORE_PROBE_BACKOFF_MS);
+    let mut last_err: Option<ArgoError> = None;
+    for attempt in 1..=STORE_PROBE_ATTEMPTS {
+        match try_open_and_ping(db).await {
+            Ok(store) => {
+                if attempt > 1 {
+                    eprintln!(
+                        "argo gateway: startup_check store reachable on attempt \
+                         {attempt}/{STORE_PROBE_ATTEMPTS} (fresh-volume first-init settled)"
+                    );
+                }
+                return Ok(store);
+            }
+            Err(e) => {
+                eprintln!(
+                    "argo gateway: startup_check store probe attempt \
+                     {attempt}/{STORE_PROBE_ATTEMPTS} failed: {e}"
+                );
+                last_err = Some(e);
+                if attempt < STORE_PROBE_ATTEMPTS {
+                    tokio::time::sleep(backoff).await;
+                    backoff = (backoff * 2).min(Duration::from_millis(STORE_PROBE_BACKOFF_CAP_MS));
+                }
+            }
+        }
+    }
+    Err(last_err.unwrap_or_else(|| {
+        ArgoError::Provider("startup check: store unreachable (no attempts ran)".into())
+    }))
+}
+
+/// One store-reachability attempt: open the store and issue a trivial
+/// `SELECT 1`. On a `SELECT 1` failure the just-opened handle is closed
+/// before returning the error so a retry starts from a clean pool.
+async fn try_open_and_ping(db: &Path) -> ArgoResult<SessionStore> {
+    let store = SessionStore::open(db)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("startup check: store unreachable: {e}")))?;
+    match sqlx::query("SELECT 1").fetch_one(store.pool()).await {
+        Ok(_) => Ok(store),
+        Err(e) => {
+            store.close().await;
+            Err(ArgoError::Provider(format!("startup check: SELECT 1: {e}")))
+        }
+    }
 }
 
 /// Warn (do NOT refuse) when the gateway is in production mode but
