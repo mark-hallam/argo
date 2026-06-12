@@ -56,6 +56,13 @@ pub(super) async fn checkout_response(
     let customer_id = lookup_stripe_customer(store, tenant)
         .await
         .unwrap_or_default();
+    // DEC-053: provision the subscription at the tenant's count of
+    // ACTIVE (non-archived, non-frozen) teammates so the "$49 per
+    // teammate" promise is true from the first invoice. The form floors
+    // this at 1, so a count of 0 is safe.
+    let quantity = argo_billing::quantity_sync::count_active_teammates(store, tenant)
+        .await
+        .unwrap_or(0);
     let input = CheckoutInput {
         tenant_id: tenant,
         price_id: payload.price_id,
@@ -63,6 +70,7 @@ pub(super) async fn checkout_response(
         cancel_url: payload.cancel_url,
         customer_id,
         customer_email: payload.customer_email,
+        quantity,
     };
     match create_checkout_session(&client, &input).await {
         Ok(session) => (

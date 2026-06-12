@@ -31,6 +31,11 @@ pub struct CheckoutInput {
     pub customer_id: Option<String>,
     /// Optional billing-email pre-fill (when no customer id yet).
     pub customer_email: Option<String>,
+    /// Seat quantity to provision the subscription at — the tenant's
+    /// count of ACTIVE teammates (DEC-053). Floored at `1` in the form
+    /// builder, so passing `0` is safe. The gateway computes this via
+    /// [`crate::quantity_sync::count_active_teammates`].
+    pub quantity: u64,
 }
 
 /// Stripe's `checkout.sessions.create` response, narrowed to the two
@@ -51,7 +56,12 @@ pub async fn create_checkout_session(
     let mut form: Vec<(String, String)> = vec![
         ("mode".into(), "subscription".into()),
         ("line_items[0][price]".into(), input.price_id.clone()),
-        ("line_items[0][quantity]".into(), "1".into()),
+        // DEC-053: provision at the tenant's active-teammate count,
+        // floored at 1 (Stripe rejects a 0-quantity licensed line).
+        (
+            "line_items[0][quantity]".into(),
+            input.quantity.max(1).to_string(),
+        ),
         ("success_url".into(), input.success_url.clone()),
         ("cancel_url".into(), input.cancel_url.clone()),
         ("client_reference_id".into(), input.tenant_id.to_string()),
@@ -97,6 +107,7 @@ mod tests {
             cancel_url: "https://app.skycot.com/billing?ok=0".into(),
             customer_id: None,
             customer_email: Some("op@acme.com".into()),
+            quantity: 3,
         };
         assert!(input.success_url.contains("ok=1"));
     }

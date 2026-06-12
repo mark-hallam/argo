@@ -237,6 +237,7 @@ async fn new_user_journey_stays_in_own_tenant_end_to_end() {
                 cancel_url: "https://app.skycot.com/billing?ok=0".into(),
                 customer_id: None,
                 customer_email: Some("stranger@acme.test".into()),
+                quantity: 1,
             };
             assert_eq!(
                 input.tenant_id, tenant_a,
