@@ -133,8 +133,7 @@ export default function DocsHubPage() {
             Everything you need to <strong>ship</strong>.
           </h1>
           <p className="dh-hero-sub">
-            Operator guides, API (Application Programming Interface — the contract programs use to
-            talk to SKYCOT) reference, workflow recipes, and integration docs.
+            Operator guides, API reference, workflow recipes, and integration docs.
           </p>
           <div className="dh-hero-search" role="search">
             <div className="dh-hero-search-icon">

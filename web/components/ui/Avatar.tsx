@@ -38,6 +38,23 @@ const statusRing = cva(
 
 export type WorkerStatus = "idle" | "working" | "waiting" | "blocked";
 
+/**
+ * Derive 1-2 character initials for the generated-avatar fallback.
+ *
+ * Multi-word names take the first letter of the first two words
+ * ("Ada Lovelace" → "AL"). Single-word names take the first TWO
+ * letters ("Ivy" → "IV") rather than a lone "I" — a bare single
+ * letter reads as a placeholder, not a designed monogram (F13,
+ * 2026-06-13 fresh-hire cosmetics shakedown). Empty/whitespace
+ * input degrades to "?".
+ */
+export function deriveInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  if (words.length === 1) return words[0]!.slice(0, 2).toUpperCase();
+  return (words[0]![0]! + words[1]![0]!).toUpperCase();
+}
+
 export interface AvatarProps
   extends Omit<React.ComponentPropsWithoutRef<typeof RAvatar.Root>, "children">,
     VariantProps<typeof avatarVariants> {
@@ -49,15 +66,7 @@ export interface AvatarProps
 
 export const Avatar = forwardRef<HTMLSpanElement, AvatarProps>(
   ({ className, size, src, alt, fallback, status, ...props }, ref) => {
-    const initials =
-      fallback ??
-      alt
-        .split(/\s+/)
-        .map((p) => p[0])
-        .filter(Boolean)
-        .slice(0, 2)
-        .join("")
-        .toUpperCase();
+    const initials = fallback ?? deriveInitials(alt);
 
     return (
       <span className={cn("relative inline-block", className)}>

@@ -215,15 +215,13 @@ export default function ChangelogPage() {
         <section className="cl-hero">
           <div className="cl-hero-eyebrow">
             <span className="cl-hero-eyebrow-dot" />
-            Public changelog · updated weekly
+            Public changelog · updated as we ship
           </div>
           <h1 className="cl-hero-h1">
             What we <strong>shipped recently</strong>.
           </h1>
           <p className="cl-hero-sub">
-            Every meaningful change to SKYCOT lands here. Subscribe to RSS (Really Simple
-            Syndication — a feed format that lets you follow updates without checking the page) for
-            updates.
+            Every meaningful change to SKYCOT lands here. Subscribe to RSS for updates.
           </p>
         </section>
 

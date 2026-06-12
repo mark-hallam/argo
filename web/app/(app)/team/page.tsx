@@ -78,7 +78,17 @@ export default function TeamPage() {
   // weeklyActions reads from the real /api/v1/audit?range=7d feed —
   // brand-new tenants surface a real 0. Hours-saved is intentionally
   // omitted: no real signal exists to derive it honestly.
-  const weeklyActions = auditQuery.data?.pages?.[0]?.rows.length ?? 0;
+  //
+  // F12 (2026-06-13 shakedown): count only rows attributable to a
+  // current teammate, not every audit row. The raw feed includes
+  // system/platform events that aren't a teammate "action", so an
+  // unfiltered count over-reports (a 10-minute-old workspace read
+  // "22 actions this week"). Restricting to roster worker ids keeps
+  // the hero KPI honest and aligned with "your team's actions".
+  const rosterIds = new Set(workers.map((w) => w.id));
+  const weeklyActions = (auditQuery.data?.pages?.[0]?.rows ?? []).filter(
+    (row) => row.worker != null && rosterIds.has(row.worker.id),
+  ).length;
 
   return (
     <>
@@ -328,7 +338,7 @@ function PageHeader({
                 className="text-sm text-[var(--muted-foreground)]"
                 data-testid="team-subtitle"
               >
-                {subtitleCount} {subtitleCount === 1 ? "teammate" : "teammates"} working
+                {subtitleCount} {subtitleCount === 1 ? "teammate" : "teammates"}
               </p>
             ) : null}
           </div>

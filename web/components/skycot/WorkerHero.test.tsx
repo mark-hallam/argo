@@ -31,6 +31,25 @@ describe("WorkerHero", () => {
     expect(screen.getByTestId("worker-status-pill")).toHaveTextContent("Working");
   });
 
+  it("falls back to a humanized role when the tagline is a bare name slug (F13)", () => {
+    // Fresh Genesis hire whose tagline leaked through as the lowercase
+    // name slug. The subtitle must never render the raw slug "ivy".
+    render(
+      <WorkerHero
+        worker={makeWorker({
+          name: "Ivy",
+          role: { tagline: "ivy", vertical: "collections" },
+          department: undefined,
+          team: undefined,
+          kpiToday: undefined,
+        })}
+      />,
+    );
+    const role = screen.getByTestId("worker-role");
+    expect(role).toHaveTextContent("Collections");
+    expect(role).not.toHaveTextContent(/^ivy$/);
+  });
+
   it("omits the org line when department + team are absent", () => {
     render(
       <WorkerHero

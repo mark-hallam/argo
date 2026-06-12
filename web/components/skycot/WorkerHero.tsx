@@ -55,6 +55,38 @@ function workerStatusToAvatar(status: WorkerStatus): AvatarStatus {
   }
 }
 
+function humanizeSlug(slug: string): string {
+  return slug
+    .replace(/[-_]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/**
+ * Resolve a presentable role subtitle for the hero.
+ *
+ * A real tagline ("Senior Recruiter (AI)", "books showings") has a
+ * space or a capital and is shown as-is. A fresh Genesis hire can leak
+ * a bare lowercase slug — often the teammate's own name ("ivy") —
+ * through `role.tagline`; showing that under the name reads like a bug
+ * (F13, 2026-06-13 shakedown). In that case fall back to a humanized
+ * vertical ("collections" → "Collections"), then a humanized slug, and
+ * finally a generic "Teammate" so the subtitle is never a raw slug.
+ */
+function roleLabel(worker: Worker): string {
+  const tagline = worker.role.tagline?.trim() ?? "";
+  if (tagline && (/\s/.test(tagline) || /[A-Z]/.test(tagline))) return tagline;
+
+  const vertical = worker.role.vertical?.trim() ?? "";
+  const isNameSlug = tagline.toLowerCase() === worker.name.trim().toLowerCase();
+  if (tagline && !isNameSlug) return humanizeSlug(tagline);
+  if (vertical) return humanizeSlug(vertical);
+  return "Teammate";
+}
+
 export interface WorkerHeroProps {
   worker: Worker;
   onAction?: (action: WorkerHeroAction) => void;
@@ -128,7 +160,7 @@ export function WorkerHero({
           </div>
 
           <p data-testid="worker-role" className="text-sm text-[var(--muted-foreground)]">
-            {worker.role.tagline}
+            {roleLabel(worker)}
           </p>
 
           {orgLine ? (

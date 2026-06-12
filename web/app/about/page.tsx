@@ -88,7 +88,7 @@ export default function AboutPage() {
         </p>
         <p style={{ fontSize: 15, lineHeight: 1.6, margin: "0 0 18px", color: "var(--muted-foreground)" }}>
           The platform ships with a marketplace of templated teammate roles —
-          receptionists, status reporters, project coordinators, sales reps —
+          status reporters, project coordinators, collections coordinators, sales reps —
           each one configurable, governable, and replaceable without rewriting
           any of your existing systems.
         </p>

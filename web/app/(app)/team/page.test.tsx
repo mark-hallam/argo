@@ -125,9 +125,13 @@ describe("TeamPage", () => {
     // ("3 teammates, one team.") owns the page H1 so the page has
     // exactly one top-level heading landmark.
     expect(screen.getByRole("heading", { level: 2, name: /^Team$/ })).toBeInTheDocument();
+    // F12 (2026-06-13 shakedown): the subtitle is a roster count, not
+    // an activity claim — "working" is reserved for status === "working"
+    // (the KPI + the status filter), so the header no longer says it.
     expect(screen.getByTestId("team-subtitle")).toHaveTextContent(
-      `${SAMPLE_WORKERS.length} teammates working`,
+      `${SAMPLE_WORKERS.length} teammates`,
     );
+    expect(screen.getByTestId("team-subtitle")).not.toHaveTextContent(/working/);
     expect(screen.getByTestId("team-status-filter")).toBeInTheDocument();
     expect(screen.getByTestId("team-hire-cta")).toHaveAttribute("href", "/onboarding/first-hire");
   });
@@ -302,10 +306,10 @@ describe("TeamPage", () => {
   it("subtitle reflects the filtered count when a filter is active", () => {
     setSearchParams("status=working");
     render(<TeamPage />);
-    // Only wkr_alpha has status=working in the sample.
-    expect(screen.getByTestId("team-subtitle")).toHaveTextContent(
-      /1 teammate working/,
-    );
+    // Only wkr_alpha has status=working in the sample. The count tracks
+    // the active filter; the word "working" lives on the filter chip,
+    // not the subtitle (F12 one-definition fix).
+    expect(screen.getByTestId("team-subtitle")).toHaveTextContent(/^1 teammate$/);
   });
 
   // Regression pin for fix-team-page-hero-hardcoded-weekly-actions-
@@ -333,11 +337,22 @@ describe("TeamPage", () => {
   });
 
   it("sources Actions/wk from the real /api/v1/audit?range=7d feed, not workers.length × 187", () => {
-    // 3 workers in the roster, 4 real audit rows in the 7-day window.
-    // Under the old synthesis this would have rendered 561 (= 3 × 187).
-    // Under the new derivation it MUST render 4.
+    // 3 workers in the roster, 4 teammate-attributed audit rows in the
+    // 7-day window. Under the old synthesis this would have rendered
+    // 561 (= 3 × 187). Under the new derivation it MUST render 4.
     useAuditFeedMock.mockReturnValue({
-      data: { pages: [{ rows: [{}, {}, {}, {}] }] },
+      data: {
+        pages: [
+          {
+            rows: [
+              { worker: { id: "wkr_alpha" } },
+              { worker: { id: "wkr_alpha" } },
+              { worker: { id: "wkr_bravo" } },
+              { worker: { id: "wkr_charlie" } },
+            ],
+          },
+        ],
+      },
       isPending: false,
     });
     render(<TeamPage />);
@@ -352,6 +367,35 @@ describe("TeamPage", () => {
     // exists to close.
     expect(screen.queryByText(/187/)).not.toBeInTheDocument();
     expect(screen.queryByText(/hours saved \(sample\)/i)).not.toBeInTheDocument();
+  });
+
+  it("counts only teammate-attributed rows, excluding system/non-roster events (F12)", () => {
+    // The raw 7-day feed mixes teammate actions with platform/system
+    // rows (no worker, or a worker that isn't on the roster). Only the
+    // 2 rows attributable to a current teammate may count toward the
+    // Actions/wk KPI — otherwise a 10-minute-old workspace over-reports.
+    useAuditFeedMock.mockReturnValue({
+      data: {
+        pages: [
+          {
+            rows: [
+              { worker: { id: "wkr_alpha" } }, // teammate — counts
+              { worker: { id: "wkr_bravo" } }, // teammate — counts
+              { worker: { id: "wkr_ghost" } }, // departed/non-roster — excluded
+              {}, // system event, no worker — excluded
+              { worker: null }, // explicit null worker — excluded
+            ],
+          },
+        ],
+      },
+      isPending: false,
+    });
+    render(<TeamPage />);
+    const actionsKpiLabel = screen
+      .getAllByText(/^Actions\/wk$/)
+      .find((el) => el.className.includes("skycot-brandloud-kpi-label"))!;
+    const actionsKpi = actionsKpiLabel.parentElement!;
+    expect(actionsKpi).toHaveTextContent("2");
   });
 
   it("shows '0 actions this week' for a brand-new tenant with zero audit rows", () => {

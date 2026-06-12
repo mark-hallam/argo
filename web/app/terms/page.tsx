@@ -82,11 +82,8 @@ export default function TermsPage() {
         <li>
           <strong style={{ display: "block", marginBottom: 4 }}>Service availability.</strong>
           Hosted SKYCOT targets 99.9% uptime; self-hosted SKYCOT is fully on
-          your infrastructure. Status page:{" "}
-          <a href="https://status.skycot.com" style={{ color: "var(--primary)" }}>
-            status.skycot.com
-          </a>
-          .
+          your infrastructure. A public status page is on the way; until then,
+          reach us directly for any availability questions.
         </li>
         <li>
           <strong style={{ display: "block", marginBottom: 4 }}>

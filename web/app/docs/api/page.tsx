@@ -16,8 +16,7 @@ export default function ApiReferencePage() {
       intro={
         <>
           <p>
-            The SKYCOT API (Application Programming Interface — the contract programs use to talk to
-            SKYCOT) exposes everything you can do in the UI (User Interface) plus a few power-user
+            The SKYCOT API exposes everything you can do in the UI plus a few power-user
             primitives the UI doesn&apos;t surface. REST endpoints cover create/read/update/delete on
             teammates, workflows, skills, and audit records; WebSocket streams cover live
             audit-event subscriptions and approval-state changes.
