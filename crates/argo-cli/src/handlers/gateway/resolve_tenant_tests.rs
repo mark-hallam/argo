@@ -320,3 +320,33 @@ async fn bearer_session_wins_over_explicit_header() {
 
     std::env::remove_var("SKYCOT_AUTH_JWT_SECRET");
 }
+
+/// WS1 (`fix-worker-read-routes-anon-tenant-override`): with the perimeter
+/// closed (production mode, no `gateway.auth_bypass`), an UNAUTHENTICATED
+/// caller's `?tenant=`/`X-Tenant-Id` override must NOT select an arbitrary
+/// tenant — it falls through to the cwd/demo tenant. This is the single
+/// seam the un-gated worker-read routes (detail/activity/overview/files)
+/// ride, so pinning it here closes the cross-tenant metadata read for all
+/// of them at once. Would FAIL pre-fix (the override won unconditionally).
+#[tokio::test]
+async fn anonymous_override_ignored_in_production_mode() {
+    let _g = crate::handlers::gateway::shared_env_lock().await;
+    std::env::set_var("ARGO_GATEWAY_PROFILE", "production");
+
+    let store = fresh_store().await;
+    let tenant_b = provision(&store, "victim@beta.test", "Beta B").await;
+
+    let req = format!(
+        "GET /api/v1/workers/some-worker HTTP/1.1\r\nHost: localhost\r\n\
+         X-Tenant-Id: {tenant_b}\r\n\r\n"
+    );
+    let resolved = resolve_tenant_for_request(&req, &store)
+        .await
+        .expect("resolve");
+    assert_ne!(
+        resolved, tenant_b,
+        "anonymous override must not resolve the victim tenant in production"
+    );
+
+    std::env::remove_var("ARGO_GATEWAY_PROFILE");
+}

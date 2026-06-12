@@ -249,3 +249,12 @@ results accumulate, add specific `crate::test` ids here when:
 
 Do NOT add an entry for a test that fails on a real API breakage —
 that needs a fix-brief, not a flake exemption.
+
+## routes_audit_feed parallel-env flakes (pre-existing, verified 2026-06-13)
+
+`query_tests::owner_sees_unredacted_own_tenant` and
+`list_detail_alignment_tests::legacy_admin_feed_id_fetches_detail` fail under
+the default parallel runner on clean main but pass with `--test-threads=1`
+(0.11s, 2/2). Same class as the 2026-06-02 "~20 parallelism flakes" finding:
+process-global env (`ARGO_HOME`/JWT secret) raced by parallel tests. Not a
+product bug; serialize or fix the fixtures to use `shared_env_lock`.

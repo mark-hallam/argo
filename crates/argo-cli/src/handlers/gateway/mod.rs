@@ -444,6 +444,9 @@ pub(super) fn shared_env_mutex() -> std::sync::Arc<tokio::sync::Mutex<()>> {
 
 /// Acquire the shared gateway test env lock as an owned guard.
 #[cfg(test)]
+mod routes_worker_detail_anon_override_tests;
+
+#[cfg(test)]
 pub(super) async fn shared_env_lock() -> tokio::sync::OwnedMutexGuard<()> {
     shared_env_mutex().lock_owned().await
 }

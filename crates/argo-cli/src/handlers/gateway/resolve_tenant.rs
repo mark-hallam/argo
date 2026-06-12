@@ -69,9 +69,36 @@ pub(super) async fn resolve_tenant_for_request(
         return Ok(tenant);
     }
     if let Some(tenant) = explicit_tenant_override(req) {
-        return Ok(tenant);
+        if anon_tenant_override_open() {
+            return Ok(tenant);
+        }
+        // WS1 (`fix-worker-read-routes-anon-tenant-override`, from the
+        // #2858 review): with the perimeter CLOSED, an UNAUTHENTICATED
+        // caller's `?tenant=`/`X-Tenant-Id` must not select an arbitrary
+        // tenant — worker-read routes (detail/activity/overview/file-list)
+        // ride this resolver un-gated, so honoring it was a cross-tenant
+        // metadata read. Fall through to the cwd/demo tenant instead: the
+        // caller can only ever see the anonymous lane's own data.
+        tracing::warn!(
+            target: "gateway::resolve_tenant",
+            "anonymous tenant override ignored: perimeter closed (set gateway.auth_bypass for the dev/demo lane)",
+        );
     }
     cwd_tenant(store).await
+}
+
+/// Whether the anonymous explicit `?tenant=`/`X-Tenant-Id` override lane
+/// is open. Mirrors `role_gate::role_header_trusted`'s composition:
+/// release builds fail CLOSED unless the operator explicitly opened the
+/// perimeter (`gateway.auth_bypass`, the #2589 demo/no-auth lane); test
+/// builds keep the legacy `!is_production_mode()` heuristic so existing
+/// fixtures (which pass `X-Tenant-Id` without a session) keep working,
+/// while production-mode tests still exercise the closed path.
+/// `&&`-order puts `cfg!(test)` first so `perimeter_open()` (a config
+/// read) is skipped on the common non-prod test path.
+fn anon_tenant_override_open() -> bool {
+    (cfg!(test) && !super::routes_auth_production_mode::is_production_mode())
+        || super::routes_auth_production_mode::perimeter_open()
 }
 
 /// Resolve the tenant a **work-path audit write** must be stamped under

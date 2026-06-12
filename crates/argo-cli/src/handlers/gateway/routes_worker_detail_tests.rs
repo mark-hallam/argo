@@ -490,3 +490,4 @@ async fn demo_override_detail_matches_overview_route() {
         "detail-route permissions must match overview-route permissions under demo mode"
     );
 }
+
