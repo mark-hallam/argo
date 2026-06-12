@@ -136,14 +136,27 @@ pub(super) async fn promote_candidate(
         )
     })?;
     let raw = build_skill_md(&candidate, vertical_id, memory_id);
-    let new_skill = skills
-        .propose_for_review(&raw, learned_in, vertical_id)
-        .await?;
+    // Resolve the originating session's tenant BEFORE proposing so the
+    // promoted skill row is bound to it (fix-per-worker-learning-cron-
+    // tenant-binding — same wrong-tenant class p1a #2836 fixed). The legacy
+    // `propose_for_review` shim lands the row under `PLACEHOLDER_TENANT_ID`
+    // even though the tenant is already known here (it was being recomputed
+    // for the audit sink one line later).
     let tenant_id = store
         .get_session(learned_in)
         .await?
         .map(|session| session.tenant_id.to_string())
         .unwrap_or_else(|| SYSTEM_AUDIT_TENANT_ID.to_string());
+    let new_skill = skills
+        .propose_for_review_judged_with_evals_for_tenant(
+            &raw,
+            learned_in,
+            vertical_id,
+            None,
+            None,
+            &tenant_id,
+        )
+        .await?;
     let audit = AuditSink::new_with_tenant(Arc::clone(&store), tenant_id);
     let mut payload = serde_json::json!({
         "skill_id": new_skill.id.0.to_string(),

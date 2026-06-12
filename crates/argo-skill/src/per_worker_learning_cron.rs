@@ -106,8 +106,26 @@ pub async fn per_worker_learning_tick_with_config(
             continue;
         }
         let raw = overlay_raw(&source, &overlay_name, worker_id)?;
+        // Bind the overlay proposal to the worker's tenant — the same
+        // tenant the cron's read side is scoped to (`config.tenant_id`,
+        // the `rater_tenant` filter applied by `learning_candidates_since`).
+        // The legacy `propose_for_review_judged` path lands the row under
+        // `PLACEHOLDER_TENANT_ID`, which is the wrong-tenant binding p1a
+        // (#2836) fixed on the distillation path; this closes the same class
+        // on the per-worker overlay path (fix-per-worker-learning-cron-
+        // tenant-binding). An UNSCOPED tick (`tenant_id = None`, the
+        // default) has no single owning tenant, so it falls back to the
+        // placeholder exactly as before — no behaviour change there.
+        let tenant = overlay_tenant(&config);
         let proposed = skills
-            .propose_for_review_judged(&raw, SessionId::new(), &config.vertical_id, judge)
+            .propose_for_review_judged_with_evals_for_tenant(
+                &raw,
+                SessionId::new(),
+                &config.vertical_id,
+                judge,
+                None,
+                &tenant,
+            )
             .await?;
         attach_worker_overlay(skills, worker_id, proposed.id).await?;
         append_learning_audit(skills, worker_id, &source, &proposed, &candidate).await?;
@@ -151,6 +169,17 @@ pub fn spawn_per_worker_learning_cron(
             }
         }
     })
+}
+
+/// Tenant the overlay proposal is bound to: the worker's tenant
+/// (`config.tenant_id`, the cron's `rater_tenant` read scope) when the
+/// tick is tenant-scoped, else [`crate::store::PLACEHOLDER_TENANT_ID`]
+/// for the unscoped default (no single owning tenant).
+fn overlay_tenant(config: &PerWorkerLearningConfig) -> String {
+    config
+        .tenant_id
+        .map(|t| t.to_string())
+        .unwrap_or_else(|| crate::store::PLACEHOLDER_TENANT_ID.to_string())
 }
 
 fn env_u32(key: &str, fallback: u32) -> u32 {
