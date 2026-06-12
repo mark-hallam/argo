@@ -241,6 +241,33 @@ else
     log "[0/8] No $ENV_LOCAL_FILE but SKYCOT_DB_KEY_BASE64 is set in env; continuing."
 fi
 
+# ---------- demo-mode posture (gated-deploy + dev default = ON) ------
+#
+# The signup page's "Or try a demo workspace · no email required" CTA
+# dead-ends unless the gateway is booted with ARGO_DEMO_MODE=1. The
+# operator kept hitting that dead-end because no script set the flag, so
+# for the local / gated-deploy gateway we DEFAULT demo mode ON. A public
+# launch can flip this off by setting `export ARGO_DEMO_MODE=0` in
+# $ARGO_HOME/env.local — the `:-` defaults below never override a value
+# the operator already set.
+#
+# Demo mode bypasses the magic-link verify step, so the gateway's
+# startup_check refuses to boot ARGO_DEMO_MODE=1 unless its auth-bypass
+# companion (ARGO_GATEWAY_AUTH_BYPASS=1) is also set
+# (crates/argo-cli/src/handlers/gateway/startup_check.rs:265). We set the
+# companion whenever demo mode is on so the gateway boots instead of
+# failing the compatibility check.
+export ARGO_DEMO_MODE="${ARGO_DEMO_MODE:-1}"
+if [[ "$ARGO_DEMO_MODE" == "1" ]]; then
+    export ARGO_GATEWAY_AUTH_BYPASS="${ARGO_GATEWAY_AUTH_BYPASS:-1}"
+    log "[0/8] Demo mode ON (ARGO_DEMO_MODE=1, auth-bypass companion set) — the"
+    log "      signup 'try a demo workspace' CTA will mint a demo principal."
+    log "      Set 'export ARGO_DEMO_MODE=0' in $ENV_LOCAL_FILE for a public launch."
+else
+    log "[0/8] Demo mode OFF (ARGO_DEMO_MODE=$ARGO_DEMO_MODE) — demo-mint route 404s;"
+    log "      the signup CTA falls back to the early-access waitlist."
+fi
+
 # Surface Stripe billing secrets from the now-sourced env.local so the
 # gateway spawned later in this script inherits them (WS4 billing).
 log "[0/8] Plumbing Stripe billing env from env.local (if present)..."

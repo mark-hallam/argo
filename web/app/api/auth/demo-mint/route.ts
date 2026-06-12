@@ -216,24 +216,31 @@ export async function POST(req: NextRequest) {
 
   if (!upstream.ok) {
     const errBody = (await upstream.json().catch(() => ({}))) as GatewayError;
+    const isDemoOff =
+      upstream.status === 404 ||
+      (typeof errBody.error === "object" && errBody.error?.code === "demo_mode_off");
     const message =
       typeof errBody.error === "string"
         ? errBody.error
-        : errBody.error?.message ?? "Demo mode is not enabled on the gateway.";
+        : errBody.error?.message ??
+          "The instant demo is napping right now. Leave your email and we'll wake it for you.";
     const code =
       typeof errBody.error === "object" && errBody.error?.code
         ? errBody.error.code
-        : upstream.status === 404
+        : isDemoOff
           ? "demo_mode_off"
           : "gateway_error";
     return NextResponse.json(
       {
         error: {
           code,
-          message:
-            upstream.status === 404
-              ? "Demo mode isn't enabled on the gateway. Boot it with ARGO_DEMO_MODE=1."
-              : message,
+          // Human, brand-voice copy: a prospect must never see a literal
+          // env-var instruction. The `demo_mode_off` code lets the SPA
+          // fall the CTA back onto the early-access waitlist instead of
+          // surfacing this as a hard error.
+          message: isDemoOff
+            ? "The instant demo is napping right now. Leave your email and we'll wake it for you."
+            : message,
         },
       },
       { status: upstream.status },

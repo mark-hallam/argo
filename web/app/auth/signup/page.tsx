@@ -7,6 +7,8 @@ import { SIGNUP_REQUEST_TIMEOUT_MS, useSignup } from "@/lib/auth/use-signup";
 import { AuthEditorialShell } from "@/components/auth/AuthEditorialShell";
 import { SsoButtons, SSO_ENABLED } from "@/components/auth/SsoButtons";
 import { parseReturnTo, storeReturnToPending } from "@/lib/auth/return-to";
+import { joinWaitlist, isValidEmail } from "@/lib/api/waitlist";
+import { ApiError } from "@/lib/api/types";
 
 /**
  * Signup page — locked editorial-A design (2026-05-18 design lock).
@@ -123,6 +125,14 @@ function SignupInner() {
   const [email, setEmail] = useState("");
   const [demoPending, setDemoPending] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
+  // When the gateway has demo mode switched off, the demo-mint route
+  // 404s. Rather than dead-ending the prospect on a literal env-var
+  // instruction, we fall the secondary CTA back onto the early-access
+  // waitlist (same `POST /api/v1/waitlist` the marketing page uses).
+  const [demoNap, setDemoNap] = useState<"hidden" | "offer" | "joining" | "joined">(
+    "hidden",
+  );
+  const [demoNapError, setDemoNapError] = useState<string | null>(null);
   const showSecondaryDemoButton = !DEMO_MODE && shouldShowDemoMintButton();
 
   // Capture `?returnTo` from the URL on mount. The hire wizard's step-1
@@ -162,6 +172,8 @@ function SignupInner() {
       trimmed.length === 0 ? `demo+${Date.now()}@skycot.test` : trimmed;
     setDemoPending(true);
     setDemoError(null);
+    setDemoNap("hidden");
+    setDemoNapError(null);
     try {
       // Call the same-origin Next.js proxy (NOT the gateway
       // directly): the proxy lands the __Host-session + __Host-csrf
@@ -179,8 +191,15 @@ function SignupInner() {
       );
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as
-          | { error?: { message?: string } }
+          | { error?: { code?: string; message?: string } }
           | null;
+        // Demo mode is switched off on this gateway (route 404s). Don't
+        // dead-end the prospect — offer the early-access waitlist instead
+        // of surfacing a raw error.
+        if (res.status === 404 || body?.error?.code === "demo_mode_off") {
+          setDemoNap("offer");
+          return;
+        }
         const message =
           body?.error?.message ??
           "We couldn't start your demo workspace. Try again in a moment.";
@@ -224,6 +243,27 @@ function SignupInner() {
       );
     } finally {
       setDemoPending(false);
+    }
+  }
+
+  async function joinDemoWaitlist() {
+    const trimmed = email.trim();
+    if (!isValidEmail(trimmed)) {
+      setDemoNapError("Add your work email above and we'll save your spot.");
+      return;
+    }
+    setDemoNap("joining");
+    setDemoNapError(null);
+    try {
+      await joinWaitlist({ email: trimmed, source: "signup-demo-fallback" });
+      setDemoNap("joined");
+    } catch (err) {
+      setDemoNap("offer");
+      setDemoNapError(
+        err instanceof ApiError && err.message
+          ? err.message
+          : "Couldn't reach the early-access list just now. Try again in a moment.",
+      );
     }
   }
 
@@ -314,7 +354,7 @@ function SignupInner() {
           : "We'll email you a one-tap sign-in link. No password to remember."}
       </p>
 
-      {showSecondaryDemoButton ? (
+      {showSecondaryDemoButton && demoNap === "hidden" ? (
         <button
           type="button"
           onClick={submitDemoMint}
@@ -340,7 +380,99 @@ function SignupInner() {
             : "Or try a demo workspace · no email required"}
         </button>
       ) : null}
+
+      {showSecondaryDemoButton && demoNap !== "hidden" ? (
+        <DemoNapFallback
+          phase={demoNap}
+          error={demoNapError}
+          onJoin={joinDemoWaitlist}
+          email={email.trim()}
+        />
+      ) : null}
     </AuthEditorialShell>
+  );
+}
+
+/**
+ * Fallback panel shown when the demo-mint route reports demo mode is off
+ * (gateway booted without `ARGO_DEMO_MODE=1`). Instead of dead-ending the
+ * prospect on a literal env-var instruction, we offer the early-access
+ * waitlist — keeping the entered email usable for a real follow-up.
+ */
+function DemoNapFallback({
+  phase,
+  error,
+  onJoin,
+  email,
+}: {
+  phase: "offer" | "joining" | "joined";
+  error: string | null;
+  onJoin: () => void;
+  email: string;
+}) {
+  const panelStyle = {
+    marginTop: 16,
+    width: "100%",
+    background: "color-mix(in oklab, var(--brand-violet, #8b5cf6) 8%, transparent)",
+    border: "1px solid color-mix(in oklab, var(--brand-ink) 18%, transparent)",
+    borderRadius: 12,
+    padding: "16px 16px",
+    fontSize: 13,
+    lineHeight: 1.5,
+    color: "var(--brand-ink)",
+  } as const;
+
+  if (phase === "joined") {
+    return (
+      <div role="status" data-testid="signup-demo-nap" style={panelStyle}>
+        <p style={{ margin: 0, fontWeight: 700 }}>You&apos;re on the list. 🎉</p>
+        <p style={{ margin: "6px 0 0", opacity: 0.85 }}>
+          We&apos;ll email <strong>{email}</strong> the moment a demo workspace
+          opens up.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="signup-demo-nap" style={panelStyle}>
+      <p style={{ margin: 0, fontWeight: 700 }}>
+        The instant demo is napping. 😴
+      </p>
+      <p style={{ margin: "6px 0 12px", opacity: 0.85 }}>
+        Leave your work email above and we&apos;ll wake it for you the moment a
+        demo workspace is free.
+      </p>
+      {error ? (
+        <p
+          role="alert"
+          data-testid="signup-demo-nap-error"
+          style={{ margin: "0 0 10px", color: "var(--danger, #dc2626)", fontWeight: 600 }}
+        >
+          {error}
+        </p>
+      ) : null}
+      <button
+        type="button"
+        onClick={onJoin}
+        disabled={phase === "joining"}
+        data-testid="signup-demo-nap-join"
+        style={{
+          width: "100%",
+          background: "var(--brand-ink)",
+          color: "var(--brand-bg, #fff)",
+          border: "none",
+          borderRadius: 10,
+          padding: "11px 14px",
+          fontSize: 13,
+          fontWeight: 700,
+          cursor: phase === "joining" ? "not-allowed" : "pointer",
+          opacity: phase === "joining" ? 0.6 : 1,
+        }}
+      >
+        {phase === "joining" ? "Saving your spot…" : "Join the early-access list →"}
+      </button>
+    </div>
   );
 }
 

@@ -259,6 +259,28 @@ restates them.
 | `ARGO_VERTICALS_DIR=/app/verticals` | image | no | vertical discovery |
 | `ARGO_PITCH_CORPUS_DIR=/app/skill-library/canonical-qa/corpora/skycot` | image + task def | no | pitch corpus |
 | `ARGO_PITCH_POLICY_DIR=/app/policies/truth-boundary` | image + task def | no | truth-boundary policies |
+| `ARGO_DEMO_MODE` | **unset / 0 in production** | no | mounts `POST /api/v1/demo/mint-principal` (signup demo-workspace CTA) |
+
+### Demo-mode posture
+
+`ARGO_DEMO_MODE=1` mounts the anonymous demo-workspace mint route that backs the
+signup page's "Or try a demo workspace · no email required" CTA. It bypasses the
+magic-link verify step, so the gateway's `startup_check` refuses to boot it
+unless `ARGO_GATEWAY_AUTH_BYPASS=1` is also set
+(`crates/argo-cli/src/handlers/gateway/startup_check.rs`). The posture is split
+by environment:
+
+- **Local + gated-deploy gateway:** demo mode is **ON by default**.
+  `scripts/restart-live-gateway.sh` exports `ARGO_DEMO_MODE=1` (and the
+  auth-bypass companion) unless the operator sets `export ARGO_DEMO_MODE=0` in
+  `$ARGO_HOME/env.local`. This is what makes the demo CTA work without the
+  operator remembering the env-var dance before recording.
+- **Production (this runbook):** demo mode stays **OFF**.
+  `ARGO_GATEWAY_PROFILE=production` forces `auth_bypass=false`, so the
+  compatibility check would refuse to boot with `ARGO_DEMO_MODE=1` anyway. The
+  demo-mint route 404s, and the signup CTA falls back to the early-access
+  waitlist instead of erroring. A public-launch decision to expose demo mode can
+  revisit this.
 
 ---
 
