@@ -18,7 +18,47 @@ use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::Path;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock, PoisonError};
+
+/// Process-wide serialization lock for credential-file mutations.
+///
+/// Every writer of `credentials.toml` performs a read-modify-write
+/// (`load_document` → mutate → atomic replace). Without serialization two
+/// concurrent writers can lost-update: both read the same on-disk state,
+/// each adds its own section, and the second to write clobbers the first
+/// (last-writer-wins, the first writer's just-saved credential silently
+/// dropped). That path became concurrently reachable via the tg2 gateway
+/// connector-authorize route.
+///
+/// The gateway is a single process, so every concurrent writer shares this
+/// address space; a process-wide [`Mutex`] is sufficient to serialize them
+/// and is simpler than a cross-process file lock (no other process writes
+/// this file). Cross-process safety (`flock`) is deliberately out of scope.
+fn write_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
+/// Run a read-modify-write against the credentials document while holding
+/// the process-wide [`write_lock`], then atomically persist the result.
+///
+/// Holding the lock across the load and the write is what closes the
+/// lost-update window — the whole sequence is exclusive, not just the
+/// final write. A poisoned lock is recovered via
+/// [`PoisonError::into_inner`]: the guarded data is `()`, so there is no
+/// invariant a previous panic could have left inconsistent, and refusing
+/// to write credentials forever after one unrelated panic would be the
+/// worse failure.
+fn with_locked_write<F, T>(workspace: &Path, mutate: F) -> ArgoResult<T>
+where
+    F: FnOnce(&mut CredentialDocument) -> ArgoResult<T>,
+{
+    let _guard = write_lock().lock().unwrap_or_else(PoisonError::into_inner);
+    let mut document = load_document(workspace)?;
+    let outcome = mutate(&mut document)?;
+    write_document(workspace, &document)?;
+    Ok(outcome)
+}
 
 /// Set one credential value in the workspace credentials file (legacy
 /// root-level section).
@@ -27,12 +67,13 @@ use std::sync::{Mutex, OnceLock};
 /// Returns an [`ArgoError`] when the key is invalid or the file cannot be written.
 pub fn set(workspace: &Path, key: &str, value: &str) -> ArgoResult<()> {
     validate_key(key)?;
-    let mut document = load_document(workspace)?;
-    document
-        .credentials
-        .root
-        .insert(key.to_string(), CredentialEntry::Plain(value.to_string()));
-    write_document(workspace, &document)
+    with_locked_write(workspace, |document| {
+        document
+            .credentials
+            .root
+            .insert(key.to_string(), CredentialEntry::Plain(value.to_string()));
+        Ok(())
+    })
 }
 
 /// Set one credential value scoped to a specific tenant, **encrypted at
@@ -58,15 +99,19 @@ pub fn set_tenant(
     value: &str,
 ) -> ArgoResult<()> {
     validate_key(key)?;
+    // #2879 (encrypt-at-rest) + #2882 (locked atomic write), combined:
+    // encrypt under the per-tenant master key OUTSIDE the lock (no I/O),
+    // then mutate the document inside the serialized read-modify-write.
     let entry = encrypt_tenant_value(*tenant_id, value);
-    let mut document = load_document(workspace)?;
-    document
-        .credentials
-        .tenant
-        .entry(tenant_id.to_string())
-        .or_default()
-        .insert(key.to_string(), entry);
-    write_document(workspace, &document)
+    with_locked_write(workspace, |document| {
+        document
+            .credentials
+            .tenant
+            .entry(tenant_id.to_string())
+            .or_default()
+            .insert(key.to_string(), entry);
+        Ok(())
+    })
 }
 
 /// Wrap a tenant credential for storage, encrypting at rest under the
@@ -115,10 +160,9 @@ fn warn_plaintext_fallback(tenant_id: TenantId) {
 /// Returns an [`ArgoError`] when the file cannot be read or written.
 pub fn clear(workspace: &Path, key: &str) -> ArgoResult<bool> {
     validate_key(key)?;
-    let mut document = load_document(workspace)?;
-    let removed = document.credentials.root.remove(key).is_some();
-    write_document(workspace, &document)?;
-    Ok(removed)
+    with_locked_write(workspace, |document| {
+        Ok(document.credentials.root.remove(key).is_some())
+    })
 }
 
 /// Remove all stored credentials and return the number removed
@@ -127,19 +171,19 @@ pub fn clear(workspace: &Path, key: &str) -> ArgoResult<bool> {
 /// # Errors
 /// Returns an [`ArgoError`] when the file cannot be read or written.
 pub fn clear_all(workspace: &Path) -> ArgoResult<usize> {
-    let document = load_document(workspace)?;
-    let root_count = document.credentials.root.len();
-    let tenant_count: usize = document
-        .credentials
-        .tenant
-        .values()
-        .map(BTreeMap::len)
-        .sum();
-    let cleared = CredentialDocument {
-        credentials: CredentialSections::default(),
-    };
-    write_document(workspace, &cleared)?;
-    Ok(root_count + tenant_count)
+    with_locked_write(workspace, |document| {
+        let root_count = document.credentials.root.len();
+        let tenant_count: usize = document
+            .credentials
+            .tenant
+            .values()
+            .map(BTreeMap::len)
+            .sum();
+        *document = CredentialDocument {
+            credentials: CredentialSections::default(),
+        };
+        Ok(root_count + tenant_count)
+    })
 }
 
 /// Import credential-looking environment variables into the workspace file
@@ -148,20 +192,20 @@ pub fn clear_all(workspace: &Path) -> ArgoResult<usize> {
 /// # Errors
 /// Returns an [`ArgoError`] when the file cannot be read or written.
 pub fn import_current_env(workspace: &Path) -> ArgoResult<usize> {
-    let mut document = load_document(workspace)?;
-    let mut imported = 0;
-    for (key, value) in env::vars() {
-        if looks_like_credential_key(&key) {
-            validate_key(&key)?;
-            document
-                .credentials
-                .root
-                .insert(key, CredentialEntry::Plain(value));
-            imported += 1;
+    with_locked_write(workspace, |document| {
+        let mut imported = 0;
+        for (key, value) in env::vars() {
+            if looks_like_credential_key(&key) {
+                validate_key(&key)?;
+                document
+                    .credentials
+                    .root
+                    .insert(key, CredentialEntry::Plain(value));
+                imported += 1;
+            }
         }
-    }
-    write_document(workspace, &document)?;
-    Ok(imported)
+        Ok(imported)
+    })
 }
 
 /// Render stored credentials as shell export lines (legacy root-level).
@@ -283,19 +327,20 @@ fn rewrite_tenant_entry(
     key: &str,
     new_blob_b64: String,
 ) -> ArgoResult<()> {
-    let mut document = load_document(workspace)?;
-    let section = document
-        .credentials
-        .tenant
-        .entry(tenant_id.to_string())
-        .or_default();
-    section.insert(
-        key.to_string(),
-        CredentialEntry::Encrypted {
-            value: new_blob_b64,
-        },
-    );
-    write_document(workspace, &document)
+    with_locked_write(workspace, |document| {
+        let section = document
+            .credentials
+            .tenant
+            .entry(tenant_id.to_string())
+            .or_default();
+        section.insert(
+            key.to_string(),
+            CredentialEntry::Encrypted {
+                value: new_blob_b64,
+            },
+        );
+        Ok(())
+    })
 }
 
 fn warn_legacy_migration(tenant_id: &TenantId, key: &str) {
@@ -315,6 +360,18 @@ fn warn_legacy_migration(tenant_id: &TenantId, key: &str) {
     );
 }
 
+/// Persist `document` to the credentials file via write-temp-then-rename.
+///
+/// The body is written to a sibling `*.tmp` file (created 0600), flushed to
+/// disk with [`File::sync_all`], then [`fs::rename`]d over the real path.
+/// `rename(2)` is atomic within a filesystem, so a crash mid-write leaves
+/// either the previous complete file or the new complete file on disk —
+/// never a torn/partial one. The temp lives in the same directory as the
+/// target so the rename stays intra-filesystem.
+///
+/// Callers reach this only through [`with_locked_write`], i.e. while holding
+/// the process-wide [`write_lock`], so the fixed temp name cannot collide
+/// between concurrent writers.
 pub(super) fn write_document(workspace: &Path, document: &CredentialDocument) -> ArgoResult<()> {
     let path = super::credentials_path(workspace);
     let parent = path
@@ -324,18 +381,32 @@ pub(super) fn write_document(workspace: &Path, document: &CredentialDocument) ->
         .map_err(|e| ArgoError::Io(format!("create {}: {e}", parent.display())))?;
     let body = toml::to_string_pretty(document)
         .map_err(|e| ArgoError::Provider(format!("serialize {}: {e}", path.display())))?;
+
+    // Stage into a sibling temp file, then atomically rename into place.
+    let tmp_path = path.with_extension("toml.tmp");
     let mut options = OpenOptions::new();
     options.create(true).truncate(true).write(true);
     #[cfg(unix)]
     options.mode(0o600);
     let mut file = options
-        .open(&path)
-        .map_err(|e| ArgoError::Provider(format!("open {}: {e}", path.display())))?;
+        .open(&tmp_path)
+        .map_err(|e| ArgoError::Provider(format!("open {}: {e}", tmp_path.display())))?;
     file.write_all(body.as_bytes())
-        .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", tmp_path.display())))?;
+    file.sync_all()
+        .map_err(|e| ArgoError::Io(format!("sync {}: {e}", tmp_path.display())))?;
     #[cfg(unix)]
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o600))
-        .map_err(|e| ArgoError::Provider(format!("chmod 0600 {}: {e}", path.display())))?;
+    fs::set_permissions(&tmp_path, fs::Permissions::from_mode(0o600))
+        .map_err(|e| ArgoError::Provider(format!("chmod 0600 {}: {e}", tmp_path.display())))?;
+    fs::rename(&tmp_path, &path).map_err(|e| {
+        // Best-effort cleanup so a failed rename does not leak the temp file.
+        let _ = fs::remove_file(&tmp_path);
+        ArgoError::Io(format!(
+            "rename {} -> {}: {e}",
+            tmp_path.display(),
+            path.display()
+        ))
+    })?;
     Ok(())
 }
 
@@ -370,4 +441,96 @@ fn looks_like_credential_key(key: &str) -> bool {
 
 fn quote_posix(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
+}
+
+#[cfg(test)]
+mod write_lock_tests {
+    //! Brief: `launch-cred-file-write-lock` — durability of the
+    //! credentials file under the concurrent tg2 gateway HTTP surface.
+    use super::*;
+    use argo_types::TenantId;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    /// Acceptance 1: N parallel `set_tenant` writers — every section is
+    /// present afterwards. Pre-fix this flakes/fails: the unlocked
+    /// load-modify-write lets two writers read the same state and the
+    /// second clobbers the first (last-writer-wins).
+    #[test]
+    fn concurrent_set_tenant_keeps_every_section() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_path_buf();
+        const N: usize = 24;
+        let tenants: Vec<TenantId> = (0..N).map(|_| TenantId::new()).collect();
+
+        let handles: Vec<_> = tenants
+            .iter()
+            .copied()
+            .map(|tenant| {
+                let root = root.clone();
+                std::thread::spawn(move || {
+                    set_tenant(&root, &tenant, "SLACK_BOT_TOKEN", "xoxb-token").unwrap();
+                })
+            })
+            .collect();
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        let document = load_document(&root).unwrap();
+        assert_eq!(
+            document.credentials.tenant.len(),
+            N,
+            "lost-update dropped at least one tenant section"
+        );
+        for tenant in &tenants {
+            assert!(
+                document
+                    .credentials
+                    .tenant
+                    .contains_key(&tenant.to_string()),
+                "missing section for tenant {tenant}"
+            );
+        }
+    }
+
+    /// Acceptance 2: a concurrent reader never observes a torn file. With
+    /// temp-write + rename every snapshot the OS hands back is a complete,
+    /// parseable document (the old one or the new one), never a partial
+    /// truncate-in-place write. Also asserts no staging file lingers.
+    #[test]
+    fn atomic_write_never_exposes_a_torn_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_path_buf();
+        let seed = TenantId::new();
+        set_tenant(&root, &seed, "SEED_TOKEN", "seed").unwrap();
+
+        let stop = Arc::new(AtomicBool::new(false));
+        let reader_root = root.clone();
+        let reader_stop = Arc::clone(&stop);
+        let reader = std::thread::spawn(move || {
+            let path = crate::cred::credentials_path(&reader_root);
+            while !reader_stop.load(Ordering::Relaxed) {
+                if let Ok(body) = fs::read_to_string(&path) {
+                    toml::from_str::<CredentialDocument>(&body)
+                        .expect("reader observed a torn / partially-written credentials file");
+                }
+            }
+        });
+
+        for i in 0..200 {
+            let tenant = TenantId::new();
+            set_tenant(&root, &tenant, "ROTATE_TOKEN", &format!("v{i}")).unwrap();
+        }
+        stop.store(true, Ordering::Relaxed);
+        reader.join().unwrap();
+
+        let tmp = crate::cred::credentials_path(&root).with_extension("toml.tmp");
+        assert!(!tmp.exists(), "temp staging file leaked: {}", tmp.display());
+        let document = load_document(&root).unwrap();
+        assert!(
+            document.credentials.tenant.contains_key(&seed.to_string()),
+            "seed section lost after concurrent rotation"
+        );
+    }
 }
