@@ -10,7 +10,7 @@ use crate::{SessionStore, StoreResult};
 use argo_security::pii_detect;
 use argo_types::{ArgoError, ArgoResult, MessageRole, SessionId};
 use chrono::Utc;
-use sqlx::{Pool, Sqlite};
+use sqlx::{Pool, Sqlite, Transaction};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -67,6 +67,48 @@ impl SessionStore {
                 id,
                 session_id,
                 role: role_str,
+                content_json: scanned,
+                created_at,
+            },
+        )
+        .await?;
+        Ok(id)
+    }
+
+    /// Append a message INSIDE the caller's transaction, returning the
+    /// new row's `Uuid`. The `message` INSERT commits with the caller's
+    /// `tx.commit()`; if any other statement in the same tx (or the
+    /// commit) fails, the message row rolls back atomically.
+    ///
+    /// Bypasses the append-path [`crate::batched_writer::BatchedWriter`]
+    /// deliberately — batching owns its own transaction and cannot share
+    /// one with an arbitrary caller. This is the message-side companion
+    /// to [`argo_audit::AuditSink::write_in_tx`]: the agent runner pairs
+    /// the two inside one tx so a per-round turn mutation and its
+    /// hash-chained `audit_record` row commit together or roll back
+    /// together (`fix-runner-audit-transactional`, mirroring the #2078
+    /// workflow-runner shape). `seq` is computed with the same
+    /// `MAX(seq)+1` read as [`insert_one`], serialized by SQLite's
+    /// single-writer lock under the caller's tx.
+    ///
+    /// # Errors
+    /// Returns [`ArgoError::Provider`] on sqlx failure.
+    pub async fn append_message_in_tx<'c>(
+        &self,
+        tx: &mut Transaction<'c, Sqlite>,
+        session_id: SessionId,
+        role: MessageRole,
+        content_json: &str,
+    ) -> StoreResult<Uuid> {
+        let id = Uuid::now_v7();
+        let created_at = Utc::now().timestamp_micros();
+        let scanned = pii_detect::scan_and_maybe_redact(content_json, "message_write").into_owned();
+        insert_one_in_tx(
+            tx,
+            &MessageItem {
+                id,
+                session_id,
+                role: role_label(role),
                 content_json: scanned,
                 created_at,
             },
@@ -171,10 +213,25 @@ async fn insert_one(pool: &Pool<Sqlite>, item: &MessageItem) -> StoreResult<()> 
         .begin()
         .await
         .map_err(|e| ArgoError::Provider(format!("tx begin: {e}")))?;
+    insert_one_in_tx(&mut tx, item).await?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("tx commit: {e}")))?;
+    Ok(())
+}
+
+/// Compute the next per-session `seq` and insert one message row INSIDE
+/// the caller's transaction. Shared by the own-tx [`insert_one`] wrapper
+/// and the caller-tx [`SessionStore::append_message_in_tx`] so both paths
+/// emit identical SQL; only the commit ownership differs.
+async fn insert_one_in_tx<'c>(
+    tx: &mut Transaction<'c, Sqlite>,
+    item: &MessageItem,
+) -> StoreResult<()> {
     let next_seq: i64 =
         sqlx::query_scalar("SELECT COALESCE(MAX(seq), 0) + 1 FROM message WHERE session_id = ?")
             .bind(item.session_id.0.as_bytes().as_slice())
-            .fetch_one(&mut *tx)
+            .fetch_one(&mut **tx)
             .await
             .map_err(|e| ArgoError::Provider(format!("next_seq: {e}")))?;
     sqlx::query(
@@ -187,12 +244,9 @@ async fn insert_one(pool: &Pool<Sqlite>, item: &MessageItem) -> StoreResult<()> 
     .bind(&item.content_json)
     .bind(item.created_at)
     .bind(next_seq)
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("insert message: {e}")))?;
-    tx.commit()
-        .await
-        .map_err(|e| ArgoError::Provider(format!("tx commit: {e}")))?;
     Ok(())
 }
 

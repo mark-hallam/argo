@@ -94,9 +94,24 @@ pub(crate) async fn run_turn_with_events_inner(
 
     if let Some(text) = user {
         let content = serde_json::json!([{"type": "text", "text": text}]);
+        // fix-runner-audit-transactional: commit the user message in its
+        // own tx (not the append-path BatchedWriter) so its `seq` is
+        // durable BEFORE the per-round assistant/tool appends — which are
+        // now in-tx — read `MAX(seq)`. Bypassing the batch buffer keeps
+        // the turn's message ordering deterministic regardless of flush
+        // timing. No paired audit here: `TurnStart` fires later, after
+        // async transport/routing setup, so it is not pulled into this tx.
+        let mut tx = store
+            .pool()
+            .begin()
+            .await
+            .map_err(|e| ArgoError::Provider(format!("user message tx begin: {e}")))?;
         store
-            .append_message(session_id, MessageRole::User, &content.to_string())
+            .append_message_in_tx(&mut tx, session_id, MessageRole::User, &content.to_string())
             .await?;
+        tx.commit()
+            .await
+            .map_err(|e| ArgoError::Provider(format!("user message tx commit: {e}")))?;
     }
 
     let manifest = load_manifest(cwd, &session.provider)?;

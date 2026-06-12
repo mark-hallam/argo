@@ -178,6 +178,9 @@ mod turn_helpers_gate;
 #[path = "turn_helpers_overlay.rs"]
 mod turn_helpers_overlay;
 
+#[path = "turn_helpers_audit_tx.rs"]
+mod turn_helpers_audit_tx;
+
 #[path = "turn_helpers_run.rs"]
 mod turn_helpers_run;
 

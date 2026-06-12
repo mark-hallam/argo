@@ -27,7 +27,7 @@ use argo_provider::{ProviderRequest, ToolSchema, Transport};
 use argo_store::SessionStore;
 use argo_tool::ToolRegistry;
 use argo_types::{
-    ArgoError, ArgoResult, ContentBlock, MessageRole, Principal, SessionId, ToolCallRequest,
+    ArgoError, ArgoResult, ContentBlock, Principal, SessionId, ToolCallRequest,
     ToolCallResult,
 };
 use std::path::Path;
@@ -271,34 +271,22 @@ pub(super) async fn run_one_round(
         }
     };
     let assistant_content = build_assistant_content(&resp.text, &resp.tool_calls);
-    let assistant_id = store
-        .append_message(
-            session_id,
-            MessageRole::Assistant,
-            &assistant_content.to_string(),
-        )
-        .await?;
-    // UF A7 — stamp the turn's USD cost onto the audit row so the SPA
-    // activity feed (`ActivityRow.tsx`) renders a cost chip for normal
-    // teammate work, not just forge/eval. `None` (mock provider / no
-    // pricing) emits a JSON `null`, never a fabricated zero (NO THEATER).
+    // fix-runner-audit-transactional: the assistant message INSERT and
+    // its `AssistantMessage` audit row now share ONE tx so a mutation
+    // can never escape the hash-chained audit trail (eval finding 3.1).
     let cost_usd = turn_cost_usd(spend, resp.tokens_in, resp.tokens_out);
-    let assistant_payload = serde_json::json!({
-        "message_id": assistant_id,
-        "round": round,
-        "tool_calls": resp.tool_calls.len(),
-        "tokens_in": resp.tokens_in,
-        "tokens_out": resp.tokens_out,
-        "cost_usd": cost_usd,
-    });
-    audit
-        .write(
-            Some(session_id),
-            AuditKind::AssistantMessage,
-            assistant_payload.clone(),
-            None,
-        )
-        .await?;
+    let (assistant_id, assistant_payload) = super::turn_helpers_audit_tx::persist_assistant_round(
+        store,
+        audit,
+        session_id,
+        &assistant_content,
+        round,
+        cost_usd,
+        resp.tokens_in,
+        resp.tokens_out,
+        resp.tool_calls.len(),
+    )
+    .await?;
     emit_event(events, "AssistantMessage", assistant_payload);
     record_turn_spend(store, session_id, spend, resp.tokens_in, resp.tokens_out).await?;
     crate::turn_budget::record_subtask_turn_spend(
@@ -374,19 +362,20 @@ pub(super) async fn dispatch_one_tool_call(
         "is_error": result.is_error,
         "duration_ms": result.duration_ms,
     });
-    audit
-        .write(
-            Some(session_id),
-            AuditKind::ToolResult,
-            result_payload.clone(),
-            None,
-        )
-        .await?;
-    emit_event(events, "ToolResult", result_payload);
+    // fix-runner-audit-transactional: the `ToolResult` audit row and the
+    // tool-result message INSERT now share ONE tx (eval finding 3.1) —
+    // either both land or neither does, so the audit chain can't fork
+    // from the message log.
     let tool_msg = serde_json::json!([ContentBlock::ToolResult(result)]);
-    store
-        .append_message(session_id, MessageRole::Tool, &tool_msg.to_string())
-        .await?;
+    super::turn_helpers_audit_tx::persist_tool_result(
+        store,
+        audit,
+        session_id,
+        result_payload.clone(),
+        &tool_msg,
+    )
+    .await?;
+    emit_event(events, "ToolResult", result_payload);
     Ok(())
 }
 

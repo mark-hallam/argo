@@ -10,36 +10,146 @@
 #![allow(unused_imports)]
 
 use argo_agent_runner::run_turn_with_events;
+use argo_audit::{AuditKind, AuditSink};
 use argo_store::{SessionCreate, SessionStore, WorkerId};
-use argo_types::{ArgoError, SessionId};
+use argo_types::{ArgoError, ArgoResult, MessageRole, SessionId, TenantId, WorkspaceId};
 use std::sync::Arc;
 use tempfile::TempDir;
+use uuid::Uuid;
+
+/// Seed a workspace + session and return the session id.
+async fn seed_session(store: &Arc<SessionStore>, tenant: TenantId) -> SessionId {
+    let ws = WorkspaceId::new();
+    sqlx::query(
+        "INSERT INTO workspace (id, tenant_id, name, root_path, created_at)
+         VALUES (?, ?, 'tx-audit', '.', strftime('%s','now'))",
+    )
+    .bind(ws.0.as_bytes().as_slice())
+    .bind(tenant.0.as_bytes().as_slice())
+    .execute(store.pool())
+    .await
+    .expect("seed workspace");
+    store
+        .create_session(tenant, ws, "model", "provider", Some("t"), None)
+        .await
+        .expect("create session")
+}
+
+/// Count `audit_record` rows for a session via the bare pool.
+async fn audit_count(store: &Arc<SessionStore>, session_id: SessionId) -> i64 {
+    sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM audit_record WHERE session_id = ?")
+        .bind(session_id.0.as_bytes().as_slice())
+        .fetch_one(store.pool())
+        .await
+        .expect("count audit_record rows")
+}
+
+// Finding 3.1 — un-ignored by `fix-runner-audit-transactional`. The
+// per-round assistant message + its `AssistantMessage` audit row now
+// share ONE sqlx transaction (`turn_helpers_audit_tx::
+// persist_assistant_round`), so a forced audit-write failure rolls back
+// the paired message mutation — no orphan row escapes the hash-chained
+// audit trail. This test exercises the exact public primitive pair the
+// runner composes (`SessionStore::append_message_in_tx` +
+// `AuditSink::write_in_tx`) in the runner's append-then-audit order, and
+// proves the rollback by dropping `audit_record` mid-flight (the #2078
+// failure-injection technique).
+/// Happy path: an assistant message INSERT + its `AssistantMessage` audit
+/// row in ONE tx both land. Extracted so the test fn stays under the
+/// 80-LOC budget.
+async fn assert_happy_path_pair_lands(store: &Arc<SessionStore>, audit: &AuditSink, session_id: SessionId) {
+    let mut tx = store.pool().begin().await.expect("tx begin");
+    let id = store
+        .append_message_in_tx(
+            &mut tx,
+            session_id,
+            MessageRole::Assistant,
+            "[{\"type\":\"text\",\"text\":\"hi\"}]",
+        )
+        .await
+        .expect("append in tx");
+    let post = audit
+        .write_in_tx(
+            &mut tx,
+            Some(session_id),
+            AuditKind::AssistantMessage,
+            serde_json::json!({ "message_id": id }),
+            None,
+        )
+        .await
+        .expect("audit write in tx");
+    tx.commit().await.expect("commit");
+    audit.after_commit_fanout(post).await.ok();
+    assert_eq!(
+        store.message_count(session_id).await.expect("count"),
+        1,
+        "happy-path message persisted",
+    );
+    assert_eq!(
+        audit_count(store, session_id).await,
+        1,
+        "happy-path audit row persisted alongside it",
+    );
+}
 
 #[tokio::test]
-#[ignore = "FINDINGS-ONLY: pins finding 3.1 (audit writes must be in-tx with mutation)"]
 async fn append_message_and_audit_write_must_share_transaction() {
-    // Scenario: kill the process between
-    // `store.append_message(Assistant, ...)` and
-    // `audit.write(AssistantMessage, ...)`. On restart the
-    // messages table should NOT carry an orphan row that has
-    // no corresponding audit_record.
-    //
-    // Today the audit sink uses a `BatchedWriter` whose flush
-    // is on a background task; the assistant-message INSERT
-    // and the audit-record INSERT live in two distinct
-    // transactions. The `mission-workflow-audit-write-
-    // transactional` shape from #2078 fixes the same gap for
-    // workflow_audit; the fix brief lifts that pattern to the
-    // runner per-round mutation+audit pairs.
-    //
-    // Test wiring requires `write_in_tx` to be hot-wired into
-    // `turn_helpers_run::run_one_round` and
-    // `dispatch_one_tool_call`. Pending that, this test stays
-    // as a scaffold pinning the invariant.
-    panic!(
-        "FINDINGS-ONLY: pending fix-runner-audit-transactional. \
-         See docs/skycot/evals/scheduled/2026-05-23/eval-argo-agent-runner-turn-lifecycle.md \
-         §3.1."
+    let store = Arc::new(SessionStore::open(":memory:").await.expect("open store"));
+    store.migrate().await.expect("migrate");
+    let tenant = TenantId(Uuid::from_u128(0xA1));
+    let session_id = seed_session(&store, tenant).await;
+    let audit = AuditSink::new_with_tenant(Arc::clone(&store), tenant.to_string());
+
+    assert_happy_path_pair_lands(&store, &audit, session_id).await;
+
+    // --- Failure injection: dropping `audit_record` makes the in-tx
+    //     audit write fail; the paired message INSERT must roll back. ---
+    sqlx::query("DROP TABLE audit_record")
+        .execute(store.pool())
+        .await
+        .expect("drop audit_record");
+
+    let result: ArgoResult<()> = async {
+        let mut tx = store
+            .pool()
+            .begin()
+            .await
+            .map_err(|e| ArgoError::Provider(e.to_string()))?;
+        // Mirror `persist_assistant_round`: message INSERT first, then
+        // the audit write (which now fails on the dropped table).
+        let _id = store
+            .append_message_in_tx(
+                &mut tx,
+                session_id,
+                MessageRole::Assistant,
+                "[{\"type\":\"text\",\"text\":\"orphan?\"}]",
+            )
+            .await?;
+        let _post = audit
+            .write_in_tx(
+                &mut tx,
+                Some(session_id),
+                AuditKind::AssistantMessage,
+                serde_json::json!({}),
+                None,
+            )
+            .await?;
+        tx.commit()
+            .await
+            .map_err(|e| ArgoError::Provider(e.to_string()))?;
+        Ok(())
+    }
+    .await;
+
+    assert!(
+        result.is_err(),
+        "audit write must fail once audit_record is dropped",
+    );
+    assert_eq!(
+        store.message_count(session_id).await.expect("count"),
+        1,
+        "the rolled-back message must NOT persist — no orphan mutation \
+         outside the hash-chained audit trail",
     );
 }
 
