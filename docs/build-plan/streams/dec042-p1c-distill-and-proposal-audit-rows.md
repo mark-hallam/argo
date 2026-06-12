@@ -43,7 +43,11 @@ the 500-LOC gate, STOP and queue the split brief instead of force-fitting.
 - `crates/argo-skill/src/dreams_distillation.rs`, `self_improve_cron.rs`,
   `self_improve_cron_helpers.rs`, `store_vertical.rs` (+ tests)
 - `crates/argo-cli/src/handlers/skill_distill_now.rs` (+ tests)
-- the audit-kind registry file (additive variants only)
+- the audit-kind registry: BOTH `crates/argo-audit/src/event_kind.rs`
+  (the enum, ~321 LOC — additive variants only) AND
+  `crates/argo-audit/src/event.rs` (the as_str/parse/all mapping at
+  ~:45/:143/:241, ~326 LOC) — a new kind needs edits in both
+  (discovery-verified 2026-06-12)
 
 ## Acceptance / verifier
 
