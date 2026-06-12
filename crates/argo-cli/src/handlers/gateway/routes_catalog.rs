@@ -324,7 +324,14 @@ pub(crate) fn routes_markdown(method_filter: Option<&str>) -> (&'static str, Str
     let (_status, json_body) = routes_response(method_filter);
     let parsed: serde_json::Value = match serde_json::from_str(&json_body) {
         Ok(v) => v,
-        Err(_) => return ("500 Internal Server Error", String::from("# error")),
+        // This route serves markdown (`?format=markdown`), not JSON — keep a
+        // text error body, but make it honest rather than a bare `# error`.
+        Err(_) => {
+            return (
+                "500 Internal Server Error",
+                String::from("# error: route catalog could not be rendered"),
+            )
+        }
     };
     let arr = parsed.as_array().cloned().unwrap_or_default();
     let mut out = format!("# Gateway routes ({} endpoints)\n\n", arr.len());

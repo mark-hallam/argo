@@ -59,7 +59,11 @@ pub(super) async fn append_memory_response(
         .unwrap_or("")
         .to_string();
     if body_text.trim().is_empty() {
-        return ("400 Bad Request", "{\"error\":\"empty body\"}".to_string());
+        return (
+            "400 Bad Request",
+            serde_json::json!({ "error": { "code": "bad_request", "message": "empty body" } })
+                .to_string(),
+        );
     }
     // #718: cwd-bound workspace (matches every reader's path).
     let workspace = match cwd_workspace(store).await {
@@ -67,7 +71,8 @@ pub(super) async fn append_memory_response(
         Err(e) => {
             return (
                 "500 Internal Server Error",
-                format!("{{\"error\":\"cwd_workspace: {e}\"}}"),
+                serde_json::json!({ "error": { "code": "internal_error", "message": format!("cwd_workspace: {e}") } })
+                    .to_string(),
             );
         }
     };

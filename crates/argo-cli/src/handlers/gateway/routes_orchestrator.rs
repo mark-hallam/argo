@@ -227,32 +227,38 @@ pub(super) fn to_body(v: &impl serde::Serialize) -> String {
 }
 
 pub(super) fn bad(msg: &str) -> (&'static str, String) {
-    ("400 Bad Request", json!({"error":msg}).to_string())
+    ("400 Bad Request", envelope("bad_request", msg))
 }
 pub(super) fn bad_owned(msg: String) -> (&'static str, String) {
-    ("400 Bad Request", json!({"error":msg}).to_string())
+    ("400 Bad Request", envelope("bad_request", &msg))
 }
 fn unauthorized(msg: &str) -> (&'static str, String) {
-    ("401 Unauthorized", json!({"error":msg}).to_string())
+    ("401 Unauthorized", envelope("unauthorized", msg))
 }
 fn forbidden(msg: &str) -> (&'static str, String) {
-    ("403 Forbidden", json!({"error":msg}).to_string())
+    ("403 Forbidden", envelope("forbidden", msg))
 }
 pub(super) fn not_found() -> (&'static str, String) {
-    ("404 Not Found", json!({"error":"not found"}).to_string())
+    ("404 Not Found", envelope("not_found", "not found"))
 }
 pub(super) fn server(e: impl std::fmt::Display) -> (&'static str, String) {
     (
         "500 Internal Server Error",
-        json!({"error":e.to_string()}).to_string(),
+        envelope("internal_error", &e.to_string()),
     )
+}
+
+/// Structured error body `{"error":{"code","message"}}` — the typed-error
+/// shape the SPA's `web/lib/api` path reads (`error.code`).
+fn envelope(code: &str, message: &str) -> String {
+    json!({ "error": { "code": code, "message": message } }).to_string()
 }
 pub(super) fn db(e: impl std::fmt::Display) -> ArgoError {
     ArgoError::Provider(e.to_string())
 }
 pub(super) fn conflict_or_server(e: ArgoError) -> (&'static str, String) {
     if matches!(e, ArgoError::Invariant(_)) {
-        ("409 Conflict", json!({"error":e.to_string()}).to_string())
+        ("409 Conflict", envelope("conflict", &e.to_string()))
     } else {
         server(e)
     }

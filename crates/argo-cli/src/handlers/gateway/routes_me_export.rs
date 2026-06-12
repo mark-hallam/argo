@@ -370,7 +370,13 @@ fn sha256_hex(s: &str) -> String {
 fn store_unavailable() -> (&'static str, String) {
     (
         "503 Service Unavailable",
-        r#"{"error":"session store unavailable"}"#.to_string(),
+        json!({
+            "error": {
+                "code": "store_unavailable",
+                "message": "session store unavailable",
+            }
+        })
+        .to_string(),
     )
 }
 
@@ -390,7 +396,7 @@ fn unauthorized() -> (&'static str, String) {
 fn not_found() -> (&'static str, String) {
     (
         "404 Not Found",
-        r#"{"error":"not found"}"#.to_string(),
+        json!({ "error": { "code": "not_found", "message": "not found" } }).to_string(),
     )
 }
 

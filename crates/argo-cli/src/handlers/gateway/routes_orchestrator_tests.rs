@@ -39,6 +39,19 @@ async fn orchestrator_routes_auth_and_lifecycle() {
         .0,
         "401 Unauthorized"
     );
+    // The 401 body is a structured envelope `{"error":{"code","message"}}`
+    // so the SPA's typed-error path (`error.code`) resolves on this route.
+    let (_status, unauth_body) = dispatch_route(
+        &req("GET", &format!("/sessions?tenant={tenant}"), Some("bad"), ""),
+        Some(&store),
+    )
+    .await
+    .unwrap();
+    let unauth: serde_json::Value = serde_json::from_str(&unauth_body).unwrap();
+    assert_eq!(
+        unauth["error"]["code"], "unauthorized",
+        "401 envelope: {unauth_body}"
+    );
     assert_eq!(
         dispatch_route(
             &req(

@@ -68,7 +68,7 @@ pub(super) fn check_bearer_auth(req: &str) -> Option<(&'static str, String)> {
         _ if production => {
             return Some((
                 "401 Unauthorized",
-                r#"{"error":"unauthorized","reason":"gateway-bearer-token-required-in-production"}"#
+                serde_json::json!({ "error": { "code": "unauthorized", "message": "gateway-bearer-token-required-in-production" } })
                     .to_string(),
             ));
         }
@@ -82,7 +82,8 @@ pub(super) fn check_bearer_auth(req: &str) -> Option<(&'static str, String)> {
     } else {
         Some((
             "401 Unauthorized",
-            r#"{"error":"unauthorized","reason":"missing or invalid bearer token"}"#.to_string(),
+            serde_json::json!({ "error": { "code": "unauthorized", "message": "missing or invalid bearer token" } })
+                .to_string(),
         ))
     }
 }
@@ -118,7 +119,8 @@ pub(super) fn require_identity(req: &str) -> Option<(&'static str, String)> {
         None if bearer_token_configured() => None,
         None => Some((
             "401 Unauthorized",
-            r#"{"error":"unauthorized","reason":"authentication required"}"#.to_string(),
+            serde_json::json!({ "error": { "code": "unauthorized", "message": "authentication required" } })
+                .to_string(),
         )),
     }
 }
@@ -337,7 +339,8 @@ fn workspace_default_tenant() -> TenantId {
 fn reject_401() -> (&'static str, String) {
     (
         "401 Unauthorized",
-        r#"{"error":"unauthorized","reason":"missing or invalid bearer token"}"#.to_string(),
+        serde_json::json!({ "error": { "code": "unauthorized", "message": "missing or invalid bearer token" } })
+            .to_string(),
     )
 }
 
@@ -391,9 +394,11 @@ fn header_value(req: &str, name_lower: &str) -> Option<String> {
 }
 
 fn forbidden(message: &str) -> (&'static str, String) {
+    // `json!` escapes `message` — a `format!` here would break the JSON on a
+    // `"` in the message (and was an injection-shape bug).
     (
         "403 Forbidden",
-        format!(r#"{{"error":"forbidden","reason":"{message}"}}"#),
+        serde_json::json!({ "error": { "code": "forbidden", "message": message } }).to_string(),
     )
 }
 

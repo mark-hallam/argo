@@ -176,7 +176,8 @@ async fn preflight_dispatch(
     if parse_principal_header(req).is_err() {
         return Some((
             "400 Bad Request",
-            r#"{"error":"bad principal"}"#.to_string(),
+            serde_json::json!({ "error": { "code": "bad_request", "message": "bad principal" } })
+                .to_string(),
         ));
     }
     None

@@ -112,7 +112,12 @@ async fn gateway_auth_principal_stamps_approval_audit_payloads() {
         resp.contains("HTTP/1.1 400 Bad Request"),
         "bad principal: {resp}"
     );
-    assert_eq!(body_of(&resp), r#"{"error":"bad principal"}"#);
+    // Structured error envelope: `{"error":{"code","message"}}` so the SPA's
+    // typed-error path (`error.code`) resolves rather than falling through to
+    // the generic "Something went wrong".
+    let err: serde_json::Value = serde_json::from_str(body_of(&resp)).unwrap();
+    assert_eq!(err["error"]["code"], "bad_request", "body: {}", body_of(&resp));
+    assert_eq!(err["error"]["message"], "bad principal");
 
     let status = child.wait().expect("wait gateway");
     assert!(status.success(), "gateway exited with {status}");

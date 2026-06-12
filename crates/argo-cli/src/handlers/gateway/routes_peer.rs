@@ -55,7 +55,8 @@ pub(super) async fn dispatch(
     }
     Some((
         "404 Not Found",
-        r#"{"error":"unknown peer endpoint"}"#.to_string(),
+        serde_json::json!({ "error": { "code": "not_found", "message": "unknown peer endpoint" } })
+            .to_string(),
     ))
 }
 
@@ -70,7 +71,8 @@ fn check_peer_auth(req: &str) -> Option<(&'static str, String)> {
     let Some(expected) = peer::configured_secret() else {
         return Some((
             "401 Unauthorized",
-            r#"{"error":"unauthorized","reason":"ARGO_PEER_SECRET not configured"}"#.to_string(),
+            serde_json::json!({ "error": { "code": "unauthorized", "message": "ARGO_PEER_SECRET not configured" } })
+                .to_string(),
         ));
     };
     let presented = presented_bearer(req);
@@ -79,7 +81,8 @@ fn check_peer_auth(req: &str) -> Option<(&'static str, String)> {
     } else {
         Some((
             "401 Unauthorized",
-            r#"{"error":"unauthorized","reason":"invalid peer bearer token"}"#.to_string(),
+            serde_json::json!({ "error": { "code": "unauthorized", "message": "invalid peer bearer token" } })
+                .to_string(),
         ))
     }
 }

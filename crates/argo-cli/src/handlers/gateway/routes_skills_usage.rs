@@ -50,7 +50,7 @@ pub(super) async fn skill_usage_response(
     let Ok(tenant_uuid) = Uuid::parse_str(&tenant_str) else {
         return (
             "500 Internal Server Error",
-            json!({ "error": format!("tenant id not a uuid: '{tenant_str}'") }).to_string(),
+            json!({ "error": { "code": "internal_error", "message": format!("tenant id not a uuid: '{tenant_str}'") } }).to_string(),
         );
     };
     let identity = IdentityStore::new(store);
@@ -63,7 +63,7 @@ pub(super) async fn skill_usage_response(
         Err(e) => {
             return (
                 "500 Internal Server Error",
-                json!({ "error": format!("workers_with_skill: {e}") }).to_string(),
+                json!({ "error": { "code": "internal_error", "message": format!("workers_with_skill: {e}") } }).to_string(),
             )
         }
     };
@@ -72,7 +72,7 @@ pub(super) async fn skill_usage_response(
         Err(e) => {
             return (
                 "500 Internal Server Error",
-                json!({ "error": format!("adoption count: {e}") }).to_string(),
+                json!({ "error": { "code": "internal_error", "message": format!("adoption count: {e}") } }).to_string(),
             )
         }
     };
@@ -137,7 +137,7 @@ async fn resolve_skill_for_usage(
             let Some(uuid) = uuid_from_blob(&id_blob) else {
                 return Err((
                     "500 Internal Server Error",
-                    json!({ "error": "skill id column not a 16-byte uuid" }).to_string(),
+                    json!({ "error": { "code": "internal_error", "message": "skill id column not a 16-byte uuid" } }).to_string(),
                 ));
             };
             Ok((
@@ -148,12 +148,12 @@ async fn resolve_skill_for_usage(
         }
         Ok(None) => Err((
             "404 Not Found",
-            json!({ "error": format!("no active skill '{id_or_name}' in this tenant") })
+            json!({ "error": { "code": "not_found", "message": format!("no active skill '{id_or_name}' in this tenant") } })
                 .to_string(),
         )),
         Err(e) => Err((
             "500 Internal Server Error",
-            json!({ "error": format!("skill lookup: {e}") }).to_string(),
+            json!({ "error": { "code": "internal_error", "message": format!("skill lookup: {e}") } }).to_string(),
         )),
     }
 }

@@ -40,7 +40,8 @@ fn token_response_impl(req: &str, allow_dev_cookie: bool) -> (&'static str, Stri
         Some(token) => ("200 OK", serde_json::json!({ "token": token }).to_string()),
         None => (
             "401 Unauthorized",
-            r#"{"error":"no_csrf_cookie"}"#.to_string(),
+            serde_json::json!({ "error": { "code": "no_csrf_cookie", "message": "no CSRF cookie present" } })
+                .to_string(),
         ),
     }
 }

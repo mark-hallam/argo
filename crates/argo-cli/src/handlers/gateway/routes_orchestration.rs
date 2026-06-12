@@ -59,7 +59,10 @@ pub(super) async fn action_response(
         return super::store_unavailable();
     }
     if !matches!(action, "cancel" | "reset-retry" | "force-escalate") {
-        return ("404 Not Found", r#"{"error":"not found"}"#.to_string());
+        return (
+            "404 Not Found",
+            json!({ "error": { "code": "not_found", "message": "not found" } }).to_string(),
+        );
     }
     (
         "202 Accepted",
@@ -173,20 +176,23 @@ fn micros(v: i64) -> ArgoResult<String> {
 }
 
 fn bad(msg: &str) -> (&'static str, String) {
-    ("400 Bad Request", json!({"error": msg}).to_string())
+    (
+        "400 Bad Request",
+        json!({ "error": { "code": "bad_request", "message": msg } }).to_string(),
+    )
 }
 
 fn server(msg: &str) -> (&'static str, String) {
     (
         "500 Internal Server Error",
-        json!({"error": msg}).to_string(),
+        json!({ "error": { "code": "internal_error", "message": msg } }).to_string(),
     )
 }
 
 fn server_owned(msg: String) -> (&'static str, String) {
     (
         "500 Internal Server Error",
-        json!({"error": msg}).to_string(),
+        json!({ "error": { "code": "internal_error", "message": msg } }).to_string(),
     )
 }
 

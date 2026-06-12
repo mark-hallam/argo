@@ -34,7 +34,8 @@ pub(super) async fn dispatch_audit_stream(
     let Some(store) = store else {
         return (
             "503 Service Unavailable",
-            json!({"error":"store unavailable"}).to_string(),
+            json!({ "error": { "code": "store_unavailable", "message": "store unavailable" } })
+                .to_string(),
         );
     };
     if let Err(resp) = check_auth(req) {
@@ -135,7 +136,8 @@ fn check_auth(req: &str) -> Result<(), (&'static str, String)> {
     let token = token.ok_or_else(|| {
         (
             "401 Unauthorized",
-            json!({"error":"missing bearer token"}).to_string(),
+            json!({ "error": { "code": "unauthorized", "message": "missing bearer token" } })
+                .to_string(),
         )
     })?;
     // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
@@ -143,7 +145,8 @@ fn check_auth(req: &str) -> Result<(), (&'static str, String)> {
         if !expected.is_empty() && token != expected {
             return Err((
                 "401 Unauthorized",
-                json!({"error":"invalid bearer token"}).to_string(),
+                json!({ "error": { "code": "unauthorized", "message": "invalid bearer token" } })
+                    .to_string(),
             ));
         }
     }
@@ -207,7 +210,10 @@ fn cookie_value(req: &str, key: &str) -> Option<String> {
 }
 
 fn bad_request(msg: &str) -> (&'static str, String) {
-    ("400 Bad Request", json!({"error": msg}).to_string())
+    (
+        "400 Bad Request",
+        json!({ "error": { "code": "bad_request", "message": msg } }).to_string(),
+    )
 }
 
 fn valid_kind_filter(s: &str) -> bool {

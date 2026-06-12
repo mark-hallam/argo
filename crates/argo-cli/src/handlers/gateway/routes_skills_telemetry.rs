@@ -297,7 +297,7 @@ async fn resolve_skill(
             let Some(uuid) = uuid_from_blob(&id_blob) else {
                 return Err((
                     "500 Internal Server Error",
-                    json!({ "error": "skill id column not a 16-byte uuid" }).to_string(),
+                    json!({ "error": { "code": "internal_error", "message": "skill id column not a 16-byte uuid" } }).to_string(),
                 ));
             };
             Ok((
@@ -308,12 +308,12 @@ async fn resolve_skill(
         }
         Ok(None) => Err((
             "404 Not Found",
-            json!({ "error": format!("no active skill '{id_or_name}' in this tenant") })
+            json!({ "error": { "code": "not_found", "message": format!("no active skill '{id_or_name}' in this tenant") } })
                 .to_string(),
         )),
         Err(e) => Err((
             "500 Internal Server Error",
-            json!({ "error": format!("skill lookup: {e}") }).to_string(),
+            json!({ "error": { "code": "internal_error", "message": format!("skill lookup: {e}") } }).to_string(),
         )),
     }
 }
@@ -353,7 +353,7 @@ async fn ensure_reeval_schema(store: &Arc<SessionStore>) -> Result<(), argo_type
 fn server_error(msg: &str) -> (&'static str, String) {
     (
         "500 Internal Server Error",
-        json!({ "error": msg }).to_string(),
+        json!({ "error": { "code": "internal_error", "message": msg } }).to_string(),
     )
 }
 

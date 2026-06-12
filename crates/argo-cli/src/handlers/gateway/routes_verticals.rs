@@ -101,7 +101,7 @@ pub(super) async fn list_response(format: Option<&str>) -> (&'static str, String
 }
 
 /// `GET /verticals/<id>[?format=markdown]` — full manifest summary
-/// for one vertical. 404 + `{"error":"…"}` if not found. Reuses
+/// for one vertical. 404 + `{"error":{"code","message"}}` if not found. Reuses
 /// the CLI's `summarize_loaded` + `render_markdown` so the wire
 /// shape matches `argo vertical show --json` byte-for-byte; an
 /// additional `marketplace` envelope is appended additively for
@@ -120,7 +120,8 @@ pub(super) async fn show_response(id: &str, format: Option<&str>) -> (&'static s
     let Some(loaded) = registry.get(id) else {
         return (
             "404 Not Found",
-            format!("{{\"error\":\"vertical '{id}' not found\"}}"),
+            serde_json::json!({ "error": { "code": "not_found", "message": format!("vertical '{id}' not found") } })
+                .to_string(),
         );
     };
     if matches!(format, Some("markdown")) {

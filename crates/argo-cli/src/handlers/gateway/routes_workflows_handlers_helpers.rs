@@ -16,7 +16,7 @@ use sqlx::Row;
 /// "{name} already exists in {vertical}" without re-fetching.
 pub(super) fn collision_conflict_response(vertical: &str, name: &str) -> (&'static str, String) {
     let body = json!({
-        "error": "workflow already exists",
+        "error": { "code": "conflict", "message": "workflow already exists" },
         "vertical": vertical,
         "name": name,
     });

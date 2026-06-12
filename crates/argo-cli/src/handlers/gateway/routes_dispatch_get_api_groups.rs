@@ -425,7 +425,10 @@ fn audit_endpoint_not_found(path_tail: &str) -> (&'static str, String) {
     (
         "404 Not Found",
         json!({
-            "error": "endpoint_not_found",
+            "error": {
+                "code": "endpoint_not_found",
+                "message": "audit endpoint not found",
+            },
             "path": format!("/api/v1/audit/{path_tail}"),
             "hint": "see /api/v1/audit or /api/v1/audit/events",
         })
@@ -442,7 +445,12 @@ fn audit_endpoint_not_found(path_tail: &str) -> (&'static str, String) {
 fn auth_status_response() -> (&'static str, String) {
     let cwd = match std::env::current_dir() {
         Ok(c) => c,
-        Err(_) => return ("500 Internal Server Error", r#"{"error":"cwd"}"#.into()),
+        Err(_) => {
+            return (
+                "500 Internal Server Error",
+                json!({ "error": { "code": "internal_error", "message": "cwd" } }).to_string(),
+            )
+        }
     };
     let cfg = argo_config::ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
     let oidc_tenants: Vec<&String> = cfg.sso.oidc.keys().collect();

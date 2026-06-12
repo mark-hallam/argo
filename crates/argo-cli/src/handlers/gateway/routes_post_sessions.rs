@@ -32,7 +32,8 @@ pub(super) async fn create_session_response(
     if model.is_empty() || provider.is_empty() {
         return (
             "400 Bad Request",
-            "{\"error\":\"required fields: model, provider\"}".to_string(),
+            serde_json::json!({ "error": { "code": "bad_request", "message": "required fields: model, provider" } })
+                .to_string(),
         );
     }
     let title = parsed["title"].as_str();
@@ -42,7 +43,12 @@ pub(super) async fn create_session_response(
     let vertical_id = parsed["vertical_id"].as_str();
     let worker_id = match parse_worker_id(&parsed) {
         Ok(id) => id,
-        Err(e) => return ("400 Bad Request", format!("{{\"error\":\"{e}\"}}")),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                serde_json::json!({ "error": { "code": "bad_request", "message": e } }).to_string(),
+            )
+        }
     };
     create_session_inner(store, req, model, provider, title, vertical_id, worker_id).await
 }
@@ -203,13 +209,19 @@ pub(super) async fn create_session_for_vertical_response(
     if model.is_empty() || provider.is_empty() {
         return (
             "400 Bad Request",
-            "{\"error\":\"required fields: model, provider\"}".to_string(),
+            serde_json::json!({ "error": { "code": "bad_request", "message": "required fields: model, provider" } })
+                .to_string(),
         );
     }
     let title = parsed["title"].as_str();
     let worker_id = match parse_worker_id(&parsed) {
         Ok(id) => id,
-        Err(e) => return ("400 Bad Request", format!("{{\"error\":\"{e}\"}}")),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                serde_json::json!({ "error": { "code": "bad_request", "message": e } }).to_string(),
+            )
+        }
     };
     create_session_inner(store, req, model, provider, title, Some(vertical_id), worker_id).await
 }

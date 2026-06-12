@@ -463,8 +463,11 @@ async fn concurrent_create_handler_returns_201_and_409_not_500() {
         } else if status.starts_with("409") {
             got_409 = true;
             let parsed: Value = serde_json::from_str(body).expect("parse 409 body");
+            // Structured error envelope: `{"error":{"code","message"}}` so the
+            // SPA's typed-error path (`error.code`) resolves on this route.
+            assert_eq!(parsed["error"]["code"], "conflict", "409 code: {body}");
             assert_eq!(
-                parsed["error"], "workflow already exists",
+                parsed["error"]["message"], "workflow already exists",
                 "409 body shape: {body}"
             );
             assert_eq!(parsed["vertical"], VERTICAL, "vertical in body: {body}");
