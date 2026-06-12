@@ -1,61 +1,48 @@
 # fix-gateway-error-envelope-standardize-structured
 
-**Owner**: codex.
-**Authored against**: origin/main `271a3d4cc2a90ad40949400340a0464a19f48d5f` on `2026-05-27`.
+**Owner**: claude or codex (broadened from codex-only by conductor 2026-06-12).
+**Depends on**: none.
+**Authored against**: origin/main `271a3d4cc` on `2026-05-27`. **RE-SCOPED against `30b44956f` on `2026-06-12`** — conductor re-verified: the 2026-05-28 BLOCK ("touches every gateway route, scope too large") is OBSOLETE. The structured envelope spread incrementally; the flat-string remainder is **17 non-test `routes_*.rs` files** (canonical enumerator: `rg -l '"error":\s*"' crates/argo-cli/src/handlers/gateway/routes_*.rs | grep -v test`), including 4 bare-return literals (`routes_post_writes.rs:62`, `routes_post_sessions.rs:45+212` — the latter string-interpolates UNESCAPED `{e}` into JSON, a correctness bug on its own — and `routes_catalog.rs:325` which returns literal `# error` text).
 **Validate before claim**: `bash scripts/check-brief-freshness.sh fix-gateway-error-envelope-standardize-structured`.
-**Source**: UX-AUDIT-T0119MEL `docs/skycot/ux-audits/2026-05-27-0119/scene-6-claim-6-trust-and-approvals.md` F10 (P2).
+**Source**: UX-AUDIT-T0119MEL F10 (P2) — the SPA's typed error path expects `error.code`; flat-string errors fall through to the generic "Something went wrong".
 
-🟡 **P2 — Gateway error envelopes are inconsistent across endpoints. `/api/v1/audit/aaaa` returns `{"error":{"code":"not_found","message":"audit row not found"}}` (structured). `/api/v1/workflow-runs` returns `{"error":"not found"}` (string). `/api/v1/workers` returns `{"error":"not found"}` (string). The SPA's typed error path expects `error.code` — a string error breaks parsing and the SPA falls through to its generic "Something went wrong" path on otherwise informative 404s.**
+## Fix
 
-## Root cause
+For every non-test hit of the enumerator grep: replace the flat
+`{"error":"<msg>"}` shape with the structured
+`{"error":{"code":"<code>","message":"<msg>"}}` using the established
+helpers (`error_envelope` / `bad_request` / `not_found` / `server_error` —
+see `routes_worker_capability_grant.rs` or `routes_workspace_settings.rs:391`
+for the pattern; reuse, do NOT mint a new helper). Special cases:
 
-Different gateway route handlers serialize errors with different shapes:
-- The audit handlers (post-#2402) use the structured envelope `{ error: { code: "not_found", message: "audit row not found" } }`.
-- The workflow-runs / workers / verticals / older handlers use the legacy string-error envelope `{ error: "not found" }`.
+- `routes_post_sessions.rs:45/:212`: must switch `format!` → `json!` (the
+  current code breaks on a `"` in the error message — fix is also an
+  injection-shape bug fix).
+- `routes_catalog.rs:325`: check the route's content-type FIRST — if it
+  serves markdown/plain text, keep a text error (make it honest:
+  `# error: <reason>`) and document the exception in the PR body.
+- Code values: reuse the codes the structured routes already use
+  (`bad_request` / `not_found` / `internal_error` / domain-specific) —
+  match nearest-sibling semantics, don't invent a new taxonomy.
 
-The SPA's typed error layer (likely `web/lib/api/client.ts` `parseError()` or equivalent) was updated to read the structured shape; legacy endpoints still emit strings, so the SPA logs "Cannot read property 'code' of undefined" or silently falls through to mock-offline. Either way, the operator does not get the useful 404 message back.
+Tests: extend ONE existing test per touched route family asserting
+`error.code` is present on the error path (no new test files unless a
+route has none).
 
-The fix is shape-standardization across every gateway error path — pick the structured `{ error: { code, message } }` and migrate all string-error responders to use it.
+## May touch
 
-## Findings this brief closes
+- the non-test files the enumerator grep names (+ their existing test files)
+- if the diff would exceed ~400 LOC or 500-LOC-ceiling pressure appears on
+  any file, STOP at a clean subset and open the remainder as a named
+  follow-up in the PR body (no half-converted files).
 
-- `docs/skycot/ux-audits/2026-05-27-0119/scene-6-claim-6-trust-and-approvals.md` F10 [P2] — `/api/v1/workflow-runs` returns `{"error":"not found"}` (different error shape from rest of gateway)
+## Acceptance / verifier
 
-## Fix recipe
+1. Enumerator grep (non-test) → 0 hits, or only documented
+   content-type exceptions listed in the PR body.
+2. Touched route tests green; `cargo clippy -p argo-cli` targeted clean.
+3. One SPA-side sanity: `web/lib/api` typed error parsing path unchanged
+   (no SPA edits needed — the structured shape is what it already expects).
 
-1. Grep for every gateway responder that emits a JSON error: `rg '"error":\s*"' crates/argo-cli/src/handlers/gateway/`.
-2. For each match, replace the string-error with the structured envelope. Use a shared helper if not already present:
-   ```rust
-   fn error_response(code: &str, message: &str, status: StatusCode) -> Response {
-       (status, Json(json!({ "error": { "code": code, "message": message } }))).into_response()
-   }
-   ```
-3. Update the SPA-side `parseError()` to be lenient (read `error.code` if structured, fall back to `error` if string, fall back to generic) so the shape transition doesn't blow up the older clients during the migration.
-4. Add a contract test in `crates/argo-cli/tests/gateway_error_envelopes.rs` that asserts every 4xx / 5xx response carries `{ error: { code, message } }` (use the gateway's full route table).
-5. Document the envelope contract in `docs/skycot/operator/migrations.md` or a new `gateway-error-envelopes.md`.
-
-## Acceptance criteria
-
-- [ ] Every gateway 4xx/5xx response across the full route table emits `{ error: { code: STR, message: STR } }`.
-- [ ] Contract test in `crates/argo-cli/tests/gateway_error_envelopes.rs` exercises ≥20 routes and asserts the shape.
-- [ ] SPA-side `parseError()` is lenient (accepts both shapes during the transition; logs a warning when string shape encountered).
-- [ ] `curl -s 'http://127.0.0.1:7400/api/v1/workflow-runs?limit=2'` returns the structured shape.
-- [ ] No regression to the 200 / 201 success paths.
-
-## May-touch
-
-- `crates/argo-cli/src/handlers/gateway/*.rs` (~10-20 files, ~5-30 LOC each)
-- `crates/argo-cli/src/handlers/gateway/errors.rs` (NEW or extended — shared helper)
-- `crates/argo-cli/tests/gateway_error_envelopes.rs` (NEW — ~100 LOC contract test)
-- `web/lib/api/client.ts` (~10 LOC for lenient parsing)
-- `docs/skycot/operator/migrations.md` (or new `gateway-error-envelopes.md` — ~40 LOC contract docs)
-
-## Out of scope
-
-- Audit-endpoint error envelopes (already structured; PR #2402 already shipped that).
-- The deeper 404 semantics question (gateway vs tenant-scoped 404 vs role-scoped 403) — that's a separate security review.
-- The CORS-fix for cross-origin requests (covered by `fix-spa-client-use-same-origin-gateway-rewrite`).
-
-## Effort
-
-M-L — ~400 LOC across handlers + helper + contract test + SPA lenient parser + docs. ~4-6 hours. P2 because the SPA mostly recovers gracefully via mock-offline fallback today, but the inconsistency is a footgun for any agent reading gateway responses (and for any operator debugging via curl).
+~60–150 LOC across ~17 files. **🟡 P2 — closes UX-AUDIT F10; SPA typed
+errors work on every route; fixes an unescaped-JSON bug en passant.**
