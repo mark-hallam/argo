@@ -67,6 +67,13 @@ pub struct LayeredSkill {
 pub struct LayeredLookup<'a> {
     workspace: &'a SkillStore,
     library: Option<&'a SkillStore>,
+    /// When `Some`, every lookup uses the strict `*_for_tenant`
+    /// readers (#2848) on BOTH layers, so a running teammate can
+    /// never be fed another tenant's active skills
+    /// (`fix-layered-lookup-worker-prompt-tenant-scope`, WS1).
+    /// `None` keeps the legacy unscoped readers for single-tenant
+    /// CLI/test callers — the dispatch hot path MUST scope.
+    tenant: Option<String>,
 }
 
 impl<'a> LayeredLookup<'a> {
@@ -78,6 +85,7 @@ impl<'a> LayeredLookup<'a> {
         Self {
             workspace,
             library: None,
+            tenant: None,
         }
     }
 
@@ -87,7 +95,29 @@ impl<'a> LayeredLookup<'a> {
         Self {
             workspace,
             library: Some(library),
+            tenant: None,
         }
+    }
+
+    /// Bind every lookup to `tenant_id` via the strict
+    /// `*_for_tenant` readers on both layers. `tenant_id` follows
+    /// the `&str` TEXT-column convention of
+    /// [`SkillStore::find_active_by_name_for_tenant`]; callers
+    /// holding an [`argo_types::TenantId`] pass
+    /// `&tenant.to_string()`.
+    ///
+    /// ```
+    /// # use argo_skill::{LayeredLookup, SkillStore};
+    /// # fn demo(workspace: &SkillStore, library: &SkillStore) {
+    /// let lookup =
+    ///     LayeredLookup::with_library(workspace, library).scoped_to_tenant("tenant-a");
+    /// # let _ = lookup;
+    /// # }
+    /// ```
+    #[must_use]
+    pub fn scoped_to_tenant(mut self, tenant_id: &str) -> Self {
+        self.tenant = Some(tenant_id.to_string());
+        self
     }
 
     /// Find a skill by name, preferring the workspace.
@@ -99,14 +129,14 @@ impl<'a> LayeredLookup<'a> {
     /// surface as a real error rather than silently degrade to
     /// "not found", which would be a security smell).
     pub async fn find(&self, name: &str) -> ArgoResult<Option<LayeredSkill>> {
-        if let Some(skill) = self.workspace.find_active_by_name(name).await? {
+        if let Some(skill) = self.find_in(self.workspace, name).await? {
             return Ok(Some(LayeredSkill {
                 skill,
                 layer: SkillLayer::Workspace,
             }));
         }
         if let Some(library) = self.library {
-            if let Some(skill) = library.find_active_by_name(name).await? {
+            if let Some(skill) = self.find_in(library, name).await? {
                 return Ok(Some(LayeredSkill {
                     skill,
                     layer: SkillLayer::Library,
@@ -114,6 +144,26 @@ impl<'a> LayeredLookup<'a> {
             }
         }
         Ok(None)
+    }
+
+    /// One-layer name lookup honouring the tenant scope: strict
+    /// `find_active_by_name_for_tenant` when scoped, legacy
+    /// unscoped reader otherwise.
+    async fn find_in(&self, store: &SkillStore, name: &str) -> ArgoResult<Option<Skill>> {
+        match &self.tenant {
+            Some(tenant) => store.find_active_by_name_for_tenant(name, tenant).await,
+            None => store.find_active_by_name(name).await,
+        }
+    }
+
+    /// One-layer active-list honouring the tenant scope: strict
+    /// `list_active_for_tenant` when scoped, legacy unscoped
+    /// reader otherwise.
+    async fn list_active_in(&self, store: &SkillStore) -> ArgoResult<Vec<Skill>> {
+        match &self.tenant {
+            Some(tenant) => store.list_active_for_tenant(tenant).await,
+            None => store.list_active().await,
+        }
     }
 
     /// List every active skill across both layers, filtered to
@@ -128,7 +178,7 @@ impl<'a> LayeredLookup<'a> {
         let mut out = Vec::new();
         let mut seen_names: std::collections::HashSet<String> = std::collections::HashSet::new();
 
-        for skill in self.workspace.list_active().await? {
+        for skill in self.list_active_in(self.workspace).await? {
             if !is_skill_eligible(&skill.frontmatter.provenance, risk) {
                 continue;
             }
@@ -140,7 +190,7 @@ impl<'a> LayeredLookup<'a> {
         }
 
         if let Some(library) = self.library {
-            for skill in library.list_active().await? {
+            for skill in self.list_active_in(library).await? {
                 if seen_names.contains(&skill.frontmatter.name) {
                     continue;
                 }

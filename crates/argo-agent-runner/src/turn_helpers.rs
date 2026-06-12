@@ -27,7 +27,7 @@ use argo_skill::{
     SkillStore,
 };
 use argo_store::{SessionStore, WorkerId};
-use argo_types::{ArgoError, ArgoResult, SessionId};
+use argo_types::{ArgoError, ArgoResult, SessionId, TenantId};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -35,6 +35,7 @@ pub(super) async fn load_prompt_skills(
     workspace: &SkillStore,
     session_id: SessionId,
     vertical_id: Option<&str>,
+    tenant_id: TenantId,
     worker_id: Option<WorkerId>,
 ) -> ArgoResult<Vec<Skill>> {
     let library = open_skill_library().await?;
@@ -42,6 +43,7 @@ pub(super) async fn load_prompt_skills(
         workspace,
         session_id,
         vertical_id,
+        tenant_id,
         library.as_ref(),
         worker_id,
     )
@@ -52,6 +54,7 @@ pub(super) async fn load_prompt_skills_with_library(
     workspace: &SkillStore,
     session_id: SessionId,
     vertical_id: Option<&str>,
+    tenant_id: TenantId,
     library: Option<&SkillStore>,
     worker_id: Option<WorkerId>,
 ) -> ArgoResult<Vec<Skill>> {
@@ -60,15 +63,26 @@ pub(super) async fn load_prompt_skills_with_library(
         return Ok(attached);
     }
 
+    // WS1 (`fix-layered-lookup-worker-prompt-tenant-scope`): every
+    // unattached-skill read below is bound to the SESSION's tenant via
+    // the strict #2848 readers, so a running teammate is never fed
+    // another tenant's active skills on the dispatch hot path.
+    let tenant = tenant_id.to_string();
     let Some(library) = library else {
         return match vertical_id {
             Some(vid) => workspace.list_skills_for_vertical(vid).await,
-            None => merge_worker_overlays(workspace, workspace.list_active().await?, worker_id)
-                .await,
+            None => {
+                merge_worker_overlays(
+                    workspace,
+                    workspace.list_active_for_tenant(&tenant).await?,
+                    worker_id,
+                )
+                .await
+            }
         };
     };
 
-    let lookup = LayeredLookup::with_library(workspace, library);
+    let lookup = LayeredLookup::with_library(workspace, library).scoped_to_tenant(&tenant);
     let mut rows = lookup.list_for_action("low").await?;
     append_worker_overlays_as_workspace(workspace, &mut rows, worker_id).await?;
     let selector = SkillRelevanceSelector::new(load_skill_relevance_config()?);

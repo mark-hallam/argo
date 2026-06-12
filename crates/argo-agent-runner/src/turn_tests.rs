@@ -26,14 +26,18 @@ async fn build_system_prompt_concatenates_active_skills() {
     let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
     store.migrate().await.unwrap();
     let skills = argo_skill::SkillStore::new(Arc::clone(&store));
+    let (tenant, _ws) = store.ensure_workspace("ws", "/tmp/concat-skills").await.unwrap();
     let raw = "---\nname: alpha\nversion: \"0.1\"\ndescription: D\n\
                lock: none\nprovenance:\n  source: builtin\n  hash: sha256-x\n---\nbody-of-alpha";
-    skills.install(raw, None).await.unwrap();
+    skills
+        .install_for_tenant(raw, &tenant.to_string(), None)
+        .await
+        .unwrap();
     let prompt = build_system_prompt(
         &store,
         SessionId(uuid::Uuid::nil()),
         None,
-        TenantId::new(),
+        tenant,
         None,
     )
     .await
@@ -59,8 +63,14 @@ async fn build_system_prompt_honours_per_session_attachments() {
                  lock: none\nprovenance:\n  source: x\n  hash: sha256-x\n---\nbody-A";
     let raw_b = "---\nname: beta\nversion: \"0.1\"\ndescription: D\n\
                  lock: none\nprovenance:\n  source: x\n  hash: sha256-x\n---\nbody-B";
-    let _alpha = skills.install(raw_a, None).await.unwrap();
-    let beta = skills.install(raw_b, None).await.unwrap();
+    let _alpha = skills
+        .install_for_tenant(raw_a, &tenant.to_string(), None)
+        .await
+        .unwrap();
+    let beta = skills
+        .install_for_tenant(raw_b, &tenant.to_string(), None)
+        .await
+        .unwrap();
 
     // Default behaviour: both active skills are in scope.
     let prompt_default = build_system_prompt(&store, sid, None, tenant, None)
@@ -143,7 +153,7 @@ async fn build_system_prompt_for_bound_session_filters_to_vertical_skills() {
 }
 
 #[tokio::test]
-async fn build_system_prompt_for_unbound_session_keeps_legacy_global_lookup() {
+async fn build_system_prompt_excludes_sentinel_rows_from_tenant_sessions() {
     // Backward compat: sessions WITHOUT vertical_id still see
     // the full workspace skill set (legacy behaviour). Locks
     // that #679 doesn't break the unbound path.
@@ -165,11 +175,18 @@ async fn build_system_prompt_for_unbound_session_keeps_legacy_global_lookup() {
         .unwrap();
     let prompt = build_system_prompt(&store, sid, None, tenant, None)
         .await
-        .unwrap()
         .unwrap();
+    // WS1 (`fix-layered-lookup-worker-prompt-tenant-scope`): the prompt
+    // path is now tenant-strict. A legacy sentinel-tenant row (installed
+    // via the un-tenanted `install_for_vertical`) must NOT be fed into a
+    // tenant session's prompt — re-tenant placeholder rows via the
+    // operator CLI (see `store_write.rs` sentinel doc) to surface them.
+    // This REPLACES the pre-WS1 "unbound session sees all workspace
+    // skills (legacy global lookup)" pin.
+    let prompt = prompt.unwrap_or_default();
     assert!(
-        prompt.contains("any-body"),
-        "unbound session must see all workspace skills (legacy)"
+        !prompt.contains("any-body"),
+        "sentinel-tenant rows must not reach a tenant session's prompt:\n{prompt}"
     );
 }
 
@@ -348,7 +365,10 @@ async fn build_system_prompt_appends_memory_after_skills() {
     let skills = argo_skill::SkillStore::new(Arc::clone(&store));
     let raw = "---\nname: alpha\nversion: \"0.1\"\ndescription: D\n\
                lock: none\nprovenance:\n  source: builtin\n  hash: sha256-x\n---\nbody-of-alpha";
-    skills.install(raw, None).await.unwrap();
+    skills
+        .install_for_tenant(raw, &tenant.to_string(), None)
+        .await
+        .unwrap();
     let memory = argo_memory::MemoryStore::new(Arc::clone(&store));
     memory
         .write_shared_team(

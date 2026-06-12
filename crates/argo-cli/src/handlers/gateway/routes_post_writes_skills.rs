@@ -37,7 +37,24 @@ pub(super) async fn install_skill_response(
         }
     };
     let skills = argo_skill::SkillStore::new(Arc::clone(store));
-    match skills.install(&raw, None).await {
+    // WS1 (`fix-layered-lookup-worker-prompt-tenant-scope`): bind the
+    // install to the REQUEST's tenant. The legacy unscoped `install`
+    // wrote the sentinel tenant, whose rows the strict tenant-bound
+    // prompt readers filter out — an operator-installed skill would
+    // never reach their teammates' prompts.
+    let tenant = match super::resolve_tenant::resolve_tenant_for_request(req, store).await {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"resolve tenant: {e}\"}}"),
+            );
+        }
+    };
+    match skills
+        .install_for_tenant(&raw, &tenant.to_string(), None)
+        .await
+    {
         Ok(s) => {
             let body = serde_json::json!({
                 "id": s.id.0.to_string(),
