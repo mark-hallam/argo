@@ -51,7 +51,17 @@ async fn signup_with_valid_email_returns_200() {
     );
     let (status, body) = signup_response(&r, test_src_ip(&r), Some(&store)).await;
     assert!(status.starts_with("200"), "status={status} body={body}");
-    assert!(body.contains("\"status\":\"sent\""));
+    // The response now carries the HONEST delivery outcome rather than
+    // an unconditional "sent". The exact value depends on the resolved
+    // `[email.outbound]` provider (noop in CI → `not_configured`), so
+    // assert the body is a well-formed honest status rather than
+    // hard-coding one machine's provider.
+    let v: serde_json::Value = serde_json::from_str(&body).expect("signup body is JSON");
+    let got = v.get("status").and_then(|s| s.as_str()).unwrap_or("");
+    assert!(
+        matches!(got, "sent" | "delivery_failed" | "not_configured"),
+        "unexpected signup status: {body}"
+    );
 }
 
 #[tokio::test]
@@ -418,5 +428,68 @@ async fn verify_emits_auth_succeeded_and_auth_failed_audit_rows() {
     assert!(
         failed_payload.contains("\"reason\":\"invalid\""),
         "{failed_payload}"
+    );
+}
+
+// launch-email-delivery-honesty-and-public-base-url: the delivery
+// outcome is threaded into the signup response so the SPA can show an
+// honest state. These exercise the per-provider mapping deterministically
+// (no network, no dependence on the process-global outbound config).
+
+#[test]
+fn delivery_status_response_strings_are_stable() {
+    assert_eq!(DeliveryStatus::Sent.as_response_status(), "sent");
+    assert_eq!(
+        DeliveryStatus::DeliveryFailed.as_response_status(),
+        "delivery_failed"
+    );
+    assert_eq!(
+        DeliveryStatus::NotConfigured.as_response_status(),
+        "not_configured"
+    );
+}
+
+#[tokio::test]
+async fn deliver_noop_provider_reports_not_configured() {
+    use argo_config::{EmailOutboundConfig, EmailOutboundProvider};
+    let cfg = EmailOutboundConfig {
+        provider: EmailOutboundProvider::Noop,
+        ..EmailOutboundConfig::default()
+    };
+    let status = deliver_with_config(&cfg, "ada@example.com", "tok-abc").await;
+    assert_eq!(status, DeliveryStatus::NotConfigured);
+}
+
+#[tokio::test]
+async fn deliver_send_error_reports_delivery_failed() {
+    use argo_config::{EmailOutboundConfig, EmailOutboundProvider};
+    // Postmark with an empty token fails BEFORE any network I/O, so the
+    // send error maps deterministically to `delivery_failed` rather than
+    // a false "sent".
+    let cfg = EmailOutboundConfig {
+        provider: EmailOutboundProvider::Postmark,
+        from_address: "noreply@skycot.com".into(),
+        ..EmailOutboundConfig::default()
+    };
+    let status = deliver_with_config(&cfg, "ada@example.com", "tok-abc").await;
+    assert_eq!(status, DeliveryStatus::DeliveryFailed);
+}
+
+#[test]
+fn public_base_url_honors_env_else_defaults() {
+    // Set + non-empty wins, with any trailing slash trimmed.
+    assert_eq!(
+        base_url_from(Some("https://app.acme.test/".to_string())),
+        "https://app.acme.test"
+    );
+    assert_eq!(
+        base_url_from(Some("  https://app.acme.test  ".to_string())),
+        "https://app.acme.test"
+    );
+    // Unset / whitespace-only falls back to the historical default.
+    assert_eq!(base_url_from(None), "https://app.skycot.com");
+    assert_eq!(
+        base_url_from(Some("   ".to_string())),
+        "https://app.skycot.com"
     );
 }

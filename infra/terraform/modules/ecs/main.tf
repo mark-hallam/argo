@@ -45,11 +45,36 @@ locals {
     { env = "STRIPE_WEBHOOK_SECRET", key = "stripe_webhook_secret" },
   ]
 
-  container_secrets = [
+  container_secrets = concat([
     for b in local.secret_env_bindings : {
       name      = b.env
       valueFrom = var.secret_arns[b.key]
     }
+  ], local.email_secrets)
+
+  # launch-email-delivery-honesty-and-public-base-url: the gateway reads its
+  # public origin + outbound-email config from env (a production container has
+  # no argo.toml). Without these, magic-link emails are log-only with wrong-host
+  # links. Empty values are dropped so the gateway keeps its in-binary defaults
+  # (provider=noop, https://app.skycot.com) rather than being overridden to "".
+  email_env = [
+    for e in [
+      { name = "SKYCOT_PUBLIC_BASE_URL", value = var.public_base_url },
+      { name = "SKYCOT_EMAIL_PROVIDER", value = var.email_outbound.provider },
+      { name = "SKYCOT_EMAIL_FROM_ADDRESS", value = var.email_outbound.from_address },
+      { name = "SKYCOT_SMTP_HOST", value = var.email_outbound.smtp_host },
+      { name = "SKYCOT_SMTP_PORT", value = var.email_outbound.smtp_port },
+      { name = "SKYCOT_SMTP_USERNAME", value = var.email_outbound.smtp_username },
+    ] : e if e.value != ""
+  ]
+
+  # The SES/SMTP password is a SECRET → injected from Secrets Manager, never as a
+  # plaintext env var. Bound only when the operator has provisioned a
+  # `smtp_password` secret and passed its ARN in secret_arns (lookup default null
+  # keeps existing callers that omit it valid).
+  smtp_password_arn = lookup(var.secret_arns, "smtp_password", null)
+  email_secrets = local.smtp_password_arn == null ? [] : [
+    { name = "SKYCOT_SMTP_PASSWORD", valueFrom = local.smtp_password_arn }
   ]
 
   # When fronted by Cloudflare, trust the X-Forwarded-For hop so the gateway's
@@ -67,7 +92,7 @@ locals {
     { name = "ARGO_GATEWAY_PROFILE", value = "production" },
     { name = "ARGO_HOME", value = "/data" },
     { name = "RUST_LOG", value = "info" },
-  ], local.proxy_env)
+  ], local.proxy_env, local.email_env)
 
   container_def = [{
     name      = "argo"

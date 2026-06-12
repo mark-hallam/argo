@@ -137,7 +137,9 @@ function SignupInner() {
 
   useEffect(() => {
     if (state.kind === "sent") {
-      router.replace(`/auth/check-email?email=${encodeURIComponent(state.email)}`);
+      router.replace(
+        `/auth/check-email?email=${encodeURIComponent(state.email)}&delivery=${state.delivery}`,
+      );
     }
   }, [state, router]);
 

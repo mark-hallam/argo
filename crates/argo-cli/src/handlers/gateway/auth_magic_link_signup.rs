@@ -1,5 +1,5 @@
 use super::{deliver_magic_link, error_resp, looks_like_email, mint_token, sha256_hex};
-use super::{IpAddr, SessionStore};
+use super::{DeliveryStatus, IpAddr, SessionStore};
 use crate::handlers::gateway::rate_limit_ip::{self, RateLimitIpCheckResult};
 use crate::handlers::gateway::signup_protection::{SignupFields, SignupProtectionOutcome};
 use argo_store::user_account;
@@ -78,6 +78,18 @@ pub(crate) async fn signup_response(
     {
         return error_resp("500 Internal Server Error", &format!("store: {e}"));
     }
-    deliver_magic_link(&email, &raw_token).await;
-    ("200 OK", SIGNUP_SENT_BODY.to_string())
+    // Thread the real delivery outcome into the response so the SPA
+    // can show an honest state. The provider error detail (if any) is
+    // logged + auditable inside `deliver_magic_link`; the client only
+    // ever sees the generic `sent` / `delivery_failed` / `not_configured`.
+    let status = deliver_magic_link(&email, &raw_token).await;
+    ("200 OK", signup_status_body(status))
+}
+
+/// Serialize the delivery outcome as the signup response body. The
+/// bot-protection `SilentOk` path deliberately keeps the unconditional
+/// [`SIGNUP_SENT_BODY`] so a probing bot learns nothing about delivery
+/// configuration.
+fn signup_status_body(status: DeliveryStatus) -> String {
+    serde_json::json!({ "status": status.as_response_status() }).to_string()
 }

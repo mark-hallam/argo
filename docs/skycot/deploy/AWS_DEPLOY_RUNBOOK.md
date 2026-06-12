@@ -135,6 +135,23 @@ cp terraform.tfvars.example terraform.tfvars
 # Edit: region/domain_name already default correctly. Leave route53_zone_id ""
 # (Cloudflare DNS path). Leave front_with_cloudflare = false. Set alert_email
 # and image_tag as desired. image_tag stays "latest" until the first push (step 6).
+#
+# FRONT-DOOR (sign-in email) — set these or the very first user touch breaks:
+#   public_base_url = "https://app.skycot.com"   # the SPA's public origin; magic-link
+#                                                 # + invite emails mint links against it.
+#                                                 # If unset, the gateway warns at boot and
+#                                                 # falls back to https://app.skycot.com.
+#   email_outbound = {                            # AWS SES path (provider=smtp):
+#     provider      = "smtp"
+#     from_address  = "noreply@skycot.com"
+#     smtp_host     = "email-smtp.ap-southeast-2.amazonaws.com"
+#     smtp_port     = "587"
+#     smtp_username = "<SES SMTP username>"       # SES console -> SMTP settings
+#   }
+# Leave email_outbound default ({}) to ship log-only email: signup then HONESTLY
+# returns status="not_configured" and the SPA shows an "email not set up" state.
+# The SMTP PASSWORD is a secret — it goes through Secrets Manager (step 4),
+# NEVER in this tfvars file.
 ```
 
 ## 3. `terraform plan` — review what gets created (operator runs)

@@ -99,7 +99,24 @@ describe("SignupPage", () => {
     });
     await waitFor(() => {
       expect(replaceMock).toHaveBeenCalledWith(
-        "/auth/check-email?email=mark%40example.com",
+        "/auth/check-email?email=mark%40example.com&delivery=sent",
+      );
+    });
+  });
+
+  it("carries the honest delivery status into the check-email redirect", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { status: "not_configured" }),
+    );
+    render(<SignupPage />);
+
+    await user.type(screen.getByTestId("signup-email"), "mark@example.com");
+    await user.click(screen.getByTestId("signup-submit"));
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith(
+        "/auth/check-email?email=mark%40example.com&delivery=not_configured",
       );
     });
   });

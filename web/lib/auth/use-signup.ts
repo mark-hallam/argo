@@ -5,10 +5,27 @@ import { signupSchema, type SignupInput } from "./signup-schema";
 
 export const SIGNUP_REQUEST_TIMEOUT_MS = 12_000;
 
+/**
+ * Honest delivery outcome the gateway threads into the signup response
+ * (launch-email-delivery-honesty-and-public-base-url):
+ *  - `sent`           — a real provider accepted the message.
+ *  - `delivery_failed`— a provider was configured but the send failed.
+ *  - `not_configured` — no outbound provider is wired (log-only).
+ * Unknown / missing values normalize to `sent` for backwards
+ * compatibility with older gateways.
+ */
+export type DeliveryStatus = "sent" | "delivery_failed" | "not_configured";
+
+export function normalizeDelivery(value: unknown): DeliveryStatus {
+  return value === "delivery_failed" || value === "not_configured"
+    ? value
+    : "sent";
+}
+
 export type SignupState =
   | { kind: "idle" }
   | { kind: "submitting" }
-  | { kind: "sent"; email: string }
+  | { kind: "sent"; email: string; delivery: DeliveryStatus }
   | { kind: "error"; code: SignupErrorCode; message: string };
 
 export type SignupErrorCode =
@@ -19,7 +36,7 @@ export type SignupErrorCode =
   | "server";
 
 interface SignupResponseBody {
-  status?: "sent";
+  status?: DeliveryStatus;
   error?: { code: string; message: string };
 }
 
@@ -98,8 +115,9 @@ export function useSignup() {
         setState({ kind: "error", code: "server", message });
         return { ok: false as const, code: "server" as const };
       }
-      setState({ kind: "sent", email: parsed.data.email });
-      return { ok: true as const };
+      const delivery = normalizeDelivery(body.status);
+      setState({ kind: "sent", email: parsed.data.email, delivery });
+      return { ok: true as const, delivery };
     } catch (error) {
       if (isSignupTimeout(error)) {
         setState({

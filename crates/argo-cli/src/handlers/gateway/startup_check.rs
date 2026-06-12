@@ -113,11 +113,35 @@ async fn run_startup_checks_inner(skip: bool, bind: &str, cwd: &Path) -> ArgoRes
         ));
     }
     warn_unprobed_channels(cwd);
+    warn_public_base_url_unset(bind);
     eprintln!(
         "argo gateway: startup_check ok in {} ms",
         started.elapsed().as_millis()
     );
     Ok(())
+}
+
+/// Warn (do NOT refuse) when the gateway is in production mode but
+/// `SKYCOT_PUBLIC_BASE_URL` is unset. Magic-link / invite emails then
+/// mint links against the hardcoded `https://app.skycot.com` default,
+/// which is wrong for any deploy on a different host
+/// (launch-email-delivery-honesty-and-public-base-url). Warn-only
+/// because a same-host deploy where the default IS correct must still
+/// boot; the loud line is the operator's cue to set the var.
+fn warn_public_base_url_unset(bind: &str) {
+    if !super::routes_auth_production_mode::is_production_mode_for_bind(bind) {
+        return;
+    }
+    let set = std::env::var("SKYCOT_PUBLIC_BASE_URL").is_ok_and(|v| !v.trim().is_empty());
+    if !set {
+        eprintln!(
+            "argo gateway: WARNING — SKYCOT_PUBLIC_BASE_URL is unset in production; \
+             magic-link + invite emails will mint links against the default \
+             https://app.skycot.com. Set SKYCOT_PUBLIC_BASE_URL to this deploy's \
+             public origin (e.g. https://app.yourdomain.com) or links will point \
+             at the wrong host."
+        );
+    }
 }
 
 pub(super) fn anomaly_dispatch_from_cwd(cwd: &Path) -> Arc<dyn AnomalyDispatch> {
