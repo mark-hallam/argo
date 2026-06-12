@@ -17,7 +17,7 @@ use crate::transport::build_transport_for_tenant;
 use crate::TransportGate;
 use argo_audit::{AuditKind, AuditSink};
 use argo_provider::{ProviderManifest, Transport};
-use argo_routing::{Router, RoutingContext, TieredRouter};
+use argo_routing::{PersistingRouter, Router, RoutingContext, TieredRouter};
 use argo_store::{SessionHeader, SessionStore};
 use argo_types::{
     ArgoResult, Message, ProviderModel, RoutingDecision, RoutingPolicy, SessionId, TenantId,
@@ -111,7 +111,16 @@ pub async fn maybe_route_turn_with_transport(
         provider: session.provider.clone(),
         model: session.model.clone(),
     };
-    let router = TieredRouter::new(classifier);
+    // Wrap the tier router in `PersistingRouter` so every non-Fixed
+    // decision lands a `routing_decision` row (§24.4). The wrapper
+    // persists from `decision.tenant_id`/`session_id` (sourced from
+    // `RoutingContext` below), so no extra tenant threading is needed
+    // here. Unlike the best-effort audit write below, a persist error
+    // propagates out of `router.route(..).await?`; in production the
+    // session/tenant always match (the user message was just appended),
+    // so this only surfaces on a genuine store IO failure that would
+    // already doom the turn via its other writes.
+    let router = PersistingRouter::new(TieredRouter::new(classifier), Arc::clone(store));
     let deadline = Instant::now() + Duration::from_millis(DEFAULT_ROUTING_DEADLINE_MS);
     let ctx = RoutingContext {
         tenant_id: session.tenant_id,
