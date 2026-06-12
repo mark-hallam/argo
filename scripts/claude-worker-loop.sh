@@ -169,6 +169,19 @@ if [ -r "$REPO/scripts/stop-gate-enforce.sh" ]; then
   # shellcheck source=scripts/stop-gate-enforce.sh disable=SC1091
   . "$REPO/scripts/stop-gate-enforce.sh"
 fi
+
+# --- Mid-run-death backstop (fix-worker-oneshot-background-wait-midrun-death):
+# source the post-session detector (defines worker_midrun_death_check). One-shot
+# `claude -p` sessions silently TERMINATE when the model ends its turn to "wait"
+# for a backgrounded task or a ScheduleWakeup, leaving the row CLAIMED forever.
+# The detector self-heals: preserve-branch-if-real-work, else auto-release to
+# TODO; a LOUD [worker-midrun-death] SHARED.md line is written either way. It is
+# owner-AGNOSTIC, fixing the root bug where the old inline `(claude|codex)`
+# release regex never matched "claude or codex" rows (so they zombied).
+if [ -r "$REPO/scripts/worker-midrun-death-detect.sh" ]; then
+  # shellcheck source=scripts/worker-midrun-death-detect.sh disable=SC1091
+  . "$REPO/scripts/worker-midrun-death-detect.sh"
+fi
 # Shared ledger commit+push tail used by the quota + ship-check release paths
 # below; wrapped in with_ledger_lock at each call site.
 ledger_commit_push() {  # $1 = commit message
@@ -455,12 +468,34 @@ Required reading (in order):
   1. docs/build-plan/SWARM_PROTOCOL.md
   2. docs/build-plan/streams/$BRIEF_ID.md
 
+🛑 YOU ARE A ONE-SHOT SESSION — NEVER END YOUR TURN TO 'WAIT'.
+  Ending your turn ENDS the session. There are NO notifications, NO wakeups,
+  NO re-invocation: this is \`claude -p\` (headless one-shot). If you end your
+  turn 'waiting' for a backgrounded cargo/clippy task or 'waiting for the
+  completion notification', the session TERMINATES, your brief stays CLAIMED
+  forever, and your /tmp worktree is deleted — all work lost. This killed 3
+  briefs on 2026-06-12 alone. THEREFORE:
+    - Run gates/tests/builds in the FOREGROUND (blocking) — do NOT background
+      them and then end your turn. A foreground \`cargo test\` / clippy that
+      takes 9 min is CORRECT; ending your turn to wait for a backgrounded one
+      is FATAL.
+    - If you must poll, poll inside a SINGLE blocking Bash call with an
+      \`until\`/\`while\` loop (e.g. \`until [ -f done ]; do sleep 10; done\`) —
+      one tool call that returns only when the work is finished.
+    - \`ScheduleWakeup\` does NOTHING for you — there is no scheduler that will
+      wake a one-shot session. Never use it to defer work.
+  Keep working in THIS turn until the PR is opened and the row is IN_REVIEW (or
+  you have marked it BLOCKED). The only clean ways to end the session are:
+  PR opened + IN_REVIEW, or BLOCKED + pushed.
+
 Your job — ONE brief, then exit:
   1. git worktree add /tmp/$BRIEF_ID origin/main
   2. cd /tmp/$BRIEF_ID && git checkout -b $FAMILY-$BRIEF_ID
   3. Implement the brief inside its may-touch list.
   4. Run verification per SWARM_PROTOCOL.md — crate-scoped clippy +
      tests for crates in the may-touch list (~30s-2min each).
+     RUN THESE IN THE FOREGROUND (blocking) — see the ONE-SHOT rule above;
+     NEVER background a gate and then end your turn to 'wait' for it.
   4b. Run cross-crate drift check before pushing:
         bash scripts/workspace-clippy-fast-fail.sh
       Cold first run ~9min; warm after that. With codex offline this
@@ -834,27 +869,36 @@ PY
   rm -f "$QUOTA_HIT"  # belt-and-braces cleanup if file existed but was empty
 
   # ----------------------------------------------------------------------
-  # Post-iteration "did claude actually ship?" check.
+  # Post-iteration mid-run-death backstop
+  # (fix-worker-oneshot-background-wait-midrun-death).
   #
   # The watchdog above kills true zombies (claude wedged after emitting
-  # `result:success/error`), but a worker can also bail without shipping
-  # for non-zombie reasons (network partition during gh pr create, OOM,
-  # SIGKILL from outside, ScheduleWakeup wedge after compaction, etc.).
-  # In every case the failure mode is the same: brief stays CLAIMED with
-  # no PR opened, the conductor must orphan-sweep + demote.
+  # `result:success/error`), but a one-shot `claude -p` session more commonly
+  # just ENDS its turn — to "wait" for a backgrounded cargo/clippy task or a
+  # `ScheduleWakeup` that can never fire in -p mode — and terminates cleanly. It
+  # can also bail for other non-zombie reasons (network partition during gh pr
+  # create, OOM, SIGKILL). In every case the brief stays CLAIMED with no PR.
   #
-  # Mirrors the quota guard's release block: same regex shape, same
-  # Python regex, same commit+rebase+push pattern. Triggered by a
-  # different signal (still-CLAIMED on origin/main after pipeline close).
-  # Runs AFTER the quota check so we don't double-release when quota
-  # already released the row.
+  # worker_midrun_death_check (scripts/worker-midrun-death-detect.sh) self-heals:
+  #   - row no longer CLAIMED (happy IN_REVIEW/MERGED path): no-op;
+  #   - still CLAIMED + REAL work commits on the branch: push the branch to
+  #     preserve the work (the SpendGate case) + LOUD SHARED.md line, leave
+  #     CLAIMED for the conductor to salvage;
+  #   - still CLAIMED + no work: auto-release CLAIMED -> TODO + LOUD SHARED.md
+  #     line so the queue self-heals.
+  # It is owner-AGNOSTIC — the prior inline `(claude|codex)` regex never matched
+  # "claude or codex" rows, the exact rows that zombied on 2026-06-12. Runs AFTER
+  # the quota check so we don't double-release a row quota already released.
+  # Falls back to the legacy inline release if the helper is absent.
   # ----------------------------------------------------------------------
   set +e
   git -C "$REPO" fetch origin main 2>&1 | tail -1
   git -C "$REPO" pull --ff-only origin main 2>&1 | tail -1
-  if grep -qE "^\| ${BRIEF_ID} \| (claude|codex) \| CLAIMED \|" \
+  if command -v worker_midrun_death_check >/dev/null 2>&1; then
+    with_ledger_lock worker_midrun_death_check "$BRIEF_ID" "$FAMILY-$BRIEF_ID" "$REPO"
+  elif grep -qE "^\| ${BRIEF_ID} \| [^|]+ \| CLAIMED \|" \
        "$REPO/docs/build-plan/BUILD_STATUS.md" 2>/dev/null; then
-    echo "[$(date +%H:%M:%S)] 🧟 ship-check: $BRIEF_ID still CLAIMED on main; releasing to TODO."
+    echo "[$(date +%H:%M:%S)] 🧟 ship-check (fallback): $BRIEF_ID still CLAIMED on main; releasing to TODO."
     python3 - "$BRIEF_ID" "$REPO" <<'PY'
 import re, sys, pathlib
 brief, repo = sys.argv[1:3]
@@ -863,7 +907,7 @@ text = p.read_text()
 note = (f" **RELEASED by worker-loop zombie-detection:** "
         f"worker exited without opening PR; /tmp/{brief} may have salvageable WIP.")
 new, n = re.subn(
-    rf"^(\| {re.escape(brief)} \| (?:claude|codex)) \| CLAIMED \|(.*) \|$",
+    rf"^(\| {re.escape(brief)} \| [^|]+) \| CLAIMED \|(.*) \|$",
     lambda m: f"{m.group(1)} | TODO |{m.group(2)}{note} |",
     text, count=1, flags=re.MULTILINE,
 )
