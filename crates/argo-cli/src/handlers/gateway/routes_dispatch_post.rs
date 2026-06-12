@@ -452,7 +452,7 @@ async fn top_level_dispatch(
     }
     if let Some(s) = store {
         if let Some(resp) =
-            super::quota_middleware::check_quota_or_reject(s, QuotaActionKind::Sessions).await
+            super::quota_middleware::check_quota_or_reject(req, s, QuotaActionKind::Sessions).await
         {
             return Some(resp);
         }

@@ -122,22 +122,26 @@ async fn resolve_tier(store: &SessionStore, tenant: TenantId) -> Tier {
 /// either gate trips; `None` when the action is allowed (and the tier
 /// usage counter has been bumped by one).
 ///
-/// Tenant is resolved from the cwd-derived workspace, mirroring the
-/// per-tenant override gate this helper replaced. On an unresolvable
-/// workspace the call fails open (returns `None`) — the gate is not
-/// authoritative when the store is unreachable, and the underlying
-/// failure is still observable via the usage read path.
+/// Tenant is resolved from the REQUEST via the canonical
+/// [`super::resolve_tenant::resolve_tenant_for_request`] (WS1,
+/// `pricing-quota-seam-resolve-request-tenant`, from the #2871 review):
+/// an authenticated caller meters their OWN tenant's row; a pre-auth /
+/// anonymous caller falls through that resolver to the cwd/demo tenant,
+/// so the anonymous lane shares ONE bounded bucket and can never consume
+/// a real tenant's allowance (nor a real tenant another's). The previous
+/// cwd-only resolution lumped EVERY caller into the gateway workspace's
+/// bucket — cross-tenant cap exhaustion + per-tenant under-reporting.
+/// On a resolve failure the call fails open (returns `None`) — the gate
+/// is not authoritative when the store is unreachable, and the
+/// underlying failure is still observable via the usage read path.
 pub(super) async fn check_quota_or_reject(
+    req: &str,
     store: &Arc<SessionStore>,
     kind: QuotaActionKind,
 ) -> Option<(&'static str, String)> {
-    let cwd = std::env::current_dir().ok()?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await.ok()?;
+    let tenant = super::resolve_tenant::resolve_tenant_for_request(req, store)
+        .await
+        .ok()?;
     let tenant_id = tenant.to_string();
     // 1. Operator-configurable override caps (independent of tier).
     let quotas = TenantQuotaStore::new(store.pool());

@@ -196,7 +196,7 @@ pub(super) async fn dispatch_forge(
     if req.starts_with("POST /forge/optimize ") || req.starts_with("POST /forge/optimize?") {
         if let Some(s) = store {
             if let Some(resp) =
-                super::quota_middleware::check_quota_or_reject(s, QuotaActionKind::ForgeRuns)
+                super::quota_middleware::check_quota_or_reject(req, s, QuotaActionKind::ForgeRuns)
                     .await
             {
                 return Some(resp);
@@ -254,6 +254,7 @@ pub(super) async fn dispatch_skill_named(
             if tail.starts_with("refine ") {
                 if let Some(s) = store {
                     if let Some(resp) = super::quota_middleware::check_quota_or_reject(
+                        req,
                         s,
                         QuotaActionKind::SkillInvocations,
                     )
@@ -288,7 +289,7 @@ pub(super) async fn dispatch_session_path(
     if tail.starts_with("messages ") {
         if let Some(s) = store {
             if let Some(resp) =
-                super::quota_middleware::check_quota_or_reject(s, QuotaActionKind::Messages)
+                super::quota_middleware::check_quota_or_reject(req, s, QuotaActionKind::Messages)
                     .await
             {
                 return Some(resp);

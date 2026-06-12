@@ -6,6 +6,10 @@
 //! per-action seam meters usage AND enforces the cap.
 
 use super::{check_quota_or_reject, check_tier_quota_or_reject, clear_cache_for_test};
+
+/// Anonymous request: no session, no override — resolves to the cwd/demo
+/// tenant, preserving the pre-WS1 single-tenant test behavior.
+const ANON_REQ: &str = "POST /sessions HTTP/1.1\r\nHost: x\r\n\r\n";
 use argo_store::tenant_quota::set_workspace_tier;
 use argo_store::tenant_quota_kinds::QuotaActionKind;
 use argo_store::{tenant_query, SessionStore};
@@ -150,7 +154,7 @@ async fn seam_meters_usage_then_rejects_at_free_cap() {
     clear_cache_for_test();
 
     // First metered action passes AND bumps the counter to 1.
-    let pass = check_quota_or_reject(&store, QuotaActionKind::Sessions).await;
+    let pass = check_quota_or_reject(ANON_REQ, &store, QuotaActionKind::Sessions).await;
     assert!(pass.is_none(), "first action under cap should pass: {pass:?}");
     let (used, _) = tenant_query::tenant_usage_for_period(&store, tenant, Utc::now())
         .await
@@ -162,11 +166,115 @@ async fn seam_meters_usage_then_rejects_at_free_cap() {
     tenant_query::increment_tenant_usage(&store, tenant, 99, Utc::now())
         .await
         .unwrap();
-    let (status, body) = check_quota_or_reject(&store, QuotaActionKind::Sessions)
+    let (status, body) = check_quota_or_reject(ANON_REQ, &store, QuotaActionKind::Sessions)
         .await
         .expect("at cap should reject");
     assert_eq!(status, "429 Too Many Requests");
     assert!(body.contains(r#""error":"quota_exceeded""#), "{body}");
     assert!(body.contains(r#""upgrade_to":"pro""#), "{body}");
     assert!(body.contains(r#""upgrade_url":"/billing""#), "{body}");
+}
+
+/// Claims mirror of the gateway session JWT (see `resolve_tenant_tests`):
+/// just enough to mint a bearer that resolves `tnt`.
+#[derive(serde::Serialize)]
+struct SeamClaims<'a> {
+    sub: &'a str,
+    email: &'a str,
+    tnt: String,
+    iat: i64,
+    exp: i64,
+}
+
+fn bearer_req_for(tenant: TenantId, secret: &str) -> String {
+    let now = Utc::now().timestamp();
+    let jwt = jsonwebtoken::encode(
+        &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256),
+        &SeamClaims {
+            sub: "22222222-2222-2222-2222-222222222222",
+            email: "seam@example.test",
+            tnt: tenant.to_string(),
+            iat: now - 10,
+            exp: now + 3600,
+        },
+        &jsonwebtoken::EncodingKey::from_secret(secret.as_bytes()),
+    )
+    .expect("mint jwt");
+    format!("POST /sessions HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer {jwt}\r\n\r\n")
+}
+
+/// WS1 acceptance (`pricing-quota-seam-resolve-request-tenant`, from the
+/// #2871 review): an AUTHENTICATED caller meters their OWN tenant's row,
+/// not the cwd/gateway workspace bucket — and the cwd bucket stays at 0.
+/// Would FAIL pre-fix (the seam resolved `current_dir()` unconditionally).
+#[tokio::test]
+async fn authenticated_session_meters_its_own_tenant_not_the_cwd_bucket() {
+    let _g = crate::handlers::gateway::shared_env_lock().await;
+    const SECRET: &str = "quota-seam-test-secret";
+    std::env::set_var("SKYCOT_AUTH_JWT_SECRET", SECRET);
+    clear_cache_for_test();
+    let store = store().await;
+
+    let (tenant_a, _) = store
+        .ensure_workspace("seam-tenant-a", "/tmp/seam-tenant-a")
+        .await
+        .expect("tenant a");
+    let cwd = std::env::current_dir().expect("cwd");
+    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let (cwd_tenant, _) = store
+        .ensure_workspace(name, &cwd.to_string_lossy())
+        .await
+        .expect("cwd tenant");
+    assert_ne!(tenant_a, cwd_tenant);
+
+    let req = bearer_req_for(tenant_a, SECRET);
+    let pass = check_quota_or_reject(&req, &store, QuotaActionKind::Sessions).await;
+    assert!(pass.is_none(), "under cap should pass: {pass:?}");
+
+    let (a_used, _) = tenant_query::tenant_usage_for_period(&store, tenant_a, Utc::now())
+        .await
+        .expect("a usage");
+    let (cwd_used, _) = tenant_query::tenant_usage_for_period(&store, cwd_tenant, Utc::now())
+        .await
+        .expect("cwd usage");
+    std::env::remove_var("SKYCOT_AUTH_JWT_SECRET");
+    assert_eq!(a_used, 1, "the caller's OWN tenant must be metered");
+    assert_eq!(cwd_used, 0, "the cwd bucket must NOT absorb an authed caller's action");
+}
+
+/// Two tenants, one gateway: B exhausted at the Free cap must be refused
+/// while A keeps dispatching — cross-tenant cap exhaustion is closed.
+#[tokio::test]
+async fn tenant_b_at_cap_does_not_block_tenant_a() {
+    let _g = crate::handlers::gateway::shared_env_lock().await;
+    const SECRET: &str = "quota-seam-test-secret-2";
+    std::env::set_var("SKYCOT_AUTH_JWT_SECRET", SECRET);
+    clear_cache_for_test();
+    let store = store().await;
+
+    let (tenant_a, _) = store
+        .ensure_workspace("seam2-tenant-a", "/tmp/seam2-tenant-a")
+        .await
+        .expect("tenant a");
+    let (tenant_b, _) = store
+        .ensure_workspace("seam2-tenant-b", "/tmp/seam2-tenant-b")
+        .await
+        .expect("tenant b");
+    tenant_query::ensure_pricing_schema(&store).await.unwrap();
+    // Exhaust B at the Free cap (default tier = free).
+    tenant_query::increment_tenant_usage(&store, tenant_b, 100, Utc::now())
+        .await
+        .unwrap();
+
+    let b_req = bearer_req_for(tenant_b, SECRET);
+    let b_refused = check_quota_or_reject(&b_req, &store, QuotaActionKind::Sessions).await;
+    assert!(b_refused.is_some(), "B at its cap must be refused");
+
+    let a_req = bearer_req_for(tenant_a, SECRET);
+    let a_pass = check_quota_or_reject(&a_req, &store, QuotaActionKind::Sessions).await;
+    std::env::remove_var("SKYCOT_AUTH_JWT_SECRET");
+    assert!(
+        a_pass.is_none(),
+        "tenant A must keep dispatching while B is capped: {a_pass:?}"
+    );
 }
