@@ -214,10 +214,23 @@ async fn assert_principal_fully_fenced(cwd: &std::path::Path, profile: &WorkerCa
         host_glob: "**".into(),
         port: None,
     };
-    assert!(
-        engine.check(&principal, &net).is_err(),
-        "fenced worker must NOT hold NetEgress \"**\""
-    );
+    // cu1d (DEC-050 G1 follow-up): a profile that permits the read-only
+    // web tools (`web_search`/`web_extract`) intentionally carries
+    // `NetEgress "**"` — those tools dead-end without egress, and the
+    // grant is only exercisable through them because every other tool
+    // stays dispatch-denied. Pin BOTH directions of that contract.
+    let expects_egress = profile.permits_tool("web_search") || profile.permits_tool("web_extract");
+    if expects_egress {
+        assert!(
+            engine.check(&principal, &net).is_ok(),
+            "a web-tool profile must carry the cu1d NetEgress grant or web_search dead-ends"
+        );
+    } else {
+        assert!(
+            engine.check(&principal, &net).is_err(),
+            "fenced worker without web tools must NOT hold NetEgress \"**\""
+        );
+    }
     assert!(
         engine
             .check(&principal, &Capability::SecretRead { name: "*".into() })
