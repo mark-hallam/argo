@@ -32,6 +32,13 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/lib/ui/use-toast";
 import { triggerWorkerRun } from "@/lib/api/workers";
 import { authorizeConnectorScopes } from "@/lib/api/connectors";
+import {
+  fetchPendingCapabilityRequests,
+  grantCapability,
+  capabilityRequestToGrant,
+  isConnectorRequest,
+  type CapabilityRequestRow,
+} from "@/lib/api/capability-requests";
 import { hasRealSession } from "@/lib/skycot/demo-mode";
 import type {
   CapabilityGrantRequest,
@@ -73,13 +80,20 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
   // (`approve_tools`), not on the finished run's session.
   const [heldTools, setHeldTools] = useState<string[] | null>(null);
   const [inProbation, setInProbation] = useState(false);
-  // Connect-on-demand: a pending capability/connector grant-request the
-  // run surfaced (additive `capability_request` field on the run
-  // envelope — see `lib/api/workers.ts`; absent until the backend
-  // emission sibling brief lands). Mock-gated on render so it never
-  // shows against a fixture; `connecting` drives the card's busy state.
+  // Connect-on-demand: the newest pending capability-request the teammate
+  // accrued when its fence denied a tool/connector. Polled from the live
+  // tg1 endpoint (`GET .../capability-requests`) on mount + after each
+  // run — NOT read off the run envelope (the run route never returns it).
+  // `grantRequest` is the locked card's shape; `grantSource` keeps the raw
+  // tg1 row so Connect can forward the request id + route tool→tg3 /
+  // connector→tg2. Mock-gated (`hasRealSession`) so a fixture session never
+  // shows a connect prompt it can't honestly fulfil; `connecting` drives
+  // the card's busy state.
   const [grantRequest, setGrantRequest] =
     useState<CapabilityGrantRequest | null>(null);
+  const [grantSource, setGrantSource] = useState<CapabilityRequestRow | null>(
+    null,
+  );
   const [connecting, setConnecting] = useState(false);
   const toggleMutation = useToggleDuty(workerId);
 
@@ -147,6 +161,35 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
     [toast],
   );
 
+  // Connect-on-demand poll: read the worker's pending capability-requests
+  // (tg1) and surface the locked card for the newest one. Mock-gated —
+  // a session without a real cookie never fetches, so fixtures never get
+  // a connect prompt. A failed poll leaves whatever's on screen untouched
+  // (honest: we don't fabricate or wrongly clear a card on a transient
+  // network blip); 404 already resolves to an empty list in the fetcher.
+  const refreshGrantRequests = useCallback(async () => {
+    if (!hasRealSession()) return;
+    try {
+      const { workerName, requests } =
+        await fetchPendingCapabilityRequests(workerId);
+      const newest = requests[0] ?? null;
+      if (!newest) {
+        setGrantSource(null);
+        setGrantRequest(null);
+        return;
+      }
+      const name = workerName || workerQuery.data?.name || "This teammate";
+      setGrantSource(newest);
+      setGrantRequest(capabilityRequestToGrant(newest, name));
+    } catch {
+      /* transient poll failure — keep the current card state */
+    }
+  }, [workerId, workerQuery.data?.name]);
+
+  useEffect(() => {
+    void refreshGrantRequests();
+  }, [refreshGrantRequests]);
+
   // Run-now (Scene 2 of v1.0 demo runbook): POST to the gateway,
   // toast with a deep-link to the just-emitted audit row. Stays out
   // of the inert-stub trap by routing through a real endpoint that
@@ -173,12 +216,11 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
         // in-SPA approval card instead. Both fields are optional so older
         // gateways keep the previous behavior.
         setInProbation(Boolean(result.probation));
-        // Connect-on-demand: if the run hit a connector the teammate
-        // isn't authorized for, the gateway returns a
-        // `capability_request` — surface the grant card. Real backend
-        // data, but mock-gated so a fixture-driven session never shows
-        // a connect prompt it can't honestly fulfil.
-        setGrantRequest(result.capability_request ?? null);
+        // Connect-on-demand: the run may have hit a fenced tool/connector
+        // and recorded a pending capability-request. Re-poll tg1 so the
+        // grant card reflects the just-finished run (real backend data,
+        // mock-gated inside the refresh).
+        void refreshGrantRequests();
         const held = result.held_tools ?? [];
         // Persist the run summary so the Output card + the approval card
         // survive the post-run remount (they live in sibling subtrees, so
@@ -230,26 +272,41 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
         setRunning(false);
       }
     },
-    [running, workerId, workerQuery.data?.name, toast],
+    [running, workerId, workerQuery.data?.name, toast, refreshGrantRequests],
   );
   const onRunNow = useCallback(() => runNow(), [runNow]);
 
-  // Connect-on-demand "Connect" → authorize the connector with the
-  // operator's chosen per-scope access. Honest surface: a failed
-  // authorize keeps the card up and toasts the real error (no silent
-  // "connected" theater); success clears the card and points at audit.
+  // Connect-on-demand "Connect" → grant the teammate the chosen access.
+  // A runtime TOOL (file family, …) routes to the durable tg3 grant so
+  // the fence opens on the next run; a known CONNECTOR keeps the tg2
+  // OAuth/credential authorize path. Honest surface: a failed grant keeps
+  // the card up and toasts the real error (no silent "connected"
+  // theater); success clears the card and points at the audit trail.
   const onConnectGrant = useCallback(
     async (scopes: GrantSelection[]) => {
-      if (connecting || !grantRequest) return;
+      if (connecting || !grantRequest || !grantSource) return;
       setConnecting(true);
+      const resource = grantSource.tool_or_connector;
+      const chosen = scopes.find((s) => s.id === resource) ?? scopes[0];
+      const access = chosen?.access ?? grantSource.requested_access;
       try {
-        await authorizeConnectorScopes({
-          workerId,
-          connectorId: grantRequest.connector.id,
-          scopes,
-        });
+        if (isConnectorRequest(resource)) {
+          await authorizeConnectorScopes({
+            workerId,
+            connectorId: resource,
+            scopes,
+          });
+        } else {
+          await grantCapability({
+            workerId,
+            toolOrConnector: resource,
+            access,
+            requestId: grantSource.id,
+          });
+        }
         const connName = grantRequest.connector.name;
         setGrantRequest(null);
+        setGrantSource(null);
         toast.success(`Connected ${connName}`, {
           description:
             "The teammate can use it now — every action stays logged in the audit trail.",
@@ -263,9 +320,12 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
         setConnecting(false);
       }
     },
-    [connecting, grantRequest, workerId, toast],
+    [connecting, grantRequest, grantSource, workerId, toast],
   );
-  const onDismissGrant = useCallback(() => setGrantRequest(null), []);
+  const onDismissGrant = useCallback(() => {
+    setGrantRequest(null);
+    setGrantSource(null);
+  }, []);
 
   if (overviewQuery.isPending) {
     return (
