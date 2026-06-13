@@ -5,6 +5,7 @@
 use crate::defaults;
 use argo_core::RestartPolicy;
 use serde::{Deserialize, Serialize};
+use std::ffi::OsString;
 use std::path::PathBuf;
 
 /// `[core]`.
@@ -134,13 +135,64 @@ pub struct PluginConfig {
 
 fn expand_tilde(s: &str) -> PathBuf {
     if let Some(rest) = s.strip_prefix("~/") {
-        if let Some(home) = std::env::var_os("HOME") {
-            return PathBuf::from(home).join(rest);
+        if let Some(home) = home_dir() {
+            return home.join(rest);
         }
     } else if s == "~" {
-        if let Some(home) = std::env::var_os("HOME") {
-            return PathBuf::from(home);
+        if let Some(home) = home_dir() {
+            return home;
         }
     }
     PathBuf::from(s)
+}
+
+/// Resolve the user's home directory cross-platform for tilde expansion.
+///
+/// `HOME` is the unix convention and wins when set, so unix behavior is
+/// byte-identical (and a git-bash shell on Windows that exports `HOME`
+/// keeps working). On native Windows `HOME` is usually unset, so we fall
+/// back to `USERPROFILE` (e.g. `C:\Users\alice`). Without this, the
+/// `~/.argo` default ([`crate::defaults::DEFAULT_HOME`]) would expand to a
+/// bare relative `~/.argo` on Windows. See
+/// `win-portability-tmp-and-home-paths`.
+fn home_dir() -> Option<PathBuf> {
+    home_dir_from(std::env::var_os("HOME"), std::env::var_os("USERPROFILE"))
+}
+
+/// Pure core of [`home_dir`] — takes the env values explicitly so it can be
+/// asserted without mutating process-global environment in tests. Empty
+/// values are treated as unset so a stray `HOME=` does not win.
+fn home_dir_from(home: Option<OsString>, userprofile: Option<OsString>) -> Option<PathBuf> {
+    home.filter(|h| !h.is_empty())
+        .or_else(|| userprofile.filter(|h| !h.is_empty()))
+        .map(PathBuf::from)
+}
+
+#[cfg(test)]
+mod home_dir_tests {
+    use super::*;
+
+    #[test]
+    fn home_wins_when_set() {
+        let got = home_dir_from(Some("/home/alice".into()), Some("C:\\Users\\alice".into()));
+        assert_eq!(got, Some(PathBuf::from("/home/alice")));
+    }
+
+    #[test]
+    fn falls_back_to_userprofile_when_home_unset() {
+        let got = home_dir_from(None, Some("C:\\Users\\alice".into()));
+        assert_eq!(got, Some(PathBuf::from("C:\\Users\\alice")));
+    }
+
+    #[test]
+    fn empty_home_is_ignored_and_userprofile_used() {
+        let got = home_dir_from(Some("".into()), Some("C:\\Users\\bob".into()));
+        assert_eq!(got, Some(PathBuf::from("C:\\Users\\bob")));
+    }
+
+    #[test]
+    fn none_when_neither_set() {
+        assert_eq!(home_dir_from(None, None), None);
+        assert_eq!(home_dir_from(Some("".into()), Some("".into())), None);
+    }
 }

@@ -277,3 +277,25 @@ fn debug_redacts_workspace_root_key() {
         "Debug leaked raw bytes: {rendered}"
     );
 }
+
+#[test]
+fn home_dir_prefers_home_then_userprofile() {
+    use std::path::PathBuf;
+    // HOME wins (unix behavior unchanged).
+    assert_eq!(
+        home_dir_from(Some("/home/alice".into()), Some("C:\\Users\\alice".into())),
+        Some(PathBuf::from("/home/alice"))
+    );
+    // Windows: HOME unset → USERPROFILE fallback.
+    assert_eq!(
+        home_dir_from(None, Some("C:\\Users\\alice".into())),
+        Some(PathBuf::from("C:\\Users\\alice"))
+    );
+    // Empty HOME is ignored.
+    assert_eq!(
+        home_dir_from(Some("".into()), Some("C:\\Users\\bob".into())),
+        Some(PathBuf::from("C:\\Users\\bob"))
+    );
+    // Neither set → None.
+    assert_eq!(home_dir_from(None, None), None);
+}

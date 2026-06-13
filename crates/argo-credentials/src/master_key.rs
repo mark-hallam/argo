@@ -46,6 +46,7 @@ use dashmap::DashMap;
 use hkdf::Hkdf;
 use sha2::Sha256;
 use std::env::{self, VarError};
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -337,10 +338,22 @@ impl std::fmt::Debug for WorkspaceRootKey {
     }
 }
 
-/// Best-effort `$HOME` discovery without pulling in the `dirs` crate.
+/// Best-effort home-directory discovery without pulling in the `dirs`
+/// crate. `HOME` (unix) wins when set, so unix behavior is byte-identical;
+/// on native Windows `HOME` is usually unset, so fall back to `USERPROFILE`
+/// (e.g. `C:\Users\alice`). Empty values are ignored. See
+/// `win-portability-tmp-and-home-paths`.
 #[must_use]
 pub fn dirs_home_dir() -> Option<PathBuf> {
-    env::var_os("HOME").map(PathBuf::from)
+    home_dir_from(env::var_os("HOME"), env::var_os("USERPROFILE"))
+}
+
+/// Pure core of [`dirs_home_dir`] — env values passed explicitly so it can
+/// be asserted without mutating process-global environment in tests.
+fn home_dir_from(home: Option<OsString>, userprofile: Option<OsString>) -> Option<PathBuf> {
+    home.filter(|h| !h.is_empty())
+        .or_else(|| userprofile.filter(|h| !h.is_empty()))
+        .map(PathBuf::from)
 }
 
 #[cfg(test)]
