@@ -90,6 +90,38 @@ fn workspace_defaults_scope_user_filesystem_caps() {
     assert_eq!(globs, vec!["/tmp/ws/**", "/tmp/ws/**"]);
 }
 
+/// Runtime authz correctness (win-capability-fs-cap-glob-separator): the
+/// default `user` workspace glob must actually MATCH a real file under the
+/// workspace root at runtime on every OS — the security point of the fix, not
+/// just the stringified form. Before the fix, on Windows the glob carried
+/// backslashes which globset treats as escapes, so this `covers` check
+/// returned false and silently denied the user access to its own files.
+#[test]
+fn user_workspace_glob_covers_real_rooted_path_at_runtime() {
+    #[cfg(windows)]
+    let (root, file) = (
+        std::path::Path::new(r"C:\Users\skycot\ws"),
+        r"C:\Users\skycot\ws\sub\invoice.txt",
+    );
+    #[cfg(not(windows))]
+    let (root, file) = (
+        std::path::Path::new("/tmp/ws"),
+        "/tmp/ws/sub/invoice.txt",
+    );
+
+    let roles = default_roles_for_workspace(root);
+    let user = roles
+        .iter()
+        .find(|role| role.name == "user")
+        .expect("user role exists");
+    assert!(
+        user.capabilities.covers(&Capability::FsRead {
+            path_glob: file.into(),
+        }),
+        "user fs glob must cover a real workspace-rooted path at runtime"
+    );
+}
+
 #[test]
 fn guest_cannot_terminal() {
     let e = CapabilityEngine::with_defaults();

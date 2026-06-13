@@ -310,7 +310,17 @@ pub fn default_roles() -> Vec<CapabilityRole> {
 #[must_use]
 pub fn default_roles_for_workspace(workspace_root: &Path) -> Vec<CapabilityRole> {
     use argo_types::SpawnKind;
-    let workspace_glob = workspace_root.join("**").to_string_lossy().into_owned();
+    // globset (the matcher behind `Capability::covers`) uses `/` as the path
+    // separator and treats `\` as an ESCAPE on every OS. `Path::join` yields
+    // backslashes on Windows, so `<root>\**` would parse as an escaped literal
+    // `*` rather than a recursive wildcard — silently failing to match real
+    // workspace paths and denying the `user` role access to its own files.
+    // Build the glob with forward slashes always (unix already uses `/`, so it
+    // is byte-identical there). See win-capability-fs-cap-glob-separator (#2911).
+    let workspace_glob = workspace_root
+        .join("**")
+        .to_string_lossy()
+        .replace('\\', "/");
     vec![
         CapabilityRole {
             name: "owner".into(),
