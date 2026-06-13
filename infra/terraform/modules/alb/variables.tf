@@ -37,7 +37,19 @@ variable "health_check_path" {
 }
 
 variable "front_with_cloudflare" {
-  description = "When true, the ALB SG accepts 80/443 ONLY from Cloudflare's published IP ranges (so direct-to-origin is blocked and the gateway can trust X-Forwarded-For). When false (default), ingress is open to the internet."
+  description = "When true (the secure default), the ALB SG accepts 80/443 ONLY from Cloudflare's published IP ranges (so direct-to-origin is blocked and the gateway can trust X-Forwarded-For). When false, ingress is open to the internet — only valid for the transient pre-DNS bring-up smoke (see allow_open_origin_bringup)."
+  type        = bool
+  default     = true
+}
+
+variable "env" {
+  description = "Environment slug (prod, staging, dev). The origin-lockdown precondition only HARD-FAILS for env == \"prod\" so non-prod bring-up stays frictionless."
+  type        = string
+  default     = "prod"
+}
+
+variable "allow_open_origin_bringup" {
+  description = "Bring-up escape hatch. When true, suppresses the prod origin-lockdown precondition so the operator can deliberately run a pre-DNS smoke against the open ALB. Default false. NOT honored by the standalone go-live gate scripts/check-alb-origin-locked.sh."
   type        = bool
   default     = false
 }

@@ -70,7 +70,13 @@ variable "route53_zone_id" {
 }
 
 variable "front_with_cloudflare" {
-  description = "When true (the operative posture once api.skycot.com is proxied through Cloudflare): the ALB SG accepts 80/443 only from Cloudflare's IP ranges, AND the gateway gets ARGO_TRUST_XFF=1 so its per-IP rate limiter keys on the real client IP. Set false during initial bring-up (before DNS is on Cloudflare) so the ALB is directly reachable for smoke tests."
+  description = "SECURE DEFAULT (true): the ALB SG accepts 80/443 ONLY from Cloudflare's published IP ranges, so the origin can't be hit directly (every Cloudflare WAF + rate-limit + bot rule is bypass-proof), AND the gateway gets ARGO_TRUST_XFF=1 so its per-IP limiter keys on the real client IP (non-spoofable because only Cloudflare can reach the origin). Set false ONLY for the transient pre-DNS bring-up smoke (before api.skycot.com is proxied) — and in prod that ALSO requires allow_open_origin_bringup=true so the open state is a conscious two-flag opt-out, never a silent default. Revert both before go-live; the §12 pre-deploy gate (scripts/check-alb-origin-locked.sh) refuses go-live on an open origin regardless."
+  type        = bool
+  default     = true
+}
+
+variable "allow_open_origin_bringup" {
+  description = "Bring-up escape hatch. Default false. When true AND front_with_cloudflare=false, the ALB origin-lockdown precondition is suppressed so the operator can run the pre-DNS bring-up smoke against the raw ALB (step 13) on a prod env. This is a DELIBERATE, documented opt-out — set it for the bring-up window only, then remove it. The standalone go-live gate (scripts/check-alb-origin-locked.sh, runbook §12) does NOT honor this flag: it inspects the resolved plan and still fails on a 0.0.0.0/0 origin, so a forgotten escape hatch can never reach paying users."
   type        = bool
   default     = false
 }

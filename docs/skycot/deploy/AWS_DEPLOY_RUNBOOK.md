@@ -483,21 +483,41 @@ curl -sI https://api.skycot.com/health | head -1
   encryption mode = Full (Strict)** in the UI (NOT terraform) so the proxy
   validates the ALB's real ACM cert end-to-end.
 
-## 9. Cloudflare-front lockdown — `front_with_cloudflare = true` (OPTIONAL / LATER, default-off)
+## 9. Origin lockdown — `front_with_cloudflare = true` (SECURE DEFAULT — part of the go-live launch window)
 
-**Default-off.** `front_with_cloudflare` defaults to `false` so the ALB is
-directly reachable for the bring-up smoke test (step 13). Flip it to `true`
-**only AFTER** `api`/`try` are confirmed proxied (step 8) and SSL/TLS = Full
-(Strict) is set — otherwise you black-hole the origin (the SG would reject your
-own non-Cloudflare requests). This is a **SECOND, separate `terraform apply` in
-`infra/terraform/`**, NOT part of the `deploy/dns` apply.
-Targets: [`infra/terraform/main.tf`](../../../infra/terraform/main.tf) (wires
+**Secure by default.** `front_with_cloudflare` now defaults to **`true`**, so a
+normal `terraform apply` already restricts the ALB SG on 80/443 to Cloudflare's
+published CIDRs and sets `ARGO_TRUST_XFF=1`. **The origin is locked from the first
+apply — you do NOT opt into it.** Origin-lockdown is therefore part of the **SAME
+launch window** as the DNS cutover (§8) and Cloudflare SSL/TLS = Full (Strict):
+**cutover → Full(Strict) → origin-locked**, all before anonymous/paying traffic
+arrives — NOT a "later" second apply. An internet-open prod origin would bypass
+every Cloudflare WAF + rate-limit + the `deploy/waf/` LLM-cost block, so it is gated
+**twice**: an in-Terraform `precondition` fails `plan`/`apply` on an open prod origin,
+and the §12 pre-deploy gate script (`scripts/check-alb-origin-locked.sh`) refuses
+go-live on an open origin regardless.
+Targets: [`infra/terraform/variables.tf`](../../../infra/terraform/variables.tf)
+(`front_with_cloudflare` default `true` + `allow_open_origin_bringup`) +
+[`infra/terraform/main.tf`](../../../infra/terraform/main.tf) (wires
 `trust_xff = var.front_with_cloudflare`) +
-[`infra/terraform/modules/alb/main.tf`](../../../infra/terraform/modules/alb/main.tf).
+[`infra/terraform/modules/alb/main.tf`](../../../infra/terraform/modules/alb/main.tf)
+(the origin-lockdown `precondition`).
+
+**Transient pre-DNS bring-up only.** If you need to smoke the raw ALB *before* DNS is
+proxied (step 13 against `<alb_dns_name>`), open the origin **consciously** with the
+two-flag escape hatch, then **revert both before go-live** (the precondition demands
+the second flag in prod so the open state can never happen silently):
 
 ```sh
 cd infra/terraform
-echo 'front_with_cloudflare = true' >> terraform.tfvars
+# BRING-UP ONLY — raw ALB reachable for the pre-DNS smoke. Revert before go-live.
+cat >> terraform.tfvars <<'EOF'
+front_with_cloudflare     = false
+allow_open_origin_bringup = true
+EOF
+terraform apply
+# ... run the step-13 smoke against https://<alb_dns_name>/health/ready ...
+# Then REMOVE both lines (origin re-locks to the secure default) and re-apply:
 terraform apply
 
 # Pick up ARGO_TRUST_XFF=1 + ARGO_IP_RATE_LIMIT=1 on the running task.
@@ -507,13 +527,15 @@ aws ecs update-service \
   --force-new-deployment --region ap-southeast-2
 ```
 
-**Success signal:** the ALB security-group ingress on 80/443 narrows from
-`0.0.0.0/0` + `::/0` to Cloudflare's published CIDRs (15 IPv4 + 7 IPv6), and the
-ECS task gets BOTH `ARGO_TRUST_XFF=1` and `ARGO_IP_RATE_LIMIT=1` (the per-IP rate
-limiter is enabled together with XFF trust — `modules/ecs/main.tf` `proxy_env`).
-Direct-to-origin is now blocked, and the gateway's per-IP rate limiter keys on the
-**real** client IP (the SG lockdown is what makes X-Forwarded-For non-spoofable —
-the three are deliberately set together via the single root var).
+**Success signal:** with the secure default (no override), the ALB security-group
+ingress on 80/443 is Cloudflare's published CIDRs (15 IPv4 + 7 IPv6), NOT
+`0.0.0.0/0` + `::/0`, and the ECS task has BOTH `ARGO_TRUST_XFF=1` and
+`ARGO_IP_RATE_LIMIT=1` (the per-IP rate limiter is enabled together with XFF trust
+— `modules/ecs/main.tf` `proxy_env`). Direct-to-origin is blocked, and the gateway's
+per-IP rate limiter keys on the **real** client IP (the SG lockdown is what makes
+X-Forwarded-For non-spoofable — the three are deliberately set together via the
+single root var). Confirm with the §12 gate before go-live:
+`terraform plan -out tfplan && terraform show -json tfplan | bash scripts/check-alb-origin-locked.sh` → exit 0.
 
 **Truth-bounded notes:**
 - The Cloudflare proxy/DNS itself is NOT created by this stack (it's step 8).
@@ -635,17 +657,39 @@ load, and Lighthouse Performance / Accessibility / Best Practices / SEO each ≥
 
 ## 12. Pre-deploy gate (operator runs)
 
-Run the infra-validate sweep as the go/no-go gate before the final smoke test
-(it can also serve as the step-0 pre-flight).
-Targets: [`scripts/validate-infra.sh`](../../../scripts/validate-infra.sh).
+Two go/no-go gates before the final smoke test (both can also serve as the step-0
+pre-flight). **12a is the security hard-gate; do NOT cut over to a go-live origin
+until it exits 0.**
+Targets: [`scripts/check-alb-origin-locked.sh`](../../../scripts/check-alb-origin-locked.sh)
++ [`scripts/validate-infra.sh`](../../../scripts/validate-infra.sh).
+
+**12a — ALB origin-lockdown hard-gate (security-critical).** Refuses go-live while
+the prod ALB origin is internet-open (`0.0.0.0/0` / `::/0`) — i.e. while any
+bring-up override (§9) is still in place. It inspects the resolved Terraform plan,
+so it catches a forgotten `allow_open_origin_bringup` that the in-Terraform
+precondition deliberately allowed for the bring-up window:
+
+```sh
+cd infra/terraform
+terraform plan -out tfplan
+terraform show -json tfplan | bash ../../scripts/check-alb-origin-locked.sh
+# exit 0 = origin is Cloudflare-CIDR-only (go). exit 1 = OPEN origin (NO-GO) — remove
+# the §9 bring-up override and re-plan. exit 2 = plan/parse error.
+```
+
+**Success signal (12a):** prints `PASS: prod ALB ingress on 80/443 is Cloudflare-CIDR-only`
+and exits 0. On a forced-open plan it prints the offending `0.0.0.0/0` ingress rule and
+exits 1 — that is a **go-live blocker**, not a warning.
+
+**12b — infra-validate sweep.** Run the per-module validate as the broader go/no-go:
 
 ```sh
 bash scripts/validate-infra.sh             # or: bash scripts/validate-infra.sh --skip-docker
 ```
 
-**Success signal:** every per-module line prints `PASS`, the `== summary ==` block
-reports `fail: 0`, and the process exits 0 (exit code == number of failing checks).
-`--skip-docker` omits the Dockerfile-syntax block (terraform-validate sweep only).
+**Success signal (12b):** every per-module line prints `PASS`, the `== summary ==`
+block reports `fail: 0`, and the process exits 0 (exit code == number of failing
+checks). `--skip-docker` omits the Dockerfile-syntax block (terraform-validate only).
 
 **Truth-bounded notes:**
 - This is a bash script (uses `mapfile`/`find`/`xargs`) and requires `terraform`

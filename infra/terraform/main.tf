@@ -77,12 +77,14 @@ module "iam" {
 module "alb" {
   source = "./modules/alb"
 
-  name_prefix           = local.name_prefix
-  vpc_id                = module.network.vpc_id
-  public_subnets        = module.network.public_subnet_ids
-  domain_name           = var.domain_name
-  route53_zone_id       = var.route53_zone_id
-  front_with_cloudflare = var.front_with_cloudflare
+  name_prefix               = local.name_prefix
+  vpc_id                    = module.network.vpc_id
+  public_subnets            = module.network.public_subnet_ids
+  domain_name               = var.domain_name
+  route53_zone_id           = var.route53_zone_id
+  front_with_cloudflare     = var.front_with_cloudflare
+  env                       = var.env
+  allow_open_origin_bringup = var.allow_open_origin_bringup
 }
 
 module "ecs" {

@@ -1,15 +1,31 @@
-# When front_with_cloudflare = true, restrict ingress to Cloudflare's ranges so
-# the origin can't be hit directly (DDoS/scraping protection) AND the gateway can
-# safely trust X-Forwarded-For for per-IP rate limiting. Else open to the internet.
+# front_with_cloudflare = true (the secure default) restricts ingress to
+# Cloudflare's ranges so the origin can't be hit directly (every Cloudflare WAF +
+# rate-limit + bot rule becomes bypass-proof) AND the gateway can safely trust
+# X-Forwarded-For for per-IP rate limiting. false opens it to the internet — valid
+# ONLY for the transient pre-DNS bring-up smoke, gated below by the precondition.
 locals {
   alb_ingress_v4 = var.front_with_cloudflare ? var.cloudflare_ipv4_cidrs : ["0.0.0.0/0"]
   alb_ingress_v6 = var.front_with_cloudflare ? var.cloudflare_ipv6_cidrs : ["::/0"]
+
+  # The origin is internet-open iff the resolved ingress is the wildcard.
+  alb_origin_open = contains(local.alb_ingress_v4, "0.0.0.0/0") || contains(local.alb_ingress_v6, "::/0")
 }
 
 resource "aws_security_group" "alb" {
   name        = "${var.name_prefix}-alb-sg"
-  description = "ALB — public ingress on 80 and 443 (Cloudflare-only when front_with_cloudflare)."
+  description = "ALB — public ingress on 80 and 443 (Cloudflare-only by default; open only for a deliberate pre-DNS bring-up)."
   vpc_id      = var.vpc_id
+
+  # Hard-gate: a prod plan/apply FAILS LOUD if the resolved origin is open to the
+  # whole internet (0.0.0.0/0 / ::/0), unless the operator has consciously set the
+  # bring-up escape hatch. This makes an internet-open prod origin impossible to
+  # reach SILENTLY — it bypasses Cloudflare WAF + rate-limits + the LLM-cost block.
+  lifecycle {
+    precondition {
+      condition     = var.allow_open_origin_bringup || var.env != "prod" || !local.alb_origin_open
+      error_message = "The prod ALB security group is open to 0.0.0.0/0. Set front_with_cloudflare=true so the origin is Cloudflare-CIDR-only before go-live, or allow_open_origin_bringup=true ONLY for the transient pre-DNS bring-up smoke (revert before go-live)."
+    }
+  }
 
   dynamic "ingress" {
     for_each = toset([80, 443])
