@@ -226,21 +226,28 @@ pub fn safe_access_fs_root(candidate: &str, home: &Path) -> Option<PathBuf> {
     if trimmed.chars().any(char::is_whitespace) {
         return None;
     }
-    let looks_like_path =
-        trimmed.starts_with('~') || trimmed.starts_with('/') || trimmed.contains('/');
+    // Recognize Windows paths too: a `C:\...` absolute path or a
+    // backslash-separated relative path contains no `/`, so the unix-only
+    // heuristic silently mis-rejects a legitimate Windows fs_root and falls
+    // back to the generated default. `cfg!(windows)` keeps unix byte-identical
+    // (the extra checks are dead there).
+    let looks_like_path = trimmed.starts_with('~')
+        || trimmed.starts_with('/')
+        || trimmed.contains('/')
+        || (cfg!(windows) && (trimmed.contains('\\') || Path::new(trimmed).is_absolute()));
     if !looks_like_path {
         return None;
     }
     let resolved = if trimmed == "~" {
         home.to_path_buf()
     } else if let Some(rest) = trimmed.strip_prefix("~/") {
-        home.join(rest)
+        join_native(home, Path::new(rest))
     } else {
         let p = Path::new(trimmed);
         if p.is_absolute() {
             p.to_path_buf()
         } else {
-            home.join(p)
+            join_native(home, p)
         }
     };
     if resolved == home || resolved.starts_with(home) {
@@ -288,8 +295,29 @@ pub fn resolved_fs_root_from_env(draft: &HireDraft) -> Option<PathBuf> {
     // `safe_access_fs_root`). Belt-and-suspenders with that guard.
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
-        .filter(|p| !p.as_os_str().is_empty());
+        .filter(|p| !p.as_os_str().is_empty())
+        // Native Windows has no HOME — fall back to USERPROFILE so a Genesis
+        // hire still gets its `<home>/SkycotTeammates/<slug>` default rather
+        // than a NULL fs_root jailed to the gateway cwd (the day-1 bug this
+        // module fixes). USERPROFILE is unset on unix, so this is a no-op
+        // there. Mirrors the #2904 HOME→USERPROFILE fallback.
+        .or_else(|| {
+            std::env::var_os("USERPROFILE")
+                .map(PathBuf::from)
+                .filter(|p| !p.as_os_str().is_empty())
+        });
     resolved_fs_root(draft, home.as_deref())
+}
+
+/// Join `rel` onto `base` component-by-component so a multi-segment relative
+/// candidate (`"a/b"`) is stored with the platform-native separator instead of
+/// preserving the literal `/` from the input — which on Windows yields mixed
+/// separators (`C:\home\a/b`). The caller has already rejected `..` traversal.
+/// Byte-identical to `base.join(rel)` on unix (where `/` is the native sep).
+fn join_native(base: &Path, rel: &Path) -> PathBuf {
+    let mut out = base.to_path_buf();
+    out.extend(rel.components());
+    out
 }
 
 /// Sanitize a display name into a lowercase persona slug: alphanumerics

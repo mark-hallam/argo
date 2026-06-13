@@ -171,6 +171,45 @@ fn traversal_or_outside_home_access_path_is_rejected() {
     }
 }
 
+// win-identity-fs-root-path-portability: a platform-native ABSOLUTE explicit
+// path under home must be recognized as a path (not mis-rejected by the
+// unix-only `/` heuristic) and kept as-is. Before the fix, a Windows
+// `C:\...` candidate has no `/`, so safe_access_fs_root returned None and the
+// teammate's sandbox silently fell back to the generated default.
+#[test]
+fn native_absolute_under_home_access_is_accepted() {
+    #[cfg(windows)]
+    let (home, candidate, want) = (
+        Path::new(r"C:\Users\sam"),
+        r"C:\Users\sam\Projects\acme",
+        PathBuf::from(r"C:\Users\sam\Projects\acme"),
+    );
+    #[cfg(not(windows))]
+    let (home, candidate, want) = (
+        Path::new("/home/sam"),
+        "/home/sam/Projects/acme",
+        PathBuf::from("/home/sam/Projects/acme"),
+    );
+    assert_eq!(safe_access_fs_root(candidate, home), Some(want));
+}
+
+// win-identity-fs-root-path-portability: a multi-segment relative candidate
+// must persist with NATIVE separators — `home.join("a/b")` preserved the
+// literal `/` on Windows, producing mixed separators (`C:\home\a/b`). Assert
+// the string form so the mixed-separator regression is caught directly.
+#[test]
+fn relative_access_folder_uses_native_separators() {
+    #[cfg(windows)]
+    let (home, want) = (
+        Path::new(r"C:\Users\sam"),
+        r"C:\Users\sam\SkycotDemo\Inbox",
+    );
+    #[cfg(not(windows))]
+    let (home, want) = (Path::new("/home/sam"), "/home/sam/SkycotDemo/Inbox");
+    let got = safe_access_fs_root("SkycotDemo/Inbox", home).expect("binds under home");
+    assert_eq!(got.to_string_lossy(), want);
+}
+
 // Acceptance pin 3b (security, adversarial-review hardening 2026-06-11): an
 // empty `home` must NOT let an absolute Access path through — an empty path
 // is a prefix of everything, so `starts_with` would be vacuously true. The
