@@ -71,3 +71,45 @@ Windows host** — mouse move, click, Unicode type, and modifier-key combos all
 deliver real input (clipboard-verified). The **only gap is screenshot pixel
 encoding** (a known stub). First real Windows run: **substantially green, one
 honest gap.**
+
+---
+
+## Update — real screenshot PNG encoding (`win-cu-screenshot-real-png-encode`)
+
+**Gap #1 above is now CLOSED.** `encode_bitmap_as_png` no longer returns a
+16-byte stub — it reads the BitBlt'd pixels via `GetDIBits` (top-down 32-bpp)
+and encodes a real PNG with the `image` crate (BGRA→RGBA, alpha forced opaque).
+
+**Verified on this Windows host (2026-06-14), two layers:**
+
+1. **Hermetic unit test** (`cargo test -p argo-executor-computer-use-windows`,
+   no env gate) — `screenshot::png_encode_tests::bgra_buffer_encodes_to_decodable_rgba_png`
+   feeds a hand-crafted BGRA buffer through `encode_bgra_to_png` and asserts the
+   output is a PNG that decodes to the right dimensions **and exact pixels**
+   (BGRA blue→RGBA `[0,0,255,255]`, red→`[255,0,0,255]`). Deterministic, no
+   desktop needed. **PASS.**
+
+2. **Real-desktop passive capture** — new gated, **input-free** harness
+   `tests/windows_screenshot_real.rs`:
+   ```text
+   set ARGO_NATIVE_WINDOWS_INTEGRATION=1
+   cargo test -p argo-executor-computer-use-windows --test windows_screenshot_real -- --nocapture
+   ```
+   Result:
+   ```text
+   monitor#57672349 1920x1080 primary=true png_bytes=691981
+   OK — 1 monitor screenshot(s) decode to reported dims as real PNGs
+   test result: ok. 1 passed; 0 failed
+   ```
+   A **691,981-byte** PNG (vs the old 16) of the live 1920×1080 monitor that
+   **decodes back to 1920×1080**. `real_pixels=true`.
+
+The full `windows_smoke` harness's screenshot step was also upgraded from
+"report only" to **assert** PNG magic + `real_pixels` + decode-to-dims (it stays
+operator-run because it also fires synthetic input). The passive
+`windows_screenshot_real` test is the safe, CI-friendly regression guard for the
+screenshot path specifically.
+
+**Remaining gaps unchanged:** #2 (no Claude-CU visual evidence — N/A now that we
+have a real PNG), #3 (model-in-the-loop `run()` still not wired), #4 (smoke types
+into the foreground window). Screenshot pixel encoding is no longer a gap.

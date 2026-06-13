@@ -61,30 +61,50 @@ async fn windows_cu_executor_smoke() {
     println!("[2/5 preflight]    all_passed={}", report.all_passed());
     println!("---- preflight summary ----\n{}\n---------------------------", report.actionable_summary());
 
-    // 3) screenshot — monitor enumeration + DC/BitBlt capture path. NOTE: PNG
-    // encoding is a documented stub (8-byte signature + 8 bytes of dims =
-    // 16 bytes; real pixel encoding is a follow-up brief), so we report the
-    // captured dimensions and flag whether real pixels were produced.
+    // 3) screenshot — monitor enumeration + DC/BitBlt capture + REAL PNG
+    // encode (win-cu-screenshot-real-png-encode). Assert each monitor yields a
+    // decodable PNG of its reported dimensions (real pixels, not the old
+    // 16-byte stub).
     let shot_dir = std::env::temp_dir().join("argo-cu-smoke-shots");
-    match exec.warm_up_screenshots(&shot_dir) {
-        Ok(shots) => {
-            println!("[3/5 screenshot]   monitors={}", shots.len());
-            for s in &shots {
-                let real_pixels = s.image_bytes.len() > 16;
-                println!(
-                    "   monitor#{} {}x{} primary={} bytes={} real_pixels={}",
-                    s.info.monitor_id,
-                    s.info.width,
-                    s.info.height,
-                    s.info.is_primary,
-                    s.image_bytes.len(),
-                    real_pixels,
-                );
-            }
-            println!("   (PNG encoder is a known stub — see encode_bitmap_as_png; dims are real, pixels are not)");
-        }
-        Err(e) => println!("[3/5 screenshot]   GAP: {e}"),
+    let shots = exec
+        .warm_up_screenshots(&shot_dir)
+        .expect("warm_up_screenshots must capture on a Windows host");
+    println!("[3/5 screenshot]   monitors={}", shots.len());
+    assert!(!shots.is_empty(), "at least one monitor must be captured");
+    for s in &shots {
+        let bytes = &s.image_bytes;
+        let real_pixels = bytes.len() > 16;
+        println!(
+            "   monitor#{} {}x{} primary={} bytes={} real_pixels={}",
+            s.info.monitor_id,
+            s.info.width,
+            s.info.height,
+            s.info.is_primary,
+            bytes.len(),
+            real_pixels,
+        );
+        assert_eq!(
+            bytes.get(..8),
+            Some(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A][..]),
+            "monitor#{} screenshot must start with the PNG magic signature",
+            s.info.monitor_id,
+        );
+        assert!(
+            real_pixels,
+            "monitor#{} must produce real pixels, not the 16-byte stub",
+            s.info.monitor_id,
+        );
+        let decoded = image::load_from_memory(bytes)
+            .unwrap_or_else(|e| panic!("monitor#{} PNG must decode: {e}", s.info.monitor_id))
+            .to_rgba8();
+        assert_eq!(
+            decoded.dimensions(),
+            (s.info.width, s.info.height),
+            "monitor#{} PNG must decode to the reported dimensions",
+            s.info.monitor_id,
+        );
     }
+    println!("   screenshot PNGs decode to reported dimensions ✓ (real_pixels)");
 
     // 4) mouse move + click at a safe coordinate. Lands in the foreground
     // window (open Notepad maximized so this clicks its edit surface).

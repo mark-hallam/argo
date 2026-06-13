@@ -206,8 +206,11 @@ fn capture_one_monitor(info: &MonitorInfo) -> WindowsCuResult<Vec<u8>> {
         );
         // windows 0.58: `BitBlt` returns `Result<()>` (Ok = success), not a
         // BOOL — check `is_ok()` rather than `as_bool()`.
+        // `src_dc` (the screen DC) is passed to GetDIBits for the readback:
+        // `bmp` is selected into `mem_dc`, not `src_dc`, so the
+        // "bitmap must not be selected into the DC" rule for GetDIBits holds.
         let bytes_result = if ok.is_ok() {
-            encode_bitmap_as_png(bmp, info.width, info.height)
+            encode_bitmap_as_png(src_dc, bmp, info.width, info.height)
         } else {
             Err(WindowsCuError::ScreenshotFailed {
                 reason: "BitBlt failed".into(),
@@ -220,23 +223,120 @@ fn capture_one_monitor(info: &MonitorInfo) -> WindowsCuResult<Vec<u8>> {
     }
 }
 
+/// Read the 32-bpp pixels out of `bmp` via `GetDIBits` and encode them as a
+/// real PNG (win-cu-screenshot-real-png-encode).
+///
+/// `hdc` must be a DC compatible with `bmp` in which `bmp` is **not** selected
+/// (the caller passes the screen DC; `bmp` is selected into a separate memory
+/// DC). The DIB is requested top-down (`biHeight` negative) so scanline 0 is
+/// the top row, matching the PNG row order — no vertical flip needed.
+///
+/// # Safety
+/// Calls into GDI with raw handles; the caller guarantees `hdc`/`bmp` are live
+/// and `width`/`height` match `bmp`.
 #[cfg(target_os = "windows")]
 unsafe fn encode_bitmap_as_png(
-    _bmp: windows::Win32::Graphics::Gdi::HBITMAP,
+    hdc: windows::Win32::Graphics::Gdi::HDC,
+    bmp: windows::Win32::Graphics::Gdi::HBITMAP,
     width: u32,
     height: u32,
 ) -> WindowsCuResult<Vec<u8>> {
-    // V1: emit a PNG-signature-prefixed payload that downstream
-    // consumers can recognise as a screenshot artefact. The full
-    // GDI+-based PNG encoder lands in the follow-up brief once
-    // the bitmap-pixel-readback path is exercised against a real
-    // Windows host. Encoding dimensions in the payload header
-    // lets callers verify the round-trip.
-    let mut out = Vec::with_capacity(64);
-    out.extend_from_slice(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
-    out.extend_from_slice(&width.to_be_bytes());
-    out.extend_from_slice(&height.to_be_bytes());
-    Ok(out)
+    use windows::Win32::Graphics::Gdi::{
+        GetDIBits, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
+    };
+
+    let pixel_count = (width as usize)
+        .checked_mul(height as usize)
+        .and_then(|n| n.checked_mul(4))
+        .ok_or_else(|| WindowsCuError::ScreenshotFailed {
+            reason: "screenshot dimensions overflow".into(),
+        })?;
+    let mut buf = vec![0u8; pixel_count];
+
+    let mut bmi = BITMAPINFO {
+        bmiHeader: BITMAPINFOHEADER {
+            biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+            biWidth: width as i32,
+            // Negative height = top-down DIB (row 0 is the top scanline).
+            biHeight: -(height as i32),
+            biPlanes: 1,
+            biBitCount: 32,
+            biCompression: BI_RGB.0,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    let scanlines = GetDIBits(
+        hdc,
+        bmp,
+        0,
+        height,
+        Some(buf.as_mut_ptr().cast()),
+        &mut bmi,
+        DIB_RGB_COLORS,
+    );
+    if scanlines == 0 {
+        return Err(WindowsCuError::ScreenshotFailed {
+            reason: "GetDIBits read 0 scanlines".into(),
+        });
+    }
+
+    encode_bgra_to_png(buf, width, height)
+}
+
+/// Convert a top-down 32-bpp **BGRA** buffer (GDI's native DIB layout) to a
+/// real PNG. Swaps B/R to RGBA and forces alpha opaque (a screen BitBlt leaves
+/// the alpha byte undefined), then encodes with the `image` crate.
+///
+/// Split out of [`encode_bitmap_as_png`] so the colour/encode logic is unit-
+/// testable without a live GDI bitmap (the GetDIBits readback itself is
+/// exercised by the `windows_smoke` integration harness).
+#[cfg(target_os = "windows")]
+fn encode_bgra_to_png(mut bgra: Vec<u8>, width: u32, height: u32) -> WindowsCuResult<Vec<u8>> {
+    use std::io::Cursor;
+
+    for px in bgra.chunks_exact_mut(4) {
+        px.swap(0, 2); // BGRA -> RGBA
+        px[3] = 0xFF; // force opaque
+    }
+
+    let img = image::RgbaImage::from_raw(width, height, bgra).ok_or_else(|| {
+        WindowsCuError::ScreenshotFailed {
+            reason: "pixel buffer size does not match dimensions".into(),
+        }
+    })?;
+    let mut out = Cursor::new(Vec::new());
+    img.write_to(&mut out, image::ImageFormat::Png)
+        .map_err(|e| WindowsCuError::ScreenshotFailed {
+            reason: format!("PNG encode failed: {e}"),
+        })?;
+    Ok(out.into_inner())
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod png_encode_tests {
+    use super::*;
+
+    #[test]
+    fn bgra_buffer_encodes_to_decodable_rgba_png() {
+        // 2x1 top-down BGRA: pixel(0,0)=blue, pixel(1,0)=red (alpha undefined).
+        let bgra = vec![255, 0, 0, 0, /* blue */ 0, 0, 255, 0 /* red */];
+        let png = encode_bgra_to_png(bgra, 2, 1).expect("encode");
+
+        assert_eq!(
+            &png[..8],
+            &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A],
+            "PNG magic signature"
+        );
+        assert!(png.len() > 16, "real PNG is far larger than the old 16-byte stub");
+
+        let decoded = image::load_from_memory(&png).expect("decode").to_rgba8();
+        assert_eq!(decoded.dimensions(), (2, 1));
+        // BGRA blue -> RGBA, alpha forced opaque.
+        assert_eq!(decoded.get_pixel(0, 0).0, [0, 0, 255, 255]);
+        assert_eq!(decoded.get_pixel(1, 0).0, [255, 0, 0, 255]);
+    }
 }
 
 #[cfg(target_os = "windows")]
