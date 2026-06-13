@@ -78,6 +78,25 @@ export function MeterPanel() {
         </span>
       </div>
 
+      {/*
+        Self-explanatory label (shakedown re-test N2): this meter counts
+        BILLABLE METERED ACTIONS (one per session / forge run / channel
+        message that crosses the gateway quota seam), NOT raw provider
+        spend. A run can accrue provider $ — shown in the Spend panel
+        below — without incrementing a metered action (e.g. an internal
+        duty / probation run that never crosses an HTTP quota seam), so a
+        0 here next to nonzero spend is honest, not broken. Labelling the
+        unit is the truth-bounded fix; the counter is never fabricated up
+        to match spend.
+      */}
+      <p
+        data-testid="meter-unit-note"
+        className="mt-1 text-xs text-[var(--muted-foreground)]"
+      >
+        Counts billable metered actions. Provider spend is metered
+        separately (see Spend below).
+      </p>
+
       {hasAllowance ? (
         <div className="mt-2">
           <ProgressBar

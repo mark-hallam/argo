@@ -56,6 +56,27 @@ describe("MeterPanel", () => {
     expect(screen.getByText(/\$200\.00 \(default\)/)).toBeInTheDocument();
   });
 
+  it("labels the meter unit so a 0 count next to nonzero spend reads as honest, not broken", async () => {
+    // The core shakedown re-test N2 case: a tenant whose metered-action
+    // counter is 0 while provider spend accrues. The note must make the
+    // unit self-explanatory (billable metered actions ≠ provider spend).
+    fetchBillingMeterSpy.mockResolvedValue(
+      meter({ used_actions: 0, included_actions: 1500 }),
+    );
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("meter-unit-note")).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/0 \/ 1,500 included/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/billable metered actions/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Provider spend is metered\s+separately/i),
+    ).toBeInTheDocument();
+  });
+
   it("surfaces overage units + a labelled dollar estimate", async () => {
     fetchBillingMeterSpy.mockResolvedValue(
       meter({

@@ -15,39 +15,37 @@ function usage(overrides: Partial<UsageResponse> = {}): UsageResponse {
   };
 }
 
-describe("UsageMeter", () => {
-  it("renders the tier and a progress bar from live usage data", () => {
-    render(<UsageMeter usage={usage({ used: 40, limit: 100 })} />);
+describe("UsageMeter (plan-identity header)", () => {
+  it("renders the active tier name and reset date from live usage data", () => {
+    render(<UsageMeter usage={usage({ display_name: "Free" })} />);
+    expect(screen.getByText("Current plan")).toBeInTheDocument();
     expect(screen.getByText("Free")).toBeInTheDocument();
-    expect(screen.getByText(/Used 40 of 100 actions this month/)).toBeInTheDocument();
-    const bar = screen.getByRole("progressbar", { name: /Monthly action usage/ });
-    // 40 / 100 = 40%
-    expect(bar).toHaveAttribute("aria-valuenow", "40");
+    expect(screen.getByText(/Resets /)).toBeInTheDocument();
   });
 
-  it("crosses into the warning tone at 80% of cap", () => {
-    render(<UsageMeter usage={usage({ used: 4000, limit: 5000 })} />);
-    const bar = screen.getByRole("progressbar", { name: /Monthly action usage/ });
-    expect(bar).toHaveAttribute("aria-valuenow", "80");
-    expect(bar).toHaveAttribute("data-tone", "warning");
-  });
-
-  it("shows an honest zero state (empty bar, real zero count, never fabricated)", () => {
-    render(<UsageMeter usage={usage({ used: 0, limit: 100 })} />);
-    expect(screen.getByText(/Used 0 of 100 actions this month/)).toBeInTheDocument();
-    const bar = screen.getByRole("progressbar", { name: /Monthly action usage/ });
-    expect(bar).toHaveAttribute("aria-valuenow", "0");
-  });
-
-  it("renders the unlimited tier without a bar (no percentage of an unlimited cap)", () => {
+  it("renders the enterprise tier name", () => {
     render(
       <UsageMeter
-        usage={usage({ tier: "enterprise", display_name: "Enterprise", used: 1200, limit: 0, remaining: null })}
+        usage={usage({
+          tier: "enterprise",
+          display_name: "Enterprise",
+          used: 1200,
+          limit: 0,
+          remaining: null,
+        })}
       />,
     );
     expect(screen.getByText("Enterprise")).toBeInTheDocument();
-    expect(screen.getByText(/Unlimited actions on this plan/)).toBeInTheDocument();
-    expect(screen.getByText(/Used 1,200 of Unlimited actions this month/)).toBeInTheDocument();
+  });
+
+  it("does NOT render a second 'Actions this month' meter (de-dup: the meter lives only in MeterPanel)", () => {
+    render(<UsageMeter usage={usage({ used: 40, limit: 100 })} />);
+    // The canonical metered "Actions this month" row + bar now belong to
+    // MeterPanel; this header must not duplicate them (shakedown re-test N2).
+    expect(screen.queryByText(/Actions this month/)).not.toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/actions this month/),
+    ).not.toBeInTheDocument();
   });
 });

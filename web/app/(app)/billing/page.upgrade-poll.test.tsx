@@ -49,9 +49,9 @@ vi.mock("next/navigation", () => ({
 }));
 
 // --- Usage fetcher SPY ---------------------------------------------------
-// Partial mock: keep the real `usagePercent` (UsageMeter imports it) and
-// the real `UsageResponse` type; only `fetchTenantUsage` is a spy so each
-// test controls the tier sequence and asserts the refetch count.
+// Partial mock: keep the real `UsageResponse` type and any real lib
+// exports; only `fetchTenantUsage` is a spy so each test controls the tier
+// sequence and asserts the refetch count.
 const fetchTenantUsageSpy = vi.fn<() => Promise<UsageResponse>>();
 vi.mock("@/lib/api/usage", async (orig) => ({
   ...(await orig<typeof import("@/lib/api/usage")>()),
