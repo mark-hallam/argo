@@ -1,0 +1,75 @@
+# .gitattributes — repository line-ending policy.
+# Brief: win-line-endings-gitattributes-pin (Windows fleet).
+#
+# WHY: SKYCOT is developed on macOS/Linux (LF) but builds + runs on Windows.
+# Several file classes are BYTE-SENSITIVE — their exact bytes are embedded into
+# the binary (`include_str!` / `include_bytes!`), hashed into the audit chain,
+# or compared byte-for-byte as golden fixtures. A CRLF silently introduced on a
+# Windows checkout or commit (git's `core.autocrlf=true` is the common Windows
+# default) would change those bytes and cause Windows-ONLY corruption / test
+# flakiness. CRLF was hypothesised as a failure cause 3x during the Windows
+# hardening session (it never actually was — each was a real bug or stale
+# literal); these rules foreclose the class for good by pinning such files to
+# LF in BOTH the repo and the working tree, so a Windows checkout is
+# byte-identical to a macOS/Linux one.
+#
+# SCOPE (deliberately surgical): we enumerate the byte-sensitive + source/data/
+# text classes and force them to LF (`text eol=lf`), and mark true binaries
+# `binary` so git never touches their bytes. We do NOT set a repo-wide
+# `* text=auto eol=lf` default — that would entangle the one pre-existing CRLF
+# asset (`web/public/logos/calendly.svg`) and force a renormalisation diff.
+# Every tracked file matched below is already LF today (`git ls-files --eol`),
+# so this commit introduces ZERO content change — it is purely a forward guard.
+# See docs/skycot/windows/LINE-ENDINGS.md for the policy + the calendly.svg note.
+
+# --- Byte-sensitive: embedded in the binary / hashed / golden fixtures ---
+*.sql      text eol=lf
+*.jsonl    text eol=lf
+*.json     text eol=lf
+*.toml     text eol=lf
+*.csv      text eol=lf
+*.snap     text eol=lf
+
+# --- Source (inline SQL strings + golden string literals live here) ---
+*.rs       text eol=lf
+*.sh       text eol=lf
+*.ps1      text eol=lf
+*.py       text eol=lf
+*.js       text eol=lf
+*.mjs      text eol=lf
+*.cjs      text eol=lf
+*.ts       text eol=lf
+*.tsx      text eol=lf
+*.jsx      text eol=lf
+*.css      text eol=lf
+*.scss     text eol=lf
+*.html     text eol=lf
+
+# --- Docs / config text ---
+*.md       text eol=lf
+*.yml      text eol=lf
+*.yaml     text eol=lf
+*.txt      text eol=lf
+*.lock     text eol=lf
+
+# --- True binaries: never apply EOL conversion ---
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.ico      binary
+*.webp     binary
+*.pdf      binary
+*.mp4      binary
+*.mov      binary
+*.woff     binary
+*.woff2    binary
+*.ttf      binary
+*.otf      binary
+*.eot      binary
+*.zip      binary
+*.gz       binary
+*.tar      binary
+*.db       binary
+*.wasm     binary
+*.bin      binary
