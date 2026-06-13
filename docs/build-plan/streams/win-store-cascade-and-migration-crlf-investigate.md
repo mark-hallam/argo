@@ -27,3 +27,13 @@ it was.
 ## Verify
 On Windows: both tests pass (or the cascade is documented as a flake with the
 isolation evidence). Conductor re-verifies unix. Branch + IN_REVIEW.
+
+
+## UPDATE 2026-06-14 (conductor) — migration half RESOLVED
+The `migration_v46_applies_to_v45_db` count (94 vs 92) was NOT CRLF — it was a
+STALE LITERAL assert (the test hardcoded schema tip 92; this session's migrations
+bumped it to 94). It failed identically on macOS (no CRLF). Root-fixed on main
+(`ea88d0e89`): the test now references `argo_store::EXPECTED_SCHEMA_VERSION`.
+**Only the argo-store archive-cascade item (1 row remains vs 0) remains** — that's
+the sole remaining scope of this brief: re-run in isolation (--test-threads=1) to
+decide flake vs real PRAGMA foreign_keys/cascade bug.
