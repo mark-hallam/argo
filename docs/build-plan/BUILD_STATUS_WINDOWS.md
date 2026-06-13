@@ -37,7 +37,7 @@ compile). CU-executor first-build is the crown jewel once the binary links.
 
 | Brief | Owner | Status | PR/branch | Notes |
 |---|---|---|---|---|
-| win-capability-fs-cap-glob-separator | windows-fleet | CLAIMED Latitude5440/festive-napier 2026-06-13T12:45Z | — | ****P1 CROSS-PLATFORM CORRECTNESS (potential silent deny) — from #2911.**** From #2911 Windows test inventory. Brief: streams/win-capability-fs-cap-glob-separator.md. |
+| win-capability-fs-cap-glob-separator | windows-fleet | IN_REVIEW Latitude5440/festive-napier 2026-06-13T13:14Z | #2913 (win-capability-fs-cap-glob-separator) | ****P1 CROSS-PLATFORM CORRECTNESS (potential silent deny) — from #2911.**** From #2911 Windows test inventory. Brief: streams/win-capability-fs-cap-glob-separator.md. |
 | win-identity-fs-root-path-portability | windows-fleet | TODO | — | ****P1 CROSS-PLATFORM CORRECTNESS — from #2911.**** From #2911 Windows test inventory. Brief: streams/win-identity-fs-root-path-portability.md. |
 | win-process-registry-spawn-portability | windows-fleet | TODO | — | ****P1 CROSS-PLATFORM — from #2911 (verify production, not just tests).**** From #2911 Windows test inventory. Brief: streams/win-process-registry-spawn-portability.md. |
 | win-store-cascade-and-migration-crlf-investigate | windows-fleet | TODO | — | ****P2 INVESTIGATE — from #2911.**** From #2911 Windows test inventory. Brief: streams/win-store-cascade-and-migration-crlf-investigate.md. |
