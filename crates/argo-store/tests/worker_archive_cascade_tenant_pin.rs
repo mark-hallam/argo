@@ -5,6 +5,22 @@ const WORKER_ID: &str = "11111111-1111-1111-1111-111111111111";
 const TENANT_A: &str = "22222222-2222-2222-2222-222222222222";
 const TENANT_B: &str = "33333333-3333-3333-3333-333333333333";
 
+/// The runtime persists `role.tenant_id` as the canonical 16-byte UUID blob
+/// (`Uuid::as_bytes()`), and `archive_worker` deletes role rows by that form
+/// (`worker_archive.rs` parses the tenant string back to its 16-byte blob).
+/// The test must seed/query the BLOB the same way: binding the UUID *string*'s
+/// bytes (`tenant.as_bytes()`, 36 bytes) never matched the production 16-byte
+/// DELETE, so the worker-scoped role row survived and the assertion saw 1 vs 0.
+/// (win-store-cascade-and-migration-crlf-investigate: a real test-fidelity bug,
+/// not a flake — it fails identically in isolation on every OS, just first
+/// surfaced by the #2911 Windows test run.)
+fn tenant_blob(tenant: &str) -> Vec<u8> {
+    uuid::Uuid::parse_str(tenant)
+        .expect("test tenant constant is a valid UUID")
+        .as_bytes()
+        .to_vec()
+}
+
 #[tokio::test]
 async fn archive_cascade_deletes_only_matching_tenant_child_rows() {
     let pool = pool().await;
@@ -88,7 +104,7 @@ async fn seed_synthetic_worker_clash(pool: &SqlitePool) {
             .await
             .expect("seed persona");
         sqlx::query("INSERT INTO role (tenant_id, name, worker_id) VALUES (?, ?, ?)")
-            .bind(tenant.as_bytes())
+            .bind(tenant_blob(tenant))
             .bind(format!("role-{suffix}"))
             .bind(WORKER_ID)
             .execute(pool)
@@ -117,7 +133,7 @@ async fn text_child_rows(pool: &SqlitePool, table: &str, tenant: &str) -> i64 {
 async fn role_rows(pool: &SqlitePool, tenant: &str) -> i64 {
     sqlx::query_scalar("SELECT COUNT(*) FROM role WHERE worker_id = ? AND tenant_id = ?")
         .bind(WORKER_ID)
-        .bind(tenant.as_bytes())
+        .bind(tenant_blob(tenant))
         .fetch_one(pool)
         .await
         .expect("count role rows")
