@@ -37,7 +37,7 @@ compile). CU-executor first-build is the crown jewel once the binary links.
 
 | Brief | Owner | Status | PR/branch | Notes |
 |---|---|---|---|---|
-| win-cu-executor-wire-into-resolve-executor | windows-fleet | CLAIMED LATITUDE5440 2026-06-13T16:04Z | — | ****P1 — DEC-054 keystone: make Windows a real executor target.**** Wave-3 (deep buffer; DEC-054 for the executor-wire). Dep: none. Brief: streams/win-cu-executor-wire-into-resolve-executor.md. |
+| win-cu-executor-wire-into-resolve-executor | windows-fleet | IN_REVIEW LATITUDE5440 2026-06-13T17:08Z | #2921 (win-cu-executor-wire-into-resolve-executor) | ****P1 — DEC-054 keystone: make Windows a real executor target.**** Wave-3 (deep buffer; DEC-054 for the executor-wire). Dep: none. Brief: streams/win-cu-executor-wire-into-resolve-executor.md. |
 | win-cu-executor-end-to-end-run | windows-fleet | TODO | — | ****P2 — first real model-in-loop CU run on Windows (DEC-054).**** Wave-3 (deep buffer; DEC-054 for the executor-wire). Dep: 
 ## Goal
 With the executor wired (sibling brief), run the FULL computer-use loop on a
