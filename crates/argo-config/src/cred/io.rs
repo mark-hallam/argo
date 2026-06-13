@@ -7,9 +7,7 @@
 use super::{
     load_document, CredentialDocument, CredentialEntry, CredentialSections,
 };
-use argo_credentials::{
-    decrypt_value_with_fallback, encrypt_value, DecryptedValue, KeyVersion, MasterKey,
-};
+use argo_credentials::{encrypt_value, MasterKey};
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use std::collections::{BTreeMap, HashSet};
 use std::env;

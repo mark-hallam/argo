@@ -2,8 +2,8 @@
 //! migration. Split out of `cred/io.rs` to keep that file under the
 //! 500-LOC ceiling (it crossed at the #2879+#2882 encrypt+lock merge).
 //! Same visibility surface: `pub(super)`, consumed by `crate::cred`.
-use super::io::{with_locked_write, write_document};
-use super::{load_document, CredentialDocument, CredentialEntry};
+use super::io::with_locked_write;
+use super::CredentialEntry;
 use argo_credentials::{decrypt_value_with_fallback, encrypt_value, DecryptedValue, KeyVersion, MasterKey};
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use std::collections::{BTreeMap, HashSet};
