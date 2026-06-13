@@ -68,11 +68,6 @@ vi.mock("@/lib/hooks/use-worker-scorecard", () => ({
   useTeamScorecard: () => ({ data: undefined, isLoading: false, isError: false }),
 }));
 
-const useAuditFeedSpy = vi.fn<() => { data: { pages: Array<{ rows: unknown[] }> } | undefined; isPending: boolean }>();
-vi.mock("@/lib/hooks/use-audit-feed", () => ({
-  useAuditFeed: () => useAuditFeedSpy(),
-}));
-
 vi.mock("@/components/skycot/TeammateCard", () => ({
   TeammateCard: ({ worker }: { worker: Worker }) => (
     <div data-testid={`teammate-${worker.id}`}>{worker.name}</div>
@@ -96,8 +91,6 @@ beforeEach(() => {
     isError: false,
     refetch: vi.fn(),
   });
-  useAuditFeedSpy.mockReset();
-  useAuditFeedSpy.mockReturnValue({ data: { pages: [{ rows: [] }] }, isPending: false });
 });
 
 afterEach(() => {
@@ -152,7 +145,6 @@ describe("/team fetch fires regardless of the useSearchParams Suspense boundary"
     try {
       render(<TeamPage />);
       expect(useTeamSpy).toHaveBeenCalled();
-      expect(useAuditFeedSpy).toHaveBeenCalled();
     } finally {
       vi.unstubAllEnvs();
     }

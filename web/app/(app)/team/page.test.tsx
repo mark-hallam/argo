@@ -19,7 +19,11 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
 }));
 
-type FetchTeamResultShape = { workers: Worker[]; source: "gateway" | "mock-offline" | "mock-bypass" };
+type FetchTeamResultShape = {
+  workers: Worker[];
+  source: "gateway" | "mock-offline" | "mock-bypass";
+  weeklyActions?: number;
+};
 type QueryShape = {
   data: FetchTeamResultShape | undefined;
   isPending: boolean;
@@ -42,19 +46,11 @@ vi.mock("@/lib/hooks/use-worker-scorecard", () => ({
   useTeamScorecard: () => ({ data: undefined, isLoading: false, isError: false }),
 }));
 
-// Stub the 7-day audit feed that the hero now reads for the real
-// Actions/wk count. Each test that needs a specific value overrides
-// via `useAuditFeedMock.mockReturnValue(...)`. The default returns
-// zero rows so the hero defaults to the brand-new-tenant state — the
-// canonical case the brief closes ("Maya, 0 actions, idle").
-type AuditQueryShape = {
-  data: { pages: Array<{ rows: unknown[] }> } | undefined;
-  isPending: boolean;
-};
-const useAuditFeedMock = vi.fn<() => AuditQueryShape>();
-vi.mock("@/lib/hooks/use-audit-feed", () => ({
-  useAuditFeed: () => useAuditFeedMock(),
-}));
+// The hero's Actions/wk count now comes from the team query's
+// `weeklyActions` field (the gateway envelope's canonical
+// `weekly_action_count`), NOT a separate audit-feed read — see the
+// N1 / F12 fix. Tests set it via `useTeamMock.mockReturnValue({ data:
+// { ..., weeklyActions } })`.
 
 // Replace TeammateCard with a thin stub. The card has its own
 // test file (TeammateCard.test.tsx); page-level tests assert the
@@ -102,15 +98,10 @@ beforeEach(() => {
   replaceMock.mockClear();
   useTeamMock.mockReset();
   useTeamMock.mockReturnValue({
-    data: { workers: SAMPLE_WORKERS, source: "mock-offline" },
+    data: { workers: SAMPLE_WORKERS, source: "mock-offline", weeklyActions: 0 },
     isPending: false,
     isError: false,
     refetch: refetchMock,
-  });
-  useAuditFeedMock.mockReset();
-  useAuditFeedMock.mockReturnValue({
-    data: { pages: [{ rows: [] }] },
-    isPending: false,
   });
 });
 
@@ -313,12 +304,14 @@ describe("TeamPage", () => {
   });
 
   // Regression pin for fix-team-page-hero-hardcoded-weekly-actions-
-  // hours-saved. The original synthesis (`workers.length * 187` and
-  // `workers.length * 12`) is replaced by a real read from
-  // `/api/v1/audit?range=7d`. The Hours-saved KPI is dropped entirely
-  // because there is no real signal to derive it from honestly, and
-  // per `feedback_no_theater_in_demo` the v1.0 demo MP4 must not
-  // dress synthesis as fact.
+  // hours-saved + fix-team-action-count-sources-disagree (N1 / F12).
+  // The original synthesis (`workers.length * 187`) and the later
+  // audit-feed-first-page count are both replaced by the gateway's
+  // canonical `weekly_action_count`, surfaced as `weeklyActions` on the
+  // team query. The Hours-saved KPI is dropped entirely because there
+  // is no real signal to derive it from honestly, and per
+  // `feedback_no_theater_in_demo` the v1.0 demo MP4 must not dress
+  // synthesis as fact.
 
   it("renders only the Working + Actions/wk KPIs (no Hours-saved tile)", () => {
     render(<TeamPage />);
@@ -336,31 +329,23 @@ describe("TeamPage", () => {
     expect(screen.queryAllByTestId("brandloud-kpi-sample-eyebrow")).toHaveLength(0);
   });
 
-  it("sources Actions/wk from the real /api/v1/audit?range=7d feed, not workers.length × 187", () => {
-    // 3 workers in the roster, 4 teammate-attributed audit rows in the
-    // 7-day window. Under the old synthesis this would have rendered
-    // 561 (= 3 × 187). Under the new derivation it MUST render 4.
-    useAuditFeedMock.mockReturnValue({
-      data: {
-        pages: [
-          {
-            rows: [
-              { worker: { id: "wkr_alpha" } },
-              { worker: { id: "wkr_alpha" } },
-              { worker: { id: "wkr_bravo" } },
-              { worker: { id: "wkr_charlie" } },
-            ],
-          },
-        ],
-      },
+  it("sources Actions/wk from the gateway's canonical weekly_action_count, not workers.length × 187", () => {
+    // The gateway supplies the team-wide "actions this week" count as
+    // `weeklyActions`. Under the old synthesis 3 workers would have
+    // rendered 561 (= 3 × 187); now the hero MUST render the supplied
+    // count verbatim.
+    useTeamMock.mockReturnValue({
+      data: { workers: SAMPLE_WORKERS, source: "gateway", weeklyActions: 42 },
       isPending: false,
+      isError: false,
+      refetch: refetchMock,
     });
     render(<TeamPage />);
     const actionsKpiLabel = screen
       .getAllByText(/^Actions\/wk$/)
       .find((el) => el.className.includes("skycot-brandloud-kpi-label"))!;
     const actionsKpi = actionsKpiLabel.parentElement!;
-    expect(actionsKpi).toHaveTextContent("4");
+    expect(actionsKpi).toHaveTextContent("42");
     expect(actionsKpi).not.toHaveTextContent("561");
     // The legacy 187 / 12 / "hours saved (sample)" strings must never
     // resurface anywhere on the hero — the regression that the brief
@@ -369,63 +354,35 @@ describe("TeamPage", () => {
     expect(screen.queryByText(/hours saved \(sample\)/i)).not.toBeInTheDocument();
   });
 
-  it("counts only teammate-attributed rows, excluding system/non-roster events (F12)", () => {
-    // The raw 7-day feed mixes teammate actions with platform/system
-    // rows (no worker, or a worker that isn't on the roster). Only the
-    // 2 rows attributable to a current teammate may count toward the
-    // Actions/wk KPI — otherwise a 10-minute-old workspace over-reports.
-    useAuditFeedMock.mockReturnValue({
-      data: {
-        pages: [
-          {
-            rows: [
-              { worker: { id: "wkr_alpha" } }, // teammate — counts
-              { worker: { id: "wkr_bravo" } }, // teammate — counts
-              { worker: { id: "wkr_ghost" } }, // departed/non-roster — excluded
-              {}, // system event, no worker — excluded
-              { worker: null }, // explicit null worker — excluded
-            ],
-          },
-        ],
-      },
+  it("renders a large weekly count thousands-separated (locale formatting preserved)", () => {
+    useTeamMock.mockReturnValue({
+      data: { workers: SAMPLE_WORKERS, source: "gateway", weeklyActions: 1284 },
       isPending: false,
+      isError: false,
+      refetch: refetchMock,
     });
     render(<TeamPage />);
     const actionsKpiLabel = screen
       .getAllByText(/^Actions\/wk$/)
       .find((el) => el.className.includes("skycot-brandloud-kpi-label"))!;
-    const actionsKpi = actionsKpiLabel.parentElement!;
-    expect(actionsKpi).toHaveTextContent("2");
+    expect(actionsKpiLabel.parentElement!).toHaveTextContent("1,284");
   });
 
-  it("shows '0 actions this week' for a brand-new tenant with zero audit rows", () => {
+  it("shows '0 actions this week' for a brand-new tenant with no activity", () => {
     // Maya the receptionist, just hired, no actions yet — the
-    // canonical case the brief closes. The sub copy must reflect
-    // the idle reality, not "187 actions this week".
-    useTeamMock.mockReturnValue({
-      data: {
-        workers: [SAMPLE_WORKERS[0]!],
-        source: "mock-offline",
-      },
-      isPending: false,
-      isError: false,
-      refetch: refetchMock,
-    });
-    // Force the single worker to be idle so the hero hits the
-    // working === 0 branch even though the SAMPLE_WORKERS[0] fixture
-    // has status: "working".
+    // canonical case the brief closes. The sub copy must reflect the
+    // idle reality, not "187 actions this week". Force the single
+    // worker idle so the hero hits the working === 0 branch even though
+    // the SAMPLE_WORKERS[0] fixture has status: "working".
     useTeamMock.mockReturnValue({
       data: {
         workers: [{ ...SAMPLE_WORKERS[0]!, status: "idle" }],
         source: "mock-offline",
+        weeklyActions: 0,
       },
       isPending: false,
       isError: false,
       refetch: refetchMock,
-    });
-    useAuditFeedMock.mockReturnValue({
-      data: { pages: [{ rows: [] }] },
-      isPending: false,
     });
     render(<TeamPage />);
     expect(screen.queryByText(/187 actions/i)).not.toBeInTheDocument();

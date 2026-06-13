@@ -27,7 +27,7 @@ use crate::handlers::worker_actions_query::collect_latest_actions;
 use argo_audit::{AuditKind, AuditSink};
 use argo_identity::{CircuitState, IdentityStore, OrgStore, Worker, WorkerId};
 use argo_store::SessionStore;
-use argo_team_headline::{generate_team_headline, TeamHeadline};
+use argo_team_headline::{generate_team_headline, weekly_action_count, TeamHeadline};
 use argo_types::{ArgoResult, TenantId};
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
@@ -49,6 +49,44 @@ const DEPRECATED_TEAM_STATUS: &str = concat!(
 type OrgRefs = (Option<Value>, Option<Value>);
 
 /// `GET /api/v1/team` entry point.
+/// Build the priority-sorted worker summary rows for the roster
+/// response. Extracted from `list_response` to keep that handler under
+/// the 80-LOC budget; pure-ish (only the per-worker headline read +
+/// audit-free). A headline failure degrades to an empty bullet, never
+/// fails the roster.
+async fn build_sorted_summaries(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    truncated: &[Worker],
+    pending_by_worker: &HashMap<WorkerId, u32>,
+    org_index: &HashMap<WorkerId, OrgRefs>,
+    now: DateTime<Utc>,
+) -> Vec<Value> {
+    let mut rows: Vec<(u8, Option<DateTime<Utc>>, Value)> = Vec::with_capacity(truncated.len());
+    for w in truncated {
+        let pending = pending_by_worker.get(&w.id).copied().unwrap_or(0);
+        let (priority, status_label) = derive_status(w, pending, now);
+        let headline = generate_team_headline(tenant, w.id, &w.vertical_id, store)
+            .await
+            .unwrap_or_else(|e| {
+                tracing::warn!(
+                    target: "gateway::team_list",
+                    worker_id = %w.id,
+                    error = %e,
+                    "headline generation failed; falling back to empty"
+                );
+                TeamHeadline {
+                    bullets: vec!["No activity yet.".to_string()],
+                    tomorrow: None,
+                }
+            });
+        let summary = build_summary(w, status_label, pending, &headline, org_index);
+        rows.push((priority, w.last_used_at, summary));
+    }
+    rows.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| b.1.cmp(&a.1)));
+    rows.into_iter().map(|(_, _, v)| v).collect()
+}
+
 pub(super) async fn list_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
@@ -86,33 +124,38 @@ pub(super) async fn list_response(
         });
     let now = Utc::now();
 
-    let mut rows: Vec<(u8, Option<DateTime<Utc>>, Value)> = Vec::with_capacity(truncated.len());
-    for w in &truncated {
-        let pending = pending_by_worker.get(&w.id).copied().unwrap_or(0);
-        let (priority, status_label) = derive_status(w, pending, now);
-        let headline = generate_team_headline(workspace_tenant, w.id, &w.vertical_id, store)
-            .await
-            .unwrap_or_else(|e| {
-                tracing::warn!(
-                    target: "gateway::team_list",
-                    worker_id = %w.id,
-                    error = %e,
-                    "headline generation failed; falling back to empty"
-                );
-                TeamHeadline {
-                    bullets: vec!["No activity yet.".to_string()],
-                    tomorrow: None,
-                }
-            });
-        let summary = build_summary(w, status_label, pending, &headline, &org_index);
-        rows.push((priority, w.last_used_at, summary));
-    }
-    rows.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| b.1.cmp(&a.1)));
-    let summaries: Vec<Value> = rows.into_iter().map(|(_, _, v)| v).collect();
+    let summaries = build_sorted_summaries(
+        store, workspace_tenant, &truncated, &pending_by_worker, &org_index, now,
+    )
+    .await;
 
     emit_audit(store, req, summaries.len(), workspace_tenant).await;
 
-    let body = json!({ "workers": summaries, "total_count": total }).to_string();
+    // Canonical team-wide "actions this week" count — same audit-kind
+    // definition of "action" (assistant_message + tool_call) the
+    // per-worker headline cards use, over a 7-day window that strictly
+    // contains their 24-hour one. The SPA hero reads THIS instead of
+    // counting the first page of the audit feed, so "actions this week"
+    // can never read lower than a card's "actions taken today" (N1 / F12
+    // fix, 2026-06-13 shakedown). A query failure degrades to 0 rather
+    // than failing the whole roster response.
+    let weekly_actions = weekly_action_count(store, workspace_tenant, now)
+        .await
+        .unwrap_or_else(|e| {
+            tracing::warn!(
+                target: "gateway::team_list",
+                error = %e,
+                "weekly action count failed; defaulting to 0"
+            );
+            0
+        });
+
+    let body = json!({
+        "workers": summaries,
+        "total_count": total,
+        "weekly_action_count": weekly_actions,
+    })
+    .to_string();
     ("200 OK", body)
 }
 

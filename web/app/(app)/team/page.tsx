@@ -22,7 +22,6 @@ import { TeammateGrid } from "@/components/skycot/TeammateGrid";
 import { TeammateCardSkeleton } from "@/components/skycot/TeammateCardSkeleton";
 import { TeamFilterChipRail } from "@/components/skycot/TeamFilterChipRail";
 import { isDataSourceChipVisible } from "@/lib/skycot/demo-mode";
-import { useAuditFeed } from "@/lib/hooks/use-audit-feed";
 import { useTeam } from "@/lib/hooks/use-team";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { FetchTeamResult } from "@/lib/api/team";
@@ -71,24 +70,24 @@ export default function TeamPage() {
   //
   // Pinned by `web/app/(app)/team/team-fetch-fires.test.tsx`.
   const teamQuery = useTeam();
-  const auditQuery = useAuditFeed({ range: "7d" });
 
   const workers = Array.isArray(teamQuery.data?.workers) ? teamQuery.data.workers : [];
   const workingCount = workers.filter((w) => w.status === "working").length;
-  // weeklyActions reads from the real /api/v1/audit?range=7d feed —
-  // brand-new tenants surface a real 0. Hours-saved is intentionally
-  // omitted: no real signal exists to derive it honestly.
+  // weeklyActions is the canonical team-wide "actions this week" count
+  // supplied by the gateway envelope (`weekly_action_count`), computed
+  // backend-side with the SAME audit-kind definition of "action"
+  // (assistant_message + tool_call) the per-worker teammate-card counts
+  // use, over a 7-day window that strictly contains their 24-hour one.
+  // That guarantees the hero's "actions this week" can never read lower
+  // than a card's "actions taken today" (N1 / F12 fix, 2026-06-13
+  // shakedown — "19 today cannot fit inside 7 this week").
   //
-  // F12 (2026-06-13 shakedown): count only rows attributable to a
-  // current teammate, not every audit row. The raw feed includes
-  // system/platform events that aren't a teammate "action", so an
-  // unfiltered count over-reports (a 10-minute-old workspace read
-  // "22 actions this week"). Restricting to roster worker ids keeps
-  // the hero KPI honest and aligned with "your team's actions".
-  const rosterIds = new Set(workers.map((w) => w.id));
-  const weeklyActions = (auditQuery.data?.pages?.[0]?.rows ?? []).filter(
-    (row) => row.worker != null && rosterIds.has(row.worker.id),
-  ).length;
+  // This REPLACES the old approach of counting the first page of the
+  // /api/v1/audit?range=7d feed: a sampled, paginated value that mixed
+  // every audit kind and could read LOWER than a single card's honest
+  // daily count. Hours-saved is still intentionally omitted: no real
+  // signal exists to derive it honestly.
+  const weeklyActions = teamQuery.data?.weeklyActions ?? 0;
 
   return (
     <>

@@ -42,6 +42,70 @@ pub struct ActivityCounts {
 /// window semantics.
 pub const LOOKBACK: Duration = Duration::hours(24);
 
+/// 7-day window for the team-wide "actions this week" rollup. It
+/// strictly CONTAINS the per-worker 24-hour [`LOOKBACK`], so a single
+/// worker's "actions today" can never exceed the team's "actions this
+/// week" — the invariant that makes the `/team` hero KPI and the
+/// teammate-card count agree by construction (fixes the
+/// `19-today / 7-week` contradiction from the 2026-06-13 shakedown).
+pub const WEEK_LOOKBACK: Duration = Duration::days(7);
+
+/// Tenant-wide count of "actions" over the last 7 days.
+///
+/// "Action" is defined ONCE, here and in [`ActivityCounts`]: an
+/// `assistant_message` or a `tool_call` audit row attributable to a
+/// teammate (any worker in the tenant). This is the canonical source
+/// for the `/team` hero's "actions this week" KPI. Because it uses the
+/// exact same audit-kind definition the per-worker daily rollup
+/// ([`activity_counts_for_worker`]) feeds the teammate cards — over a
+/// window that strictly contains the 24-hour one — `header-week >=
+/// card-today` holds for every worker by construction.
+///
+/// Replaces the old SPA-side approach of counting the *first page* of
+/// the audit feed (a sampled, paginated, all-kinds value that could
+/// read LOWER than a single card's honest 24-hour count).
+///
+/// `now` is injected so tests can pin a deterministic window;
+/// production callers pass `Utc::now()`.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use std::sync::Arc;
+/// # use argo_store::SessionStore;
+/// # use argo_types::TenantId;
+/// # use argo_team_headline::weekly_action_count;
+/// # async fn ex(store: Arc<SessionStore>, tenant: TenantId) {
+/// let total = weekly_action_count(&store, tenant, chrono::Utc::now())
+///     .await
+///     .unwrap_or(0);
+/// assert!(total >= 0);
+/// # }
+/// ```
+pub async fn weekly_action_count(
+    store: &Arc<SessionStore>,
+    tenant_id: TenantId,
+    now: DateTime<Utc>,
+) -> ArgoResult<i64> {
+    let since_micros = (now - WEEK_LOOKBACK).timestamp_micros();
+    let tenant_blob = tenant_id.0.as_bytes().to_vec();
+    let row = sqlx::query(
+        "SELECT \
+            SUM(CASE WHEN a.kind IN ('assistant_message', 'tool_call') THEN 1 ELSE 0 END) AS actions \
+         FROM audit_record a \
+         JOIN session s ON s.id = a.session_id \
+         WHERE s.tenant_id = ? \
+           AND a.created_at >= ?",
+    )
+    .bind(tenant_blob)
+    .bind(since_micros)
+    .fetch_one(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("team-headline weekly actions: {e}")))?;
+
+    Ok(row.try_get("actions").unwrap_or(0))
+}
+
 /// Query `audit_record` joined on `session.worker_id`, grouping
 /// counts for the buckets the v1 bullet formatters consume.
 ///

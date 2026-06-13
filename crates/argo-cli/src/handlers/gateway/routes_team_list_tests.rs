@@ -98,6 +98,8 @@ async fn empty_tenant_returns_200_and_empty_workers() {
     let v = parse_ok(&req(None), &store).await;
     assert_eq!(v["workers"].as_array().expect("array").len(), 0);
     assert_eq!(v["total_count"], 0);
+    // Canonical hero KPI source: present on the envelope, 0 with no activity.
+    assert_eq!(v["weekly_action_count"], 0);
 }
 
 #[tokio::test]

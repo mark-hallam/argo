@@ -44,7 +44,9 @@ mod tomorrow;
 #[cfg(test)]
 mod lib_tests;
 
-pub use compute::ActivityCounts;
+pub use compute::{
+    activity_counts_for_worker, weekly_action_count, ActivityCounts, WEEK_LOOKBACK,
+};
 pub use kpi_table::{bullets_for_vertical, BulletKind};
 
 /// Maximum bullets returned. Brief: "2-3 bullets per worker".

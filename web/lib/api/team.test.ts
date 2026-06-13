@@ -144,6 +144,27 @@ describe("lib/api/team", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("mock-bypass weeklyActions stays >= every sample card's number (no 19-today/7-week contradiction)", async () => {
+    // The bundled demo deck must never reproduce the N1 / F12
+    // contradiction: the hero's "actions this week" has to be at least
+    // the largest single sample card's leading-integer KPI. The fixture
+    // count is derived as the sum of per-worker maxima, so this holds.
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+    installMock(() => makeResponse({ status: 200, body: [] }));
+    const result = await fetchTeam();
+    const maxCardNumber = Math.max(
+      0,
+      ...SAMPLE_TEAM.flatMap((w) =>
+        (w.headline?.bullets ?? []).map((b) => {
+          const m = b.match(/\d[\d,]*/);
+          return m ? Number(m[0].replace(/,/g, "")) : 0;
+        }),
+      ),
+    );
+    expect(result.weeklyActions).toBeGreaterThan(0);
+    expect(result.weeklyActions).toBeGreaterThanOrEqual(maxCardNumber);
+  });
+
   it("propagates 404 in strict production (no mock fallback)", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("NEXT_PUBLIC_ENV", "production");
@@ -165,6 +186,37 @@ describe("lib/api/team", () => {
     expect(result.source).toBe("gateway");
     expect(result.workers).toEqual([maya]);
     expect(result.workers.length).toBe(1);
+  });
+
+  it("surfaces the gateway's weekly_action_count as weeklyActions (canonical hero KPI)", async () => {
+    const maya: Worker = SAMPLE_TEAM[0];
+    installMock(() =>
+      makeResponse({
+        status: 200,
+        body: { workers: [maya], total_count: 1, weekly_action_count: 7 },
+      }),
+    );
+    const result = await fetchTeam();
+    expect(result.source).toBe("gateway");
+    expect(result.weeklyActions).toBe(7);
+  });
+
+  it("defaults weeklyActions to 0 when a legacy gateway omits weekly_action_count", async () => {
+    const maya: Worker = SAMPLE_TEAM[0];
+    installMock(() =>
+      makeResponse({ status: 200, body: { workers: [maya], total_count: 1 } }),
+    );
+    const result = await fetchTeam();
+    expect(result.weeklyActions).toBe(0);
+  });
+
+  it("reports source='unreachable' and weeklyActions=0 for the empty/unreachable path", async () => {
+    globalThis.fetch = vi.fn(() => {
+      throw new TypeError("Failed to fetch");
+    }) as unknown as typeof fetch;
+    const result = await fetchTeam();
+    expect(result.source).toBe("unreachable");
+    expect(result.weeklyActions).toBe(0);
   });
 
   it("reports source='unreachable' when fetch throws a network TypeError", async () => {

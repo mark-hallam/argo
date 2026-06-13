@@ -49,6 +49,40 @@ export type TeamDataSource =
 export interface FetchTeamResult {
   workers: Worker[];
   source: TeamDataSource;
+  /**
+   * Team-wide "actions this week" — the canonical count the `/team` hero
+   * KPI renders. Sourced from the gateway envelope's
+   * `weekly_action_count`, which the backend computes with the SAME
+   * audit-kind definition of "action" (assistant_message + tool_call)
+   * the per-worker teammate-card counts use, over a 7-day window that
+   * strictly contains their 24-hour one. That guarantees "actions this
+   * week" >= any card's "actions taken today" (N1 / F12 fix, 2026-06-13
+   * shakedown) — replacing the old, broken approach of counting the
+   * first page of the audit feed, which could read LOWER than a single
+   * card's honest daily count.
+   *
+   * Mock/offline paths derive it from the bundled fixtures so the demo
+   * deck stays internally consistent; the empty/unreachable path is 0.
+   */
+  weeklyActions: number;
+}
+
+/**
+ * Mock-path "actions this week": sum each sample worker's largest
+ * leading-integer bullet (its "today" KPI). Summing per-worker maxima
+ * keeps the demo hero >= every card's number, so the bundled deck never
+ * reproduces the `19-today / 7-week` contradiction the gateway path
+ * fixes. Fixture-only — the live path uses the backend count.
+ */
+function sampleWeeklyActions(workers: Worker[]): number {
+  return workers.reduce((sum, w) => {
+    const perWorker = (w.headline?.bullets ?? []).reduce((max, b) => {
+      const m = b.match(/\d[\d,]*/);
+      const n = m ? Number(m[0].replace(/,/g, "")) : 0;
+      return Number.isFinite(n) && n > max ? n : max;
+    }, 0);
+    return sum + perWorker;
+  }, 0);
 }
 
 /**
@@ -184,9 +218,18 @@ async function fetchTeamInner(): Promise<FetchTeamResult> {
     // checks stay stable.
     const hires = listDemoWorkers();
     if (hires.length === 0) {
-      return { workers: SAMPLE_TEAM, source: "mock-bypass" };
+      return {
+        workers: SAMPLE_TEAM,
+        source: "mock-bypass",
+        weeklyActions: sampleWeeklyActions(SAMPLE_TEAM),
+      };
     }
-    return { workers: [...SAMPLE_TEAM, ...hires], source: "mock-bypass" };
+    const spliced = [...SAMPLE_TEAM, ...hires];
+    return {
+      workers: spliced,
+      source: "mock-bypass",
+      weeklyActions: sampleWeeklyActions(spliced),
+    };
   }
 
   const demoMode = isDemoMode();
@@ -208,12 +251,21 @@ async function fetchTeamInner(): Promise<FetchTeamResult> {
     // the budget; the catch below routes the resulting GatewayTimeoutError
     // to the right terminal state per mode (SAMPLE_TEAM in demo, empty
     // roster for a real signed-in user, a surfaced error in strict prod).
-    const response = await apiGet<{ workers: Worker[]; total_count?: number }>(
-      "/api/v1/workers",
-      { timeoutMs: GATEWAY_TIMEOUT_MS },
-    );
+    const response = await apiGet<{
+      workers: Worker[];
+      total_count?: number;
+      weekly_action_count?: number;
+    }>("/api/v1/workers", { timeoutMs: GATEWAY_TIMEOUT_MS });
     if (response && !Array.isArray(response) && Array.isArray(response.workers)) {
-      return { workers: response.workers, source: "gateway" };
+      // `weekly_action_count` is the canonical hero KPI. A legacy gateway
+      // that predates it omits the field → fall back to 0 (honest "no
+      // signal" rather than a fabricated number).
+      const weeklyActions =
+        typeof response.weekly_action_count === "number" &&
+        Number.isFinite(response.weekly_action_count)
+          ? response.weekly_action_count
+          : 0;
+      return { workers: response.workers, source: "gateway", weeklyActions };
     }
     throw new InvalidTeamEnvelope(response);
   } catch (err) {
@@ -224,7 +276,11 @@ async function fetchTeamInner(): Promise<FetchTeamResult> {
     // rejection. Strict production is still excluded — real buyers see
     // real errors, not seeded mocks.
     if (demoMode && !isDemoLive() && !isStrictProduction()) {
-      return { workers: SAMPLE_TEAM, source: "mock-offline" };
+      return {
+        workers: SAMPLE_TEAM,
+        source: "mock-offline",
+        weeklyActions: sampleWeeklyActions(SAMPLE_TEAM),
+      };
     }
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
       // Real signed-in users get an empty roster + the "hire your first
@@ -233,7 +289,7 @@ async function fetchTeamInner(): Promise<FetchTeamResult> {
       // Source `unreachable` (not `gateway`) so the diagnostic chip on
       // /team and any future operator surface can tell "gateway said
       // zero" apart from "gateway never answered".
-      return { workers: [], source: "unreachable" };
+      return { workers: [], source: "unreachable", weeklyActions: 0 };
     }
     throw err;
   }
