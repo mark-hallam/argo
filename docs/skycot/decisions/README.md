@@ -116,3 +116,4 @@ as a product feature ("your AI workforce's decision log"). Not before.
 _DEC-001..DEC-018 were backfilled 2026-05-29 from CLAUDE.md, auto-memory, and
 session history (a reconstruction of decisions already made). DEC-019 onward are
 captured at decision-time, as intended._
+- [DEC-054](DEC-054-windows-as-real-executor-target.md) — Windows becomes a real computer-use executor target (operator-locked 2026-06-14; deliberate expansion of DEC-002's Windows deferral; the executor's primitives are proven on real Windows, wire run() into resolve_executor).

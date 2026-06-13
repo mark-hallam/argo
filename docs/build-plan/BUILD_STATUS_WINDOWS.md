@@ -37,6 +37,30 @@ compile). CU-executor first-build is the crown jewel once the binary links.
 
 | Brief | Owner | Status | PR/branch | Notes |
 |---|---|---|---|---|
+| win-cu-executor-wire-into-resolve-executor | windows-fleet | TODO | — | ****P1 — DEC-054 keystone: make Windows a real executor target.**** Wave-3 (deep buffer; DEC-054 for the executor-wire). Dep: none. Brief: streams/win-cu-executor-wire-into-resolve-executor.md. |
+| win-cu-executor-end-to-end-run | windows-fleet | TODO | — | ****P2 — first real model-in-loop CU run on Windows (DEC-054).**** Wave-3 (deep buffer; DEC-054 for the executor-wire). Dep: 
+## Goal
+With the executor wired (sibling brief), run the FULL computer-use loop on a
+real Windows host: a real `run()` driving screenshot→model→action→screenshot.
+This is the first end-to-end proof Windows is a live CU target.
+
+## Do (real Windows + an ANTHROPIC_API_KEY)
+Drive one small real task (e.g. "open Notepad and type a sentence") through the
+wired dispatch path. Capture evidence into docs/skycot/windows/CU-E2E-RUN.md:
+the real screenshot bytes (now decodable PNG, #2919), the model's chosen
+actions, the input effect (clipboard read-back like #2910), and the
+truth-bounded/approval behavior. NO THEATER — real run or honest gap, never a
+mocked loop.
+
+## Verify
+The doc shows a genuine end-to-end Windows CU run with real screenshot + real
+input effect. Branch + IN_REVIEW.
+. Brief: streams/win-cu-executor-end-to-end-run.md. |
+| win-gateway-e2e-on-windows | windows-fleet | TODO | — | ****P2 — does the full stack SERVE on Windows.**** Wave-3 (deep buffer; DEC-054 for the executor-wire). Dep: none. Brief: streams/win-gateway-e2e-on-windows.md. |
+| win-distribution-packaging-smoke | windows-fleet | TODO | — | ****P2 — the single-binary distribution story on Windows.**** Wave-3 (deep buffer; DEC-054 for the executor-wire). Dep: none. Brief: streams/win-distribution-packaging-smoke.md. |
+| win-path-canonicalization-deep-audit | windows-fleet | TODO | — | ****P2 — UNC / drive-letter / long-path audit (paths were the dominant Windows bug class).**** Wave-3 (deep buffer; DEC-054 for the executor-wire). Dep: none. Brief: streams/win-path-canonicalization-deep-audit.md. |
+| win-line-endings-gitattributes-pin | windows-fleet | TODO | — | ****P2 — defensive CRLF pin (CRLF was suspected 3x; pin it shut).**** Wave-3 (deep buffer; DEC-054 for the executor-wire). Dep: none. Brief: streams/win-line-endings-gitattributes-pin.md. |
+| win-ci-windows-test-job-expand | windows-fleet | TODO | — | ****P3 — expand the disabled Windows CI to the full surface.**** Wave-3 (deep buffer; DEC-054 for the executor-wire). Dep: none. Brief: streams/win-ci-windows-test-job-expand.md. |
 | win-full-workspace-test-suite-now-all-compiles | windows-fleet | TODO | — | ****P1 — definitive Windows test pass (newly unblocked).**** Wave 2 (post full-Windows-build). Brief: streams/win-full-workspace-test-suite-now-all-compiles.md. |
 | win-binary-runs-smoke-doctor-and-cli | windows-fleet | TODO | — | ****P2 — does the binary actually RUN on Windows (not just compile/test).**** Wave 2 (post full-Windows-build). Brief: streams/win-binary-runs-smoke-doctor-and-cli.md. |
 | win-capability-fs-cap-glob-separator | windows-fleet | MERGED #2913 | #2913 (win-capability-fs-cap-glob-separator) | ****P1 CROSS-PLATFORM CORRECTNESS (potential silent deny) — from #2911.**** From #2911 Windows test inventory. Brief: streams/win-capability-fs-cap-glob-separator.md. |
