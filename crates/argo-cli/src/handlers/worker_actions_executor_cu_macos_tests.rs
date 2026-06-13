@@ -64,6 +64,12 @@ fn unknown_kind_with_macos_in_name_does_not_resolve() {
 #[test]
 #[cfg(not(target_os = "macos"))]
 fn dispatch_on_non_macos_returns_clean_provider_error() {
+    // Bring the `Executor` trait into scope so `.dispatch()` resolves on the
+    // concrete executor (mirrors the sibling cu_windows test). Without this
+    // the argo-cli test target fails to compile on non-macOS hosts (Windows)
+    // with E0599 — this test is `cfg(not(macos))`, so the gap was invisible on
+    // the macOS swarm. See docs/skycot/windows/TEST-FAILURES.md.
+    use crate::handlers::worker_actions_executor::Executor;
     let exec = ComputerUseMacOSExecutor::without_declaration();
     let r = rec_for("act-cu-mac-1", "do_thing");
     let cwd = tempfile::tempdir().expect("tempdir");
