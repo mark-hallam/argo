@@ -37,6 +37,8 @@ compile). CU-executor first-build is the crown jewel once the binary links.
 
 | Brief | Owner | Status | PR/branch | Notes |
 |---|---|---|---|---|
+| win-full-workspace-test-suite-now-all-compiles | windows-fleet | TODO | — | ****P1 — definitive Windows test pass (newly unblocked).**** Wave 2 (post full-Windows-build). Brief: streams/win-full-workspace-test-suite-now-all-compiles.md. |
+| win-binary-runs-smoke-doctor-and-cli | windows-fleet | TODO | — | ****P2 — does the binary actually RUN on Windows (not just compile/test).**** Wave 2 (post full-Windows-build). Brief: streams/win-binary-runs-smoke-doctor-and-cli.md. |
 | win-capability-fs-cap-glob-separator | windows-fleet | MERGED #2913 | #2913 (win-capability-fs-cap-glob-separator) | ****P1 CROSS-PLATFORM CORRECTNESS (potential silent deny) — from #2911.**** From #2911 Windows test inventory. Brief: streams/win-capability-fs-cap-glob-separator.md. |
 | win-identity-fs-root-path-portability | windows-fleet | MERGED #2914 | #2914 (win-identity-fs-root-path-portability) | ****P1 CROSS-PLATFORM CORRECTNESS — from #2911.**** From #2911 Windows test inventory. Brief: streams/win-identity-fs-root-path-portability.md. |
 | win-process-registry-spawn-portability | windows-fleet | MERGED #2915 | #2915 (win-process-registry-spawn-portability) | ****P1 CROSS-PLATFORM — from #2911 (verify production, not just tests).**** From #2911 Windows test inventory. Brief: streams/win-process-registry-spawn-portability.md. |
