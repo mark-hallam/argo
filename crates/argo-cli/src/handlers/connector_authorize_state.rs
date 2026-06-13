@@ -53,6 +53,16 @@ pub(super) fn write_private_json<T: Serialize>(path: &Path, value: &T) -> ArgoRe
     opts.create(true).truncate(true).write(true);
     #[cfg(unix)]
     opts.mode(0o600);
+    #[cfg(not(unix))]
+    // NO THEATER: unix restricts this private connector-state file (OAuth
+    // tokens / secrets) to 0600. This platform has no equivalent here, so it
+    // is created WITHOUT owner-only perm-hardening. Surface the gap rather
+    // than downgrade silently. Tracked: win-portability-cli-handler-unix-perms.
+    tracing::warn!(
+        path = %path.display(),
+        "connector private state written without unix 0600 perm-hardening on \
+         this platform; restrict access via filesystem ACLs"
+    );
     let mut file = opts
         .open(path)
         .map_err(|e| provider_err(format!("open {}: {e}", path.display())))?;

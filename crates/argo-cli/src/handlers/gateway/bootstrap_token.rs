@@ -130,6 +130,16 @@ fn write_new_token(path: &PathBuf) -> ArgoResult<String> {
     }
     #[cfg(not(unix))]
     {
+        // NO THEATER: the unix path locks this file to 0600. This platform
+        // (Windows) has no equivalent mode bit here, so the bootstrap token —
+        // a secret — is written WITHOUT owner-only perm-hardening. Surface the
+        // gap rather than downgrade silently, so the operator can ACL-restrict
+        // it. Tracked: win-portability-cli-handler-unix-perms.
+        tracing::warn!(
+            path = %path.display(),
+            "bootstrap token written without unix 0600 perm-hardening on this \
+             platform; restrict access via filesystem ACLs"
+        );
         std::fs::write(path, format!("{token}\n"))
             .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))?;
     }
