@@ -29,7 +29,7 @@ DIFFERENT ledgers, so they never race on the same brief:
 
 | Brief | Owner | Status | PR/branch | Notes |
 |---|---|---|---|---|
-| win-build-smoke-and-error-inventory | windows-fleet | TODO | — | ****P1 FOUNDATION — discovery.**** Dep: none. Brief: streams/win-build-smoke-and-error-inventory.md. |
+| win-build-smoke-and-error-inventory | windows-fleet | CLAIMED LATITUDE5440 2026-06-13T08:32Z | — | ****P1 FOUNDATION — discovery.**** Dep: none. Brief: streams/win-build-smoke-and-error-inventory.md. |
 | win-portability-cred-credentials-unix-perms | windows-fleet | TODO | — | ****P1 PORTABILITY (won't-compile).**** Dep: none. Brief: streams/win-portability-cred-credentials-unix-perms.md. |
 | win-portability-cli-handler-unix-perms | windows-fleet | TODO | — | ****P1 PORTABILITY (won't-compile).**** Dep: none. Brief: streams/win-portability-cli-handler-unix-perms.md. |
 | win-portability-runtime-tool-unix | windows-fleet | TODO | — | ****P1 PORTABILITY (won't-compile).**** Dep: none. Brief: streams/win-portability-runtime-tool-unix.md. |
