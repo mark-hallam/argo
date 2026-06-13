@@ -9,6 +9,7 @@ import { StatusPill, type StatusPillProps } from "@/components/ui/StatusPill";
 import { useWorkerActions } from "@/lib/hooks/use-worker-actions";
 import { findSamplePersona } from "@/lib/sample-personas";
 import { useToast } from "@/lib/ui/use-toast";
+import { resolveRoleLabel } from "@/lib/skycot/worker-role-label";
 import { cn } from "@/lib/utils";
 import type { Worker, WorkerStatus } from "@/lib/types/worker";
 import {
@@ -235,7 +236,7 @@ export function TeammateCard({
 
         <div className="holo-name-block">
           <h2 className="holo-name">{worker.name}</h2>
-          <div className="holo-role">{worker.role.tagline}</div>
+          <div className="holo-role">{resolveRoleLabel(worker)}</div>
           <div className="holo-status-row">
             <StatusPill tone={tone} size="sm" data-testid={`teammate-status-${worker.id}`}>
               {statusLabel}

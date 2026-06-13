@@ -50,6 +50,27 @@ describe("WorkerHero", () => {
     expect(role).not.toHaveTextContent(/^ivy$/);
   });
 
+  it("never shows the raw Genesis provenance marker as the role (F13)", () => {
+    // A fresh Genesis hire can carry the provenance marker
+    // "Genesis <name> <plan_id>" in role.tagline. It is an audit string,
+    // not a job title, and must never be the user-facing subtitle.
+    render(
+      <WorkerHero
+        worker={makeWorker({
+          name: "Rex",
+          role: { tagline: "Genesis Rex 019ebea4d72d1b81", vertical: "collections" },
+          department: undefined,
+          team: undefined,
+          kpiToday: undefined,
+        })}
+      />,
+    );
+    const role = screen.getByTestId("worker-role");
+    expect(role).toHaveTextContent("Collections");
+    expect(role).not.toHaveTextContent(/Genesis/);
+    expect(role).not.toHaveTextContent(/019ebea4d72d1b81/);
+  });
+
   it("omits the org line when department + team are absent", () => {
     render(
       <WorkerHero

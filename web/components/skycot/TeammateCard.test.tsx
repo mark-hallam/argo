@@ -140,6 +140,23 @@ describe("TeammateCard", () => {
     );
   });
 
+  it("never renders the raw Genesis provenance marker as the role (F13)", () => {
+    // A fresh Genesis hire's role.tagline can be the provenance marker
+    // "Genesis <name> <plan_id>". That is an audit string, not a job
+    // title — the card must show a human role derived from the vertical.
+    wrap(
+      <TeammateCard
+        worker={makeWorker({
+          name: "Rex",
+          role: { tagline: "Genesis Rex 019ebea4d72d1b81", vertical: "collections" },
+        })}
+      />,
+    );
+    expect(screen.getByText("Collections")).toBeInTheDocument();
+    expect(screen.queryByText(/019ebea4d72d1b81/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Genesis Rex/)).not.toBeInTheDocument();
+  });
+
   it("opens the context menu when the ⋮ button is clicked", async () => {
     const user = userEvent.setup();
     wrap(<TeammateCard worker={makeWorker()} />);
