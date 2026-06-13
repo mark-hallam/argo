@@ -98,7 +98,7 @@ const MAX_TOOL_ROUNDS: usize = 8;
 /// // ok.status == "completed"; ok.chars == 42
 /// ```
 #[derive(Debug)]
-pub(super) struct RunOutcome {
+pub(in crate::handlers::gateway) struct RunOutcome {
     /// The pending-job id this run claimed (UUID string). Surfaced to
     /// the HTTP response so the SPA can deep-link the run's artifact
     /// bundle via `GET /api/v1/workers/<id>/runs/<job_id>/output`
@@ -132,7 +132,7 @@ pub(super) struct RunOutcome {
 /// RunBlocked::NoProvider.message() == "no model provider configured"
 /// ```
 #[derive(Debug)]
-pub(super) enum RunBlocked {
+pub(in crate::handlers::gateway) enum RunBlocked {
     /// The worker's `vertical_id` does not load from the registry.
     NoVertical,
     /// No provider API key is present in the gateway environment.
@@ -179,7 +179,7 @@ impl RunBlocked {
 /// `approved_by` is the audit principal stamped on each grant's
 /// `ApprovalGranted` row. No new auth path: the caller is the run
 /// handler, which has already enforced the run capability.
-pub(super) async fn run_worker_now(
+pub(in crate::handlers::gateway) async fn run_worker_now(
     store: &Arc<SessionStore>,
     worker: &Worker,
     prompt: &str,

@@ -172,6 +172,34 @@ pub(super) async fn list_response(
         entries.push((row.received_at, row.id, redaction.row));
     }
 
+    // Probation-hold arm (shakedown F10) — surface a probationary
+    // teammate's HELD tools so the inbox is no longer empty/0-pending on
+    // the first journey every new user takes. Read-side union over the
+    // `probation.hold` audit rows (no parallel store); empty without a
+    // store. Same redaction fence + audit telemetry as the arms above.
+    let holds = match store {
+        Some(store) => {
+            super::routes_approvals_probation::fetch_probation_hold_rows(req, store).await
+        }
+        None => Vec::new(),
+    };
+    for row in holds {
+        let redaction =
+            redact_approval_row(row.json, &policy, grants.first_id().map(str::to_string));
+        if redaction.was_masked() {
+            let payload = audit_payload(&actor_id, &row.id, &redaction);
+            tracing::info!(
+                target: "audit::approval_row_redacted",
+                event_type = argo_redact::AUDIT_EVENT_TYPE,
+                actor_id = %actor_id,
+                approval_id = %row.id,
+                payload = %payload,
+                "approval row redacted by server fence"
+            );
+        }
+        entries.push((row.received_at, row.id, redaction.row));
+    }
+
     // Newest-first by received_at, ties broken by id for determinism.
     entries.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
     if let Some((ts, id)) = cursor.as_ref() {
@@ -219,6 +247,13 @@ pub(super) async fn decide_response(approval_id: &str, req: &str) -> (&'static s
         "refuse" => "refuse",
         _ => return bad_request("decision must be \"approve\" or \"refuse\""),
     };
+    // Probation-hold rows (shakedown F10) carry a synthetic `phold:` id and
+    // resolve via the worker-page "Approve & run" control, not the
+    // worker-action state machine below.
+    if approval_id.starts_with("phold:") {
+        return super::routes_approvals_probation::decide_probation_hold(approval_id, decision, req)
+            .await;
+    }
     let (memory, _cwd_ws, store) = match open_workspace_memory_with_store().await {
         Ok(p) => p,
         Err(e) => return server_error(&format!("open workspace: {e}")),

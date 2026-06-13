@@ -127,6 +127,49 @@ describe("lib/api/approvals", () => {
     });
   });
 
+  it("renders a probation-hold row from the gateway (shakedown F10)", async () => {
+    // A fresh Genesis hire's held tool now surfaces as a `phold:` inbox
+    // row. The SPA maps it through the same generic adapter; assert the
+    // operator sees the held-tool card rather than an empty inbox.
+    installMock((req) => {
+      if (req.url.endsWith("/api/v1/approvals")) {
+        return makeResponse({
+          status: 200,
+          body: {
+            items: [
+              {
+                id: "phold:11111111-1111-1111-1111-111111111111:file_read",
+                worker: { id: "unknown", name: "New teammate", avatar_url: null },
+                verb: "wants to use file_read",
+                detail: "Held while on probation.",
+                consequence_if_yes: "New teammate may use file_read and the run proceeds.",
+                consequence_if_no: "The action stays held.",
+                reason: "probation_window_active",
+                channel: "web",
+                received_at: "2026-06-13T10:00:00Z",
+                decision: null,
+                risk_level: "low",
+              },
+            ],
+            next_cursor: null,
+          },
+        });
+      }
+      return makeResponse({ status: 500 });
+    });
+
+    const result = await fetchApprovals();
+    expect(result.source).toBe("live");
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      id: "phold:11111111-1111-1111-1111-111111111111:file_read",
+      worker: { name: "New teammate" },
+      verb: "wants to use file_read",
+      channel: "web",
+      decision: null,
+    });
+  });
+
   it("returns empty inbox on 404 outside demo mode (real users see fresh-workspace state)", async () => {
     installMock(() => makeResponse({ status: 404, body: "" }));
 

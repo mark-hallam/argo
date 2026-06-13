@@ -482,6 +482,14 @@ fn error_envelope(
 #[path = "routes_worker_run_exec.rs"]
 mod routes_worker_run_exec;
 
+// Re-export the real-run entry point so the approvals-inbox probation
+// bridge (`routes_approvals_probation`) can resolve a held tool with the
+// SAME "Approve & run" control this page uses — minting the one-shot grant
+// + running one turn — rather than forking a parallel run path. The
+// `RunOutcome` it returns is `pub(in crate::handlers::gateway)`, so the
+// bridge can read its `status` field without a separate re-export.
+pub(super) use routes_worker_run_exec::run_worker_now;
+
 #[cfg(test)]
 #[path = "routes_worker_run_tests.rs"]
 mod tests;
