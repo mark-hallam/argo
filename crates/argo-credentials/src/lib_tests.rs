@@ -310,3 +310,14 @@ fn read_encrypted_missing_file_returns_empty_map() {
     let loaded = read_encrypted(&dir.path().join("nope.toml"), &key).unwrap();
     assert!(loaded.is_empty());
 }
+
+/// Windows/non-unix: the one-shot perm-gap warning names the file and
+/// states the hardening is unix-only — a documented gap, not silent.
+#[cfg(not(unix))]
+#[test]
+fn perm_hardening_note_names_file_and_gap() {
+    let note = perm_hardening_unix_only_note(Path::new("C:/ws/.skycot/credentials.toml"));
+    assert!(note.contains("credentials.toml"), "names the file: {note}");
+    assert!(note.contains("unix-only"), "states unix-only: {note}");
+    assert!(note.contains("0600"), "references 0600: {note}");
+}

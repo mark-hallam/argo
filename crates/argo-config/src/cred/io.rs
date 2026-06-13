@@ -276,7 +276,47 @@ pub(super) fn write_document(workspace: &Path, document: &CredentialDocument) ->
             path.display()
         ))
     })?;
+    // On non-unix targets the 0600 lockdown above is excluded, so surface the
+    // reduced hardening once rather than downgrading silently.
+    #[cfg(not(unix))]
+    warn_perm_hardening_unix_only(&path);
     Ok(())
+}
+
+/// Message for the one-shot non-unix credential-file hardening warning.
+///
+/// Pure (no I/O, no logging) so it can be asserted in tests; the firing
+/// side-effect lives in [`warn_perm_hardening_unix_only`].
+#[cfg(not(unix))]
+fn perm_hardening_unix_only_note(path: &Path) -> String {
+    format!(
+        "credentials file {} written WITHOUT 0600 permission hardening: \
+         file-permission lockdown is unix-only; on this platform the file \
+         inherits its parent directory ACL (documented gap, not a silent \
+         downgrade)",
+        path.display()
+    )
+}
+
+/// Emit [`perm_hardening_unix_only_note`] exactly once per process.
+///
+/// On unix the credentials file is locked to mode 0600 (the `#[cfg(unix)]`
+/// arms of [`write_document`]); that syscall has no portable equivalent
+/// here. Per `win-portability-cred-credentials-unix-perms` the gap is made
+/// observable instead of silent. One-shot so a hot write path cannot spam
+/// the log.
+#[cfg(not(unix))]
+fn warn_perm_hardening_unix_only(path: &Path) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static WARNED: AtomicBool = AtomicBool::new(false);
+    if WARNED.swap(true, Ordering::Relaxed) {
+        return;
+    }
+    tracing::warn!(
+        target: "argo_config::cred",
+        "{}",
+        perm_hardening_unix_only_note(path)
+    );
 }
 
 fn validate_key(key: &str) -> ArgoResult<()> {
@@ -401,5 +441,18 @@ mod write_lock_tests {
             document.credentials.tenant.contains_key(&seed.to_string()),
             "seed section lost after concurrent rotation"
         );
+    }
+
+    /// Windows/non-unix: the one-shot perm-gap warning names the file and
+    /// states the hardening is unix-only — a documented gap, not silent.
+    #[cfg(not(unix))]
+    #[test]
+    fn perm_hardening_note_names_file_and_gap() {
+        let note = perm_hardening_unix_only_note(Path::new(
+            "C:/ws/.skycot/credentials.toml",
+        ));
+        assert!(note.contains("credentials.toml"), "names the file: {note}");
+        assert!(note.contains("unix-only"), "states unix-only: {note}");
+        assert!(note.contains("0600"), "references 0600: {note}");
     }
 }

@@ -217,6 +217,10 @@ fn write_document(path: &Path, wrapped: &BTreeMap<String, EncryptedEntry>) -> Ar
     #[cfg(unix)]
     fs::set_permissions(path, fs::Permissions::from_mode(0o600))
         .map_err(|e| ArgoError::Io(format!("chmod 0600 {}: {e}", path.display())))?;
+    // Non-unix: the 0600 lockdown above is excluded; surface the gap once
+    // rather than downgrading silently.
+    #[cfg(not(unix))]
+    warn_perm_hardening_unix_only(path);
     Ok(())
 }
 
@@ -306,4 +310,38 @@ fn warn_loose_perms(path: &Path) -> ArgoResult<bool> {
         let _ = path;
         Ok(false)
     }
+}
+
+/// Message for the one-shot non-unix credential-file hardening warning.
+///
+/// Pure (no I/O) so it can be asserted in tests; the firing side-effect
+/// lives in [`warn_perm_hardening_unix_only`].
+#[cfg(not(unix))]
+fn perm_hardening_unix_only_note(path: &Path) -> String {
+    format!(
+        "warning: {} written WITHOUT 0600 permission hardening: \
+         file-permission lockdown is unix-only on this platform; the file \
+         inherits its parent directory ACL (documented gap, not a silent \
+         downgrade)",
+        path.display()
+    )
+}
+
+/// Emit [`perm_hardening_unix_only_note`] once per process.
+///
+/// On unix the encrypted credentials file is locked to mode 0600 (the
+/// `#[cfg(unix)]` arms of [`write_document`] / [`write_body_atomically`]);
+/// that has no portable equivalent here. Per
+/// `win-portability-cred-credentials-unix-perms` the reduced hardening is
+/// made observable rather than applied silently. Uses `eprintln!` to match
+/// the sibling [`warn_loose_perms`] and stay visible without a tracing
+/// subscriber installed.
+#[cfg(not(unix))]
+fn warn_perm_hardening_unix_only(path: &Path) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static WARNED: AtomicBool = AtomicBool::new(false);
+    if WARNED.swap(true, Ordering::Relaxed) {
+        return;
+    }
+    eprintln!("{}", perm_hardening_unix_only_note(path));
 }
