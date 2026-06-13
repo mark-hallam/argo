@@ -158,6 +158,65 @@ describe("ConversationIntake", () => {
     expect(gathered.successCriteria).toHaveLength(1);
   });
 
+  it("never paints an answer into a not-yet-reached slot (N4 wrong-field flash)", async () => {
+    // The opening turn lands while the engine is still GATHERING cadence, but its
+    // captured block already carries a stray carve-out phrase in `cadence` (an
+    // over-attributed early answer). That value must not paint into the cadence
+    // input. Once the conversation advances PAST cadence, the real cadence shows.
+    mockedTurn
+      .mockResolvedValueOnce(
+        res({
+          status: "asking",
+          slot: "cadence",
+          captured: {
+            ...EMPTY_CAPTURED,
+            charter: "Own the morning dispatch board.",
+            cadence: "Never threaten legal action",
+          },
+          transcript: [{ speaker: "assistant", text: "When should they work?" }],
+        }),
+      )
+      .mockResolvedValueOnce(
+        res({
+          status: "asking",
+          slot: "exceptions",
+          captured: {
+            ...EMPTY_CAPTURED,
+            charter: "Own the morning dispatch board.",
+            cadence: "every weekday at 9am",
+          },
+          transcript: [
+            { speaker: "assistant", text: "When should they work?" },
+            { speaker: "operator", text: "every weekday at 9am" },
+            { speaker: "assistant", text: "Anything they should never do?" },
+          ],
+        }),
+      );
+    render(<ConversationIntake tenantId="op-1" onComplete={vi.fn()} />);
+
+    // The stray carve-out never reaches the cadence input — the typed panel is
+    // suppressed while the engine is still gathering cadence.
+    await waitFor(() =>
+      expect(screen.getByTestId("genesis-captured-charter")).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByTestId("genesis-cadence-exceptions"),
+    ).not.toBeInTheDocument();
+
+    // Answer cadence; the next turn moves to `exceptions`, so the (now correct)
+    // cadence value paints — and it is never the carve-out phrase.
+    fireEvent.change(screen.getByTestId("genesis-conversation-input"), {
+      target: { value: "every weekday at 9am" },
+    });
+    fireEvent.click(screen.getByTestId("genesis-conversation-send"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("genesis-cadence-input")).toHaveValue(
+        "every weekday at 9am",
+      ),
+    );
+  });
+
   it("surfaces an error when a turn fails", async () => {
     mockedTurn.mockRejectedValueOnce(new Error("gateway down"));
     render(<ConversationIntake tenantId="op-1" onComplete={vi.fn()} />);

@@ -24,6 +24,47 @@ import type { ConversationCaptured } from "@/lib/api/genesis-conversation";
 
 export interface ConversationCapturedPanelProps {
   captured: ConversationCaptured;
+  /**
+   * The slot the engine is CURRENTLY gathering (the turn response's `slot`),
+   * or `undefined` once the conversation is `ready`/`done` (everything is
+   * resolved) or when no turn context is available.
+   *
+   * Used to gate each field on its RESOLVED slot: a value only paints once the
+   * conversation has moved PAST that slot's question. The engine's per-turn
+   * `captured` block can briefly carry a value in a not-yet-asked slot (an early
+   * rich answer can over-attribute, e.g., a carve-out phrase into `cadence`
+   * before the cadence question is asked). Without this gate the panel paints
+   * that stray value into the wrong input for a frame until the real answer
+   * overwrites it (cosmetic glitch N4, 2026-06-13 shakedown). Gating by ask
+   * order means the active/unanswered slot is never trusted until the user has
+   * actually answered it and the conversation has advanced.
+   */
+  activeSlot?: string;
+}
+
+/** The deterministic ask order (mirrors `argo_genesis::IntakeSlot::slug`). A
+ *  slot is "resolved" once the conversation has advanced strictly past it. */
+const SLOT_ORDER: readonly string[] = [
+  "charter",
+  "persona",
+  "responsibilities",
+  "cadence",
+  "exceptions",
+  "success_criteria",
+  "access",
+  "escalation",
+];
+
+/** `true` when `slot` is resolved relative to the currently-gathered
+ *  `activeSlot`. With no `activeSlot` (ready/done or no turn context) every
+ *  field is resolved. An unrecognized `activeSlot` is treated as "all
+ *  resolved" so a new slot can never silently blank the whole panel. */
+function isResolved(slot: string, activeSlot?: string): boolean {
+  if (!activeSlot) return true;
+  const activeIdx = SLOT_ORDER.indexOf(activeSlot);
+  if (activeIdx === -1) return true;
+  const slotIdx = SLOT_ORDER.indexOf(slot);
+  return slotIdx < activeIdx;
 }
 
 function hasAnything(c: ConversationCaptured): boolean {
@@ -38,8 +79,34 @@ function hasAnything(c: ConversationCaptured): boolean {
 }
 
 export function ConversationCapturedPanel({
-  captured,
+  captured: capturedProp,
+  activeSlot,
 }: ConversationCapturedPanelProps) {
+  // Gate the captured block on resolved slots BEFORE rendering, so a value
+  // over-attributed to a not-yet-asked slot never paints into its input.
+  const captured: ConversationCaptured = {
+    charter: isResolved("charter", activeSlot) ? capturedProp.charter : "",
+    persona: isResolved("persona", activeSlot) ? capturedProp.persona : "",
+    responsibilities: isResolved("responsibilities", activeSlot)
+      ? capturedProp.responsibilities
+      : [],
+    cadence: isResolved("cadence", activeSlot) ? capturedProp.cadence : "",
+    exceptions: isResolved("exceptions", activeSlot)
+      ? capturedProp.exceptions
+      : [],
+    success_criteria: isResolved("success_criteria", activeSlot)
+      ? capturedProp.success_criteria
+      : [],
+    access_integrations: isResolved("access", activeSlot)
+      ? capturedProp.access_integrations
+      : [],
+    escalation_failures_threshold: isResolved("escalation", activeSlot)
+      ? capturedProp.escalation_failures_threshold
+      : null,
+    escalation_to: isResolved("escalation", activeSlot)
+      ? capturedProp.escalation_to
+      : "",
+  };
   const cadenceSlots: CadenceExceptionsSelection = {
     cadence: captured.cadence,
     exceptions: captured.exceptions,

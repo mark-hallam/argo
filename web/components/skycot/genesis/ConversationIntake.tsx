@@ -110,6 +110,10 @@ export function ConversationIntake({
     ...EMPTY_CAPTURED,
   });
   const [status, setStatus] = useState<ConversationStatus>("asking");
+  // The slot the engine is currently gathering, forwarded to the captured panel
+  // so it can gate each field on its resolved slot (no wrong-field flash). Only
+  // meaningful while `asking`; cleared on ready/done where all slots resolve.
+  const [activeSlot, setActiveSlot] = useState<string | undefined>(undefined);
   const [canConfirm, setCanConfirm] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -137,6 +141,7 @@ export function ConversationIntake({
         });
         setCaptured(res.captured);
         setStatus(res.status);
+        setActiveSlot(res.status === "asking" ? res.slot : undefined);
         setCanConfirm(res.can_confirm === true || res.status === "ready");
         if (res.transcript.length > 0) {
           setTranscript(res.transcript);
@@ -464,7 +469,7 @@ export function ConversationIntake({
       </div>
 
       <div className="ci-captured">
-        <ConversationCapturedPanel captured={captured} />
+        <ConversationCapturedPanel captured={captured} activeSlot={activeSlot} />
       </div>
     </div>
   );

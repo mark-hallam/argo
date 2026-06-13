@@ -35,6 +35,43 @@ describe("ConversationCapturedPanel", () => {
     ).toHaveTextContent("Escalate blockers");
   });
 
+  it("does NOT paint a value into a slot the conversation hasn't reached yet", () => {
+    // Regression for N4 (2026-06-13 shakedown): the engine's per-turn captured
+    // block briefly carried a carve-out phrase in `cadence` before the cadence
+    // question was asked. With the engine still gathering `cadence`, that value
+    // must NOT paint into the cadence input — gate it on its resolved slot.
+    render(
+      <ConversationCapturedPanel
+        captured={{
+          ...EMPTY_CAPTURED,
+          charter: "Own the morning dispatch board.",
+          cadence: "Never threaten legal action",
+        }}
+        activeSlot="cadence"
+      />,
+    );
+    // Resolved slot still shows.
+    expect(screen.getByTestId("genesis-captured-charter")).toBeInTheDocument();
+    // The not-yet-resolved cadence value never reaches the typed panel.
+    expect(
+      screen.queryByTestId("genesis-cadence-exceptions"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("paints cadence once the conversation has advanced past it", () => {
+    render(
+      <ConversationCapturedPanel
+        captured={{
+          ...EMPTY_CAPTURED,
+          cadence: "every weekday at 9am",
+        }}
+        activeSlot="exceptions"
+      />,
+    );
+    const cadence = screen.getByTestId("genesis-cadence-input");
+    expect(cadence).toHaveValue("every weekday at 9am");
+  });
+
   it("reuses the CadenceExceptionsCapture slot rendering for typed slots", () => {
     render(
       <ConversationCapturedPanel
