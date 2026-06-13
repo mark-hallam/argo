@@ -44,6 +44,10 @@ locals {
       id   = "stripe-price-ids"
       desc = "Operator record: JSON map { free, pro, enterprise } -> Stripe price ids matching v1-tiers.toml slugs. NOT read by the gateway (the SPA sends the price id in the checkout body via NEXT_PUBLIC_STRIPE_PRICE_*); kept here as the canonical price-id record."
     }
+    smtp_password = {
+      id   = "skycot-smtp-password"
+      desc = "SKYCOT_SMTP_PASSWORD — the SES (or other SMTP) outbound-email password. Injected into the ECS task as a secret env var via module.ecs (lookup of `smtp_password` in secret_arns); NEVER set in tfvars. The SES SMTP username + host go in email_outbound (plaintext, non-secret)."
+    }
   }
 }
 

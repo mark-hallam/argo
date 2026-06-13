@@ -28,6 +28,25 @@ domain_name = "api.skycot.com"
 # Leave unset to create the topic without a subscription (wire Slack/PagerDuty later).
 # alert_email = "ops@skycot.com"
 
+# FRONT-DOOR (sign-in email) — set these or the very first user touch breaks.
+# Left commented = the default-empty (log-only) path, which plans cleanly for a
+# bring-up smoke: signup HONESTLY returns status="not_configured". Uncomment +
+# fill for real self-serve signup. See AWS_DEPLOY_RUNBOOK.md §2.
+#
+# public_base_url = "https://app.skycot.com"   # the SPA's public origin; magic-link
+#                                              # + invite emails mint links against it.
+#                                              # If unset, the gateway warns at boot and
+#                                              # falls back to https://app.skycot.com.
+# email_outbound = {                           # AWS SES path (provider=smtp):
+#   provider      = "smtp"
+#   from_address  = "noreply@skycot.com"
+#   smtp_host     = "email-smtp.ap-southeast-2.amazonaws.com"
+#   smtp_port     = "587"
+#   smtp_username = "<SES SMTP username>"       # SES console -> SMTP settings
+# }
+# The SMTP PASSWORD is a secret — it goes through Secrets Manager (runbook step 4,
+# --secret-id skycot-prod/skycot-smtp-password), NEVER in this tfvars file.
+
 tags = {
   Owner   = "skycot-ops"
   CostCenter = "skycot-mvp"

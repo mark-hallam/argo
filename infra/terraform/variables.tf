@@ -81,6 +81,24 @@ variable "alert_email" {
   default     = ""
 }
 
+variable "public_base_url" {
+  description = "SKYCOT_PUBLIC_BASE_URL — public origin the SPA is served from; magic-link + workspace-invite emails mint links against it. Empty = the gateway falls back to the hardcoded https://app.skycot.com default and logs a startup WARNING. Threaded into module.ecs."
+  type        = string
+  default     = ""
+}
+
+variable "email_outbound" {
+  description = "Outbound transactional-email config for magic-link delivery. provider in {noop,postmark,sendgrid,smtp}. For AWS SES use provider=smtp with host email-smtp.<region>.amazonaws.com + the SES SMTP username. The SMTP password is injected from Secrets Manager (key `smtp_password` in secret_arns) as SKYCOT_SMTP_PASSWORD, NEVER from plaintext here. Threaded into module.ecs."
+  type = object({
+    provider      = optional(string, "")
+    from_address  = optional(string, "")
+    smtp_host     = optional(string, "")
+    smtp_port     = optional(string, "")
+    smtp_username = optional(string, "")
+  })
+  default = {}
+}
+
 variable "tags" {
   description = "Extra tags merged onto every resource."
   type        = map(string)

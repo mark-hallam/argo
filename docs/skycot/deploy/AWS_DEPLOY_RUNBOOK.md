@@ -180,7 +180,7 @@ Expected resource shape:
 - **ecr** — 1 ECR repository (`skycot-prod-argo`, MUTABLE, scan-on-push) + 1
   lifecycle policy (keep last 10 tagged, expire untagged after 7d).
 - **kms** — 1 customer-managed CMK (rotation enabled, 7-day deletion window) + 1 alias.
-- **secrets** — 7 Secrets Manager secrets + 7 placeholder versions
+- **secrets** — 8 Secrets Manager secrets + 8 placeholder versions
   (`REPLACE_ME`), KMS-encrypted, recovery window 7d.
 - **iam** — execution role + task role + a scoped policy (`GetSecretValue` +
   `kms:Decrypt` on the CMK).
@@ -208,7 +208,8 @@ value back to `REPLACE_ME`, so you may fill them before OR after the apply (step
 Targets: [`infra/terraform/modules/secrets/main.tf`](../../../infra/terraform/modules/secrets/main.tf)
 + [`deploy/secrets/skycot-production.env.example`](../../../deploy/secrets/skycot-production.env.example).
 
-All 7 full secret names (use the FULL `--secret-id`):
+All 8 full secret names (use the FULL `--secret-id`). The last (`skycot-smtp-password`)
+is only needed if you set a non-noop `email_outbound` provider in tfvars:
 
 ```sh
 # Bearer token — openssl rand -hex 32. Gateway will NOT boot in production without it.
@@ -248,6 +249,14 @@ aws secretsmanager put-secret-value \
 aws secretsmanager put-secret-value \
   --secret-id skycot-prod/stripe-price-ids \
   --secret-string '{"free":"price_...","pro":"price_...","enterprise":"price_..."}'
+
+# SES SMTP password — from the SES console (SMTP settings -> create SMTP credentials).
+# This is the SECRET half of the email_outbound config in tfvars; the username + host
+# go in tfvars (plaintext, non-secret), the PASSWORD goes ONLY here. Skip this if you
+# left email_outbound at its default (log-only signup).
+aws secretsmanager put-secret-value \
+  --secret-id skycot-prod/skycot-smtp-password \
+  --secret-string 'REAL_SES_SMTP_PASSWORD'
 ```
 
 Verify a fill took (should NOT print the literal `REPLACE_ME`):

@@ -105,6 +105,8 @@ module "ecs" {
   efs_access_point_id = module.efs.access_point_id
   secret_arns         = module.secrets.secret_arns
   trust_xff           = var.front_with_cloudflare
+  public_base_url     = var.public_base_url
+  email_outbound      = var.email_outbound
 }
 
 module "observability" {
