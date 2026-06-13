@@ -326,6 +326,58 @@ async fn decide_same_decision_twice_is_idempotent_200() {
     assert_eq!(parse(&b2)["decision"], "approve");
 }
 
+/// Soak finding fix-approvals-decide-double-submit-idempotency: two rapid
+/// decides on one approval (double-click / batch retry) must never race into
+/// a 500-class response. The TOCTOU window between the pending-state snapshot
+/// and the transition write previously surfaced the losing call's
+/// illegal-transition error as a 500; the decide error-arm now reconciles
+/// against the persisted state and answers idempotently (200 same-decision /
+/// 409 conflicting). Multi-threaded so the two decides genuinely overlap.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn decide_concurrent_double_submit_never_500() {
+    let _g = crate::handlers::gateway::shared_env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    seed_action("act-race").await;
+    let req = auth_post(
+        "/api/v1/approvals/act-race/decide",
+        r#"{"decision":"approve"}"#,
+    );
+    let (a, b) = tokio::join!(
+        decide_response("act-race", &req),
+        decide_response("act-race", &req),
+    );
+    // Neither concurrent decide may surface a 500-class race; both resolve
+    // cleanly (winner 200, loser idempotent 200 — or a clean 409 if the
+    // reload observed a conflicting resolution).
+    assert_ne!(a.0, "500 Internal Server Error", "first decide 500'd: {}", a.1);
+    assert_ne!(b.0, "500 Internal Server Error", "second decide 500'd: {}", b.1);
+    assert!(
+        a.0 == "200 OK" || a.0 == "409 Conflict",
+        "unexpected first status {}: {}",
+        a.0,
+        a.1
+    );
+    assert!(
+        b.0 == "200 OK" || b.0 == "409 Conflict",
+        "unexpected second status {}: {}",
+        b.0,
+        b.1
+    );
+    // Exactly one state change: the row is no longer pending, so the
+    // pending-only list is empty.
+    let (lst_status, lst_body) = list_response(&auth_get("/api/v1/approvals"), None).await;
+    assert_eq!(lst_status, "200 OK");
+    let items = parse(&lst_body)["items"]
+        .as_array()
+        .map(|a| a.len())
+        .unwrap_or(0);
+    assert_eq!(
+        items, 0,
+        "approval should be resolved after concurrent decides: {lst_body}"
+    );
+}
+
 #[tokio::test]
 async fn undo_within_window_restores_to_pending() {
     let _g = crate::handlers::gateway::shared_env_lock().await;

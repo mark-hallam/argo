@@ -331,7 +331,31 @@ pub(super) async fn decide_response(approval_id: &str, req: &str) -> (&'static s
             )
             .await
         }
-        Err(e) => server_error(&format!("decide: {e}")),
+        // Double-submit race (soak finding
+        // fix-approvals-decide-double-submit-idempotency): between the
+        // pending-state snapshot above and this transition write, a
+        // concurrent decide on the SAME row can move it out of `pending`.
+        // The transition then fails `write_transition`'s `can_transition_to`
+        // guard with an illegal-transition `Err` — which we used to surface
+        // as a 500-class error to a client that merely double-clicked. Re-read
+        // the now-current persisted state and answer idempotently: 200 for the
+        // same decision, 409 for a conflicting one (matching the already-decided
+        // fast-path above). Only a row that is still `pending` after a failed
+        // transition is a genuine server error worth a 500.
+        Err(e) => match find_action(&memory, ws, approval_id).await {
+            Ok(Some(reloaded))
+                if reloaded.record.state.as_str() != ActionState::Pending.as_str() =>
+            {
+                match decision_from_record(&reloaded.record) {
+                    Some(d) if d == decision => ok_decide(approval_id, decision),
+                    other => conflict(
+                        approval_id,
+                        other.as_deref().unwrap_or(reloaded.record.state.as_str()),
+                    ),
+                }
+            }
+            _ => server_error(&format!("decide: {e}")),
+        },
     }
 }
 

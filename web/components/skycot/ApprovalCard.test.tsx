@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ApprovalCard } from "./ApprovalCard";
@@ -49,6 +49,41 @@ describe("ApprovalCard", () => {
     const { onDecide } = renderCard();
     await user.click(screen.getByTestId("approval-refuse"));
     expect(onDecide).toHaveBeenCalledWith("refuse");
+  });
+
+  it("guards against double-submit: first click disarms the controls", async () => {
+    // Soak finding fix-approvals-decide-double-submit-idempotency: a rapid
+    // double-click on Approve/Refuse must record the decision exactly once.
+    // A deferred promise keeps the decide in flight (busy latch held) across
+    // both clicks, mirroring an outstanding /decide POST.
+    const user = userEvent.setup();
+    let resolveDecide: () => void = () => {};
+    const onDecide = vi.fn(
+      () => new Promise<void>((resolve) => { resolveDecide = resolve; }),
+    );
+    render(
+      <ApprovalCard
+        worker={{ name: "Mariah" }}
+        verb="wants to send this listing"
+        detail="Bauer Vapor X5 · $90"
+        consequenceIfYes="goes to Facebook Marketplace."
+        consequenceIfNo="waits for direction."
+        onDecide={onDecide}
+      />,
+    );
+    await user.click(screen.getByTestId("approval-approve"));
+    // The first click latches the decision synchronously: the approve/refuse
+    // controls are replaced by the post-decision bar, so a second click has
+    // no control to hit — onDecide can fire only once.
+    expect(screen.queryByTestId("approval-approve")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("approval-refuse")).not.toBeInTheDocument();
+    expect(onDecide).toHaveBeenCalledTimes(1);
+    expect(onDecide).toHaveBeenCalledWith("approve");
+    // Resolve the in-flight decision so React can flush pending effects
+    // (the busy → false transition) inside act.
+    await act(async () => {
+      resolveDecide();
+    });
   });
 
   it("reveals the reason when Why? tapped", async () => {
