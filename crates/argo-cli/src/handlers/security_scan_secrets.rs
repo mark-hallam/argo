@@ -192,7 +192,12 @@ pub fn is_allowlisted(finding: &Finding, allow: &Allowlist) -> bool {
 
 fn glob_match(glob: &str, path: &str) -> bool {
     let g: Vec<&str> = glob.split('/').collect();
-    let p: Vec<&str> = path.split('/').collect();
+    // The path side comes from `Path::display()`, which uses the OS-native
+    // separator (`\` on Windows) — split on both so the '/'-authored allowlist
+    // globs match on Windows (win-path-canonicalization-deep-audit). Without
+    // this a backslash path collapses to one segment and allowlist suppression
+    // silently fails on Windows.
+    let p: Vec<&str> = path.split(['/', '\\']).collect();
     glob_match_segments(&g, &p)
 }
 

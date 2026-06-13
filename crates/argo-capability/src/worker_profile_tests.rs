@@ -299,6 +299,28 @@ fn fs_root_with_file_write_grants_scoped_fswrite_only() {
 }
 
 #[test]
+fn fs_root_with_windows_backslash_separators_still_covers_rooted_path() {
+    // win-path-canonicalization-deep-audit: a Windows-style root with `\`
+    // separators must normalize to `/`, else the derived globset GRANT
+    // pattern parses `\` as escapes and the worker is denied its own sandbox.
+    // Cross-platform deterministic: the `\`→`/` normalization runs on every
+    // OS, and `Path::new("C:\\..")` renders the backslashes literally on unix.
+    let profile = WorkerCapabilityProfile::derive(
+        Vec::<String>::new(),
+        ["file_write".into(), "file_read".into()],
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+    )
+    .with_fs_root(Some(Path::new("C:\\Users\\op\\SkycotTeammates\\maya")));
+    assert_eq!(profile.fs_root(), Some("C:/Users/op/SkycotTeammates/maya"));
+    let set = profile.to_capability_set();
+    assert!(set.covers(&fs_write("C:/Users/op/SkycotTeammates/maya/report.txt")));
+    assert!(set.covers(&fs_read("C:/Users/op/SkycotTeammates/maya/sub/a.md")));
+    // Still fenced — a sibling teammate's dir is not covered.
+    assert!(!set.covers(&fs_write("C:/Users/op/SkycotTeammates/ava/x")));
+}
+
+#[test]
 fn fs_root_with_file_read_grants_scoped_fsread_only() {
     let profile = WorkerCapabilityProfile::derive(
         Vec::<String>::new(),

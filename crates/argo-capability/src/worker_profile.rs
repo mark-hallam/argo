@@ -265,8 +265,14 @@ impl WorkerCapabilityProfile {
         // boundary too — they resolve to `None` (no Fs grant) rather than a
         // dangerous glob. The runtime reader already filters empty; this closes
         // the same footgun for every caller of the type.
+        // Normalize the separator to `/` (no-op on unix). The stored root
+        // becomes a globset GRANT pattern via `format!("{root}/**")`, and
+        // globset matches on `/` while treating `\` as an escape — so a
+        // Windows `C:\…\maya` root would compile to a broken pattern and the
+        // worker would be denied access to its own sandbox. Mirrors the
+        // workspace-glob fix in `crate::lib` (win-capability-fs-cap-glob-separator).
         self.fs_root = fs_root
-            .map(|p| p.display().to_string())
+            .map(|p| p.display().to_string().replace('\\', "/"))
             .filter(|s| !s.trim().is_empty() && !s.contains(".."));
         self
     }

@@ -156,10 +156,12 @@ fn extract_binary(archive: &Path, into_dir: &Path) -> ArgoResult<PathBuf> {
 }
 
 pub(crate) fn restart_daemon_best_effort(exe: &Path) -> bool {
-    let Ok(home) = std::env::var("ARGO_HOME")
+    // ARGO_HOME first, else <home>/.argo where home is HOME (unix) or
+    // USERPROFILE (Windows) — win-path-canonicalization-deep-audit.
+    let home = std::env::var_os("ARGO_HOME")
         .map(PathBuf::from)
-        .or_else(|_| std::env::var("HOME").map(|h| PathBuf::from(h).join(".argo")))
-    else {
+        .or_else(|| argo_credentials::dirs_home_dir().map(|h| h.join(".argo")));
+    let Some(home) = home else {
         return false;
     };
     let pid_file = home.join("gateway.pid");

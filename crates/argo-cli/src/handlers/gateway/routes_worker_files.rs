@@ -338,7 +338,9 @@ async fn resolve_fs_root(store: &Arc<SessionStore>, tenant: TenantId, worker: &W
             .await;
     match row {
         Ok(Some(Some(p))) if !p.trim().is_empty() => PathBuf::from(p),
-        _ => PathBuf::from("/tmp/argo-fs").join(worker.id.to_string()),
+        // `temp_dir()` not hardcoded `/tmp` (bogus on Windows) — must match the
+        // executor's resolve_fs_root fallback. win-path-canonicalization-deep-audit.
+        _ => std::env::temp_dir().join("argo-fs").join(worker.id.to_string()),
     }
 }
 

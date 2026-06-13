@@ -36,7 +36,15 @@ pub async fn install(
     // Tarball path: extract into a temp dir + recurse with the
     // extracted dir as the source. This keeps the dir-source
     // path the canonical implementation.
-    if src.extension().and_then(|e| e.to_str()) == Some("tar") && src.is_file() {
+    // Case-insensitive extension match — Windows treats extensions
+    // case-insensitively, so `pack.TAR` must take the tarball branch
+    // (win-path-canonicalization-deep-audit; mirrors genesis.rs's pdf check).
+    if src
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("tar"))
+        && src.is_file()
+    {
         let tmp = tempfile::tempdir()
             .map_err(|e| ArgoError::Io(format!("create tempdir for tarball extract: {e}")))?;
         extract_tar_into(&src, tmp.path())?;

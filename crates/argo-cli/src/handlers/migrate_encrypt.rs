@@ -220,9 +220,10 @@ fn hex_encode(bytes: &[u8]) -> String {
 }
 
 fn plan_backup_path(source: &Path) -> ArgoResult<PathBuf> {
-    let home = std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .ok_or_else(|| ArgoError::Io("migrate-encrypt: $HOME unset".into()))?;
+    // HOME on unix, USERPROFILE on Windows — without the fallback the encrypt
+    // migration hard-errors on native Windows (win-path-canonicalization-deep-audit).
+    let home = argo_credentials::dirs_home_dir()
+        .ok_or_else(|| ArgoError::Io("migrate-encrypt: neither HOME nor USERPROFILE set".into()))?;
     let stamp = Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
     let file_name = source
         .file_name()

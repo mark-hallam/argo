@@ -185,9 +185,11 @@ fn workspace_root() -> PathBuf {
 }
 
 fn default_cache_root() -> ArgoResult<PathBuf> {
-    let home = std::env::var("HOME")
-        .map(PathBuf::from)
-        .map_err(|_| ArgoError::Io("HOME is not set; cannot resolve ~/.argo/packs".into()))?;
+    // HOME on unix, USERPROFILE on Windows (native Windows has no HOME) — see
+    // win-portability-tmp-and-home-paths (#2904) / win-path-canonicalization-deep-audit.
+    let home = argo_credentials::dirs_home_dir().ok_or_else(|| {
+        ArgoError::Io("cannot resolve ~/.argo/packs: neither HOME nor USERPROFILE is set".into())
+    })?;
     Ok(home.join(".argo").join("packs"))
 }
 

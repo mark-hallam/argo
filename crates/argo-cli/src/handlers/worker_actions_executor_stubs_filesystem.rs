@@ -188,7 +188,10 @@ fn run_fs_op(
 /// the column is NULL or the worker row isn't found — both legitimate
 /// in test rigs that haven't run `argo worker create`.
 fn resolve_fs_root(cwd: &Path, worker_id: &str) -> ArgoResult<PathBuf> {
-    let default = PathBuf::from("/tmp/argo-fs").join(worker_id);
+    // `temp_dir()` not hardcoded `/tmp` — the latter is a bogus off-drive-root
+    // path on Windows (win-path-canonicalization-deep-audit). Must match the
+    // gateway's resolve_fs_root fallback in routes_worker_files.rs.
+    let default = std::env::temp_dir().join("argo-fs").join(worker_id);
     let home = match resolve_home(cwd) {
         Ok(h) => h,
         Err(_) => return Ok(default),

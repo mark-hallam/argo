@@ -38,8 +38,10 @@ pub async fn run(args: Args) -> ArgoResult<()> {
         }
         ImageGenBackendKind::Stub => Arc::new(StubBackend),
     };
-    let audit_path = std::env::var_os("HOME")
-        .map(|h| PathBuf::from(h).join(".argo/audit/image_gen.ndjson"))
+    // HOME on unix, USERPROFILE on Windows — else the audit sink silently
+    // degrades to a CWD-relative path on Windows (win-path-canonicalization-deep-audit).
+    let audit_path = argo_credentials::dirs_home_dir()
+        .map(|h| h.join(".argo/audit/image_gen.ndjson"))
         .unwrap_or_else(|| PathBuf::from("./.argo/audit/image_gen.ndjson"));
     let server = ImageGenMcpServer::new(
         backend,
