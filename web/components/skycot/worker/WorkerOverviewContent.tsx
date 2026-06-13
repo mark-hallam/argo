@@ -76,8 +76,11 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
   // worker-detail / overview payloads don't expose probation — see
   // `lib/api/worker-overview.ts`; we don't invent backend fields
   // beyond the additive ones on the run envelope). Only the held tool
-  // list is needed: approval now rides ON the next run
-  // (`approve_tools`), not on the finished run's session.
+  // list is needed: an approval applies via `approve_tools` to the ONE
+  // run it rides on (one-shot session grant), not to the finished run's
+  // dead session — and NOT to any later run. Probation holds every
+  // action for the 24h window by design (DEC-025 #2), so each run needs
+  // its own OK; the toast copy below must not promise otherwise.
   const [heldTools, setHeldTools] = useState<string[] | null>(null);
   const [inProbation, setInProbation] = useState(false);
   // Connect-on-demand: the newest pending capability-request the teammate
@@ -242,7 +245,7 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
             {
               description: approved
                 ? "Approve the new tools below to keep going — it's a one-time OK."
-                : "Approve the held tools below — your OK rides on the next run.",
+                : "Approve the held tools below. During the 24-hour probation window every run needs your OK; an approval applies to that run only, it doesn't carry over.",
             },
           );
           return;

@@ -165,6 +165,15 @@ describe("WorkerOverviewContent — probation + one-action Approve & run", () =>
     expect(String(toastWarningMock.mock.calls[0]?.[0])).toMatch(
       /Ava ran, but their tools are held by the probation window/,
     );
+    // Truth-bounded copy (re-test N3): probation holds every action for
+    // the 24h window by design, so the description must NOT promise the
+    // approval persists to later runs. It says each run needs its own OK.
+    const warnDescription = String(
+      (toastWarningMock.mock.calls[0]?.[1] as { description?: string })
+        ?.description,
+    );
+    expect(warnDescription).toMatch(/every run needs your OK/);
+    expect(warnDescription).not.toMatch(/rides on the next run/);
     expect(toastSuccessMock).not.toHaveBeenCalled();
 
     // Probation chip derives from the run envelope.
