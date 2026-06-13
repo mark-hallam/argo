@@ -56,7 +56,7 @@ mocked loop.
 The doc shows a genuine end-to-end Windows CU run with real screenshot + real
 input effect. Branch + IN_REVIEW.
 . Brief: streams/win-cu-executor-end-to-end-run.md. |
-| win-gateway-e2e-on-windows | windows-fleet | TODO | — | ****P2 — does the full stack SERVE on Windows.**** Wave-3 (deep buffer; DEC-054 for the executor-wire). Dep: none. Brief: streams/win-gateway-e2e-on-windows.md. |
+| win-gateway-e2e-on-windows | windows-fleet | CLAIMED Latitude5440 2026-06-13T16:10Z | — | ****P2 — does the full stack SERVE on Windows.**** Wave-3 (deep buffer; DEC-054 for the executor-wire). Dep: none. Brief: streams/win-gateway-e2e-on-windows.md. |
 | win-distribution-packaging-smoke | windows-fleet | TODO | — | ****P2 — the single-binary distribution story on Windows.**** Wave-3 (deep buffer; DEC-054 for the executor-wire). Dep: none. Brief: streams/win-distribution-packaging-smoke.md. |
 | win-path-canonicalization-deep-audit | windows-fleet | TODO | — | ****P2 — UNC / drive-letter / long-path audit (paths were the dominant Windows bug class).**** Wave-3 (deep buffer; DEC-054 for the executor-wire). Dep: none. Brief: streams/win-path-canonicalization-deep-audit.md. |
 | win-line-endings-gitattributes-pin | windows-fleet | TODO | — | ****P2 — defensive CRLF pin (CRLF was suspected 3x; pin it shut).**** Wave-3 (deep buffer; DEC-054 for the executor-wire). Dep: none. Brief: streams/win-line-endings-gitattributes-pin.md. |
