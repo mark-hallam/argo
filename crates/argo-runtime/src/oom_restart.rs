@@ -22,11 +22,22 @@
 //! | Linux    | shell exit 137 | `ExitStatus::code() == Some(137)` |
 //! | macOS    | signal 9       | `ExitStatus::signal() == Some(9)` |
 //! | WSL2     | signal 9       | Linux path                        |
-//! | Windows  | n/a            | Falls through to `OtherSignal`    |
+//! | Windows  | n/a            | exit-137 heuristic only → else `Clean` |
 //!
 //! On Linux, the classifier also tries to read
 //! `/sys/fs/cgroup/<cgroup>/memory.events` for an `oom_kill`
 //! line — best-effort; absence does not flip the verdict.
+//!
+//! **Windows (honest degradation, NO THEATER):** kernel-signal OOM
+//! detection is unix-only — [`std::os::unix::process::ExitStatusExt::signal`]
+//! has no Windows equivalent, so the `#[cfg(unix)]` signal arm of
+//! [`classify_exit`] is compiled out. On Windows only the shell-style
+//! exit-137 heuristic remains, and an OS/job-object OOM termination does
+//! not surface as 137, so such a kill is classified as
+//! [`WorkerExitReason::Clean`] and is NOT auto-restarted. The rolling-
+//! window restart budget still functions for any worker that exits 137 or
+//! reports a non-clean code; a richer Windows path (a job-object memory
+//! limit + `GlobalMemoryStatusEx` probe) is deferred, not faked here.
 //!
 //! Per-action transient retries live in
 //! `crates/argo-executor-computer-use/src/restart.rs`. This
@@ -242,6 +253,9 @@ pub fn classify_exit(status: ExitStatus, cgroup_path: Option<&str>) -> WorkerExi
             return WorkerExitReason::OtherSignal { signal };
         }
     }
+    // On non-unix (Windows) the signal arm above is compiled out — there is
+    // no kernel SIGKILL to inspect — so classification relies solely on the
+    // exit code. See the module-level platform matrix for the Windows gap.
     let code = status.code().unwrap_or(-1);
     if code == EXIT_CODE_OOM_KILL {
         return WorkerExitReason::OomKilled {

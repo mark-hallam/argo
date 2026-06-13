@@ -68,13 +68,24 @@ pub fn confine_path(workspace_root: &Path, requested: &Path) -> Result<PathBuf, 
     // workspace).
     let joined = canonical_root.join(requested);
 
-    for component in joined.components() {
-        if matches!(component, Component::ParentDir) {
-            return Err(format!(
-                "path '{}' contains `..` after resolving against workspace; refusing (vertical isolation, #677)",
-                requested.display()
-            ));
-        }
+    // Reject any `..` up front as defense-in-depth (the canonical
+    // `starts_with` check below is the real boundary). We inspect
+    // `requested` and not only `joined` because on Windows `canonical_root`
+    // is a `\\?\` *verbatim* path, and Rust's `Components` does NOT classify
+    // `..` as `ParentDir` inside a verbatim path — so a check on `joined`
+    // alone silently no-ops on Windows. `requested` is never verbatim, so
+    // its `..` components are always visible. Chaining both keeps the unix
+    // result byte-identical while restoring the early, clear rejection on
+    // every platform.
+    let climbs_out = requested
+        .components()
+        .chain(joined.components())
+        .any(|component| matches!(component, Component::ParentDir));
+    if climbs_out {
+        return Err(format!(
+            "path '{}' contains `..` after resolving against workspace; refusing (vertical isolation, #677)",
+            requested.display()
+        ));
     }
 
     let canonical = canonicalize_deepest_existing(&joined)?;
