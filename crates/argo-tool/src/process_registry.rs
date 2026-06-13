@@ -94,7 +94,9 @@ impl std::fmt::Display for ProcessId {
 /// Request shape accepted by [`ProcessRegistry::spawn`].
 #[derive(Debug, Clone)]
 pub struct SpawnRequest {
-    /// Shell command-line, run via `bash -c`.
+    /// Shell command-line, run via `bash -c` on unix / `cmd /C` on Windows
+    /// (see [`shell_command`]). Command syntax is the caller's responsibility
+    /// per platform.
     pub command: String,
     /// Working directory the child inherits.
     pub working_dir: PathBuf,
@@ -128,6 +130,29 @@ struct ProcessHandle {
     tenant_id: TenantId,
 }
 
+/// Build the platform shell invocation for a background command line.
+///
+/// Unix runs it through `bash -c <cmd>` (unchanged). Windows runs it through
+/// `cmd /C <cmd>`: `bash` is not guaranteed on a native-Windows host (it ships
+/// only with Git/WSL), while `cmd.exe` always is, so hardcoding `bash` made the
+/// spawn primitive itself unusable there. The command-line *syntax* remains the
+/// caller's responsibility per platform — a bash-syntax command will not run
+/// under `cmd` — this only selects a shell binary that exists.
+fn shell_command(command: &str) -> tokio::process::Command {
+    #[cfg(windows)]
+    {
+        let mut c = tokio::process::Command::new("cmd");
+        c.arg("/C").arg(command);
+        c
+    }
+    #[cfg(not(windows))]
+    {
+        let mut c = tokio::process::Command::new("bash");
+        c.arg("-c").arg(command);
+        c
+    }
+}
+
 /// Concurrent registry of background processes.
 #[derive(Debug, Default)]
 pub struct ProcessRegistry {
@@ -150,14 +175,13 @@ impl ProcessRegistry {
         Self::default()
     }
 
-    /// Spawn a new background process. The child runs through `bash
-    /// -c`, mirroring [`crate::tools::Terminal`]. The entry is tagged
+    /// Spawn a new background process. The child runs through the platform
+    /// shell ([`shell_command`]: `bash -c` on unix, `cmd /C` on Windows),
+    /// mirroring [`crate::tools::Terminal`]. The entry is tagged
     /// with `tenant_id`; only callers with the same tenant can
     /// `status`/`tail`/`kill`/`list` it. Returns the new process id.
     pub async fn spawn(&self, req: SpawnRequest, tenant_id: TenantId) -> ArgoResult<ProcessId> {
-        let mut child = tokio::process::Command::new("bash")
-            .arg("-c")
-            .arg(&req.command)
+        let mut child = shell_command(&req.command)
             .current_dir(&req.working_dir)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -384,99 +408,5 @@ pub struct TailOutput {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn ok_dir() -> PathBuf {
-        std::env::temp_dir()
-    }
-
-    fn t1() -> TenantId {
-        TenantId(uuid::Uuid::from_u128(1))
-    }
-
-    #[tokio::test]
-    async fn spawn_list_and_kill_round_trip() {
-        let reg = ProcessRegistry::new();
-        let id = reg
-            .spawn(
-                SpawnRequest {
-                    command: "sleep 30".into(),
-                    working_dir: ok_dir(),
-                },
-                t1(),
-            )
-            .await
-            .unwrap();
-        let live = reg.list(t1()).await;
-        assert_eq!(live.len(), 1);
-        assert_eq!(live[0].id, id);
-        assert_eq!(live[0].state, "running");
-        assert!(live[0].pid.is_some());
-
-        reg.kill(&id, t1(), Duration::from_secs(2)).await.unwrap();
-        assert_eq!(reg.list(t1()).await.len(), 0);
-    }
-
-    #[tokio::test]
-    async fn tail_returns_recent_stdout() {
-        let reg = ProcessRegistry::new();
-        let id = reg
-            .spawn(
-                SpawnRequest {
-                    command: "for i in 1 2 3; do echo line-$i; done; sleep 0.2".into(),
-                    working_dir: ok_dir(),
-                },
-                t1(),
-            )
-            .await
-            .unwrap();
-        // Give the pump time to drain.
-        tokio::time::sleep(Duration::from_millis(400)).await;
-        let tail = reg.tail(&id, t1()).await.unwrap();
-        assert!(tail.stdout.contains("line-1"));
-        assert!(tail.stdout.contains("line-3"));
-        // Cleanup (process exits naturally; reap_finished drops it).
-        reg.reap_finished(t1()).await;
-    }
-
-    #[tokio::test]
-    async fn reap_finished_drops_exited_entries() {
-        let reg = ProcessRegistry::new();
-        let _ = reg
-            .spawn(
-                SpawnRequest {
-                    command: "true".into(),
-                    working_dir: ok_dir(),
-                },
-                t1(),
-            )
-            .await
-            .unwrap();
-        // Wait for `true` to exit + the pumps to close.
-        tokio::time::sleep(Duration::from_millis(200)).await;
-        reg.reap_finished(t1()).await;
-        assert!(reg.is_empty(t1()).await);
-    }
-
-    #[tokio::test]
-    async fn unknown_kill_returns_tool_error() {
-        let reg = ProcessRegistry::new();
-        let err = reg
-            .kill(
-                &ProcessId("does-not-exist".into()),
-                t1(),
-                Duration::from_secs(1),
-            )
-            .await
-            .unwrap_err();
-        assert!(matches!(err, ArgoError::Tool { .. }));
-    }
-
-    #[test]
-    fn process_id_is_unique() {
-        let a = ProcessId::new();
-        let b = ProcessId::new();
-        assert_ne!(a, b);
-    }
-}
+#[path = "process_registry_tests.rs"]
+mod tests;
