@@ -11,7 +11,7 @@
  * - 204 No Content returns `undefined as T`.
  */
 
-import { ApiError, GatewayTimeoutError, type ApiErrorEnvelope } from "./types";
+import { ApiError, GatewayTimeoutError } from "./types";
 import { resolveTenantId } from "./tenant";
 import { resolveCsrfToken, fetchCsrfTokenViaXhr } from "@/lib/auth/csrf-token";
 import {
@@ -250,14 +250,30 @@ async function parseError(res: Response): Promise<ApiError> {
   }
   if (res.status >= 400 && res.status < 500 && text) {
     try {
-      const parsed = JSON.parse(text) as Partial<ApiErrorEnvelope>;
-      if (parsed?.error?.code || parsed?.error?.message) {
-        return new ApiError(
-          res.status,
-          parsed.error.message ?? res.statusText,
-          parsed.error.code,
-          parsed,
-        );
+      const parsed = JSON.parse(text) as { error?: unknown };
+      const errVal = parsed?.error;
+      // Nested envelope: `{ error: { code, message } }` (RBAC `forbidden`,
+      // SSO session, Genesis gate, …).
+      if (errVal && typeof errVal === "object") {
+        const nested = errVal as { code?: string; message?: string };
+        if (nested.code || nested.message) {
+          return new ApiError(
+            res.status,
+            nested.message ?? res.statusText,
+            nested.code,
+            parsed,
+          );
+        }
+      }
+      // Flat envelope: `{ error: "<code>", ...fields }` — the gateway's
+      // other error convention (the tier gate's `tier_worker_cap`, CSRF
+      // `csrf_missing`, bearer `unauthorized`, …). Surface the string as
+      // the ApiError `code` and keep the PARSED body so callers can read
+      // the structured fields off it — e.g. the seat-cap upsell reads
+      // `tier` / `max_workers` / `tier_upsell_url` via
+      // `lib/api/seat-cap.ts` instead of rendering a bare "Forbidden".
+      if (typeof errVal === "string" && errVal) {
+        return new ApiError(res.status, res.statusText || errVal, errVal, parsed);
       }
     } catch {
       /* fall through */

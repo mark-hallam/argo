@@ -11,6 +11,12 @@ import type { ExampleRole } from "@/lib/hire/examples";
 import type { QuestionAnswer } from "@/lib/hire/genesis-types";
 import { useGenesisWorkerDraft } from "@/lib/hire/use-genesis-worker-draft";
 import { useHireWorker } from "@/lib/hooks/use-hire-worker";
+import {
+  seatCapErrorInfo,
+  seatCapMessage,
+  SEAT_CAP_UPGRADE_PATH,
+  type SeatCapInfo,
+} from "@/lib/api/seat-cap";
 
 /**
  * Hire flow — Step 4 (Introduce).
@@ -59,6 +65,8 @@ export function Step4Introduce({
     id: number;
     name: string;
     message: string;
+    /** Non-null when the hire was refused by the pricing-tier seat cap. */
+    seatCap: SeatCapInfo | null;
   } | null>(null);
 
   const redraft = useGenesisWorkerDraft();
@@ -98,13 +106,18 @@ export function Step4Introduce({
     onCommitRef.current(hire.data.workerId);
   }, [hire.isSuccess, hire.data]);
 
-  // Hire commit error → surface toast, stay on Step 4.
+  // Hire commit error → surface toast, stay on Step 4. A seat-cap 403
+  // (Free-tier `max_workers` hit on the 2nd hire) is a plan-limit, not a
+  // failure — render the on-brand upgrade prompt instead of a bare
+  // "Forbidden" + Try-again (which can never succeed against a cap).
   useEffect(() => {
     if (!hire.isError || !hire.error) return;
+    const seatCap = seatCapErrorInfo(hire.error);
     setErrorToast({
       id: Date.now(),
       name: workerDraft.suggestedName,
-      message: hire.error.message,
+      message: seatCap ? seatCapMessage(seatCap) : hire.error.message,
+      seatCap,
     });
   }, [hire.isError, hire.error, workerDraft.suggestedName]);
 
@@ -196,7 +209,30 @@ export function Step4Introduce({
         onPickTemplate={onPickTemplate}
       />
 
-      {errorToast ? (
+      {errorToast?.seatCap ? (
+        <Toast
+          key={errorToast.id}
+          tone="warning"
+          data-testid="hire-step4-seat-cap"
+          title="Upgrade to hire more teammates"
+          description={errorToast.message}
+          action={
+            // A seat cap is a plan limit — a retry would just hit the cap
+            // again. Offer the upgrade path instead. Radix ToastAction is
+            // itself a <button>, so the styled <a> rides inside it.
+            <a
+              href={SEAT_CAP_UPGRADE_PATH}
+              data-testid="hire-step4-seat-cap-upgrade"
+              className="inline-flex h-8 cursor-pointer items-center rounded-[var(--radius-sm)] bg-[var(--secondary)] px-3 text-sm font-medium text-[var(--secondary-foreground)] hover:bg-[var(--accent)]"
+            >
+              See plans
+            </a>
+          }
+          onOpenChange={(open) => {
+            if (!open) setErrorToast(null);
+          }}
+        />
+      ) : errorToast ? (
         <Toast
           key={errorToast.id}
           tone="error"

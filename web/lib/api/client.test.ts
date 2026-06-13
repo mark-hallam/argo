@@ -75,6 +75,36 @@ describe("lib/api/client", () => {
     });
   });
 
+  it("surfaces the gateway's flat {error:'<code>',...} envelope as ApiError.code + parsed body", async () => {
+    // The tier seat-cap 403 uses the flat string-error convention, not the
+    // nested {error:{code,message}} envelope. The client must surface the
+    // string as `code` and keep the parsed body so the seat-cap upsell can
+    // read `max_workers` / `tier` instead of rendering a bare "Forbidden".
+    installMock(() =>
+      makeResponse({
+        status: 403,
+        body: {
+          error: "tier_worker_cap",
+          tier: "free",
+          used: 1,
+          max_workers: 1,
+          tier_upsell_url: "https://skycot.com/upgrade",
+        },
+      }),
+    );
+    let caught: unknown;
+    try {
+      await apiPost("/api/v1/workers", {});
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(ApiError);
+    const apiErr = caught as ApiError;
+    expect(apiErr.status).toBe(403);
+    expect(apiErr.code).toBe("tier_worker_cap");
+    expect(apiErr.body).toMatchObject({ tier: "free", max_workers: 1 });
+  });
+
   it("throws ApiError without code on 5xx", async () => {
     installMock(() =>
       makeResponse({ status: 503, body: "gateway down", contentType: "text/plain" }),

@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Step4Introduce } from "./Step4Introduce";
+import { ApiError } from "@/lib/api/types";
+import { SEAT_CAP_ERROR_CODE } from "@/lib/api/seat-cap";
 import type { WorkerDraft } from "@/lib/hire/draft-types";
 import type { UseGenesisWorkerDraftResult } from "@/lib/hire/use-genesis-worker-draft";
 import type { UseHireWorkerResult } from "@/lib/hooks/use-hire-worker";
@@ -325,6 +327,42 @@ describe("Step4Introduce", () => {
     await user.click(screen.getByTestId("hire-step4-error-retry"));
     expect(hireReset).toHaveBeenCalled();
     expect(hireCommit).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders the upgrade prompt (not a bare error) on a seat-cap 403", async () => {
+    const { rerender } = render(<Harness />);
+    act(() => {
+      setHire({
+        isError: true,
+        error: new ApiError(403, "Forbidden", SEAT_CAP_ERROR_CODE, {
+          error: SEAT_CAP_ERROR_CODE,
+          tier: "free",
+          used: 1,
+          max_workers: 1,
+          tier_upsell_url: "https://skycot.com/upgrade",
+        }),
+      });
+    });
+    rerender(<Harness />);
+    await waitFor(() =>
+      expect(screen.getByTestId("hire-step4-seat-cap")).toBeInTheDocument(),
+    );
+    const prompt = screen.getByTestId("hire-step4-seat-cap");
+    expect(prompt).toHaveTextContent("Upgrade to hire more teammates");
+    expect(prompt).toHaveTextContent("Free plan's 1-teammate limit");
+    // It is NOT the scary auth-error toast, and there's no Try-again CTA.
+    expect(prompt).not.toHaveTextContent("Forbidden");
+    expect(
+      screen.queryByTestId("hire-step4-error-toast"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("hire-step4-error-retry"),
+    ).not.toBeInTheDocument();
+    // The upgrade CTA links to the in-product billing surface.
+    expect(screen.getByTestId("hire-step4-seat-cap-upgrade")).toHaveAttribute(
+      "href",
+      "/billing",
+    );
   });
 
   it("closes the Adjust drawer when the redraft succeeds", async () => {
