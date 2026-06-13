@@ -32,6 +32,7 @@ GitHub Actions billing is operator-side blocked. Admin-merge is the v1.0 strateg
 | `audit.yml.disabled` | **keep-disabled** (v1)  — *newly disabled 2026-05-21* | Audit-chain CI checks; replaced by local audit-sink-tenant-guard in `pre-merge-gate.sh` + integration tests in `argo-audit`. |
 | `deny.yml.disabled` | **keep-disabled** (v1)  — *newly disabled 2026-05-21* | `cargo-deny` license/vulnerability checks; valuable but operator-triggered locally during v1 build. |
 | `web-cold-install.yml.disabled` | **keep-disabled** (v1)  — *added 2026-05-22, landed disabled* | Cold pnpm install + typecheck + lint gate that catches `package.json`/`pnpm-lock.yaml` drift the warm-cache `deploy-spa` gate misses (closes web-pnpm-install-missing-on-cold-start). Lands disabled because GHA billing is still operator-blocked; the file is on-disk so it ships ready to flip when billing returns. |
+| `windows-build.yml.disabled` | **keep-disabled** (v1)  — *added 2026-06-14, landed disabled (win-ci-windows-build-job-authored)* | `cargo build --workspace` (Windows link guard) + `cargo test --workspace` on `windows-latest`. Future-guard for the Windows portability surface the Windows worker fleet (`docs/build-plan/BUILD_STATUS_WINDOWS.md`) is hardening, so a Windows-only regression is caught automatically once CI billing returns. Lands disabled (GHA billing operator-blocked); ships on-disk ready to flip. Until then, Windows verification is the per-brief real-Windows `cargo` runs recorded in each fleet PR. |
 
 ## Re-enable trigger conditions
 

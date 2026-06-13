@@ -1,0 +1,37 @@
+# Windows portability build + test guard.
+#
+# DISABLED (see .github/workflows/DISABLED_WORKFLOWS_POLICY.md): GitHub Actions
+# billing is operator-blocked for v1.0, so this ships as `.yml.disabled` and
+# does NOT run. It exists so Windows portability — the surface the Windows
+# worker fleet (docs/build-plan/BUILD_STATUS_WINDOWS.md) is hardening — is
+# guarded the moment CI billing is restored: rename the suffix to `.yml` and it
+# runs. NO THEATER: this file has never executed in CI (zero runner minutes);
+# the fleet's Windows verification today is the per-brief real-Windows
+# `cargo build`/`cargo test` runs recorded in each PR.
+#
+# Mirrors the cross-platform `test` matrix job in `ci.yml.disabled`, narrowed to
+# windows-latest with an explicit `cargo build --workspace` first so a Windows
+# *link* regression (e.g. a non-portable native dependency like the kryptering
+# PKCS#11 break the fleet cfg-gated off Windows in #2905) fails loudly and early,
+# before the test compile.
+name: Windows build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build workspace (Windows link guard)
+        run: cargo build --workspace
+      - name: Test workspace (Windows)
+        # --no-fail-fast so a single Windows-only failure does not mask the
+        # rest of the inventory when this guard is first re-enabled.
+        run: cargo test --workspace --no-fail-fast
