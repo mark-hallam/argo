@@ -260,7 +260,9 @@ mod tests {
                 &ctx,
             )
             .unwrap();
-        assert_eq!(write_glob(&caps), "/tmp/w/out.txt");
+        // OS-native separators (backslash on Windows) — normalize for the
+        // logical-layout assertion. No-op on unix.
+        assert_eq!(write_glob(&caps).replace('\\', "/"), "/tmp/w/out.txt");
         let grant = CapabilitySet(vec![Capability::FsWrite {
             path_glob: "/tmp/w/**".into(),
         }]);
@@ -285,13 +287,19 @@ mod tests {
     #[test]
     fn in_ctx_absolute_path_unchanged() {
         let ctx = ctx_at("/tmp/w");
+        // Must be absolute on the *host* so the passthrough branch triggers:
+        // "/etc/evil" is not absolute on Windows (no drive prefix).
+        #[cfg(windows)]
+        let abs = r"C:\Windows\Temp\evil";
+        #[cfg(not(windows))]
+        let abs = "/etc/evil";
         let caps = FileWrite
             .required_capabilities_in_ctx(
-                &serde_json::json!({"path": "/etc/evil", "content": "x"}),
+                &serde_json::json!({ "path": abs, "content": "x" }),
                 &ctx,
             )
             .unwrap();
-        assert_eq!(write_glob(&caps), "/etc/evil");
+        assert_eq!(write_glob(&caps), abs);
     }
 
     #[tokio::test]

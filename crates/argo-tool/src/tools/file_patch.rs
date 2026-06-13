@@ -257,7 +257,9 @@ mod tests {
         for cap in &caps.0 {
             match cap {
                 Capability::FsRead { path_glob } | Capability::FsWrite { path_glob } => {
-                    assert_eq!(path_glob, "/tmp/w/a.txt");
+                    // OS-native separators (backslash on Windows) — normalize
+                    // for the logical-layout assertion. No-op on unix.
+                    assert_eq!(path_glob.replace('\\', "/"), "/tmp/w/a.txt");
                 }
                 other => panic!("unexpected cap {other:?}"),
             }

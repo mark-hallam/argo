@@ -244,7 +244,9 @@ mod tests {
         let caps = FileRead
             .required_capabilities_in_ctx(&serde_json::json!({"path": "a.txt"}), &ctx)
             .unwrap();
-        assert_eq!(read_glob(&caps), "/tmp/w/a.txt");
+        // OS-native separators (backslash on Windows) — normalize for the
+        // logical-layout assertion. No-op on unix.
+        assert_eq!(read_glob(&caps).replace('\\', "/"), "/tmp/w/a.txt");
         // The absolute grant <root>/** covers the resolved relative path.
         let grant = CapabilitySet(vec![Capability::FsRead {
             path_glob: "/tmp/w/**".into(),
@@ -268,10 +270,16 @@ mod tests {
     #[test]
     fn in_ctx_absolute_path_unchanged() {
         let ctx = ctx_at("/tmp/w");
+        // Must be absolute on the *host* so the passthrough branch triggers:
+        // "/etc/passwd" is not absolute on Windows (no drive prefix).
+        #[cfg(windows)]
+        let abs = r"C:\Windows\System32\config\SAM";
+        #[cfg(not(windows))]
+        let abs = "/etc/passwd";
         let caps = FileRead
-            .required_capabilities_in_ctx(&serde_json::json!({"path": "/etc/passwd"}), &ctx)
+            .required_capabilities_in_ctx(&serde_json::json!({ "path": abs }), &ctx)
             .unwrap();
-        assert_eq!(read_glob(&caps), "/etc/passwd");
+        assert_eq!(read_glob(&caps), abs);
         let grant = CapabilitySet(vec![Capability::FsRead {
             path_glob: "/tmp/w/**".into(),
         }]);

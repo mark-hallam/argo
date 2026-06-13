@@ -374,22 +374,30 @@ mod tests {
 
     #[test]
     fn resolve_relative_joins_onto_root() {
+        // `resolve_against_root` rebuilds the path with OS-native separators
+        // (backslash on Windows), so normalize to `/` before asserting the
+        // logical layout. The `.replace` is a no-op on unix.
         assert_eq!(
-            resolve_against_root(Path::new("/tmp/w"), "a.txt"),
+            resolve_against_root(Path::new("/tmp/w"), "a.txt").replace('\\', "/"),
             "/tmp/w/a.txt"
         );
         assert_eq!(
-            resolve_against_root(Path::new("/tmp/w"), "sub/dir/a.txt"),
+            resolve_against_root(Path::new("/tmp/w"), "sub/dir/a.txt").replace('\\', "/"),
             "/tmp/w/sub/dir/a.txt"
         );
     }
 
     #[test]
     fn resolve_absolute_passes_through_unchanged() {
-        assert_eq!(
-            resolve_against_root(Path::new("/tmp/w"), "/etc/passwd"),
-            "/etc/passwd"
-        );
+        // The requested path must be absolute on the *host* for the
+        // passthrough branch to trigger: "/etc/passwd" is NOT absolute on
+        // Windows (no drive prefix), so it would be joined onto the root
+        // instead. Use a host-absolute path so the branch is exercised.
+        #[cfg(windows)]
+        let abs = r"C:\Windows\System32\drivers\etc\hosts";
+        #[cfg(not(windows))]
+        let abs = "/etc/passwd";
+        assert_eq!(resolve_against_root(Path::new("/tmp/w"), abs), abs);
     }
 
     #[test]
@@ -398,18 +406,18 @@ mod tests {
         // the RBAC glob check (which compares against the absolute grant)
         // denies it — exactly the deny-by-default behavior we want.
         let resolved = resolve_against_root(Path::new("/tmp/w"), "../escape");
-        assert_eq!(resolved, "/tmp/escape");
+        assert_eq!(resolved.replace('\\', "/"), "/tmp/escape");
         assert!(!Path::new(&resolved).starts_with("/tmp/w"));
     }
 
     #[test]
     fn resolve_curdir_and_nested_climb_normalized() {
         assert_eq!(
-            resolve_against_root(Path::new("/tmp/w"), "./a.txt"),
+            resolve_against_root(Path::new("/tmp/w"), "./a.txt").replace('\\', "/"),
             "/tmp/w/a.txt"
         );
         let resolved = resolve_against_root(Path::new("/tmp/w"), "a/../../escape");
-        assert_eq!(resolved, "/tmp/escape");
+        assert_eq!(resolved.replace('\\', "/"), "/tmp/escape");
         assert!(!Path::new(&resolved).starts_with("/tmp/w"));
     }
 
