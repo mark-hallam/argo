@@ -97,9 +97,13 @@ pub fn read_png(path: &Path) -> WindowsCuResult<Vec<u8>> {
 fn enumerate_monitors_impl() -> WindowsCuResult<Vec<MonitorInfo>> {
     use windows::Win32::Foundation::{BOOL, LPARAM, RECT, TRUE};
     use windows::Win32::Graphics::Gdi::{
-        EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFOEXW, MONITORINFOF_PRIMARY,
+        EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFOEXW,
     };
     use windows::Win32::UI::HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI};
+
+    // windows 0.58 does not generate this MONITORINFO flag constant, so use
+    // the documented Win32 value (winuser.h: `MONITORINFOF_PRIMARY` = 0x1).
+    const MONITORINFOF_PRIMARY: u32 = 0x0000_0001;
 
     struct EnumState {
         monitors: Vec<MonitorInfo>,
@@ -200,11 +204,13 @@ fn capture_one_monitor(info: &MonitorInfo) -> WindowsCuResult<Vec<u8>> {
             info.virtual_y,
             SRCCOPY,
         );
-        let bytes_result = if ok.as_bool() {
+        // windows 0.58: `BitBlt` returns `Result<()>` (Ok = success), not a
+        // BOOL — check `is_ok()` rather than `as_bool()`.
+        let bytes_result = if ok.is_ok() {
             encode_bitmap_as_png(bmp, info.width, info.height)
         } else {
             Err(WindowsCuError::ScreenshotFailed {
-                reason: "BitBlt returned 0".into(),
+                reason: "BitBlt failed".into(),
             })
         };
         let _ = DeleteObject(bmp);

@@ -343,7 +343,9 @@ pub fn active_window_title() -> WindowsCuResult<String> {
     use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW};
     unsafe {
         let hwnd = GetForegroundWindow();
-        if hwnd.0 == 0 {
+        // windows 0.58: `HWND` wraps `*mut c_void`; compare the pointer, not
+        // an integer. A null handle means there is no foreground window.
+        if hwnd.0.is_null() {
             return Err(WindowsCuError::Protocol("no foreground window".into()));
         }
         let mut buf = [0u16; 512];

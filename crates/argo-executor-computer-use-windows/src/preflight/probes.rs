@@ -52,8 +52,11 @@ pub(super) fn probe_secure_desktop() -> PreflightStatus {
         let session_id = WTSGetActiveConsoleSessionId();
         let mut buffer = windows::core::PWSTR::null();
         let mut bytes_returned: u32 = 0;
+        // windows 0.58: the `hserver` param is `impl Param<HANDLE>`, and
+        // `WTS_CURRENT_SERVER_HANDLE` is itself a `HANDLE` — pass it directly,
+        // not wrapped in `Some(...)` (which is not a `Param<HANDLE>`).
         let result = WTSQuerySessionInformationW(
-            Some(WTS_CURRENT_SERVER_HANDLE),
+            WTS_CURRENT_SERVER_HANDLE,
             session_id,
             WTSConnectState,
             &mut buffer,

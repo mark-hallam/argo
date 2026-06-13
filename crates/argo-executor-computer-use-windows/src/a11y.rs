@@ -86,12 +86,17 @@ fn find_element_by_role_impl(role: &str, name: &str) -> WindowsCuResult<A11yElem
             windows::Win32::UI::Accessibility::UIA_NamePropertyId,
             &BSTR::from(name).into(),
         )?;
-        let element = root.FindFirst(TreeScope_Subtree, &condition)?;
-        if element.is_invalid() {
-            return Err(WindowsCuError::A11yLookupFailed {
+        // `FindFirst` returns `Err` when nothing matches: the windows-rs
+        // binding runs `Type::from_abi` on the out-pointer, which converts a
+        // NULL element (UIAutomation's "not found" S_OK+null) into an error.
+        // So map any lookup failure to the typed A11yLookupFailed (the
+        // original `element.is_invalid()` check assumed an `Ok(null)` that
+        // windows-rs never yields — COM interfaces here are non-null).
+        let element = root
+            .FindFirst(TreeScope_Subtree, &condition)
+            .map_err(|_| WindowsCuError::A11yLookupFailed {
                 selector: format!("role={role} name={name}"),
-            });
-        }
+            })?;
         let rect = element.CurrentBoundingRectangle()?;
         let auto_id = element.CurrentAutomationId().unwrap_or_default();
         Ok(A11yElement {
@@ -123,12 +128,15 @@ fn find_element_by_automation_id_impl(automation_id: &str) -> WindowsCuResult<A1
             windows::Win32::UI::Accessibility::UIA_AutomationIdPropertyId,
             &BSTR::from(automation_id).into(),
         )?;
-        let element = root.FindFirst(TreeScope_Subtree, &condition)?;
-        if element.is_invalid() {
-            return Err(WindowsCuError::A11yLookupFailed {
+        // See the role/name lookup above: `FindFirst` surfaces "not found"
+        // as an `Err` (NULL out-pointer → `from_abi` error), so map any
+        // failure to the typed A11yLookupFailed rather than null-checking a
+        // (non-null) COM interface.
+        let element = root
+            .FindFirst(TreeScope_Subtree, &condition)
+            .map_err(|_| WindowsCuError::A11yLookupFailed {
                 selector: format!("automation_id={automation_id}"),
-            });
-        }
+            })?;
         let rect = element.CurrentBoundingRectangle()?;
         let name = element.CurrentName().unwrap_or_default();
         Ok(A11yElement {
