@@ -6,116 +6,144 @@ cargo/rustc 1.96.0. Deliverable is the categorized inventory, not green.
 
 ## How it was run
 
+Run against **current `main`** (after the Windows P1 wave merged: kryptering
+#2905, CU-executor first-build #2906, line-ending/path-sep audit #2908):
+
 ```
-cargo test --workspace --exclude argo-cli --exclude argo-executor-computer-use-windows --no-fail-fast
+# Full workspace first — argo-cli now COMPILES (kryptering gated off by #2905),
+# but its TEST target has 1 compile error (see below), which aborts the run:
+cargo test --workspace --no-fail-fast
+#  → error: could not compile `argo-cli` (bin "argo" test)
+
+# So the runtime inventory is the workspace minus argo-cli's tests:
+cargo test --workspace --exclude argo-cli --no-fail-fast
 ```
 
-**Two crates are excluded** because their compile fixes are in review, not yet
-on `main` (so their test targets can't build on this branch):
+`cargo test` does **not** accept `--keep-going`, and plain `--no-fail-fast`
+aborts the whole run if any *test target* fails to compile — hence the two-step
+approach. `argo-executor-computer-use-windows` is now **included** (compiles +
+its tests pass) since #2906 merged.
 
-- `argo-cli` — blocked by the kryptering/PKCS#11 Windows compile error
-  (`win-kryptering-cfg-gate-hsm-signing-backend`, PR #2905, in review).
-- `argo-executor-computer-use-windows` — fixed in `win-computer-use-executor-first-build`
-  (PR #2906, in review).
-
-> `cargo test` does **not** accept `--keep-going` (build-only flag), and plain
-> `--no-fail-fast` aborts the whole run if *any* test target fails to compile.
-> Re-run **both excluded crates' test suites** once #2905 + #2906 merge to close
-> the gap. Everything else compiled — there were **zero test-target compile
-> failures** across the rest of the workspace.
-
-## Result
+## Result (definitive, current main, excl. argo-cli tests)
 
 | | Count |
 |---|---|
-| Test-result groups | **401** (unit + integration + doctest, ~90 crates) |
-| Groups passing | **396** |
-| Groups failing | **5** |
-| Individual failing tests | **17** (16 tests + 1 doctest) |
+| Test-result groups (unit + integration + doctest) | **403** |
+| Passing | **397** |
+| Failing groups | **6** |
+| Individual failing tests | **9** (8 tests + 1 doctest) |
+| Test-target compile failures | **1** (argo-cli, below) |
 
-The workspace is overwhelmingly Windows-test-clean. All 17 failures cluster in
-4 crates and fall into 3 root causes.
+#2908 already fixed the 9 argo-tool path-separator test assertions from the
+earlier draft of this inventory — they now pass. The remaining failures are a
+tighter, higher-signal set: most need a **production** look, not a test tweak.
 
 ---
 
-## Failures by crate (categorized)
+## Failures (categorized)
 
-Categories: **(a)** real cross-platform bug · **(b)** test assumes unix
-(path-sep / line-ending / /tmp / perms / shell) · **(c)** windows-env flake.
+Categories: **(a)** real cross-platform bug · **(b)** test assumes unix/non-Windows
+· **(c)** windows-env flake.
 
-### argo-tool — 11 failures
+### argo-capability — `tests::workspace_defaults_scope_user_filesystem_caps` (lib_tests.rs:90)
 
-| Test | Cat | Detail | Owning brief |
-|---|---|---|---|
-| `path_guard::tests::resolve_relative_joins_onto_root` | (b) | `"\tmp\w\a.txt"` vs `"/tmp/w/a.txt"` — `resolve_against_root` returns OS-native seps (correct); test literal is unix | `win-line-ending-and-path-sep-test-audit` |
-| `path_guard::tests::resolve_absolute_passes_through_unchanged` | (b) | `"\etc\passwd"` vs `"/etc/passwd"` — **also** `"/etc/passwd"` isn't absolute on Windows, so it doesn't pass through; test needs a platform-abs path or `#[cfg(unix)]` | `win-line-ending-and-path-sep-test-audit` |
-| `path_guard::tests::resolve_parent_climb_lands_outside_root` | (b) | `"\tmp\escape"` vs `"/tmp/escape"` | `win-line-ending-and-path-sep-test-audit` |
-| `path_guard::tests::resolve_curdir_and_nested_climb_normalized` | (b) | `"\tmp\w\a.txt"` vs `"/tmp/w/a.txt"` | `win-line-ending-and-path-sep-test-audit` |
-| `tools::file_read::tests::in_ctx_absolute_path_unchanged` | (b) | `"\etc\passwd"` vs `"/etc/passwd"` | `win-line-ending-and-path-sep-test-audit` |
-| `tools::file_read::tests::in_ctx_resolves_relative_against_root` | (b) | `"\tmp\w\a.txt"` vs `"/tmp/w/a.txt"` | `win-line-ending-and-path-sep-test-audit` |
-| `tools::file_write::tests::in_ctx_absolute_path_unchanged` | (b) | `"\etc\evil"` vs `"/etc/evil"` | `win-line-ending-and-path-sep-test-audit` |
-| `tools::file_write::tests::in_ctx_resolves_relative_against_root` | (b) | `"\tmp\w\out.txt"` vs `"/tmp/w/out.txt"` | `win-line-ending-and-path-sep-test-audit` |
-| `tools::file_patch::tests::in_ctx_resolves_relative_against_root` | (b) | `"\tmp\w\a.txt"` vs `"/tmp/w/a.txt"` | `win-line-ending-and-path-sep-test-audit` |
-| `process_registry::tests::tail_returns_recent_stdout` | (b) | spawns bash syntax `"for i in 1 2 3; do echo line-$i; done; sleep 0.2"` — Windows shell can't run it; stdout lacks `line-1` | **NEW** `win-process-registry-spawn-portability` |
-| `process_registry::tests::reap_finished_drops_exited_entries` | (b) | spawns `"true"` (unix command, absent on Windows) → never reaped | **NEW** `win-process-registry-spawn-portability` |
+- **Cat (a) — production, security-adjacent.** `left: ["/tmp/ws\**", …]` vs
+  `right: ["/tmp/ws/**", …]`. The default filesystem-capability glob is built
+  with the **OS-native separator** (`\` on Windows). **#2908 (test-audit) did NOT
+  fix this** — because it isn't a test literal, it's the production glob.
+- **Why it matters:** capability globs are matched with `globset`, which matches
+  on `/`. A glob containing `\` will **silently fail to match real paths** on
+  Windows → a teammate could be wrongly **denied or granted** filesystem access.
+- **Fix:** normalize capability path-globs to `/` in production (the glob is a
+  matching pattern, not an OS path). **NEW brief: `win-capability-glob-normalize`.**
 
-> **process_registry caveat:** verify whether `ProcessRegistry::spawn` hardcodes
-> a unix shell (`sh -c`) in *production* — if so the failures are partly **(a)**
-> (the spawn primitive itself isn't portable), not just unix-y test commands. The
-> NEW brief should check the spawn shell selection before fixing the tests.
+### argo-identity — fs_root path cluster (3 tests + 1 doctest)
 
-### argo-identity — 4 failures (fs_root path cluster + a migration count)
+| Test | Cat | Detail |
+|---|---|---|
+| `store_hire_fs_root::tests::captured_access_folder_persists_to_fs_root_column` (tests:291) | (a) | actual `…\SkycotDemo/Inbox` vs expected `…\SkycotDemo\Inbox` — **mixed separators**: fs_root persistence joins with a literal `/` |
+| `store_hire_fs_root::tests::explicit_under_home_draft_fs_root_persists` (tests:310) | (a) | actual `…\SkycotTeammates\ava` vs expected `…\Projects\acme` — resolver picks a different base on Windows |
+| `store_hire_fs_root.rs` doctest `resolved_fs_root_from_env` (line 259 → panic at :25) | (a) | `resolved_fs_root_from_env` returns `None` where the doctest expects `Some("C:\Users\operator\Projects\acme")` — env→fs_root resolution differs on Windows |
 
-| Test | Cat | Detail | Owning brief |
-|---|---|---|---|
-| `store_hire_fs_root::tests::captured_access_folder_persists_to_fs_root_column` | (a)/(b) | actual `...\SkycotDemo/Inbox` vs expected `...\SkycotDemo\Inbox` — **mixed separators**: fs_root persistence joins with a literal `/` somewhere; likely a real path-join portability issue, not just a test literal | **NEW** `win-identity-fs-root-path-portability` |
-| `store_hire_fs_root::tests::explicit_under_home_draft_fs_root_persists` | (a)/(b) | actual `...\SkycotTeammates\ava` vs expected `...\Projects\acme` — wholly different path; the resolver picks a different base on Windows (home-relative vs configured). Needs investigation | **NEW** `win-identity-fs-root-path-portability` |
-| `store_hire_fs_root.rs` doctest `resolved_fs_root_from_env` (line 259) | (a)/(b) | `resolved_fs_root_from_env` returns `None` where the doctest expects `Some("C:\\Users\\operator\\Projects\\acme")` — env-var → fs_root resolution differs on Windows | **NEW** `win-identity-fs-root-path-portability` |
-| `store_trust_grade::tests::migration_v46_applies_to_v45_db` | (a)/(b) | column/row count `94` vs `92` (2 extra). **Suspect CRLF**: embedded migration SQL checked out with `\r\n` on Windows can change parsing/counting. Could also be a real migration bug | investigate: `win-line-ending-and-path-sep-test-audit` if CRLF-caused, else **NEW** migration brief |
+- **Cat (a) — production path logic.** These are not test literals; the fs_root
+  join/normalization + env resolution behaves differently on Windows.
+- **Fix:** normalize fs_root path construction (join with `PathBuf`, not literal
+  `/`; resolve env consistently). **NEW brief: `win-identity-fs-root-path-portability`.**
 
-### argo-store — 1 failure
+### argo-memory — `shared_team::tests::author_stamp_survives_round_trip` (shared_team.rs:209)
 
-| Test | Cat | Detail | Owning brief |
-|---|---|---|---|
-| `archive_cascade_deletes_only_matching_tenant_child_rows` (`tests/worker_archive_cascade_tenant_pin.rs:19`) | (a)/(c) | after cascade delete, `1` row remains vs expected `0`. SQLite cascade shouldn't differ by OS → either a test-isolation/ordering flake **(c)** or a real cascade/`PRAGMA foreign_keys` setup difference **(a)**. Re-run in isolation to disambiguate | **NEW** `win-store-archive-cascade-investigate` |
+- **Cat (a)/(c) — timestamp precision exposed by the Windows clock.**
+  `left (round-tripped): …784542Z` vs `right (original): …784542300Z`. The
+  original timestamp has **nanosecond** precision (`…300` ns); the round-trip
+  serialization truncates to **microseconds**, so the round-trip isn't lossless.
+- **Why Windows surfaces it:** the Windows high-resolution clock produced a
+  sub-microsecond value (`…300` ns); on macOS/Linux the value is often
+  microsecond-aligned (`…000`), hiding the truncation.
+- **Fix:** either serialize with nanosecond precision, or normalize/truncate the
+  timestamp to the serialized precision *before* the equality check. **NEW brief:
+  `win-shared-team-timestamp-precision`** (also a latent unix bug, not Windows-only).
 
-### argo-capability — 1 failure
+### argo-identity — `store_trust_grade::tests::migration_v46_applies_to_v45_db` (store_trust_grade.rs:198)
 
-| Test | Cat | Detail | Owning brief |
-|---|---|---|---|
-| `tests::workspace_defaults_scope_user_filesystem_caps` (`lib_tests.rs:90`) | (b) | `["/tmp/ws\\**", …]` vs `["/tmp/ws/**", …]` — default fs capability glob built with OS-native sep | `win-line-ending-and-path-sep-test-audit` |
+- **Cat (a)/(b) — count `94` vs `92` (2 extra).** A schema/migration count.
+  **Suspect CRLF**: embedded migration SQL checked out with `\r\n` on Windows can
+  change parsing/counting. (Note #2908 was a *test* path-sep audit and would not
+  have touched embedded-SQL line endings.) Could also be a real migration bug.
+- **Fix:** check whether migration SQL files have a `.gitattributes` LF pin; if
+  CRLF is the cause, pin them. **Owning: investigate under a NEW migration/line-
+  ending brief.**
 
-> **capability-glob caveat (potential (a)):** if the default fs-cap glob is built
-> with **backslashes** on Windows, glob matching (globset uses `/`) may silently
-> fail to match real paths at runtime — i.e. a Windows user could be denied (or
-> wrongly granted) filesystem access. The fix may need to **normalize cap globs
-> to `/`** in production, not just adjust the test. Flag for the owning brief to
-> decide test-only vs production-fix.
+### argo-store — `archive_cascade_deletes_only_matching_tenant_child_rows` (tests/worker_archive_cascade_tenant_pin.rs:19)
+
+- **Cat (a)/(c) — `1` row remains vs `0` expected** after a cascade delete.
+  SQLite cascade shouldn't differ by OS → either a test-isolation/ordering flake
+  **(c)** or a real `PRAGMA foreign_keys`/cascade setup difference **(a)**.
+- **Fix:** re-run in isolation to disambiguate. **NEW brief:
+  `win-store-archive-cascade-investigate`.**
+
+### argo-tool — `process_registry::tests::{tail_returns_recent_stdout, reap_finished_drops_exited_entries}`
+
+- **Cat (b)/(a) — tests spawn unix shell.** `"for i in 1 2 3; do echo line-$i; done; sleep 0.2"` and `"true"` — Windows' shell can't run them.
+- **Caveat:** confirm whether `ProcessRegistry::spawn` hardcodes `sh -c` in
+  *production* — if so it's **(a)** (the spawn primitive isn't portable). **NEW
+  brief: `win-process-registry-spawn-portability`** (check production first).
+
+### argo-cli — TEST-TARGET COMPILE ERROR (separate from the runtime sweep)
+
+- `worker_actions_executor_cu_macos_tests.rs:71` calls `.dispatch()` on
+  `ComputerUseMacOSExecutor`, but that `WorkerActionExecutor::dispatch` impl is
+  macOS-gated, so the test doesn't compile on Windows (`E0599`). The argo-cli
+  **bin** itself compiles now (kryptering gated off by #2905) — only this one
+  macOS-only test target breaks, which blocks `cargo test -p argo-cli`.
+- **Cat (b).** **Fix:** `#[cfg(target_os = "macos")]`-gate the macOS-executor test
+  module. **Owning: `win-portability-cli-handler-unix-perms`** (argo-cli Windows
+  test cleanup, currently claimed) or a small dedicated test-cfg brief.
 
 ---
 
 ## Summary → recommended follow-up briefs
 
-| Owning brief | Failures | Status |
+| Owning brief | Failures | Notes |
 |---|---|---|
-| `win-line-ending-and-path-sep-test-audit` (exists, row in ledger) | 10 (argo-tool path-sep ×9, argo-capability glob ×1) + possibly migration_v46 | TODO — head-start notes already in ledger |
-| **NEW** `win-process-registry-spawn-portability` | 2 (argo-tool process_registry) | recommend authoring |
-| **NEW** `win-identity-fs-root-path-portability` | 4 (argo-identity fs_root cluster) | recommend authoring — likely real path-join bug |
-| **NEW** `win-store-archive-cascade-investigate` | 1 (argo-store cascade) | recommend authoring — flake vs real |
+| **NEW** `win-capability-glob-normalize` | 1 | **(a) production** — globset matches `/`; real RBAC-match risk on Windows |
+| **NEW** `win-identity-fs-root-path-portability` | 4 | **(a) production** — fs_root join/env resolution |
+| **NEW** `win-shared-team-timestamp-precision` | 1 | **(a)** — lossy timestamp round-trip (latent unix bug too) |
+| **NEW** `win-store-archive-cascade-investigate` | 1 | (a)/(c) — flake vs real cascade |
+| **NEW** `win-process-registry-spawn-portability` | 2 | (b)/(a) — check production spawn shell |
+| migration_v46 (94 vs 92) | 1 | investigate CRLF in embedded SQL (`.gitattributes` LF pin) |
+| `win-portability-cli-handler-unix-perms` (claimed) | argo-cli test compile | cfg-gate the macOS-executor test |
 
-Per the brief, this is **inventory only — no mass-fix**. The path-sep cluster is
-mechanical (test literals); the argo-identity fs_root + argo-capability glob +
-argo-store cascade items each need a look at *production* code, not just tests.
+Per the brief: **inventory only — no mass-fix.** Note the shift from the first
+draft: the path-sep test cluster is **resolved by #2908**; what remains is mostly
+**(a) production** issues (capability glob, fs_root paths, timestamp precision)
+that a test-literal audit would not catch.
 
 ## Honest gaps (NO THEATER)
 
-1. **2 crates not covered** — `argo-cli` (kryptering #2905) and
-   `argo-executor-computer-use-windows` (#2906) were excluded because they don't
-   compile on this branch yet. Their test suites are **uninventoried**; re-run
-   after both PRs merge.
-2. **Single run, no flake confirmation** — the (c)-suspect failures
-   (argo-store cascade) were seen once; their owning briefs should re-run in
-   isolation before deciding flake vs real.
-3. **Category (a) vs (b) is provisional** for the argo-identity / argo-capability
-   / migration items — they're flagged where production code (not just a test
-   literal) may be the culprit; the owning brief confirms.
+1. **argo-cli runtime tests uninventoried** — its bin compiles, but the macOS-test
+   compile error blocks `cargo test -p argo-cli`. Once that test is cfg-gated,
+   re-run `cargo test -p argo-cli` for the real argo-cli runtime inventory.
+2. **Single run** — the (c)-suspects (argo-store cascade) seen once; owning briefs
+   should re-run in isolation before deciding flake vs real.
+3. **(a) vs (c)** for the timestamp + cascade items is provisional; the values
+   point at real precision/behavior issues but the owning brief confirms.
