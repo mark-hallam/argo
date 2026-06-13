@@ -30,7 +30,7 @@ DIFFERENT ledgers, so they never race on the same brief:
 | Brief | Owner | Status | PR/branch | Notes |
 |---|---|---|---|---|
 | win-build-smoke-and-error-inventory | windows-fleet | IN_REVIEW LATITUDE5440 2026-06-13T08:54Z | #2900 (win-build-smoke-and-error-inventory) | ****P1 FOUNDATION — discovery.**** Dep: none. Brief: streams/win-build-smoke-and-error-inventory.md. Deliverable: docs/skycot/windows/BUILD-ERRORS.md — 2/95 crates fail (kryptering→argo-cli NEW; cu-windows×10); unix-perm briefs confirmed STALE. |
-| win-portability-cred-credentials-unix-perms | windows-fleet | CLAIMED LATITUDE5440 2026-06-13T08:56Z | — | ****P1 PORTABILITY (won't-compile).**** Dep: none. Brief: streams/win-portability-cred-credentials-unix-perms.md. |
+| win-portability-cred-credentials-unix-perms | windows-fleet | IN_REVIEW LATITUDE5440 2026-06-13T09:12Z | #2901 (win-portability-cred-credentials-unix-perms) | ****P1 PORTABILITY.**** Dep: none. Brief: streams/win-portability-cred-credentials-unix-perms.md. NOTE: "won't-compile" premise STALE — code already cfg-gated; argo-config+argo-credentials compile + 176 tests pass cold on Windows. PR adds the one missing piece: one-shot warn on the non-unix perm-hardening gap (NOT a silent downgrade). |
 | win-portability-cli-handler-unix-perms | windows-fleet | TODO | — | ****P1 PORTABILITY (won't-compile).**** Dep: none. Brief: streams/win-portability-cli-handler-unix-perms.md. |
 | win-portability-runtime-tool-unix | windows-fleet | TODO | — | ****P1 PORTABILITY (won't-compile).**** Dep: none. Brief: streams/win-portability-runtime-tool-unix.md. |
 | win-portability-tmp-and-home-paths | windows-fleet | TODO | — | ****P1 PORTABILITY.**** Dep: none. Brief: streams/win-portability-tmp-and-home-paths.md. |
