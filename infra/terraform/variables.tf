@@ -110,3 +110,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "enable_offsite_backups" {
+  description = "Provision the offsite-backup module (versioned, lifecycle'd, public-access-blocked, TLS-only S3 bucket + scoped IAM + a daily EventBridge-scheduled ECS RunTask that runs scripts/backup-cron.sh). Default true: a fresh prod apply is durable-by-default (independent offsite copy, not EFS-only). Set false for a throwaway/dev apply that does not need offsite backups. See modules/backup/README.md for the image prerequisite the SCHEDULED run depends on."
+  type        = bool
+  default     = true
+}

@@ -111,6 +111,25 @@ module "ecs" {
   email_outbound      = var.email_outbound
 }
 
+module "backup" {
+  source = "./modules/backup"
+  count  = var.enable_offsite_backups ? 1 : 0
+
+  name_prefix         = local.name_prefix
+  region              = var.region
+  image_repo_url      = module.ecr.repository_url
+  image_tag           = var.image_tag
+  private_subnets     = module.network.private_subnet_ids
+  service_sg_id       = module.alb.service_sg_id
+  ecs_cluster_name    = module.ecs.cluster_name
+  execution_role_arn  = module.iam.execution_role_arn
+  efs_file_system_id  = module.efs.file_system_id
+  efs_access_point_id = module.efs.access_point_id
+  secret_arns         = module.secrets.secret_arns
+  kms_key_arn         = module.kms.key_arn
+  log_retention_days  = var.log_retention_days
+}
+
 module "observability" {
   source = "./modules/observability"
 

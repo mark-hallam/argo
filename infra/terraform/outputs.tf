@@ -52,3 +52,13 @@ output "alerts_sns_topic_arn" {
   description = "SNS topic the CloudWatch alarms publish to. Subscribe Slack/PagerDuty/email."
   value       = module.observability.sns_topic_arn
 }
+
+output "backup_bucket_name" {
+  description = "Name of the offsite backup S3 bucket. Pass as S3_BUCKET to scripts/backup-cron.sh + scripts/restore-drill.sh. Empty when enable_offsite_backups = false."
+  value       = var.enable_offsite_backups ? module.backup[0].backup_bucket_name : ""
+}
+
+output "backup_schedule_arn" {
+  description = "ARN of the EventBridge Scheduler schedule running the daily backup RunTask. Empty when enable_offsite_backups = false."
+  value       = var.enable_offsite_backups ? module.backup[0].backup_schedule_arn : ""
+}

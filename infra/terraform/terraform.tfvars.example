@@ -28,6 +28,11 @@ domain_name = "api.skycot.com"
 # Leave unset to create the topic without a subscription (wire Slack/PagerDuty later).
 # alert_email = "ops@skycot.com"
 
+# Offsite, versioned, public-access-blocked S3 backups + a daily scheduled
+# RunTask are provisioned by default (durable-by-default). Set false ONLY for a
+# throwaway/dev apply that does not need an independent offsite copy. See
+# modules/backup/README.md for the image prerequisite the SCHEDULED run needs.
+# enable_offsite_backups = false
 # FRONT-DOOR (sign-in email) — set these or the very first user touch breaks.
 # Left commented = the default-empty (log-only) path, which plans cleanly for a
 # bring-up smoke: signup HONESTLY returns status="not_configured". Uncomment +

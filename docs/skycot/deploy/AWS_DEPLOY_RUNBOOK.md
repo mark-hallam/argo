@@ -735,12 +735,31 @@ signup → hire → approve journey per [`docs/skycot/deploy/README.md`](README.
 **Truth-bounded note:** a 503 at the ALB means no healthy targets are registered
 yet — re-check the ECS rollout (step 6) and CloudWatch Logs `/aws/ecs/skycot-prod-argo`.
 
-## 13b. Offsite SQLite backups + restore drill (operator runs)
+## 13b. Offsite SQLite backups + restore drill (now provisioned by the root apply)
 
 EFS gives you filesystem-level durability, but a logical corruption (a bad
 migration, an accidental wipe) replicates to every EFS snapshot. The
 application-level backup below is the independent, point-in-time, *verified*
 copy — and the drill proves it actually restores.
+
+**Now durable-by-default.** The Terraform `backup` module
+(`infra/terraform/modules/backup`, wired in the root behind
+`enable_offsite_backups`, default **`true`**) provisions on a fresh apply: a
+versioned, lifecycle'd (GLACIER 7d / expire 35d), **public-access-blocked**,
+TLS-only S3 bucket `${name_prefix}-backups`; a least-privilege task role scoped
+to that bucket ARN only; and a daily EventBridge-scheduled ECS `RunTask` that
+runs `scripts/backup-cron.sh`. You no longer hand-wire an unaudited bucket. The
+bucket name + schedule ARN are exposed as `backup_bucket_name` /
+`backup_schedule_arn` outputs.
+
+> **⚠️ Scheduled-run image prerequisite.** The scheduled task runs
+> `bash scripts/backup-cron.sh` and uploads with the AWS CLI. The current runtime
+> image (root `Dockerfile`) does not yet bundle `scripts/` or install the AWS CLI
+> (its `ENTRYPOINT` is the `argo` binary). Until a follow-up bakes those into the
+> image, the **scheduled** run fails fast — but the bucket + lifecycle +
+> public-access-block + scoped IAM are live, so run the script from the
+> compose/systemd path below in the meantime. See
+> `infra/terraform/modules/backup/README.md`.
 
 **The `.argo` convention.** `argo backup create` snapshots `<cwd>/.argo`, and
 the gateway stores its db at `$ARGO_HOME/sessions.db`. They align only when
@@ -749,9 +768,9 @@ mounting at e.g. `/data` and running the gateway with `ARGO_HOME=/data/.argo`.
 The bundled scripts fail loud (never ship a silent empty backup) if the db
 isn't where they expect.
 
-**Scheduled backup.** Run `scripts/backup-cron.sh` daily — either as an
-EventBridge-scheduled ECS `RunTask` mounting the same EFS access point, or via
-the compose/systemd units in `deploy/` on any host that mounts the EFS volume:
+**Manual / non-AWS alternative.** The scheduled RunTask above is the AWS default.
+On any host that mounts the EFS volume you can also run `scripts/backup-cron.sh`
+daily via the compose/systemd units in `deploy/`:
 
 ```sh
 # Env the task/timer needs:
@@ -849,11 +868,15 @@ terraform destroy
 - **A cumulative dollar LLM-spend ceiling.** WAF only does request-rate caps; the
   $-cap is a separate app-layer follow-up.
 - **Secret-rotation automation** (Lambda rotation). Post-launch follow-up.
-- **Backups beyond the EFS default policy.** Application-level, offsite,
-  verified SQLite backups + a restore drill now ship (step 13b:
-  `scripts/backup-cron.sh` + `scripts/restore-drill.sh`); the *Terraform*
-  wiring of the scheduled task / S3 bucket lifecycle is still operator-run, not
-  in this module.
+- **Backups beyond the EFS default policy** — now COVERED. Application-level,
+  offsite, verified SQLite backups + a restore drill ship as scripts
+  (`scripts/backup-cron.sh` + `scripts/restore-drill.sh`), AND the Terraform
+  wiring of the S3 bucket (versioned, lifecycle'd, public-access-blocked,
+  TLS-only) + scoped IAM + the daily scheduled `RunTask` is now in the root apply
+  via `infra/terraform/modules/backup` (gated `enable_offsite_backups`, default
+  `true`). One remaining follow-up before the *scheduled* run is end-to-end live:
+  baking `scripts/` + the AWS CLI into the runtime image (see step 13b's image
+  prerequisite). The bucket + IAM are live-on-apply today.
 - **Multi-instance / horizontal scale.** Single-task, single-writer SQLite on EFS
   is the v1.0 architecture (do not raise `desired_count` / `maximum_percent`
   without redesigning the store layer).
