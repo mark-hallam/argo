@@ -173,3 +173,51 @@ this and "epic".
 - Fresh hire → run → held tool appears in /approvals AND resolves from there
 - /billing shows Ivy by name with her spend + real meter row
 
+
+## Re-test 2026-06-13 (post-fix)
+
+Re-tested against gateway build `0e401f2` (healthy on :7400, demo mode on) +
+SPA on :3000, in Chrome via browser automation. F1–F9 verified PASS by the
+prior agent this morning; F10/F11/F12 re-run live this session; F13 carried
+as PARTIAL.
+
+| # | Finding | Verdict | Evidence (this session unless noted) |
+|---|---------|---------|--------------------------------------|
+| F1 | /landing dead demo play button | PASS | Verified by prior agent this morning |
+| F2 | Waitlist failure UX | PASS | Verified by prior agent this morning |
+| F3 | /customers fictional testimonials | PASS | Verified by prior agent this morning |
+| F4 | Logged-out / lands in app shell | PASS | Verified by prior agent this morning |
+| F5 | Inconsistent route gating | PASS | Verified by prior agent this morning |
+| F6 | "Watch Portia" CTA → signin wall | PASS | Verified by prior agent this morning |
+| F7 | Changelog staleness | PASS | Verified by prior agent this morning |
+| F8 | /about receptionist mention | PASS | Verified by prior agent this morning |
+| F9 | Demo-mode CTA dead-end | PASS | Verified by prior agent this morning |
+| F10 | Probation holds → approvals inbox | PASS | Full journey re-walked: demo workspace → onboarding ("Shakedown Retest") → Genesis talk-it-through (overdue invoices / Rex / never threaten legal action) → Skip the rest & build → review checkbox → Confirm & hire → Run now. Toast: "Rex ran, but their tools are held by the probation window". /approvals inbox showed BOTH holds (P2 "wants to use memory" + "wants to use todo", "Held while on probation"); approved both from the inbox; pending 2→0, approval rate 100% (2 resolved); worker Activity tab shows `permission.demo_override_granted` × 2 Succeeded + `ran a manual turn` Succeeded. Hold shown AND resolved from the inbox. |
+| F11 | Billing attribution + meter | PASS | /billing Spend card: "$0.0369 — Real provider spend, attributed per teammate" with row "Rex $0.0369" (named worker, no "Unknown teammate"). Usage meter renders real numbers ("Actions this month 0 / 100 · Resets 01/07/2026"), no infinite "Loading usage…". |
+| F12 | /team header math | PARTIAL | Header "WORKING 0 / 0 working right now" IS consistent with the list (1 teammate, Rex, status Idle). But action counts contradict: header says "7 actions this week" while Rex's card says "19 actions taken today" — 19 today cannot fit inside 7 this week. Working-count fixed; action-count math still wrong. |
+| F13 | Avatar initials / role subtitle | PARTIAL | Avatar initials fixed ("RE" renders on worker page + team card). Genesis still stamps "Genesis Rex 019ebea4d72d1b81" as the role subtitle instead of a human role title (seen on worker header + team-card badge). |
+
+**Tally: 11/13 PASS, 2 PARTIAL (F12, F13), 0 FAIL. No regressions in F1–F9 scope.**
+
+### NEW findings (this session)
+
+- **N1 — /team action-count sources disagree.** Header rollup ("7 actions this
+  week") vs teammate card ("19 actions taken today") cannot both be true.
+  Likely two different counters (audit events vs billable actions). This is
+  the remaining F12 gap.
+- **N2 — Billing meter doesn't tick on probation-held runs.** "Actions this
+  month 0 / 100" stayed at 0 while Rex ran twice and took "19 actions today"
+  per /team, and real spend ($0.0369) accrued. If the meter only counts
+  approved/billable actions that's defensible, but 0 actions next to nonzero
+  spend reads as broken. Also two "Actions this month" rows render (plan
+  0/100 + metered 0/Unlimited) — confusing duplication.
+- **N3 — Post-approval re-run holds the same tools again.** After approving
+  both held tools, a second "Run now" re-held memory/todo with the same
+  probation toast ("your OK rides on the next run"). If the 24h probation by
+  design holds every action, the toast copy overpromises; if approval is
+  meant to clear those tools for subsequent runs, the clear isn't applied.
+  Either fix the copy or honour the grant.
+- **N4 — Genesis "talk it through" answer-preview cosmetic glitch.** The
+  carve-out answer ("Never threaten legal action") briefly rendered inside
+  the "When does this teammate run?" input in the captured panel before the
+  cadence answer overwrote it. Self-corrects; cosmetic only.
