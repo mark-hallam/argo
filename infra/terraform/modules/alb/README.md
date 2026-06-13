@@ -12,12 +12,14 @@ Provisions:
 - HTTP:80 listener that 301-redirects to HTTPS.
 - ALB security group and service security group (ingress on the container port only
   from the ALB SG).
-  - **`front_with_cloudflare = false` (default):** ALB ingress 80+443 from `0.0.0.0/0` + `::/0`.
-  - **`front_with_cloudflare = true`:** ALB ingress 80+443 from Cloudflare's published IP
-    ranges only (`cloudflare_ipv4_cidrs` / `cloudflare_ipv6_cidrs`). Blocks direct-to-origin
-    hits AND makes `X-Forwarded-For` trustworthy so the gateway's per-IP limiter
-    (`ARGO_TRUST_XFF`, set by the ecs module) keys on the real client IP. Flip this on after
-    `api.skycot.com` is proxied through Cloudflare (runbook §7a).
+  - **`front_with_cloudflare = true` (default, secure):** ALB ingress 80+443 from Cloudflare's
+    published IP ranges only (`cloudflare_ipv4_cidrs` / `cloudflare_ipv6_cidrs`). Blocks
+    direct-to-origin hits AND makes `X-Forwarded-For` trustworthy so the gateway's per-IP
+    limiter (`ARGO_TRUST_XFF`, set by the ecs module) keys on the real client IP.
+  - **`front_with_cloudflare = false`:** ALB ingress 80+443 from `0.0.0.0/0` + `::/0` — the
+    deliberate transient pre-DNS bring-up state ONLY. On a prod env this trips the
+    origin-lockdown precondition unless paired with `allow_open_origin_bringup = true` (set it
+    for the bring-up smoke window only, then revert before go-live — runbook §12).
 
 ## ACM validation
 
