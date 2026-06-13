@@ -273,6 +273,7 @@ crates/argo-demo-seed/src/seed_tests.rs	skip_pass_a_seeds_dressing_only
 crates/argo-demo-seed/src/seed_worker_overlays.rs	seed_retrain_records
 crates/argo-executor-computer-use-macos/tests/claim_5_live_macos_cu_smoke_test.rs	claim_5_live_macos_cu_notes_smoke
 crates/argo-executor-computer-use-macos/tests/permission_revoke_mid_run_test.rs	permission_revoke_mid_run_keeps_audit_chain_intact
+crates/argo-executor-computer-use-windows/tests/windows_smoke.rs	windows_cu_executor_smoke
 crates/argo-executor-computer-use/src/anthropic_parse.rs	parse_tool_use
 crates/argo-executor-computer-use/src/testing.rs	drive_loop
 crates/argo-executor-computer-use/tests/restart_smoke.rs	retry_with_context_recovers_after_two_anthropic_failures
