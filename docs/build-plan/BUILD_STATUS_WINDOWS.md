@@ -25,10 +25,19 @@ DIFFERENT ledgers, so they never race on the same brief:
 5. When this ledger drains, pull TODOs from the main `BUILD_STATUS.md`
    (any OS-agnostic backlog row) so the fleet never idles.
 
+## Update 2026-06-13 (post first Windows build, #2900)
+First real Windows build: only 2 of ~95 crates fail. (1) `kryptering` HSM dep
+→ NEW blocker brief `win-kryptering-cfg-gate-hsm-signing-backend` (top of queue).
+(2) the CU-executor (already covered). The `*-unix-perms` briefs were STALE
+(code already cfg-gated) — cred one shipped as an observable-gap warn (#2901),
+cli-handler + runtime-tool marked STALE. `tmp-and-home` stays (runtime, not
+compile). CU-executor first-build is the crown jewel once the binary links.
+
 ## Queue (priority order — first eligible TODO claimed first)
 
 | Brief | Owner | Status | PR/branch | Notes |
 |---|---|---|---|---|
+| win-kryptering-cfg-gate-hsm-signing-backend | windows-fleet | TODO | — | **P1 WINDOWS BLOCKER (from #2900 inventory) — the ONLY compile failure blocking the argo binary on Windows; kryptering/PKCS#11 CK_ULONG 32-bit. Feature-gate the HSM backend off on Windows, software-key fallback; unix HSM path unchanged. Brief: streams/win-kryptering-cfg-gate-hsm-signing-backend.md.** |
 | win-build-smoke-and-error-inventory | windows-fleet | IN_REVIEW LATITUDE5440 2026-06-13T08:54Z | #2900 (win-build-smoke-and-error-inventory) | ****P1 FOUNDATION — discovery.**** Dep: none. Brief: streams/win-build-smoke-and-error-inventory.md. Deliverable: docs/skycot/windows/BUILD-ERRORS.md — 2/95 crates fail (kryptering→argo-cli NEW; cu-windows×10); unix-perm briefs confirmed STALE. |
 | win-portability-cred-credentials-unix-perms | windows-fleet | IN_REVIEW LATITUDE5440 2026-06-13T09:12Z | #2901 (win-portability-cred-credentials-unix-perms) | ****P1 PORTABILITY.**** Dep: none. Brief: streams/win-portability-cred-credentials-unix-perms.md. NOTE: "won't-compile" premise STALE — code already cfg-gated; argo-config+argo-credentials compile + 176 tests pass cold on Windows. PR adds the one missing piece: one-shot warn on the non-unix perm-hardening gap (NOT a silent downgrade). |
 | win-portability-cli-handler-unix-perms | windows-fleet | BLOCKED LATITUDE5440 2026-06-13T09:14Z | — | ****P1 PORTABILITY.**** Dep: NEW kryptering/cryptoki Windows fix (argo-cli won't compile on Windows — see PR #2900 / docs/skycot/windows/BUILD-ERRORS.md). UNVERIFIABLE on Windows until that lands: cargo build -p argo-cli fails at the kryptering dep, so the brief's verify can't run. Handlers spot-checked already `#[cfg(unix)]`-gated, so premise likely also STALE — re-validate after the pkcs11 fix. Brief: streams/win-portability-cli-handler-unix-perms.md. |
