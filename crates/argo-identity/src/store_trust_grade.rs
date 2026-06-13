@@ -195,7 +195,14 @@ mod tests {
 
         let store = SessionStore::open(":memory:").await.unwrap();
         store.migrate().await.unwrap();
-        assert_eq!(store.schema_version().await.unwrap(), 92);
+        // Reference the canonical tip constant, not a literal — this assert
+        // went stale (expected 92, tip was 94) once this session's migrations
+        // landed, and the pre-merge gate only test-COMPILES argo-identity so
+        // it stayed red on main undetected. Never hardcode the tip again.
+        assert_eq!(
+            store.schema_version().await.unwrap(),
+            argo_store::EXPECTED_SCHEMA_VERSION
+        );
 
         store.migrate_down_to(45).await.unwrap();
         let cols: Vec<String> = sqlx::query("PRAGMA table_info(worker)")
@@ -215,7 +222,10 @@ mod tests {
         );
 
         store.migrate().await.unwrap();
-        assert_eq!(store.schema_version().await.unwrap(), 92);
+        assert_eq!(
+            store.schema_version().await.unwrap(),
+            argo_store::EXPECTED_SCHEMA_VERSION
+        );
 
         let identities = IdentityStore::new(&store);
         let tenant = TenantId::new();
