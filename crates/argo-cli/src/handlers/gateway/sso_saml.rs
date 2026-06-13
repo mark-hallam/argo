@@ -31,7 +31,17 @@ use tokio::net::TcpStream;
 mod sso_saml_acs;
 #[path = "sso_saml_replay_store.rs"]
 mod sso_saml_replay_store;
+// XML-DSig verification is built on bergshamra-dsig/keys, whose transitive
+// `kryptering` PKCS#11 backend does not compile on Windows. On Windows we
+// swap in a fail-closed stub that rejects every SAML response rather than
+// accept an unverified assertion; the unix verifier is unchanged. See
+// `sso_saml_xmlsig_windows.rs` and Cargo.toml.
+// Tracked: win-kryptering-cfg-gate-hsm-signing-backend.
+#[cfg(not(target_os = "windows"))]
 #[path = "sso_saml_xmlsig.rs"]
+mod sso_saml_xmlsig;
+#[cfg(target_os = "windows")]
+#[path = "sso_saml_xmlsig_windows.rs"]
 mod sso_saml_xmlsig;
 
 use sso_saml_acs::xml_escape;

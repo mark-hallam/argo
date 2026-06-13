@@ -102,6 +102,11 @@ fn extract_name_id_falls_back_to_sub_when_no_email_attribute() {
     assert_eq!(email, "carol@example.com");
 }
 
+// Exercises a real signed SAML response, which requires the bergshamra
+// XML-DSig signer — unavailable on Windows (see sso_saml_xmlsig_windows.rs).
+// The fail-closed rejection path is covered by
+// `build_acs_outcome_rejects_unsigned_response`, which runs on all targets.
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn build_acs_outcome_sets_session_cookie_on_success() {
     let cfg = cfg_with_tenant("default");

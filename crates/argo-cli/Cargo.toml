@@ -154,6 +154,19 @@ uuid = { workspace = true }
 # (mission-sso-saml-oidc-gateway). rand_core was previously dev-only;
 # the SSO handlers run in production and need cryptographic randomness.
 rand_core = { version = "0.6", features = ["getrandom"] }
+
+# SAML XML-DSig verification for the SSO ACS handler
+# (`handlers/gateway/sso_saml_xmlsig.rs`). Excluded on Windows: these
+# crates transitively pull in `bergshamra-crypto → kryptering`, whose
+# PKCS#11/HSM backend does not compile on Windows (`CK_ULONG` is 32-bit
+# there, so `cryptoki 0.7` exposes `From<u32>` not the `From<u64>` the
+# crate relies on — E0277 at kryptering pkcs11/mod.rs:147 + :610). argo-cli
+# is the only workspace crate pulling in this chain, so gating it here keeps
+# kryptering out of the entire Windows build. On Windows the ACS handler
+# swaps in a fail-closed stub (`sso_saml_xmlsig_windows.rs`) that rejects
+# every SAML response rather than accept an unverified one. The unix/HSM
+# path is unchanged. Tracked: win-kryptering-cfg-gate-hsm-signing-backend.
+[target.'cfg(not(target_os = "windows"))'.dependencies]
 bergshamra-dsig = "0.4.0"
 bergshamra-keys = "0.4.0"
 

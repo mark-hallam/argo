@@ -173,3 +173,86 @@ issues. Optional tidy-up; not in scope here.
    `win-portability-runtime-tool-unix` (build-confirmed already-gated).
 4. **Re-order `win-portability-cli-handler-unix-perms` to depend on** the new
    pkcs11 brief (can't be Windows-verified before it).
+
+---
+
+## Update 2026-06-13 — `kryptering` blocker RESOLVED (`win-kryptering-cfg-gate-hsm-signing-backend`)
+
+**Machine**: `Latitude5440` (Windows 11 Pro 10.0.26200, `x86_64-pc-windows-msvc`,
+rustc/cargo 1.96.0). **Verified against** `origin/main` @ `38a76dd4c`.
+
+### What shipped
+`bergshamra-dsig` / `bergshamra-keys` (the crates whose transitive
+`bergshamra-crypto → kryptering` chain wouldn't build) are now declared under
+`[target.'cfg(not(target_os = "windows"))'.dependencies]` in
+`crates/argo-cli/Cargo.toml`, so `kryptering` is **excluded from the Windows
+dependency graph entirely**. argo-cli is the only workspace crate that pulled it
+in, so this clears it from the whole Windows build. The SSO ACS handler's
+XML-DSig verifier (`sso_saml_xmlsig.rs`) is swapped on Windows for a
+**fail-closed** stub (`sso_saml_xmlsig_windows.rs`): it rejects every SAML
+response with `VerificationBackendUnavailable` rather than accept an unverified
+assertion (an unverified-SAML accept would be an auth bypass). The unix / HSM
+path is unchanged.
+
+### Verified on real Windows (NO THEATER)
+| Check | Before | After |
+|---|---|---|
+| `cargo tree -p argo-cli -i kryptering --target x86_64-pc-windows-msvc` | chain present | **"nothing to print"** — kryptering gone from Windows graph |
+| `cargo tree -p argo-cli -i kryptering --target x86_64-unknown-linux-gnu` | chain present | **chain still present** (`kryptering → bergshamra-crypto/dsig/keys → argo-cli`) — unix path unchanged |
+| `cargo build -p argo-cli` | `error: could not compile kryptering` (E0277 ×2) | **no kryptering error** — build now reaches the *next* blocker |
+
+### Correction to this doc's premise: argo-cli has **two** Windows blockers, not one
+The original inventory (and the queued brief) assumed `kryptering` was the *only*
+thing masking argo-cli. It is not. argo-cli also has a **non-optional Windows path
+dependency** on `argo-executor-computer-use-windows`
+(`[target.'cfg(target_os = "windows")'.dependencies]`), which still fails with the
+**same 10 errors in Crate 2 above**. So after the kryptering fix,
+`cargo build -p argo-cli` (and `cargo build --workspace`) **still fails — now at
+`argo-executor-computer-use-windows`, owned by `win-computer-use-executor-first-build`.**
+The `argo` binary cannot link on Windows until *that* brief also lands. No new
+errors were introduced; the failure simply moved one crate down the chain.
+
+### argo-cli's own source: **verified clean** (Crate-1 "honest gap" #1 now closed)
+To get the previously-masked signal on argo-cli's *own* code, this crate was
+**temporarily** local-stubbed (a throwaway `lib.rs` exposing only
+`WindowsCuConfig`/`WindowsCuError`/`WindowsCuExecutor`; `git restore`d before
+commit — **not** in the PR). With both blockers out of the way, `cargo build -p
+argo-cli` **`Finished` (exit 0)** — `argo-cli (bin "argo")` compiled with **0
+errors, 6 warnings**. So **argo-cli's handlers have no Windows compile errors**:
+they were already `#[cfg(unix)]`-gated, confirming the STALE-FIXED suspicion for
+`win-portability-cli-handler-unix-perms`. The 6 warnings are minor and
+non-blocking (all Windows-only `#[cfg]` artifacts):
+
+| # | Warning | Location |
+|---|---|---|
+| 1 | unused import `WindowsCuConfig` (named in `dispatch_on_platform`'s `use` but only used via `build_config`'s own `use`) | `handlers/worker_actions_executor_cu_windows.rs:90` |
+| 2 | unused variable `pid` | `handlers/self_update_install.rs:169` |
+| 3 | dead_code: fn `map_macos_outcome` never used on Windows | `handlers/worker_actions_executor_cu_macos.rs:213` |
+| 4 | dead_code: fn `bundle_path` never used on Windows | `handlers/worker_actions_executor_cu_macos.rs:240` |
+| 5 | dead_code: fn `build_bundle` never used on Windows | `handlers/worker_actions_executor_cu_macos.rs:248` |
+| 6 | dead_code: fn `build_system_prompt` never used on Windows | `handlers/worker_actions_executor_cu_macos.rs:291` |
+
+> Warnings #3–6 are the macOS CU handler's helpers, dead on a Windows build
+> because that dispatch arm isn't taken. They are pre-existing latent
+> `#[cfg]`-shape warnings, not introduced by this change, and out of scope here
+> (optional tidy-up; candidate for a future `win-cli-warning-sweep`).
+
+### Honest gaps (this update)
+- **`cargo clippy -p argo-cli` was not run on Windows.** Clippy needs the
+  `argo-executor-computer-use-windows` dependency to compile, which still fails
+  (Crate 2). It can only run once that brief lands. The brief's specified verify
+  was `cargo build`, which passed.
+- **`cargo build --workspace` still exits non-zero on Windows** — solely because
+  of Crate 2 (`argo-executor-computer-use-windows`), not kryptering and not
+  argo-cli's own code.
+- **The unix HSM path was not built here** (Windows host). The conductor must
+  re-verify on macOS/unix that `bergshamra-dsig`/`keys`/`crypto` + `kryptering`
+  still compile and the SAML XML-DSig tests pass — `cargo tree` confirms the
+  dependency chain is unchanged on the linux target, but that is graph-level, not
+  a compile.
+
+### Revised queue action
+Recommended-action #1 above is **DONE** (this update). The gating blocker for
+argo-cli is now **Crate 2** (`win-computer-use-executor-first-build`): once it
+lands, `argo-cli` links and `win-portability-cli-handler-unix-perms` can be
+closed STALE-FIXED (own-source already confirmed clean here).
