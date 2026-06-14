@@ -56,7 +56,7 @@ pub fn load_from(cwd: &Path) -> ArgoResult<ArgoConfig> {
     let mut cfg = ArgoConfig::default();
 
     // Layer 2: user-level TOML.
-    if let Some(user_path) = user_config_path() {
+    if let Some(user_path) = crate::sections_core::user_config_path() {
         if user_path.exists() {
             let user_cfg = ArgoConfig::load_from_file(&user_path)?;
             cfg.merge(user_cfg);
@@ -89,21 +89,6 @@ fn project_local_path(cwd: &Path) -> Option<PathBuf> {
         return Some(legacy);
     }
     None
-}
-
-/// Resolve `$XDG_CONFIG_HOME/argo/argo.toml`, falling back to
-/// `$HOME/.config/argo/argo.toml`. Returns `None` when neither
-/// `XDG_CONFIG_HOME` nor `HOME` is set.
-fn user_config_path() -> Option<PathBuf> {
-    if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
-        return Some(PathBuf::from(xdg).join(defaults::USER_CONFIG_RELATIVE));
-    }
-    let home = std::env::var_os("HOME")?;
-    Some(
-        PathBuf::from(home)
-            .join(".config")
-            .join(defaults::USER_CONFIG_RELATIVE),
-    )
 }
 
 impl ArgoConfig {

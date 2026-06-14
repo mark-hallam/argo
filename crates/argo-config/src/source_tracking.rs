@@ -79,7 +79,7 @@ impl ConfigSourceMap {
     #[must_use]
     pub fn detect_from(cwd: &Path) -> Self {
         let mut map = Self::default();
-        if let Some(path) = user_config_path() {
+        if let Some(path) = crate::sections_core::user_config_path() {
             map.record_file(&path, "user config");
         }
         if let Some(path) = project_local_path(cwd) {
@@ -151,18 +151,6 @@ fn project_local_path(cwd: &Path) -> Option<PathBuf> {
     }
     let legacy = cwd.join(defaults::PROJECT_LOCAL_CONFIG);
     legacy.exists().then_some(legacy)
-}
-
-fn user_config_path() -> Option<PathBuf> {
-    if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
-        return Some(PathBuf::from(xdg).join(defaults::USER_CONFIG_RELATIVE));
-    }
-    let home = std::env::var_os("HOME")?;
-    Some(
-        PathBuf::from(home)
-            .join(".config")
-            .join(defaults::USER_CONFIG_RELATIVE),
-    )
 }
 
 #[cfg(test)]

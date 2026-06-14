@@ -168,6 +168,41 @@ fn home_dir_from(home: Option<OsString>, userprofile: Option<OsString>) -> Optio
         .map(PathBuf::from)
 }
 
+/// Resolve the user-level config path cross-platform.
+///
+/// `$XDG_CONFIG_HOME/argo/argo.toml` when `XDG_CONFIG_HOME` is set, else
+/// `<home>/.config/argo/argo.toml` where `<home>` resolves `HOME` → `USERPROFILE`
+/// (see [`home_dir`]). `pub(crate)` so [`crate::loader`] and
+/// [`crate::source_tracking`] share ONE resolver: they previously each carried a
+/// HOME-only copy that returned `None` on native Windows (`HOME` unset), so the
+/// user-config layer silently vanished and `argo config show --source` dropped
+/// its user-config annotations. #2904 fixed the same class in `home_dir`/
+/// `expand_tilde` but missed these two call sites. See
+/// `win-config-user-config-path-home-userprofile-fallback`.
+pub(crate) fn user_config_path() -> Option<PathBuf> {
+    user_config_path_from(
+        std::env::var_os("XDG_CONFIG_HOME"),
+        std::env::var_os("HOME"),
+        std::env::var_os("USERPROFILE"),
+    )
+}
+
+/// Pure core of [`user_config_path`] — env values passed explicitly so the
+/// precedence (XDG wins; else HOME→USERPROFILE joined with `.config`) is
+/// asserted without mutating process-global environment. Unix behaviour is
+/// byte-identical to the prior HOME-only code (HOME set ⇒ same path).
+fn user_config_path_from(
+    xdg: Option<OsString>,
+    home: Option<OsString>,
+    userprofile: Option<OsString>,
+) -> Option<PathBuf> {
+    if let Some(xdg) = xdg {
+        return Some(PathBuf::from(xdg).join(defaults::USER_CONFIG_RELATIVE));
+    }
+    home_dir_from(home, userprofile)
+        .map(|h| h.join(".config").join(defaults::USER_CONFIG_RELATIVE))
+}
+
 #[cfg(test)]
 mod home_dir_tests {
     use super::*;
@@ -176,6 +211,52 @@ mod home_dir_tests {
     fn home_wins_when_set() {
         let got = home_dir_from(Some("/home/alice".into()), Some("C:\\Users\\alice".into()));
         assert_eq!(got, Some(PathBuf::from("/home/alice")));
+    }
+
+    #[test]
+    fn user_config_prefers_xdg_unchanged_on_unix() {
+        let got = user_config_path_from(
+            Some("/xdg".into()),
+            Some("/home/alice".into()),
+            None,
+        );
+        assert_eq!(
+            got,
+            Some(PathBuf::from("/xdg").join(defaults::USER_CONFIG_RELATIVE))
+        );
+    }
+
+    #[test]
+    fn user_config_uses_home_dot_config_when_no_xdg() {
+        let got = user_config_path_from(None, Some("/home/alice".into()), None);
+        assert_eq!(
+            got,
+            Some(
+                PathBuf::from("/home/alice")
+                    .join(".config")
+                    .join(defaults::USER_CONFIG_RELATIVE)
+            )
+        );
+    }
+
+    #[test]
+    fn user_config_falls_back_to_userprofile_when_home_unset() {
+        // Native Windows: HOME unset, no XDG → USERPROFILE/.config/argo/argo.toml
+        // instead of the prior `None` (which dropped the user-config layer).
+        let got = user_config_path_from(None, None, Some("C:\\Users\\alice".into()));
+        assert_eq!(
+            got,
+            Some(
+                PathBuf::from("C:\\Users\\alice")
+                    .join(".config")
+                    .join(defaults::USER_CONFIG_RELATIVE)
+            )
+        );
+    }
+
+    #[test]
+    fn user_config_none_when_nothing_set() {
+        assert_eq!(user_config_path_from(None, None, None), None);
     }
 
     #[test]
