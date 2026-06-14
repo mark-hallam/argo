@@ -1,4 +1,5 @@
-//! `LocalSandbox` — runs `bash -c` in the current OS namespace.
+//! `LocalSandbox` — runs a command through the platform shell (`bash -c` on
+//! unix, `cmd /C` on Windows) in the current OS namespace.
 use crate::sandbox::{
     io_err, truncate_stream, RunRequest, RunResult, Sandbox, DEFAULT_TIMEOUT, MAX_OUTPUT_BYTES,
 };
@@ -27,10 +28,8 @@ impl Sandbox for LocalSandbox {
     async fn run(&self, req: &RunRequest) -> ArgoResult<RunResult> {
         let started = Instant::now();
         let timeout = req.timeout.unwrap_or(DEFAULT_TIMEOUT);
-        let mut cmd = tokio::process::Command::new("bash");
-        cmd.arg("-c")
-            .arg(&req.command)
-            .current_dir(&req.working_dir);
+        let mut cmd = shell_command(&req.command);
+        cmd.current_dir(&req.working_dir);
         if !req.inherit_env {
             cmd.env_clear();
         }
@@ -57,6 +56,60 @@ impl Sandbox for LocalSandbox {
                 duration: started.elapsed(),
             }),
         }
+    }
+}
+
+/// Build the platform shell invocation for a sandbox command line: `bash -c`
+/// on unix (unchanged), `cmd /C` on Windows. `bash` is not guaranteed on a
+/// native-Windows host (it ships only with Git/WSL), so hardcoding it made
+/// `LocalSandbox` — the E2B fallback the code-execution executor uses when
+/// `ARGO_E2B_TOKEN` is unset — fail `NotFound` at runtime there. Command
+/// *syntax* stays the caller's responsibility per platform; this only selects a
+/// shell binary that exists. Sibling copy of
+/// `argo_tool::process_registry::shell_command` — argo-tool depends on
+/// argo-sandbox, so the seam can't be shared without a dependency cycle. See
+/// `win-sandbox-localsandbox-bash-cfg-gate`.
+fn shell_command(command: &str) -> tokio::process::Command {
+    #[cfg(windows)]
+    {
+        let mut c = tokio::process::Command::new("cmd");
+        c.arg("/C").arg(command);
+        c
+    }
+    #[cfg(not(windows))]
+    {
+        let mut c = tokio::process::Command::new("bash");
+        c.arg("-c").arg(command);
+        c
+    }
+}
+
+#[cfg(test)]
+mod portable_tests {
+    use super::*;
+    use crate::sandbox::RunRequest;
+
+    /// `echo <token>` runs under both `cmd /C` (Windows) and `bash -c` (unix),
+    /// so this proves `LocalSandbox` spawns a shell that EXISTS on the host —
+    /// the regression guard for the hardcoded-`bash` Windows break
+    /// (`win-sandbox-localsandbox-bash-cfg-gate`). Unlike the `cfg(all(test,
+    /// unix))` suite below (which uses unix-only builtins), this runs on every
+    /// platform, so the macOS/Linux swarm covers it too.
+    #[tokio::test]
+    async fn runs_through_platform_shell() {
+        let sandbox = LocalSandbox::new();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let result = sandbox
+            .run(&RunRequest::new("echo sandbox-ok", dir.path()))
+            .await
+            .expect("spawn must succeed on this platform's shell");
+        assert_eq!(result.exit_code, 0, "stderr={}", result.stderr);
+        assert!(!result.timed_out, "echo must not time out");
+        assert!(
+            result.stdout.contains("sandbox-ok"),
+            "stdout should carry the echoed token, got: {:?}",
+            result.stdout
+        );
     }
 }
 

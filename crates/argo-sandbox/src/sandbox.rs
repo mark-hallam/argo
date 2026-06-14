@@ -26,7 +26,9 @@ pub const MAX_OUTPUT_BYTES: usize = 64 * 1024;
 /// One run request.
 #[derive(Debug, Clone)]
 pub struct RunRequest {
-    /// Shell command line (executed via `bash -c`).
+    /// Shell command line (executed via the platform shell: `bash -c` on
+    /// unix, `cmd /C` on Windows). Command syntax is caller-responsibility
+    /// per platform.
     pub command: String,
     /// Working directory for the command.
     pub working_dir: PathBuf,
