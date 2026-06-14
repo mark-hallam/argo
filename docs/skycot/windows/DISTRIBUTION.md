@@ -119,16 +119,29 @@ single file with zero redistributable assumption:
 1. **Document the prerequisite** — ship the zip + a one-line note "requires the
    [VC++ 2015–2022 redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe),
    pre-installed on virtually all Windows 10/11 machines." (Lowest effort.)
-2. **Static-CRT build** — add to `.cargo/config.toml`:
+2. **Static-CRT build — ✅ DONE (`win-packaging-crt-static`, 2026-06-14).** Added
+   to workspace-root `.cargo/config.toml`:
    ```toml
    [target.x86_64-pc-windows-msvc]
    rustflags = ["-C", "target-feature=+crt-static"]
    ```
    This statically links the CRT, dropping the `VCRUNTIME140.dll` import so the
-   `.exe` runs on a bare Windows install. Cost: a somewhat larger binary and a
-   workspace-wide build-flag change (would need its own brief + a conductor
-   re-verify that `+crt-static` doesn't break the unix targets — it's
-   MSVC-target-scoped, so it shouldn't, but the change touches shared config).
+   `.exe` runs on a bare Windows install. Cost: a larger binary (~78 MB → ~82 MB)
+   and a workspace-wide build-flag change — but MSVC-target-scoped, so unix is a
+   no-op (conductor re-verifies). NB: a `RUSTFLAGS` env var, if set, overrides
+   config `rustflags` entirely, so a distribution build must run without it.
+
+   **Verified on the fleet host (Latitude5440, 2026-06-14, release build `c7354f6`):**
+   a PowerShell PE-import walk of the crt-static release `argo.exe` shows **NO
+   `VCRUNTIME140.dll`** AND no `api-ms-win-crt-*` UCRT api-set imports (both now
+   statically linked) — only OS-guaranteed DLLs remain (`kernel32`, `ntdll`,
+   `advapi32`, `user32`, `ole32`, `oleaut32`, `ws2_32`, `crypt32`, `bcrypt`,
+   `bcryptprimitives`, `wtsapi32`, `api-ms-win-core-synch`,
+   `api-ms-win-shcore-scaling`). The same walk of a non-crt-static binary still
+   imports `VCRUNTIME140.dll` + all 11 `api-ms-win-crt-*` sets, proving the flag
+   is the cause. Copied alone into an empty dir, the binary runs: `argo --version`
+   → exit 0 (`profile: release`); `argo doctor` → full report (non-zero exit only
+   from the uninitialized-workspace warnings, not a load failure).
 
 All the UCRT (`api-ms-win-crt-*` → `ucrtbase.dll`) and core Win32 imports are OS
 components on every supported Windows version — no action needed.
@@ -153,9 +166,11 @@ all modern Windows desktops; install `vc_redist.x64.exe` only on a stripped box)
   clean dir, no sidecar files. ✅
 - **Distribution = a zip of that one `argo.exe`** (`argo-x86_64-pc-windows-msvc.zip`),
   produced by the (currently CI-billing-disabled) `release.yml` Windows leg.
-- **One runtime-dep flag:** `VCRUNTIME140.dll` (VC++ redist). Everything else is
-  an OS component. A `+crt-static` build removes even that — recommended as a
-  follow-up if "zero-prereq single file" is a goal.
+- **Zero non-OS runtime deps (as of `win-packaging-crt-static`, 2026-06-14).**
+  The `+crt-static` build (§6 option 2, now applied in `.cargo/config.toml`)
+  removed the last one (`VCRUNTIME140.dll`); the release `argo.exe` now imports
+  only OS-guaranteed DLLs and runs on a bare Windows install with no VC++
+  redistributable. "Zero-prereq single file" goal: met.
 
 _Verified by the Windows fleet (Latitude5440) on the `a19eaca` release build
 (fresh from `origin/main`)._

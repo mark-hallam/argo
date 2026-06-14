@@ -1,0 +1,21 @@
+# Cargo configuration — workspace root.
+#
+# Static-CRT linkage for the Windows MSVC target so the release `argo.exe`
+# drops its only non-OS runtime dependency (`VCRUNTIME140.dll`, the VC++
+# 2015–2022 redistributable) and runs on a bare Windows install with no
+# redistributable pre-installed. See docs/skycot/windows/DISTRIBUTION.md §6+§8
+# (win-packaging-crt-static).
+#
+# SCOPE — unix is unaffected: this stanza is keyed to the
+# `x86_64-pc-windows-msvc` target. Cargo applies target-specific `rustflags`
+# ONLY when building for that exact target, so Linux/macOS builds are
+# byte-for-byte unchanged (the stanza is never consulted off-Windows). The
+# `+crt-static` feature is also inert on the GNU CRT; it is meaningful only for
+# the MSVC toolchain this stanza scopes it to.
+#
+# NOTE: per Cargo's precedence rules, a `RUSTFLAGS` environment variable (if
+# set) OVERRIDES these config `rustflags` entirely (they do not merge). A
+# Windows distribution build must therefore run WITHOUT `RUSTFLAGS` set for the
+# static-CRT link to take effect.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
