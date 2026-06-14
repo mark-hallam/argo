@@ -338,10 +338,58 @@ async fn rerun_with_tool(
     match super::routes_worker_run::run_worker_now(store, &worker, prompt, &approve, Some(actor))
         .await
     {
-        Ok(Ok(outcome)) if outcome.status == "completed" => "dispatched",
-        Ok(Ok(_)) => "failed",
+        Ok(Ok(outcome)) => {
+            // Convergence (Option A). The re-run minted a FRESH session
+            // (`outcome.session_id`) that is still inside the teammate's 24h
+            // probation window, so the dispatch gate may have re-emitted a
+            // `probation.hold` for a tool on that new session. Our first
+            // resolution marker (`write_resolution` above, in
+            // `decide_probation_hold`) is keyed to the OLD held session, so
+            // without this the re-born hold lingers as pending forever and
+            // the `/approvals` PENDING counter climbs on every reload instead
+            // of converging to 0 (the 2026-06-14 15x-soak defect). Propagate
+            // the approval to the re-run's session so an Approve of `tool`
+            // nets exactly −1 for it, regardless of the re-run re-holding.
+            propagate_approval_to_rerun_session(store, tenant, actor, &outcome.session_id, tool)
+                .await;
+            if outcome.status == "completed" {
+                "dispatched"
+            } else {
+                "failed"
+            }
+        }
         Ok(Err(_blocked)) => "granted_run_blocked",
         Err(_) => "failed",
+    }
+}
+
+/// Propagate an approval to the re-run's fresh session so a re-born
+/// probation hold for the same `tool` resolves and the inbox counter
+/// converges (Option A — see [`rerun_with_tool`]). Best-effort: a
+/// marker-write miss only delays that row one extra reload, never produces a
+/// wrong decision, and the re-run already happened (the approval IS granted),
+/// so a failure is logged and swallowed rather than surfaced as a `/decide`
+/// 500. A no-op when the re-run recorded no session id.
+async fn propagate_approval_to_rerun_session(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    actor: &str,
+    rerun_session_id: &str,
+    tool: &str,
+) {
+    if rerun_session_id.is_empty() {
+        return;
+    }
+    if let Err(e) = write_resolution(store, tenant, actor, rerun_session_id, tool, "approve").await
+    {
+        tracing::warn!(
+            target: "gateway::approvals_probation",
+            tool = %tool,
+            session = %rerun_session_id,
+            error = %e,
+            "could not propagate probation-hold approval to the re-run session; \
+             inbox row may linger one reload"
+        );
     }
 }
 

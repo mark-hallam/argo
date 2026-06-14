@@ -195,6 +195,87 @@ async fn repeated_holds_for_same_tool_collapse_to_one_row() {
 }
 
 #[tokio::test]
+async fn approve_converges_and_does_not_climb_on_reload() {
+    // The 2026-06-14 15x-soak defect: approving a probation hold re-runs the
+    // still-probationary teammate on a FRESH session, the gate re-emits a
+    // `probation.hold` on the NEW session_id, and the resolution marker keyed
+    // to the OLD session never resolves it — so the PENDING counter climbs on
+    // reload (P05 2→3→5→6→13) instead of converging to 0. This pins the fix:
+    // an approve propagates its resolution to the re-run's session, so the
+    // re-born hold for the approved tool resolves and the count STAYS 0.
+    let _g = crate::handlers::gateway::shared_env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+
+    let (store, tenant) = store_and_tenant().await;
+    let tenant_id = argo_types::TenantId(Uuid::parse_str(&tenant).expect("tenant uuid"));
+
+    // The teammate's first run held `web_search` — exactly one pending row.
+    let held_session = Uuid::now_v7();
+    write_hold(&store, &tenant, held_session, "web_search").await;
+    let items = list_items(&store).await;
+    assert_eq!(
+        items
+            .iter()
+            .filter(|r| r["verb"] == "wants to use web_search")
+            .count(),
+        1,
+        "exactly one pending phold row before approve: {items:?}"
+    );
+
+    // Approve through the real decide handler. The re-run is provider-blocked
+    // in-test (no model key, and the held session has no `session` row), so it
+    // mints no fresh session here — we drive the re-run's by-design effect
+    // explicitly below to exercise the convergence invariant.
+    let approval_id = format!("phold:{held_session}:web_search");
+    let req = format!(
+        "POST /api/v1/approvals/{approval_id}/decide HTTP/1.1\r\n\
+         Authorization: Bearer test\r\n\r\n{{\"decision\":\"approve\"}}"
+    );
+    let (status, body) = super::decide_probation_hold(&approval_id, "approve", &req).await;
+    assert_eq!(status, "200 OK", "body: {body}");
+
+    // The approved hold cleared.
+    let after = list_items(&store).await;
+    assert!(
+        phold_row(&after, "web_search").is_none(),
+        "approved hold must drop out of the inbox: {after:?}"
+    );
+
+    // By-design re-run: a FRESH session, still on probation, re-emits a hold
+    // for the SAME tool. Without the fix this is the soak climb (net −1 +N).
+    let rerun_session = Uuid::now_v7();
+    write_hold(&store, &tenant, rerun_session, "web_search").await;
+    assert!(
+        phold_row(&list_items(&store).await, "web_search").is_some(),
+        "the re-born hold is pending before the approval is propagated"
+    );
+
+    // The fix: the approve propagates its resolution to the re-run's session.
+    super::propagate_approval_to_rerun_session(
+        &store,
+        tenant_id,
+        "tester",
+        &rerun_session.to_string(),
+        "web_search",
+    )
+    .await;
+
+    // Convergence + idempotent reload: the counter returns to 0 and STAYS 0
+    // across two successive lists with no intervening decision.
+    let reload1 = list_items(&store).await;
+    assert!(
+        phold_row(&reload1, "web_search").is_none(),
+        "re-born hold must resolve after propagation — counter converges: {reload1:?}"
+    );
+    let reload2 = list_items(&store).await;
+    assert!(
+        phold_row(&reload2, "web_search").is_none(),
+        "and stays 0 on the next reload — reload is idempotent: {reload2:?}"
+    );
+}
+
+#[tokio::test]
 async fn refuse_records_decline_and_clears_the_row() {
     let _g = crate::handlers::gateway::shared_env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
