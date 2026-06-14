@@ -87,7 +87,11 @@ async fn sweep_expired_deletes_only_old_rows() {
     // have to wait — instead we sweep with a retention of 0s into
     // a `now` far in the future so the boundary lands past the
     // captured_at and the row is deleted.
-    let far_future = SystemTime::UNIX_EPOCH + Duration::from_secs(i64::MAX as u64 / 4);
+    // A far-future "now" past the row's captured_at so a 0s retention deletes
+    // it. Use `now() + 1 day` (representable on Windows FILETIME) rather than
+    // `UNIX_EPOCH + i64::MAX/4` — the latter overflows std `SystemTime` on
+    // Windows (FILETIME 100ns ticks) and panics; matches the pattern at :143.
+    let far_future = SystemTime::now() + Duration::from_secs(86_400);
     let deleted = store
         .sweep_expired(far_future, Duration::from_secs(0))
         .await
@@ -111,7 +115,11 @@ async fn sweep_treats_tenants_independently_of_each_other() {
     // Far-future + 0s retention should sweep BOTH rows. Tenant
     // boundaries do not protect rows from a global sweep — the
     // sweep is index-row by `captured_at` only.
-    let far_future = SystemTime::UNIX_EPOCH + Duration::from_secs(i64::MAX as u64 / 4);
+    // A far-future "now" past the row's captured_at so a 0s retention deletes
+    // it. Use `now() + 1 day` (representable on Windows FILETIME) rather than
+    // `UNIX_EPOCH + i64::MAX/4` — the latter overflows std `SystemTime` on
+    // Windows (FILETIME 100ns ticks) and panics; matches the pattern at :143.
+    let far_future = SystemTime::now() + Duration::from_secs(86_400);
     let deleted = store
         .sweep_expired(far_future, Duration::from_secs(0))
         .await

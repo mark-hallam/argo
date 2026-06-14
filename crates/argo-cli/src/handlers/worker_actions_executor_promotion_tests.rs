@@ -22,15 +22,23 @@ use serde_json::json;
 use std::path::PathBuf;
 
 fn python3() -> Option<String> {
-    let out = std::process::Command::new("which")
-        .arg("python3")
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
+    // Portable lookup: `which` (unix / Git-Bash) then `where` (native Windows).
+    // Returns None when python is genuinely absent so the caller skips — a skip
+    // is a skip, never a faked pass (NO THEATER).
+    for finder in ["which", "where"] {
+        let Ok(out) = std::process::Command::new(finder).arg("python3").output() else {
+            continue;
+        };
+        if !out.status.success() {
+            continue;
+        }
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        // `where` can emit several lines; take the first non-empty one.
+        if let Some(first) = stdout.lines().map(str::trim).find(|l| !l.is_empty()) {
+            return Some(first.to_string());
+        }
     }
-    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    (!s.is_empty()).then_some(s)
+    None
 }
 
 fn fixture_path() -> PathBuf {
@@ -62,8 +70,12 @@ requires_approval = false
 description = "Send the drafted email"
 executor = "human"
 "#,
-        python = python,
-        script = script.to_string_lossy(),
+        // Forward-slash the paths so the manifest TOML parses on Windows: a
+        // backslash path (`C:\Users\…`) makes the TOML reader treat `\U` as an
+        // invalid 8-digit unicode escape. Forward slashes are valid in TOML
+        // basic strings AND valid Windows paths; on unix this is a no-op.
+        python = python.replace('\\', "/"),
+        script = script.to_string_lossy().replace('\\', "/"),
     );
     argo_vertical::parse(&toml).expect("echo manifest parses")
 }
