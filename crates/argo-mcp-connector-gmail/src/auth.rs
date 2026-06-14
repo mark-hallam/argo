@@ -123,7 +123,44 @@ fn write_cached_token(
         std::fs::set_permissions(&path, perms)
             .map_err(|e| format!("gmail token cache chmod: {e}"))?;
     }
+    // The 0600 lockdown above has no portable equivalent here; surface the
+    // reduced hardening once rather than dropping it SILENTLY (this caches a live
+    // OAuth bearer token). Matches the NO-THEATER convention in
+    // argo-config/cred/io + argo-cli connector_authorize_state. See
+    // win-gmail-connector-token-cache-perm-gap-not-unix-warn.
+    #[cfg(not(unix))]
+    warn_perm_hardening_unix_only(&path);
     Ok(())
+}
+
+/// Message for the one-shot non-unix token-cache hardening warning.
+///
+/// Pure (no I/O, no logging) so it can be asserted in tests; the firing
+/// side-effect lives in [`warn_perm_hardening_unix_only`].
+#[cfg(not(unix))]
+fn perm_hardening_unix_only_note(path: &Path) -> String {
+    format!(
+        "gmail OAuth token cache {} written WITHOUT 0600 permission hardening: \
+         file-permission lockdown is unix-only; on this platform the file inherits \
+         its parent directory ACL (documented gap, not a silent downgrade)",
+        path.display()
+    )
+}
+
+/// Emit [`perm_hardening_unix_only_note`] exactly once per process. One-shot so a
+/// hot refresh path cannot spam the log.
+#[cfg(not(unix))]
+fn warn_perm_hardening_unix_only(path: &Path) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static WARNED: AtomicBool = AtomicBool::new(false);
+    if WARNED.swap(true, Ordering::Relaxed) {
+        return;
+    }
+    tracing::warn!(
+        target: "argo_mcp_connector_gmail::auth",
+        "{}",
+        perm_hardening_unix_only_note(path)
+    );
 }
 
 /// Tenant-keyed cache path under `<cwd>/.argo/connectors/<tenant_id>/gmail/access_token.json`.
@@ -220,6 +257,18 @@ mod tests {
     fn legacy_cache_path_matches_pre_tenant_shape() {
         let p = legacy_cache_path(Path::new("/work"));
         assert!(p.ends_with(".argo/connectors/gmail/access_token.json"));
+    }
+
+    /// On non-unix the 0600 lockdown is excluded; assert the documented-gap note
+    /// names the file + that hardening is unix-only, so the downgrade is observable
+    /// (NO THEATER) not silent. `win-gmail-connector-token-cache-perm-gap-not-unix-warn`.
+    #[cfg(not(unix))]
+    #[test]
+    fn perm_hardening_note_names_file_and_gap() {
+        let note = perm_hardening_unix_only_note(Path::new("C:/work/.argo/.../access_token.json"));
+        assert!(note.contains("access_token.json"), "note must name the path: {note}");
+        assert!(note.contains("WITHOUT 0600"), "note must state the gap: {note}");
+        assert!(note.contains("unix-only"), "note must say hardening is unix-only: {note}");
     }
 
     // Cross-tenant negative: tenant_b must NEVER read tenant_a's cached
