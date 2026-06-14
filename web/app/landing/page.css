@@ -943,13 +943,23 @@
 
 /* ---------- Demo film slot ---------- */
 .land-demo-lede,
-.land-portia-lede {
+.land-portia-lede,
+.land-book-lede {
   max-width: 640px;
   margin: -28px auto 40px;
   text-align: center;
   font-size: 16px;
   line-height: 1.6;
   color: var(--ink-2);
+}
+.land-book-wrap {
+  max-width: 640px;
+  margin: 0 auto;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 26px;
+  box-shadow: 0 22px 56px -34px color-mix(in oklch, var(--brand-primary) 48%, transparent);
 }
 .land-demo-wrap {
   max-width: 920px;

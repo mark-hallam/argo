@@ -3,6 +3,7 @@ import { ArrowRight, Check, Shield, MessageSquareText, Sparkles, GitBranch, User
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { WaitlistForm } from "@/components/marketing/WaitlistForm";
+import { WalkthroughCta } from "@/components/marketing/WalkthroughCta";
 import { PortiaEmbed } from "@/components/marketing/PortiaEmbed";
 import { DemoVideoSlot } from "@/components/marketing/DemoVideoSlot";
 import { SEED_CUSTOMERS } from "@/lib/content/customers";
@@ -195,19 +196,19 @@ export default function MarketingLandingPage() {
               a tamper-evident, hash-chained record you could hand to your board or your regulator.
               That&apos;s the part you need before you let an AI <em>act</em>.
             </p>
-            <div className="land-hero-waitlist">
-              <p className="land-hero-waitlist-label">
-                Get early access &mdash; and a governance walkthrough
-              </p>
-              <WaitlistForm source="landing-hero" size="lg" />
-            </div>
             <div className="land-hero-actions">
-              <a href="/auth/signup" className="land-btn-secondary">
-                Try a live teammate
+              <a href="#book-walkthrough" className="land-btn-primary">
+                Book a governance walkthrough <ArrowRight size={16} />
               </a>
               <a href="#demo" className="land-btn-secondary">
                 Watch the demo
               </a>
+            </div>
+            <div className="land-hero-waitlist">
+              <p className="land-hero-waitlist-label">
+                Not ready for a call? Get early access instead
+              </p>
+              <WaitlistForm source="landing-hero" size="lg" />
             </div>
             <div className="land-trust-strip">
               <span className="land-trust-item">
@@ -333,6 +334,23 @@ export default function MarketingLandingPage() {
                 </Link>
               </article>
             ))}
+          </div>
+        </section>
+
+        {/* Book a governance walkthrough — the sales-led conversion path */}
+        <section className="land-section land-book" id="book-walkthrough">
+          <p className="land-section-label">FOR SECURITY &amp; PROCUREMENT</p>
+          <h2 className="land-section-title">
+            Book a <strong>governance walkthrough</strong>.
+          </h2>
+          <p className="land-book-lede">
+            A 30-minute session for the buyer who has to sign off on letting an
+            AI act: the hash-chained audit trail, the claim-level truth
+            boundary, and the approval model &mdash; on your stack, with your
+            security team in the room. Tell us a little and we&apos;ll line it up.
+          </p>
+          <div className="land-book-wrap">
+            <WalkthroughCta source="landing-hero" />
           </div>
         </section>
 

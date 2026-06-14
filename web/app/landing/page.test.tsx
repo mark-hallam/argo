@@ -37,6 +37,20 @@ describe("MarketingLandingPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("offers a sales-led 'Book a governance walkthrough' path (hero CTA + qualifying form)", () => {
+    render(<MarketingLandingPage />);
+
+    // The hero leads with the sales-led CTA, anchored to the booking section.
+    const heroCta = screen.getByRole("link", {
+      name: /book a governance walkthrough/i,
+    });
+    expect(heroCta).toHaveAttribute("href", "#book-walkthrough");
+    // The booking section + its qualifying form (reusing the enterprise-inquiry
+    // endpoint) are present; no pre-faked success/scheduler before any submit.
+    expect(screen.getByTestId("walkthrough-form")).toBeInTheDocument();
+    expect(screen.queryByTestId("walkthrough-success")).toBeNull();
+  });
+
   it("renders a working waitlist capture (hero + final) and does not pre-fake success", () => {
     render(<MarketingLandingPage />);
 
