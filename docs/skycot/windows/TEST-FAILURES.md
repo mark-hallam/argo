@@ -1,149 +1,144 @@
-# Windows test-suite — failure inventory
+# Windows test-suite — definitive failure inventory
 
-**Brief**: `win-test-suite-run-and-failure-inventory` (P2 — discovery).
+**Brief**: `win-full-workspace-test-suite-now-all-compiles` (P1 — the FIRST
+all-crates Windows test pass, now that argo-cli + the CU-executor compile).
+Supersedes the `win-test-suite-run-and-failure-inventory` (#2911) draft, which
+**excluded argo-cli** (its test target wouldn't compile).
 **Machine**: `Latitude5440` — Windows 11 Pro, `x86_64-pc-windows-msvc`,
-cargo/rustc 1.96.0. Deliverable is the categorized inventory, not green.
+cargo/rustc 1.96.0. Run against `origin/main` `306d2405` (+ the one-line
+argo-cli test-compile fix in this PR). Deliverable is the categorized inventory,
+not green.
 
-## How it was run
+## Headline
 
-Run against **current `main`** (after the Windows P1 wave merged: kryptering
-#2905, CU-executor first-build #2906, line-ending/path-sep audit #2908):
+**argo-cli is Windows-test-compilable for the first time.** #2911 hit
+`E0599: no method named dispatch found for ComputerUseMacOSExecutor` and had to
+`--exclude argo-cli`. Root cause: `worker_actions_executor_cu_macos_tests.rs`
+calls `exec.dispatch()` (an `Executor` trait method) in its
+`#[cfg(not(target_os = "macos"))]` test but never imported the `Executor`
+trait. **This PR adds that import** (used on every platform — the macOS-gated
+test calls `.dispatch()` too), so `cargo test -p argo-cli` now runs. That is the
+one fix landing here; the failures below are inventory → follow-up briefs.
 
-```
-# Full workspace first — argo-cli now COMPILES (kryptering gated off by #2905),
-# but its TEST target has 1 compile error (see below), which aborts the run:
-cargo test --workspace --no-fail-fast
-#  → error: could not compile `argo-cli` (bin "argo" test)
+## Definitive all-crates result (current main)
 
-# So the runtime inventory is the workspace minus argo-cli's tests:
-cargo test --workspace --exclude argo-cli --no-fail-fast
-```
+| Surface | Pass | Fail | How verified |
+|---|---:|---:|---|
+| **argo-cli** (newly unblocked, biggest crate) | **3684** | **209** | `cargo test -p argo-cli --no-fail-fast` this PR |
+| Previously-failing crates (capability, identity, store, tool, memory) | **1360** | **1** | `cargo test -p argo-capability -p argo-identity -p argo-memory -p argo-store -p argo-tool` this PR |
+| `argo-executor-computer-use-windows` (CU crown jewel) | **52** | **0** | `cargo test -p ...-windows` (#2925) |
+| Rest of workspace (excl. above) | **~397** | **0\*** | #2911 baseline (those crates unchanged on the Windows axis) |
 
-`cargo test` does **not** accept `--keep-going`, and plain `--no-fail-fast`
-aborts the whole run if any *test target* fails to compile — hence the two-step
-approach. `argo-executor-computer-use-windows` is now **included** (compiles +
-its tests pass) since #2906 merged.
+\* #2911's 6 failing groups in capability/identity/store/tool were **fixed** by
+the merged fleet PRs #2913 / #2914 / #2915 / #2917 — confirmed green by the
+re-test above. The lone survivor is the argo-memory timestamp test (below).
 
-## Result (definitive, current main, excl. argo-cli tests)
+## Non-argo-cli: the one survivor
 
-| | Count |
-|---|---|
-| Test-result groups (unit + integration + doctest) | **403** |
-| Passing | **397** |
-| Failing groups | **6** |
-| Individual failing tests | **9** (8 tests + 1 doctest) |
-| Test-target compile failures | **1** (argo-cli, below) |
+### argo-memory — `shared_team::tests::author_stamp_survives_round_trip`
 
-#2908 already fixed the 9 argo-tool path-separator test assertions from the
-earlier draft of this inventory — they now pass. The remaining failures are a
-tighter, higher-signal set: most need a **production** look, not a test tweak.
+- **Cat (a) — lossy timestamp round-trip, latent on unix too.** Original has
+  **nanosecond** precision (`…300` ns); serialization truncates to
+  **microseconds**, so the round-trip isn't equal. The Windows high-res clock
+  surfaces it (`…300` ns); macOS values are often µs-aligned (`…000`), hiding it.
+- **Still unaddressed** — #2911 recommended `win-shared-team-timestamp-precision`;
+  no fix has merged. **Recommend authoring that brief** (decide ns-serialize vs
+  truncate-before-compare; it's a real precision bug, not Windows-only). Not
+  fixed here to keep this PR's blast radius to the argo-cli compile unblock.
 
----
+## argo-cli: the 209 failures, root-caused
 
-## Failures (categorized)
+84 integration-test binaries + part of the `--bin argo` unit target. They
+collapse into a small number of **root causes**, not 209 independent bugs:
 
-Categories: **(a)** real cross-platform bug · **(b)** test assumes unix/non-Windows
-· **(c)** windows-env flake.
+### 1. Gateway-spawn integration harness on Windows — **~166 failures (DOMINANT)**
 
-### argo-capability — `tests::workspace_defaults_scope_user_filesystem_caps` (lib_tests.rs:90)
+- Signature: `gateway crashed before listener bound (stderr closed without
+  announce)` (125) · `gateway listener signal: GatewayCrashed` · `listener did
+  not announce in Ns` · then cascading `401 Unauthorized` (41).
+- These are the `gateway_smoke*`, `audit_*`, `dashboard_*`, `mcp_*_smoke`,
+  `setup_*`, `session_*_vertical`, `genesis_*`, `gdpr_*`, … binaries — each
+  spawns a real `argo gateway` child and curls it.
+- **Root cause is ONE thing, and it's already documented**: the gateway's boot
+  gate refuses to bind without a provider key + a SQLCipher DB key (see
+  [`GATEWAY-E2E.md`](GATEWAY-E2E.md) — exit 78 `no provider API key set`). The
+  integration harness boots a test gateway in a way that satisfies this on macOS
+  but not on Windows (env/spawn/keyring path). The gateway itself **does** serve
+  on Windows once given those (proven in GATEWAY-E2E.md) — so this is a
+  **test-harness** gap, not a product defect.
+- **Cat (a/b) — single large class.** **Recommend ONE brief:
+  `win-gateway-integration-test-harness-spawn`** — make the argo-cli gateway-spawn
+  test helper provide the provider/DB key (or `--skip-startup-check`) on Windows.
+  Fixing the harness should clear ~166 of the 209 in one stroke. NOT attempted
+  here (it's a shared test-harness change spanning 80+ test binaries — needs its
+  own focused PR + conductor unix re-verify).
 
-- **Cat (a) — production, security-adjacent.** `left: ["/tmp/ws\**", …]` vs
-  `right: ["/tmp/ws/**", …]`. The default filesystem-capability glob is built
-  with the **OS-native separator** (`\` on Windows). **#2908 (test-audit) did NOT
-  fix this** — because it isn't a test literal, it's the production glob.
-- **Why it matters:** capability globs are matched with `globset`, which matches
-  on `/`. A glob containing `\` will **silently fail to match real paths** on
-  Windows → a teammate could be wrongly **denied or granted** filesystem access.
-- **Fix:** normalize capability path-globs to `/` in production (the glob is a
-  matching pattern, not an OS path). **NEW brief: `win-capability-glob-normalize`.**
+### 2. Unix-subprocess spawn assumptions — **~15 failures**
 
-### argo-identity — fs_root path cluster (3 tests + 1 doctest)
+- `rotate-keys subprocess spawn: The system cannot find the path specified`
+  (security_rotate_keys_subprocess ×2); MCP `echo` server spawned as `python3`
+  (Windows ships `python`, not `python3`) → `MCP spawn failed: cannot find the
+  path specified` (worker_actions_executor_mcp / browser / promotion).
+- **Cat (a/b).** **Recommend brief: `win-subprocess-spawn-portability`** (audit
+  every `Command::new`/shell-spawn in argo-cli handlers + tests for unix-only
+  binaries; this is the same class as the merged process-registry #2915). Some
+  are production spawns (rotate-keys) → check production first.
 
-| Test | Cat | Detail |
-|---|---|---|
-| `store_hire_fs_root::tests::captured_access_folder_persists_to_fs_root_column` (tests:291) | (a) | actual `…\SkycotDemo/Inbox` vs expected `…\SkycotDemo\Inbox` — **mixed separators**: fs_root persistence joins with a literal `/` |
-| `store_hire_fs_root::tests::explicit_under_home_draft_fs_root_persists` (tests:310) | (a) | actual `…\SkycotTeammates\ava` vs expected `…\Projects\acme` — resolver picks a different base on Windows |
-| `store_hire_fs_root.rs` doctest `resolved_fs_root_from_env` (line 259 → panic at :25) | (a) | `resolved_fs_root_from_env` returns `None` where the doctest expects `Some("C:\Users\operator\Projects\acme")` — env→fs_root resolution differs on Windows |
+### 3. TOML manifest fixtures embed un-escaped Windows paths — **~10 failures**
 
-- **Cat (a) — production path logic.** These are not test literals; the fs_root
-  join/normalization + env resolution behaves differently on Windows.
-- **Fix:** normalize fs_root path construction (join with `PathBuf`, not literal
-  `/`; resolve env consistently). **NEW brief: `win-identity-fs-root-path-portability`.**
+- Test fixtures build a manifest string like `command = "C:\Users\…\python"` and
+  feed it to the TOML parser, which reads `\U` / `\m` as escape sequences →
+  `invalid unicode N-digit hex code`.
+- **Cat (b) — test fixture bug.** **Recommend brief:
+  `win-toml-fixture-path-escaping`** (normalize fixture paths to `/`, or use TOML
+  literal strings `'…'`, in the affected test helpers).
 
-### argo-memory — `shared_team::tests::author_stamp_survives_round_trip` (shared_team.rs:209)
+### 4. Instant overflow — **2 failures**
 
-- **Cat (a)/(c) — timestamp precision exposed by the Windows clock.**
-  `left (round-tripped): …784542Z` vs `right (original): …784542300Z`. The
-  original timestamp has **nanosecond** precision (`…300` ns); the round-trip
-  serialization truncates to **microseconds**, so the round-trip isn't lossless.
-- **Why Windows surfaces it:** the Windows high-resolution clock produced a
-  sub-microsecond value (`…300` ns); on macOS/Linux the value is often
-  microsecond-aligned (`…000`), hiding the truncation.
-- **Fix:** either serialize with nanosecond precision, or normalize/truncate the
-  timestamp to the serialized precision *before* the equality check. **NEW brief:
-  `win-shared-team-timestamp-precision`** (also a latent unix bug, not Windows-only).
+- `overflow when adding duration to instant` (std `time.rs:746`) — a test adds a
+  large duration to `Instant::now()`; Windows' `Instant` range/epoch differs from
+  macOS, so the add overflows. **Cat (a/c).** Small — **recommend folding into a
+  `win-instant-duration-overflow` fix** (saturating add, or a smaller test
+  duration).
 
-### argo-identity — `store_trust_grade::tests::migration_v46_applies_to_v45_db` (store_trust_grade.rs:198)
+### 5. Remainder (~16) — path-sep + error-string unit assertions
 
-- **Cat (a)/(b) — count `94` vs `92` (2 extra).** A schema/migration count.
-  **Suspect CRLF**: embedded migration SQL checked out with `\r\n` on Windows can
-  change parsing/counting. (Note #2908 was a *test* path-sep audit and would not
-  have touched embedded-SQL line endings.) Could also be a real migration bug.
-- **Fix:** check whether migration SQL files have a `.gitattributes` LF pin; if
-  CRLF is the cause, pin them. **Owning: investigate under a NEW migration/line-
-  ending brief.**
+- `eval\known_good_actuals.jsonl` vs `eval/…` (path-sep in assertions);
+  provider-manifest-missing error text (`The system cannot find the path
+  specified. (os error 3)` vs unix `os error 2`) in the
+  `vertical_eval_judge_*::build_*_backend_errors_clearly_when_manifest_missing`
+  tests; `backup_create` default-path, `handoff_policy` error file-path, etc.
+- **Cat (b) — test-assumes-unix literals**, the same class #2908 cleared for
+  argo-tool. **Recommend brief: `win-argo-cli-path-sep-and-errstr-test-audit`.**
 
-### argo-store — `archive_cascade_deletes_only_matching_tenant_child_rows` (tests/worker_archive_cascade_tenant_pin.rs:19)
+## Recommended follow-up briefs (for the conductor to author)
 
-- **Cat (a)/(c) — `1` row remains vs `0` expected** after a cascade delete.
-  SQLite cascade shouldn't differ by OS → either a test-isolation/ordering flake
-  **(c)** or a real `PRAGMA foreign_keys`/cascade setup difference **(a)**.
-- **Fix:** re-run in isolation to disambiguate. **NEW brief:
-  `win-store-archive-cascade-investigate`.**
-
-### argo-tool — `process_registry::tests::{tail_returns_recent_stdout, reap_finished_drops_exited_entries}`
-
-- **Cat (b)/(a) — tests spawn unix shell.** `"for i in 1 2 3; do echo line-$i; done; sleep 0.2"` and `"true"` — Windows' shell can't run them.
-- **Caveat:** confirm whether `ProcessRegistry::spawn` hardcodes `sh -c` in
-  *production* — if so it's **(a)** (the spawn primitive isn't portable). **NEW
-  brief: `win-process-registry-spawn-portability`** (check production first).
-
-### argo-cli — TEST-TARGET COMPILE ERROR (separate from the runtime sweep)
-
-- `worker_actions_executor_cu_macos_tests.rs:71` calls `.dispatch()` on
-  `ComputerUseMacOSExecutor`, but that `WorkerActionExecutor::dispatch` impl is
-  macOS-gated, so the test doesn't compile on Windows (`E0599`). The argo-cli
-  **bin** itself compiles now (kryptering gated off by #2905) — only this one
-  macOS-only test target breaks, which blocks `cargo test -p argo-cli`.
-- **Cat (b).** **Fix:** `#[cfg(target_os = "macos")]`-gate the macOS-executor test
-  module. **Owning: `win-portability-cli-handler-unix-perms`** (argo-cli Windows
-  test cleanup, currently claimed) or a small dedicated test-cfg brief.
-
----
-
-## Summary → recommended follow-up briefs
-
-| Owning brief | Failures | Notes |
-|---|---|---|
-| **NEW** `win-capability-glob-normalize` | 1 | **(a) production** — globset matches `/`; real RBAC-match risk on Windows |
-| **NEW** `win-identity-fs-root-path-portability` | 4 | **(a) production** — fs_root join/env resolution |
-| **NEW** `win-shared-team-timestamp-precision` | 1 | **(a)** — lossy timestamp round-trip (latent unix bug too) |
-| **NEW** `win-store-archive-cascade-investigate` | 1 | (a)/(c) — flake vs real cascade |
-| **NEW** `win-process-registry-spawn-portability` | 2 | (b)/(a) — check production spawn shell |
-| migration_v46 (94 vs 92) | 1 | investigate CRLF in embedded SQL (`.gitattributes` LF pin) |
-| `win-portability-cli-handler-unix-perms` (claimed) | argo-cli test compile | cfg-gate the macOS-executor test |
-
-Per the brief: **inventory only — no mass-fix.** Note the shift from the first
-draft: the path-sep test cluster is **resolved by #2908**; what remains is mostly
-**(a) production** issues (capability glob, fs_root paths, timestamp precision)
-that a test-literal audit would not catch.
+| Brief | Clears | Cat |
+|---|---:|---|
+| `win-gateway-integration-test-harness-spawn` | ~166 | (a/b) test-harness gateway boot |
+| `win-subprocess-spawn-portability` | ~15 | (a/b) unix-spawn (rotate-keys, python3 MCP) |
+| `win-toml-fixture-path-escaping` | ~10 | (b) `\`-in-TOML fixture paths |
+| `win-argo-cli-path-sep-and-errstr-test-audit` | ~16 | (b) path-sep + os-error-string literals |
+| `win-instant-duration-overflow` | 2 | (a/c) Instant add overflow |
+| `win-shared-team-timestamp-precision` | 1 | (a) lossy ns→µs round-trip (latent unix) |
 
 ## Honest gaps (NO THEATER)
 
-1. **argo-cli runtime tests uninventoried** — its bin compiles, but the macOS-test
-   compile error blocks `cargo test -p argo-cli`. Once that test is cfg-gated,
-   re-run `cargo test -p argo-cli` for the real argo-cli runtime inventory.
-2. **Single run** — the (c)-suspects (argo-store cascade) seen once; owning briefs
-   should re-run in isolation before deciding flake vs real.
-3. **(a) vs (c)** for the timestamp + cascade items is provisional; the values
-   point at real precision/behavior issues but the owning brief confirms.
+1. **The full `cargo test --workspace` was NOT run as one invocation.** With
+   argo-cli's test target now compiling, it *could* be — but it would re-run the
+   ~397 #2911-baseline groups + argo-cli's slow gateway-spawn timeouts for little
+   new signal. Instead this inventory is assembled from: argo-cli (full run, this
+   PR) + the 5 previously-failing crates (full run, this PR) + CU-executor
+   (#2925) + the #2911 baseline for the untouched remainder. Every number above
+   is a real run; the only *carried* (not re-run this PR) figure is the ~397
+   baseline, flagged with `*`.
+2. **The ~166 gateway-spawn failures share one suspected root cause** (harness
+   boot gate) but that's an inference from the crash signature + GATEWAY-E2E.md,
+   confirmed only to the point of "the gateway needs keys to bind." The owning
+   brief should confirm the exact harness gap before fixing.
+3. **Single run** — the (c)-suspects (instant overflow) seen once; owning briefs
+   re-run in isolation.
+
+_Verified by the Windows fleet (Latitude5440). The argo-cli compile unblock in
+this PR is unix-safe (adds a trait import used on every platform); conductor
+re-verifies argo-cli on macOS._
