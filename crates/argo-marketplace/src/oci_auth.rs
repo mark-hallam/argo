@@ -18,6 +18,7 @@
 use base64::Engine as _;
 use serde::Deserialize;
 use std::collections::BTreeMap;
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 /// Resolved registry credentials after applying Argo's fallback chain.
@@ -113,11 +114,32 @@ fn credential_token_key(host: &str) -> String {
 }
 
 fn docker_config_path() -> Option<PathBuf> {
-    if let Some(dir) = std::env::var_os("DOCKER_CONFIG").filter(|v| !v.is_empty()) {
+    docker_config_path_from(
+        std::env::var_os("DOCKER_CONFIG"),
+        std::env::var_os("HOME"),
+        std::env::var_os("USERPROFILE"),
+    )
+}
+
+/// Pure core of [`docker_config_path`] — env values passed explicitly so the
+/// precedence (`$DOCKER_CONFIG/config.json`, else `<home>/.docker/config.json`
+/// with `HOME` → `USERPROFILE`) is asserted without mutating process-global
+/// environment. The `USERPROFILE` fallback is what makes Docker registry auth
+/// resolve on native Windows, where `HOME` is usually unset — previously this
+/// returned `None`, silently skipping the docker-config credential source and
+/// forcing an explicit `--token` on every `argo vertical publish`/`pull`.
+/// Empty values are treated as unset. Unix is byte-identical (HOME set ⇒ same
+/// path). Mirrors the #2904 HOME→USERPROFILE pattern.
+fn docker_config_path_from(
+    docker_config: Option<OsString>,
+    home: Option<OsString>,
+    userprofile: Option<OsString>,
+) -> Option<PathBuf> {
+    if let Some(dir) = docker_config.filter(|v| !v.is_empty()) {
         return Some(PathBuf::from(dir).join("config.json"));
     }
-    std::env::var_os("HOME")
-        .filter(|v| !v.is_empty())
+    home.filter(|v| !v.is_empty())
+        .or_else(|| userprofile.filter(|v| !v.is_empty()))
         .map(PathBuf::from)
         .map(|home| home.join(".docker").join("config.json"))
 }
@@ -271,6 +293,53 @@ fn split_params(s: &str) -> Vec<(&str, &str)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn docker_config_env_wins_over_home() {
+        let got = docker_config_path_from(
+            Some("/cfg".into()),
+            Some("/home/alice".into()),
+            Some("C:\\Users\\alice".into()),
+        );
+        assert_eq!(got, Some(PathBuf::from("/cfg").join("config.json")));
+    }
+
+    #[test]
+    fn home_dot_docker_when_no_docker_config() {
+        let got = docker_config_path_from(None, Some("/home/alice".into()), None);
+        assert_eq!(
+            got,
+            Some(
+                PathBuf::from("/home/alice")
+                    .join(".docker")
+                    .join("config.json")
+            )
+        );
+    }
+
+    #[test]
+    fn falls_back_to_userprofile_when_home_unset() {
+        // Native Windows: HOME unset → USERPROFILE/.docker/config.json instead of
+        // the prior `None` (which silently skipped the docker-config credential).
+        let got = docker_config_path_from(None, None, Some("C:\\Users\\alice".into()));
+        assert_eq!(
+            got,
+            Some(
+                PathBuf::from("C:\\Users\\alice")
+                    .join(".docker")
+                    .join("config.json")
+            )
+        );
+    }
+
+    #[test]
+    fn none_when_nothing_set() {
+        assert_eq!(docker_config_path_from(None, None, None), None);
+        assert_eq!(
+            docker_config_path_from(Some("".into()), Some("".into()), Some("".into())),
+            None
+        );
+    }
 
     #[test]
     fn parses_ghcr_style_challenge() {
