@@ -6,9 +6,7 @@
 #[cfg(not(target_os = "windows"))]
 use super::ComputerUseWindowsExecutor;
 use crate::handlers::worker_actions::ActionRecord;
-#[cfg(target_os = "windows")]
-use crate::handlers::worker_actions_executor::ActionOutcome;
-use crate::handlers::worker_actions_executor::{resolve_executor, ExecutorKind};
+use crate::handlers::worker_actions_executor::{resolve_executor, ActionOutcome, ExecutorKind};
 
 fn rec_for(action_id: &str, action_type: &str) -> ActionRecord {
     ActionRecord {
@@ -109,6 +107,49 @@ executor = { kind = "computer_use_windows_garbage" }
     );
 }
 
+/// Non-cfg: exercises `map_windows_outcome` (and through it `bundle_path` +
+/// `build_bundle`) on every host, so the run-loop outcome mapper is covered on
+/// the macOS/Linux swarm too — and those helpers are not dead code there.
+/// Mirrors the macOS `maps_completed_and_handoff_outcomes` test.
+#[test]
+fn maps_completed_and_handoff_outcomes() {
+    let r = rec_for("act-cu-win-complete", "do_thing");
+    let cwd = tempfile::tempdir().expect("tempdir");
+    let outcome = argo_executor_computer_use_windows::WindowsCuOutcome::Completed {
+        summary: "typed note".into(),
+        steps: Vec::new(),
+        wallclock_seconds: 2,
+    };
+
+    let mapped = super::map_windows_outcome(&r, cwd.path(), None, outcome).expect("maps");
+    let ActionOutcome::Completed {
+        bundle_path,
+        result_json,
+    } = mapped
+    else {
+        panic!("expected Completed");
+    };
+    assert!(bundle_path.ends_with("act-cu-win-complete"));
+    assert_eq!(result_json["outcome"], "completed");
+    assert_eq!(result_json["summary"], "typed note");
+    assert_eq!(result_json["wallclock_seconds"], 2);
+
+    let r = rec_for("act-cu-win-handoff", "do_thing");
+    let outcome = argo_executor_computer_use_windows::WindowsCuOutcome::HumanHandoff {
+        reason: "ACT operation held for operator approval".into(),
+        steps: Vec::new(),
+    };
+
+    let mapped = super::map_windows_outcome(&r, cwd.path(), None, outcome).expect("maps");
+    let ActionOutcome::HumanHandoff { bundle_path } = mapped else {
+        panic!("expected HumanHandoff");
+    };
+    let body = std::fs::read_to_string(bundle_path.join("instructions.md"))
+        .expect("instructions.md must exist");
+    assert!(body.contains("ACT operation held for operator approval"));
+    assert!(body.contains(&r.action_id));
+}
+
 #[test]
 #[cfg(not(target_os = "windows"))]
 fn dispatch_on_non_windows_returns_clean_provider_error() {
@@ -132,29 +173,48 @@ fn dispatch_on_non_windows_returns_clean_provider_error() {
 
 #[test]
 #[cfg(target_os = "windows")]
-fn dispatch_on_windows_writes_bundle() {
-    use crate::handlers::worker_actions_executor::Executor;
+fn dispatch_on_windows_hands_off_when_preflight_gapped() {
+    use argo_executor_computer_use_windows::{WindowsCuConfig, WindowsCuExecutor};
     use std::fs;
+
+    // Post run-loop wire (DEC-054), the Windows dispatch arm calls `run()`. On a
+    // FULLY-permitted host that would reach the live Anthropic loop (real key +
+    // live desktop), so this hermetic test skips there — the loop itself is
+    // covered by `run_loop_tests` in argo-executor-computer-use-windows. We only
+    // assert the non-live branches below. Probe preflight in a scoped runtime so
+    // no ambient runtime leaks into the sync `dispatch` call.
+    let preflight_passed = {
+        let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
+        let probe = WindowsCuExecutor::new(WindowsCuConfig::for_notepad_app()).expect("config");
+        rt.block_on(probe.preflight()).all_passed()
+    };
+    if preflight_passed {
+        return;
+    }
+
     let manifest = manifest_with_kind("computer_use_windows");
     let exec = resolve_executor(&manifest, "do_thing").expect("resolves");
     let r = rec_for("act-cu-win-2", "do_thing");
     let cwd = tempfile::tempdir().expect("tempdir");
 
-    // The dispatch path on Windows runs preflight + writes a
-    // bundle. Preflight may report missing UAC / DPI / a11y bits
-    // on a CI host; that's surfaced into the bundle body, not
-    // raised as an error.
-    let outcome = exec
-        .dispatch(&r, cwd.path())
-        .expect("Windows dispatch must succeed even when preflight is failing");
-    let bundle_path = match outcome {
-        ActionOutcome::HumanHandoff { bundle_path } => bundle_path,
-        ActionOutcome::Completed { .. } => {
-            panic!("v1 dispatch lands as HumanHandoff pending follow-up loop")
+    // Preflight has gaps → `run()` returns HumanHandoff *before* any Anthropic
+    // call (preflight is checked first), and a per-action bundle is written. If
+    // ANTHROPIC_API_KEY is unset, dispatch surfaces a clean missing-key error
+    // before the loop instead. Both are honest, non-live outcomes; a live
+    // `Completed` is impossible on a preflight-gapped host.
+    match exec.dispatch(&r, cwd.path()) {
+        Ok(ActionOutcome::HumanHandoff { bundle_path }) => {
+            let body = fs::read_to_string(bundle_path.join("instructions.md"))
+                .expect("instructions.md must exist");
+            assert!(body.contains("computer-use-windows"));
+            assert!(body.contains(&r.action_id));
         }
-    };
-    let body = fs::read_to_string(bundle_path.join("instructions.md"))
-        .expect("instructions.md must exist");
-    assert!(body.contains("computer-use-windows"));
-    assert!(body.contains(&r.action_id));
+        Err(e) => assert!(
+            e.to_string().contains("ANTHROPIC_API_KEY"),
+            "expected clean missing-key error on a keyless host, got: {e}"
+        ),
+        Ok(ActionOutcome::Completed { .. }) => {
+            panic!("preflight-gapped host must not complete a live run")
+        }
+    }
 }

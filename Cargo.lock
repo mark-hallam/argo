@@ -707,6 +707,8 @@ version = "0.0.1"
 dependencies = [
  "argo-executor-computer-use",
  "argo-types",
+ "async-trait",
+ "chrono",
  "image",
  "serde",
  "serde_json",

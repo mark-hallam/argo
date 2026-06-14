@@ -10,6 +10,8 @@ description = "Argo V1.5 — native Windows computer-use executor (UIAutomation 
 [dependencies]
 argo-executor-computer-use = { path = "../argo-executor-computer-use" }
 argo-types = { path = "../argo-types" }
+async-trait = { workspace = true }
+chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

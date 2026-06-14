@@ -59,17 +59,24 @@
 
 pub mod a11y;
 pub mod config;
+pub mod cu_risk;
 pub mod error;
 pub mod events;
 pub mod executor;
+pub mod executor_loop;
 pub mod notes;
 pub mod preflight;
 pub mod screenshot;
 
+#[cfg(test)]
+mod run_loop_tests;
+
 pub use config::{ScreenshotKind, WindowsCuConfig};
 pub use error::WindowsCuError;
 pub use executor::WindowsStepRecord as StepRecord;
-pub use executor::{WindowsCuExecutor, WindowsCuOutcome, WindowsCuRunRequest, WindowsStepRecord};
+pub use executor::{
+    WindowsCuExecutor, WindowsCuOutcome, WindowsCuRunRequest, WindowsCuSession, WindowsStepRecord,
+};
 pub use preflight::{PreflightCheck, PreflightStatus, WindowsPreflightReport};
 
 /// Result alias for the crate.

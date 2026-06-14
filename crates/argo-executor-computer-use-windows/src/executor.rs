@@ -16,9 +16,15 @@ use crate::config::WindowsCuConfig;
 use crate::error::WindowsCuError;
 use crate::events::{action_kind, post, WindowsActionResult};
 use crate::preflight::{probe, WindowsPreflightReport};
-use crate::screenshot::{capture_all_monitors, MonitorScreenshot};
+use crate::screenshot::{capture_all_monitors, enumerate_monitors, MonitorScreenshot};
 use crate::WindowsCuResult;
+use argo_executor_computer_use::anthropic::AnthropicClient;
+use argo_executor_computer_use::audit::AuditLog;
+use argo_executor_computer_use::budget::BudgetTracker;
+use argo_executor_computer_use::config::DEFAULT_TOOL_VARIANT;
 use argo_executor_computer_use::e2b::CuAction;
+use argo_executor_computer_use::profile::Profile;
+use argo_executor_computer_use::CuError;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::Instant;
@@ -45,6 +51,20 @@ pub struct WindowsCuRunRequest {
     /// Anthropic API key. The executor stamps a fresh client per
     /// run so concurrent dispatches don't share state.
     pub anthropic_api_key: String,
+    /// Risk-tiered floor (DEC-051): `false` (default) holds at the first
+    /// ACT op and hands off for operator approval; `true` is set after
+    /// the operator's "Approve & run". Defaulted for back-compat with
+    /// callers/serialised requests authored before this field existed.
+    #[serde(default)]
+    pub act_approved: bool,
+}
+
+/// Per-dispatch platform handle for the [`CuStepRunner`] loop — carries the
+/// directory the per-step PNGs are written into. Mirrors `MacosCuSession`.
+#[derive(Debug, Clone)]
+pub struct WindowsCuSession {
+    /// Directory the loop writes per-monitor screenshots into.
+    pub screenshot_dir: PathBuf,
 }
 
 /// Outcome polarity matches the cross-platform executor:
@@ -156,6 +176,42 @@ impl WindowsCuExecutor {
         })
     }
 
+    /// Run the autonomous Anthropic computer-use loop against native
+    /// Windows step primitives (DEC-054). Preflight-gates with an honest
+    /// handoff if any axis fails, builds the per-run Anthropic client + audit
+    /// log, then drives the loop via
+    /// [`crate::executor_loop::run_loop_with_client`] (shared turn/budget/
+    /// risk-floor semantics; see that module for why it mirrors macOS rather
+    /// than calling the `pub(crate)` shared `run_loop`).
+    pub async fn run(&self, req: WindowsCuRunRequest) -> WindowsCuResult<WindowsCuOutcome> {
+        let report = self.preflight().await;
+        if !report.all_passed() {
+            return Ok(Self::handoff(report.actionable_summary(), Vec::new()));
+        }
+        self.warm_up()?;
+        let audit = AuditLog::create(req.audit_dir.clone()).map_err(windows_from_cu)?;
+        let (width, height) = windows_screen_size();
+        let profile = profile_from_config(&self.config, width, height);
+        let anthropic =
+            anthropic_client(&self.config, &req.anthropic_api_key).map_err(windows_from_cu)?;
+        let session = WindowsCuSession {
+            screenshot_dir: req.audit_dir.clone(),
+        };
+        let mut tracker = BudgetTracker::new(&profile);
+        crate::executor_loop::run_loop_with_client(
+            self,
+            &anthropic,
+            &req,
+            &profile,
+            &session,
+            &audit,
+            &mut tracker,
+            Instant::now(),
+        )
+        .await
+        .map_err(windows_from_cu)
+    }
+
     /// Force-emit a `HumanHandoff` outcome for a budget breach.
     #[must_use]
     pub fn handoff(reason: impl Into<String>, steps: Vec<WindowsStepRecord>) -> WindowsCuOutcome {
@@ -190,6 +246,60 @@ impl WindowsCuExecutor {
         let elapsed = started_at.elapsed();
         elapsed.as_secs() >= u64::from(self.config.max_wallclock_seconds)
     }
+}
+
+fn profile_from_config(config: &WindowsCuConfig, width: u32, height: u32) -> Profile {
+    Profile {
+        sandbox_template: "native-windows".into(),
+        description: format!("Native Windows target app {}", config.target_app),
+        url_whitelist: Vec::new(),
+        max_tokens_per_action: 150_000,
+        max_wallclock_seconds: config.max_wallclock_seconds,
+        max_steps: config.max_steps,
+        screen_width: width,
+        screen_height: height,
+        model: config.anthropic_model.clone(),
+        restart: Default::default(),
+    }
+}
+
+fn anthropic_client(config: &WindowsCuConfig, api_key: &str) -> Result<AnthropicClient, CuError> {
+    AnthropicClient::new(
+        config
+            .anthropic_base_url
+            .clone()
+            .unwrap_or_else(|| "https://api.anthropic.com".into()),
+        api_key.to_string(),
+        config.anthropic_model.clone(),
+        DEFAULT_TOOL_VARIANT.to_string(),
+        config.anthropic_timeout_seconds,
+    )
+}
+
+/// Map a platform-neutral `CuError` (from the loop) back to `WindowsCuError`
+/// for the `run()` return type. Mirrors macOS `macos_from_cu`.
+fn windows_from_cu(err: CuError) -> WindowsCuError {
+    let msg = err.to_string();
+    match err {
+        CuError::Io { source, .. } => WindowsCuError::Io(source),
+        CuError::Http { .. } | CuError::HttpStatus { .. } => WindowsCuError::Anthropic(msg),
+        _ => WindowsCuError::Protocol(msg),
+    }
+}
+
+/// Best-effort primary-monitor pixel dimensions for the Anthropic tool spec.
+/// Falls back to 1920x1080 when enumeration is unavailable (e.g. off-platform).
+fn windows_screen_size() -> (u32, u32) {
+    enumerate_monitors()
+        .ok()
+        .and_then(|mons| {
+            mons.iter()
+                .find(|m| m.is_primary)
+                .or_else(|| mons.first())
+                .map(|m| (m.width, m.height))
+        })
+        .filter(|(w, h)| *w > 0 && *h > 0)
+        .unwrap_or((1920, 1080))
 }
 
 #[cfg(target_os = "windows")]
