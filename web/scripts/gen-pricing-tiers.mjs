@@ -11,7 +11,7 @@
 // `prebuild` hook. `web/tests/pricing-tiers-source.test.ts` fails if the
 // committed JSON ever drifts from the .toml, so a stale checkout is caught
 // in CI rather than shipping a wrong price.
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -71,6 +71,24 @@ export function buildTiersData(toml) {
 }
 
 function main() {
+  // The canonical .toml lives at the repo root (docs/skycot/pricing/), OUTSIDE
+  // the web/-scoped Docker build context (deploy/Dockerfile.web). In that
+  // context the committed tiers.data.json IS the build-time source the client
+  // imports — and CI's pricing-tiers-source.test.ts guarantees it matches the
+  // .toml, so a stale projection is caught before any image is built. So when
+  // the .toml is absent but the committed JSON exists, skip regeneration and
+  // build from the committed artifact rather than failing the build (ENOENT).
+  if (!existsSync(TOML_PATH)) {
+    if (existsSync(OUT_PATH)) {
+      console.log(
+        `gen-pricing-tiers: ${TOML_PATH} not in build context; using committed ${OUT_PATH} (CI-verified fresh).`,
+      );
+      return;
+    }
+    throw new Error(
+      `gen-pricing-tiers: canonical ${TOML_PATH} is missing and no committed ${OUT_PATH} exists to fall back to.`,
+    );
+  }
   const toml = readFileSync(TOML_PATH, "utf8");
   const data = buildTiersData(toml);
   writeFileSync(OUT_PATH, JSON.stringify(data, null, 2) + "\n", "utf8");
