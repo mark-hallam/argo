@@ -90,7 +90,16 @@ locals {
   container_env = concat([
     # ARGO_GATEWAY_PROFILE=production forces auth_bypass=false in routes_auth.rs.
     { name = "ARGO_GATEWAY_PROFILE", value = "production" },
-    { name = "ARGO_HOME", value = "/data" },
+    # ARGO_HOME=/data/.argo (NOT /data): the gateway writes its db at
+    # $ARGO_HOME/sessions.db, and the daily offsite-backup RunTask
+    # (modules/backup/schedule.tf) snapshots $ARGO_WORKSPACE/.argo = /data/.argo.
+    # These align ONLY when the gateway ALSO writes under /data/.argo — the prior
+    # /data here put the db at /data/sessions.db, so the backup's empty-db guard
+    # fired LOUD on every daily run (the never-closed "ecs follow-up" the backup
+    # README flagged). This task-def env OVERRIDES the image default, so it must
+    # be flipped here too — the image-default change alone is a no-op on ECS.
+    # Fresh-apply-safe; an existing deploy needs backup-cron.sh's one-time migration.
+    { name = "ARGO_HOME", value = "/data/.argo" },
     { name = "RUST_LOG", value = "info" },
     # On-disk truth-boundary policy + pitch corpus locations. The container image
     # (root Dockerfile) bakes these same ENV defaults, so the task def is a

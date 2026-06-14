@@ -57,6 +57,17 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates libssl3 libdbus-1-3 && rm -rf /var/lib/apt/lists/*
 
+# AWS CLI v2 for the daily offsite-backup RunTask: scripts/backup-cron.sh runs
+# `aws s3 cp` to ship the verified snapshot offsite (infra/terraform/modules/
+# backup/schedule.tf). Multi-stage copy from the official image keeps the runtime
+# lean — no curl/unzip/python layer — because the v2 bundle ships its own Python
+# interpreter + libs and runs self-contained on debian:bookworm-slim (glibc; the
+# bundle is NOT musl-compatible). Source: AWS-canonical ECR Public (avoids Docker
+# Hub rate limits in the AWS build env), pinned to a version tag for reproducible
+# builds. Kept at PARITY with deploy/Dockerfile.gateway.
+COPY --from=public.ecr.aws/aws-cli/aws-cli:2.17.0 /usr/local/aws-cli/ /usr/local/aws-cli/
+RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws
+
 # Non-root runtime user (uid/gid 10001, "app"). The gateway parses untrusted
 # Stripe/Discord/SMS webhooks + runs computer-use, so it must NOT run as root.
 # Port 8080 is > 1024 so no CAP_NET_BIND_SERVICE is needed. Kept at PARITY with
@@ -75,23 +86,39 @@ COPY verticals     ./verticals
 COPY policies      ./policies
 COPY skill-library ./skill-library
 
+# scripts/ holds the operational entrypoints baked into the image — notably
+# scripts/backup-cron.sh, which the daily offsite-backup ECS RunTask invokes
+# (its container overrides the entrypoint to /bin/bash + command to
+# scripts/backup-cron.sh). Without this COPY the scheduled run fails at the
+# script-not-found step. Kept at PARITY with deploy/Dockerfile.gateway.
+COPY scripts       ./scripts
+
 # Pin the on-disk dep locations by env so resolution never depends on the
 # process cwd / the workspace_root() Cargo.toml walk (which finds nothing in a
 # deploy image). ARGO_PITCH_CORPUS_DIR + ARGO_PITCH_POLICY_DIR are read directly
 # by routes_pitch_ask.rs corpus_dir()/policy_dir(); ARGO_VERTICALS_DIR matches
 # the gateway image. (No ARGO_MANIFEST_DIR: no runtime code reads it; the
 # manifests resolve via the WORKDIR /app cwd fallback to /app/manifests.)
-ENV ARGO_HOME=/data \
+# ARGO_HOME=/data/.argo (NOT /data): the gateway writes its db at
+# $ARGO_HOME/sessions.db, and scripts/backup-cron.sh snapshots
+# $ARGO_WORKSPACE/.argo (ARGO_WORKSPACE=/data on ECS → /data/.argo). These align
+# ONLY when ARGO_HOME=/data/.argo (the runbook §13b convention) — the prior
+# /data default put the db at /data/sessions.db, so the backup's empty-db guard
+# fired LOUD on every daily run. ⚠️ BLAST RADIUS: this changes the gateway's
+# data dir. Safe on a FRESH apply; an EXISTING deploy needs the one-time
+# migration printed by backup-cron.sh (mkdir /data/.argo && mv the db + token in).
+ENV ARGO_HOME=/data/.argo \
     ARGO_VERTICALS_DIR=/app/verticals \
     ARGO_PITCH_CORPUS_DIR=/app/skill-library/canonical-qa/corpora/skycot \
     ARGO_PITCH_POLICY_DIR=/app/policies/truth-boundary \
     RUST_LOG=info
 
-# Make ARGO_HOME (/data) writable by the non-root uid on a FRESH empty volume.
-# A bare VOLUME/bind mount comes up root-owned; chowning at build time covers
-# the docker-run path. On k8s the PVC mount is covered by fsGroup: 10001 in the
-# Deployment securityContext (the in-image chown does not reach a PVC mount).
-RUN mkdir -p /data && chown 10001:10001 /data
+# Make ARGO_HOME (/data/.argo) + its /data parent writable by the non-root uid on
+# a FRESH empty volume. A bare VOLUME/bind mount comes up root-owned; chowning at
+# build time covers the docker-run path. On k8s the PVC mount is covered by
+# fsGroup: 10001 in the Deployment securityContext (the in-image chown does not
+# reach a PVC mount). chown -R so the pre-created .argo subdir is owned too.
+RUN mkdir -p /data/.argo && chown -R 10001:10001 /data
 
 EXPOSE 8080
 # Drop to the non-root user for the runtime process.

@@ -29,15 +29,13 @@ ARN and `${arn}/*` — there is **no `"*"` resource** on any S3 action; the
 scheduler's `iam:PassRole` is conditioned to `ecs-tasks.amazonaws.com` and scoped
 to the two roles the task uses.
 
-## ⚠️ Image prerequisite (the scheduled run needs a follow-up to be end-to-end live)
+## ✅ Image prerequisite (CLOSED 2026-06-15)
 
 The backup task runs `bash scripts/backup-cron.sh` and uploads with the AWS CLI.
-The **current** runtime image (root `Dockerfile`) does **not** bundle `scripts/`,
-does **not** install the AWS CLI, and its `ENTRYPOINT` is the `argo` binary
-(overridden to `/bin/bash` in the task def here). Until a follow-up bakes
-`scripts/` + `awscli` into the image (the `Dockerfile` is **outside this brief's
-may-touch**, so it is a separate change), the **scheduled** RunTask will fail at
-the script-not-found / `aws`-not-found step.
+The runtime image now bundles `scripts/` and installs **AWS CLI v2** (root
+`Dockerfile` + `deploy/Dockerfile.gateway`, both at parity); its `ENTRYPOINT` is
+the `argo` binary (overridden to `/bin/bash` in the task def here). Closed by
+`fix-backup-image-bake-scripts-awscli-and-argo-home`.
 
 What is live-on-apply regardless of that follow-up:
 
@@ -53,11 +51,14 @@ audited bucket — instead of hand-wiring an unaudited bucket with no
 ## ⚠️ `ARGO_HOME` alignment
 
 `backup-cron.sh` snapshots `$ARGO_WORKSPACE/.argo`, so it finds the db only when
-the gateway writes it there. The backup task sets `ARGO_HOME=/data/.argo`; the
-**gateway** must do the same (runbook §13b convention) — the baked image default
-is `ARGO_HOME=/data`, so this needs the same image/ecs follow-up. The
-empty-db guard in `backup-cron.sh` fails loud rather than shipping a silent empty
-backup, so a misalignment is caught, not hidden.
+the gateway writes it there. The backup task sets `ARGO_HOME=/data/.argo`, and the
+**gateway** now does the same (runbook §13b convention) — set both as the image
+default AND on the ECS gateway service task def (`modules/ecs/main.tf`, which
+**overrides** the image default, so the image change alone is a no-op on ECS).
+The empty-db guard in `backup-cron.sh` fails loud rather than shipping a silent
+empty backup, so a misalignment is caught, not hidden. ⚠️ This changes the
+gateway's data dir: **fresh applies are safe**; an **existing** deploy needs the
+one-time migration `backup-cron.sh` prints on the empty-db guard.
 
 ## Inputs (selected)
 

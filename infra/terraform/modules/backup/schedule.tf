@@ -7,24 +7,23 @@
 # Events rule) is used because it is the current first-class AWS scheduler with
 # native ECS targets, retries, and a flexible time window.
 #
-# ⚠️ IMAGE PREREQUISITE (read before relying on the scheduled run):
+# ✅ IMAGE PREREQUISITE (CLOSED 2026-06-15 — fix-backup-image-bake-scripts-awscli-and-argo-home):
 #   The task runs `bash scripts/backup-cron.sh` against the gateway image and
-#   uploads with the AWS CLI. The CURRENT runtime image (root Dockerfile) does
-#   NOT bundle `scripts/` and does NOT install the AWS CLI, and its ENTRYPOINT is
-#   the `argo` binary (overridden to /bin/bash here). Until a follow-up bakes
-#   `scripts/` + awscli into the image (Dockerfile is OUTSIDE this brief's
-#   may-touch), the SCHEDULED run will fail at the script-not-found / aws-not-
-#   found step. The bucket + lifecycle + public-access-block + scoped IAM in this
-#   module are live-on-apply regardless, and the operator can run
-#   `scripts/backup-cron.sh` from any EFS-mounting host today (runbook §13b,
-#   compose/systemd path). See README.md "Image prerequisite" + the runbook.
+#   uploads with the AWS CLI. The runtime image now bundles `scripts/` and
+#   installs AWS CLI v2 (root Dockerfile + deploy/Dockerfile.gateway, both at
+#   parity); its ENTRYPOINT is the `argo` binary (overridden to /bin/bash here).
+#   The bucket + lifecycle + public-access-block + scoped IAM in this module are
+#   live-on-apply, and the operator can also run `scripts/backup-cron.sh` from any
+#   EFS-mounting host (runbook §13b, compose/systemd path). See README.md.
 #
-# ⚠️ ARGO_HOME ALIGNMENT: backup-cron.sh snapshots `$ARGO_WORKSPACE/.argo`, so it
-#   finds the db ONLY when the gateway writes the db there. The gateway must run
-#   with ARGO_HOME=/data/.argo (the runbook §13b convention) — the baked image
-#   default is ARGO_HOME=/data, so this too needs the same image/ecs follow-up.
-#   The empty-db guard in backup-cron.sh fails loud rather than shipping a silent
-#   empty backup, so a misalignment is caught, not hidden.
+# ✅ ARGO_HOME ALIGNMENT (CLOSED same brief): backup-cron.sh snapshots
+#   `$ARGO_WORKSPACE/.argo`, so it finds the db ONLY when the gateway writes the
+#   db there. The gateway now runs with ARGO_HOME=/data/.argo (runbook §13b
+#   convention) — set both as the image default AND on the ECS gateway service
+#   task def (modules/ecs/main.tf, which OVERRIDES the image default). The
+#   empty-db guard in backup-cron.sh fails loud rather than shipping a silent
+#   empty backup, so a misalignment is caught, not hidden. ⚠️ EXISTING deploys
+#   need backup-cron.sh's one-time migration (fresh applies are safe).
 
 resource "aws_cloudwatch_log_group" "backup" {
   name              = "/aws/ecs/${var.name_prefix}-backup"
