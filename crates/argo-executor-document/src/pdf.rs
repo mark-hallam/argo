@@ -21,7 +21,10 @@ use std::process::Command;
 /// Env var the operator sets to nominate a non-default Chrome path.
 pub const ENV_CHROME_PATH: &str = "ARGO_DOC_CHROME";
 
-/// Default macOS path. Linux operators must set the env override.
+/// Default Chrome path on unix (macOS app-bundle path; Linux operators set the
+/// `ARGO_DOC_CHROME` override). Windows resolves via [`windows_chrome_path`]
+/// instead, so this constant is unix-only.
+#[cfg(not(windows))]
 const DEFAULT_CHROME_PATH: &str = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 /// Convert markdown to standalone HTML the headless renderer can
@@ -63,13 +66,53 @@ fn html_escape(s: &str) -> String {
         .replace('\'', "&#39;")
 }
 
-/// Resolve which Chrome binary to invoke. `ARGO_DOC_CHROME`
-/// override wins, then the macOS default.
+/// Resolve which Chrome binary to invoke. `ARGO_DOC_CHROME` override wins; then
+/// the per-OS default — the macOS app-bundle path on unix, or a probe of the
+/// standard install locations on Windows ([`windows_chrome_path`]).
 pub fn resolve_chrome_path() -> PathBuf {
     if let Ok(override_path) = std::env::var(ENV_CHROME_PATH) {
         return PathBuf::from(override_path);
     }
-    PathBuf::from(DEFAULT_CHROME_PATH)
+    #[cfg(windows)]
+    {
+        windows_chrome_path()
+    }
+    #[cfg(not(windows))]
+    {
+        PathBuf::from(DEFAULT_CHROME_PATH)
+    }
+}
+
+/// Probe the standard Windows install locations for Chrome (then Edge as a
+/// Chromium fallback); the first existing path wins. Falls back to the first
+/// candidate so a [`DocExecutorError::ChromeMissing`] error still names a real
+/// expected path rather than the macOS one. Without this, the macOS default
+/// never `.exists()` on Windows so PDF export reported ChromeMissing even with
+/// Chrome installed. See `win-doc-executor-chrome-path-windows-discovery`.
+#[cfg(windows)]
+fn windows_chrome_path() -> PathBuf {
+    use std::env;
+    let chrome_rel = r"Google\Chrome\Application\chrome.exe";
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Ok(pf) = env::var("ProgramFiles") {
+        candidates.push(PathBuf::from(pf).join(chrome_rel));
+    }
+    if let Ok(pf86) = env::var("ProgramFiles(x86)") {
+        candidates.push(PathBuf::from(pf86).join(chrome_rel));
+    }
+    if let Ok(lad) = env::var("LOCALAPPDATA") {
+        candidates.push(PathBuf::from(lad).join(chrome_rel));
+    }
+    // Edge (Chromium) renders the same `--headless --print-to-pdf` flags.
+    if let Ok(pf86) = env::var("ProgramFiles(x86)") {
+        candidates.push(PathBuf::from(pf86).join(r"Microsoft\Edge\Application\msedge.exe"));
+    }
+    candidates
+        .iter()
+        .find(|c| c.exists())
+        .cloned()
+        .or_else(|| candidates.into_iter().next())
+        .unwrap_or_else(|| PathBuf::from("chrome.exe"))
 }
 
 /// Render markdown to a PDF at `target`. The intermediate HTML is
@@ -133,7 +176,8 @@ fn invoke_chrome(html_path: &Path, pdf_path: &Path) -> DocResult<()> {
             path: chrome,
             env: ENV_CHROME_PATH,
             hint: "macOS: brew install --cask google-chrome; \
-                   linux: install google-chrome-stable",
+                   linux: install google-chrome-stable; \
+                   Windows: install Google Chrome or Edge, or set ARGO_DOC_CHROME",
         });
     }
     let html_uri = format!("file://{}", html_path.display());
@@ -260,6 +304,20 @@ mod tests {
     fn resolve_chrome_path_honors_env_override() {
         let _g = EnvGuard::set(ENV_CHROME_PATH, "/custom/chrome");
         assert_eq!(resolve_chrome_path(), PathBuf::from("/custom/chrome"));
+    }
+
+    /// On Windows the default (no override) must resolve to a Chrome/Edge `.exe`
+    /// candidate — never the macOS app-bundle path that never `.exists()` there.
+    /// `win-doc-executor-chrome-path-windows-discovery`.
+    #[cfg(windows)]
+    #[test]
+    fn windows_chrome_path_returns_exe_candidate() {
+        let p = windows_chrome_path();
+        let s = p.to_string_lossy().to_ascii_lowercase();
+        assert!(
+            s.ends_with("chrome.exe") || s.ends_with("msedge.exe"),
+            "windows chrome path must be a chrome/edge .exe candidate, got: {s}"
+        );
     }
 
     /// Restore an env var on drop so tests don't leak state into
