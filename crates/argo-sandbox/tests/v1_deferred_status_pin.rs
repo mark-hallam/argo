@@ -106,6 +106,13 @@ const PINS: &[DeferredPin] = &[
         rust_path: "argo_executor_computer_use_windows",
         allowed_callers: &[
             "crates/argo-cli/src/handlers/worker_actions_executor_cu_windows.rs",
+            // Co-located test module (`#[cfg(test)] mod cu_windows_tests`) that
+            // names `argo_executor_computer_use_windows::WindowsCuOutcome` etc.
+            // for mapper coverage. Test refs are NOT promotion (see module
+            // docstring); allowlisted the same way `cu_replay_tests.rs` is for
+            // argo-executor-computer-use. Added by the Windows CU executor work;
+            // the pin snapshot (140db7c03, 2026-05-24) predated it.
+            "crates/argo-cli/src/handlers/worker_actions_executor_cu_windows_tests.rs",
         ],
     },
 ];
