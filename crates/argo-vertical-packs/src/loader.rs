@@ -47,10 +47,17 @@ pub struct PackLoader<F = GitHubReleaseFetcher> {
 
 impl PackLoaderConfig {
     /// Use the default cache root and GitHub Releases fetcher config.
+    ///
+    /// The cache root is `<home>/.argo/packs`, where `<home>` resolves `HOME`
+    /// (unix) → `USERPROFILE` (native Windows) via
+    /// [`crate::home_dir::home_dir`]. Previously this read `HOME` only and
+    /// hard-errored on native Windows, breaking every `argo packs` subcommand.
     pub fn default_from_env() -> ArgoResult<Self> {
-        let home = std::env::var("HOME")
-            .map(PathBuf::from)
-            .map_err(|_| ArgoError::Io("HOME is not set; cannot resolve ~/.argo/packs".into()))?;
+        let home = crate::home_dir::home_dir().ok_or_else(|| {
+            ArgoError::Io(
+                "neither HOME nor USERPROFILE is set; cannot resolve ~/.argo/packs".into(),
+            )
+        })?;
         Ok(Self::with_cache_dir(home.join(".argo").join("packs")))
     }
 

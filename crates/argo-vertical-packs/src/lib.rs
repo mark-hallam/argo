@@ -10,6 +10,7 @@
 pub mod adapter;
 pub mod dev_link;
 pub mod fetcher;
+mod home_dir;
 pub mod loader;
 pub mod manifest;
 
