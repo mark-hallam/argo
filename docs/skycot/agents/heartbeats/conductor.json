@@ -1,17 +1,18 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-06-14T18:10:00Z",
+  "last_run_utc": "2026-06-14T19:40:00Z",
   "expected_cadence_seconds": 1500,
-  "session_label": "autonomous-overnight-2026-06-15-fleet-feed-and-aws-punchlist",
-  "run_notes": "AUTONOMOUS overnight conductor (operator 'keep going', Opus 4.8, ultracode). TICK 2 KEY FINDING + FIX: the macOS swarm was IDLE on the 5 AWS briefs (3 worker-loops alive but 0% CPU, 0 claims) \u2014 ROOT CAUSE: the SHARED checkout (~/code/argo) had a DIRTY working tree (2 stale TRACKED files: CLAUDE.md + conductor.json, both superseded by origin/main \u2014 drift from the 2026-06-14 session, NOT operator edits). worker-loop.sh:426 self-heal needs a clean tree and claim-with-retry.sh:219 refuses a dirty tree \u2192 classic spin-loop-trap (documented in SHARED.md 2026-05-26/27). FIX: `git reset --hard origin/main` on the shared checkout (HEAD 2f56bd530\u2192450e2e25c; untracked files preserved) \u2014 the exact self-heal the workers couldn't run. VERIFIED un-trapped: a worker immediately claimed fix-approvals-rate-kpi-durable-from-audit (9cbaf6670), 4 claude-code builds now active. EARLIER TONIGHT: cleared 10 Windows PRs (#2940-2951 incl. #2950 doctor-portability + #2951 e2e-soak); fed 2 win briefs (doctor-shellouts STALE-FIXED-by-#2950, gateway-stop now building); completed+VERIFIED the AWS runbook doc fix (ffcbf0be7, 8/9 items; validate-infra.sh 14 modules PASS on tofu/bash3.2); CAUGHT the JWT-fail-closed brief as a FALSE POSITIVE (guard already ships in startup_check.rs #2706) + corrected the audit. THE GATE: AWS deploy-readiness (DEC-034) \u2014 operator applies once + cold-stranger cloud smoke. 2 real HIGH gaps remain (backup-image DR [high-blast: ARGO_HOME], WAF rate-limit [infra]) \u2014 both for OPERATOR REVIEW, not self-merge. web-book-governance-walkthrough-cta BLOCKED on operator Calendly-vs-form decision.",
-  "open_prs": 0,
+  "session_label": "autonomous-overnight-2026-06-15-WIND-DOWN",
+  "run_notes": "AUTONOMOUS overnight conductor WIND-DOWN (operator 'keep going', Opus 4.8, ultracode; 7 ticks). MERGED THIS SESSION (19 PRs): the 8 original Windows PRs (#2940-2949) + #2950 doctor-portability + #2951 e2e-soak + #2955 gateway-stop + #2957 portability-audit-2 doc + #2958-2961 (skill-key/gmail-token perms-warn, csv-tilde, chrome-path) + #2962 console-echo-suppression (SECURITY) + #2963 gateway-spawn-hermetic + #2964 code-exec-posix. All Windows code PRs real-macOS-gated (build + per-crate tests; unix paths byte-identical). KEY FIXES: (1) un-trapped the macOS swarm (dirty shared tree spin-loop-trap \u2192 git reset --hard origin/main; verified workers re-claimed); (2) AWS runbook doc fix (ffcbf0be7); (3) caught JWT-fail-closed as a FALSE POSITIVE (guard already ships #2706) + corrected the audit; (4) caught #2956 approvals-rate as a REAL regression (web test red on branch, green on main \u2192 changes-requested, NOT merged); (5) gateway-spawn tests made hermetic on macOS (#2963). HELD FOR OPERATOR (commented, NOT merged): #2952 backup-image (ARGO_HOME blast radius), #2953 WAF (option a-vs-b decision), #2954 web-cta (Calendly-vs-form decision), #2956 approvals-rate (needs web-test fix). FLAGGED: supervisor LEAK (~7 supervisors; worker-loops self-reaped 12\u21923); gateway-spawn tests LEAK idle --max-requests gateways (cleaned 35\u21927; teardown-fix worth a brief). THE GATE unchanged: AWS deploy-readiness (DEC-034) \u2014 operator applies once + cold-stranger cloud smoke. main-verify GREEN/unfrozen all night. Queues drained; loop wound down \u2014 re-engage interactively.",
+  "open_prs": 4,
   "queue_state": {
-    "todo_mac": 4,
-    "claimed_mac": 1,
+    "todo_mac": 0,
+    "claimed_mac": 0,
     "todo_windows": 0,
-    "in_review": 0,
+    "claimed_windows": 0,
+    "in_review": 4,
     "blocked": "~26",
-    "note": "2026-06-15 overnight tick-2: swarm UN-TRAPPED (was dirty-tree spin-loop-trapped); fix-approvals-rate-kpi-durable-from-audit CLAIMED + building; 4 AWS briefs left (gateway-spawn-hermetic, backup-image[review], WAF[review], web-cta[blocked]). Windows fleet building win-gateway-stop-portability (its last). Conductor gating on ~25min ScheduleWakeup ticks."
+    "note": "2026-06-15 wind-down: 4 open PRs all HELD/blocked for operator (#2952 #2953 #2954 review, #2956 changes-requested). Both fleets drained. Supervisor-leak + gateway-test-leak flagged (operator launchctl reload resets supervisors)."
   },
   "the_gate": "Tiered-gating tg1+tg2+tg3 LIVE (G2-Elevated grant-card backend complete). DEC-042 Stage-2 p1a LIVE, p1b building, p1c queued. Web vitest suite fully green. All merges this session carried in-band ledger+matrix + adversarial review on every security-adjacent PR.",
   "quota_probe": "skip",
