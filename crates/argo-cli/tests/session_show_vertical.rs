@@ -35,6 +35,8 @@ fn write_demo_vertical(verticals_dir: &Path) {
 fn workspace_init(home: &Path, root: &Path) {
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .current_dir(root)
         .args(["workspace", "init"])
         .output()
@@ -64,6 +66,8 @@ fn new_session(home: &Path, verticals: &Path, title: &str, vertical: Option<&str
     }
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("ARGO_VERTICALS_DIR", verticals)
         .args(&args)
         .output()
@@ -96,6 +100,8 @@ fn cli_session_show_text_includes_vertical_when_bound() {
 
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args(["session", "show", &sid])
         .output()
         .expect("spawn show");
@@ -115,6 +121,8 @@ fn cli_session_show_text_omits_vertical_when_unbound() {
 
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args(["session", "show", &sid])
         .output()
         .expect("spawn show");
@@ -135,6 +143,8 @@ fn cli_session_show_markdown_includes_vertical_when_bound() {
 
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args(["session", "show", &sid, "--format", "markdown"])
         .output()
         .expect("spawn show");
@@ -154,6 +164,8 @@ fn cli_session_show_markdown_omits_vertical_when_unbound() {
 
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args(["session", "show", &sid, "--format", "markdown"])
         .output()
         .expect("spawn show");
@@ -176,6 +188,8 @@ fn cli_session_show_json_carries_vertical_id_for_both() {
     for (sid, want) in [(&bound, Some("demo")), (&unbound, None)] {
         let out = Command::new(argo_bin())
             .env("ARGO_HOME", home.path())
+            .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+            .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
             .args(["session", "show", sid, "--json"])
             .output()
             .expect("spawn show --json");
@@ -208,11 +222,14 @@ fn boot_gateway_with_workspace(
     let port = pick_free_port();
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("ARGO_VERTICALS_DIR", verticals)
         .current_dir(workspace_root)
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &port.to_string(),
             "--max-requests",

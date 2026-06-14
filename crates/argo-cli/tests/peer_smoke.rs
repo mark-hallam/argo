@@ -38,6 +38,7 @@ fn spawn_peer_gateway(self_port: u16, peer_url: &str, max_requests: u32) -> Gate
     Command::new(argo_bin())
         .current_dir(workspace.path())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
         .args(["workspace", "init"])
         .output()
         .expect("workspace init");
@@ -45,6 +46,7 @@ fn spawn_peer_gateway(self_port: u16, peer_url: &str, max_requests: u32) -> Gate
     let mut child = Command::new(argo_bin())
         .current_dir(workspace.path())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
         .env("ARGO_GATEWAY_PEERS", peer_url)
         .env("ARGO_PEER_SECRET", PEER_SECRET)
         .env("ARGO_PEER_POLL_MS", "100")
@@ -52,6 +54,7 @@ fn spawn_peer_gateway(self_port: u16, peer_url: &str, max_requests: u32) -> Gate
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &self_port.to_string(),
             "--max-requests",

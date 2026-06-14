@@ -33,6 +33,8 @@ fn cli_new_without_vertical_still_works() {
     let verticals = tempfile::tempdir().unwrap();
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("ARGO_VERTICALS_DIR", verticals.path())
         .args([
             "new",
@@ -65,6 +67,8 @@ fn cli_new_with_valid_vertical_binds_it() {
     write_demo_vertical(verticals.path());
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("ARGO_VERTICALS_DIR", verticals.path())
         .args([
             "new",
@@ -92,6 +96,8 @@ fn cli_new_with_unknown_vertical_fails_loudly() {
     let verticals = tempfile::tempdir().unwrap();
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("ARGO_VERTICALS_DIR", verticals.path())
         .args([
             "new",
@@ -140,6 +146,8 @@ fn cli_session_list_includes_vertical_id_when_present() {
     ] {
         let out = Command::new(argo_bin())
             .env("ARGO_HOME", home.path())
+            .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+            .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
             .env("ARGO_VERTICALS_DIR", verticals.path())
             .args(&args)
             .output()
@@ -155,6 +163,8 @@ fn cli_session_list_includes_vertical_id_when_present() {
     // and the unbound row has no vertical_id field.
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("ARGO_VERTICALS_DIR", verticals.path())
         .args(["session", "list", "--json"])
         .output()
@@ -217,6 +227,8 @@ fn cli_session_list_filter_by_vertical() {
     ] {
         Command::new(argo_bin())
             .env("ARGO_HOME", home.path())
+            .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+            .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
             .env("ARGO_VERTICALS_DIR", verticals.path())
             .args(&args)
             .output()
@@ -224,6 +236,8 @@ fn cli_session_list_filter_by_vertical() {
     }
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("ARGO_VERTICALS_DIR", verticals.path())
         .args(["session", "list", "--vertical", "demo", "--json"])
         .output()
@@ -252,10 +266,13 @@ fn spawn_gateway(
 ) -> (std::process::Child, BufReader<std::process::ChildStderr>) {
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("ARGO_VERTICALS_DIR", verticals_dir)
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &port.to_string(),
             "--max-requests",

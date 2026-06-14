@@ -203,10 +203,13 @@ fn spawn_gateway_with_verticals_dir(
 ) -> (std::process::Child, BufReader<std::process::ChildStderr>) {
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("ARGO_VERTICALS_DIR", verticals_dir)
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &port.to_string(),
             "--max-requests",

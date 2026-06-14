@@ -36,6 +36,8 @@ fn write_demo_vertical(verticals_dir: &Path) {
 fn workspace_init(home: &Path, root: &Path) {
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .current_dir(root)
         .args(["workspace", "init"])
         .output()
@@ -72,6 +74,8 @@ fn run_new(home: &Path, verticals: &Path, title: &str, vertical: Option<&str>) -
     }
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("ARGO_VERTICALS_DIR", verticals)
         .args(&args)
         .output()
@@ -102,6 +106,8 @@ fn cli_session_list_markdown_includes_vertical_column() {
 
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args(["session", "list", "--format", "markdown"])
         .output()
         .expect("spawn list");
@@ -131,6 +137,8 @@ fn cli_session_list_text_includes_vertical_column() {
 
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args(["session", "list"])
         .output()
         .expect("spawn list");
@@ -159,6 +167,8 @@ fn cli_session_list_json_carries_vertical_id() {
 
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args(["session", "list", "--json"])
         .output()
         .expect("spawn list --json");
@@ -199,11 +209,14 @@ fn boot_gateway(
     let port = pick_free_port();
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("ARGO_VERTICALS_DIR", verticals)
         .current_dir(workspace_root)
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &port.to_string(),
             "--max-requests",

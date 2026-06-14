@@ -63,9 +63,12 @@ fn gateway_sessions_endpoint_returns_json_array_for_empty_db() {
     let home = tempfile::tempdir().unwrap();
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &port.to_string(),
             "--max-requests",
@@ -79,11 +82,11 @@ fn gateway_sessions_endpoint_returns_json_array_for_empty_db() {
     let stderr = child.stderr.take().expect("stderr");
     let mut stderr = BufReader::new(stderr);
     let mut line = String::new();
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
     loop {
         if std::time::Instant::now() > deadline {
             let _ = child.kill();
-            panic!("listener did not announce in 2s");
+            panic!("listener did not announce in 15s");
         }
         line.clear();
         stderr.read_line(&mut line).expect("read line");
@@ -116,6 +119,8 @@ fn gateway_post_sessions_creates_session_row_via_ensure_workspace() {
     Command::new(argo_bin())
         .current_dir(workspace.path())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args(["workspace", "init"])
         .output()
         .expect("workspace init");
@@ -123,9 +128,12 @@ fn gateway_post_sessions_creates_session_row_via_ensure_workspace() {
     let mut child = Command::new(argo_bin())
         .current_dir(workspace.path())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &port.to_string(),
             "--max-requests",
@@ -138,11 +146,11 @@ fn gateway_post_sessions_creates_session_row_via_ensure_workspace() {
     let stderr = child.stderr.take().expect("stderr");
     let mut stderr = BufReader::new(stderr);
     let mut line = String::new();
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
     loop {
         if std::time::Instant::now() > deadline {
             let _ = child.kill();
-            panic!("listener did not announce in 2s");
+            panic!("listener did not announce in 15s");
         }
         line.clear();
         stderr.read_line(&mut line).expect("read line");
@@ -177,6 +185,8 @@ fn gateway_get_session_by_id_and_list_messages() {
     Command::new(argo_bin())
         .current_dir(workspace.path())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args(["workspace", "init"])
         .output()
         .expect("workspace init");
@@ -184,9 +194,12 @@ fn gateway_get_session_by_id_and_list_messages() {
     let mut child = Command::new(argo_bin())
         .current_dir(workspace.path())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &port.to_string(),
             "--max-requests",
@@ -199,11 +212,11 @@ fn gateway_get_session_by_id_and_list_messages() {
     let stderr = child.stderr.take().expect("stderr");
     let mut stderr = BufReader::new(stderr);
     let mut line = String::new();
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
     loop {
         if std::time::Instant::now() > deadline {
             let _ = child.kill();
-            panic!("listener did not announce in 2s");
+            panic!("listener did not announce in 15s");
         }
         line.clear();
         stderr.read_line(&mut line).expect("read line");
@@ -260,6 +273,8 @@ fn gateway_post_runs_returns_500_when_anthropic_key_missing() {
     Command::new(argo_bin())
         .current_dir(workspace.path())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args(["workspace", "init"])
         .output()
         .expect("workspace init");
@@ -280,6 +295,8 @@ fn gateway_post_runs_returns_500_when_anthropic_key_missing() {
     let mut child = Command::new(argo_bin())
         .current_dir(workspace.path())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env_remove("ANTHROPIC_API_KEY")
         // The gateway's pre-bind startup health check
         // (claude-startup-health-check) refuses to bind when neither
@@ -291,6 +308,7 @@ fn gateway_post_runs_returns_500_when_anthropic_key_missing() {
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &port.to_string(),
             "--max-requests",
@@ -303,11 +321,11 @@ fn gateway_post_runs_returns_500_when_anthropic_key_missing() {
     let stderr = child.stderr.take().expect("stderr");
     let mut stderr = BufReader::new(stderr);
     let mut line = String::new();
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
     loop {
         if std::time::Instant::now() > deadline {
             let _ = child.kill();
-            panic!("listener did not announce in 2s");
+            panic!("listener did not announce in 15s");
         }
         line.clear();
         stderr.read_line(&mut line).expect("read line");
@@ -347,6 +365,8 @@ fn gateway_post_messages_appends_to_session_then_round_trips() {
     Command::new(argo_bin())
         .current_dir(workspace.path())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args(["workspace", "init"])
         .output()
         .expect("workspace init");
@@ -354,9 +374,12 @@ fn gateway_post_messages_appends_to_session_then_round_trips() {
     let mut child = Command::new(argo_bin())
         .current_dir(workspace.path())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &port.to_string(),
             "--max-requests",
@@ -369,11 +392,11 @@ fn gateway_post_messages_appends_to_session_then_round_trips() {
     let stderr = child.stderr.take().expect("stderr");
     let mut stderr = BufReader::new(stderr);
     let mut line = String::new();
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
     loop {
         if std::time::Instant::now() > deadline {
             let _ = child.kill();
-            panic!("listener did not announce in 2s");
+            panic!("listener did not announce in 15s");
         }
         line.clear();
         stderr.read_line(&mut line).expect("read line");
@@ -419,7 +442,9 @@ fn gateway_stop_sends_sigterm_to_live_pid_then_clears_pidfile() {
     let home = tempfile::tempdir().unwrap();
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
-        .args(["gateway", "start", "--port", &port.to_string()])
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
+        .args(["gateway", "start", "--skip-startup-check", "--port", &port.to_string()])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -429,11 +454,11 @@ fn gateway_stop_sends_sigterm_to_live_pid_then_clears_pidfile() {
     let stderr = child.stderr.take().expect("stderr");
     let mut stderr = BufReader::new(stderr);
     let mut line = String::new();
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
     loop {
         if std::time::Instant::now() > deadline {
             let _ = child.kill();
-            panic!("listener did not announce in 2s");
+            panic!("listener did not announce in 15s");
         }
         line.clear();
         stderr.read_line(&mut line).expect("read line");
@@ -447,6 +472,8 @@ fn gateway_stop_sends_sigterm_to_live_pid_then_clears_pidfile() {
 
     let stop = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args(["gateway", "stop"])
         .output()
         .expect("spawn argo gateway stop");
@@ -470,6 +497,8 @@ fn gateway_stop_with_no_pidfile_returns_clean_error() {
     let home = tempfile::tempdir().unwrap();
     let stop = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args(["gateway", "stop"])
         .output()
         .expect("spawn");

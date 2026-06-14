@@ -12,6 +12,8 @@ fn run(workspace: &Path, home: &Path, args: &[&str]) -> Output {
     Command::new(argo_bin())
         .current_dir(workspace)
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env_remove("ARGO_DEFAULT_TENANT")
         .args(args)
         .output()
@@ -79,6 +81,7 @@ fn session_start_worker_flag_persists_worker_id_for_show() {
         &[
             "session",
             "start",
+            "--skip-startup-check",
             "--tenant",
             &tenant,
             "--title",
@@ -116,6 +119,7 @@ fn session_start_worker_flag_persists_worker_id_for_show() {
         &[
             "session",
             "start",
+            "--skip-startup-check",
             "--tenant",
             &tenant,
             "--title",
@@ -158,9 +162,12 @@ fn gateway_post_and_get_return_worker_id() {
     let mut child = Command::new(argo_bin())
         .current_dir(workspace.path())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &port.to_string(),
             "--max-requests",

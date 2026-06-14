@@ -70,6 +70,7 @@ fn gateway_per_tenant_rate_limit_returns_429_with_retry_after_json() {
     // startup pings.
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
         .env("ARGO_RATE_LIMIT_TENANT_PER_MIN", "1")
         // The per-IP limiter would also fire from loopback under
         // its tiny defaults; disable it so the *tenant* layer is

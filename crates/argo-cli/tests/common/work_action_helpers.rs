@@ -23,6 +23,7 @@ pub fn run_argo(home: &Path, work: &Path, args: &[&str]) -> std::process::Output
     Command::new(argo_bin())
         .args(args)
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", super::TEST_DB_KEY_BASE64)
         .env("ARGO_VERTICALS_DIR", workspace_root().join("verticals"))
         .current_dir(work)
         .output()

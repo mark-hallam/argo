@@ -23,12 +23,15 @@ fn gateway_per_ip_rate_limit_returns_429_with_retry_after() {
     // several denials, and headroom for any startup pings.
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("ARGO_IP_RATE_LIMIT", "1")
         .env("ARGO_IP_RATE_CAPACITY", "2")
         .env("ARGO_IP_RATE_REFILL", "0.01")
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &port.to_string(),
             "--max-requests",

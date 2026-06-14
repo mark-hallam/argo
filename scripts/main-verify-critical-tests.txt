@@ -31,3 +31,15 @@ CU:-p argo-executor-computer-use-macos --test claim_5_live_macos_cu_smoke_test
 # v1.x-deferred crate; the 2026-06-15 cu-windows-tests drift RED'd argo-sandbox and the
 # curated suite missed it — #2949). Hermetic, ~0.8s. ---
 -p argo-sandbox --test v1_deferred_status_pin
+
+# --- gateway-spawn smoke (now hermetic) — closes part of the DEC-055 coverage gap.
+# These spawn a real `argo gateway start` child; the harness was made hermetic on a
+# dev machine by propagating `SKYCOT_DB_KEY_BASE64` to the child (no Keychain block),
+# `--skip-startup-check` (no provider-key requirement to bind), and
+# `ARGO_GATEWAY_AUTH_BYPASS=1` (no 401 on mutating routes). Only FULLY-green files
+# belong here (a single failing subtest REDs the whole line). main-verify-suite.sh
+# already exports SKYCOT_DB_KEY_BASE64 for the run, so these stay hermetic there.
+# Verified green on macOS (dev machine, no Docker / no Keychain grant). ---
+-p argo-cli --test gateway_health_smoke
+-p argo-cli --test mcp_health_smoke
+-p argo-cli --test worker_full_lifecycle_smoke

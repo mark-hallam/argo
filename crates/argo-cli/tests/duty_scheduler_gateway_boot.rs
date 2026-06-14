@@ -14,6 +14,14 @@ use std::time::{Duration, Instant};
 
 #[tokio::test]
 async fn gateway_boot_spawns_closed_gate_duty_scheduler() {
+    // Opens the store in-process AND spawns a gateway child against the same
+    // home, so both must agree on the SQLCipher key. `SessionStore::open` reads
+    // `SKYCOT_DB_KEY_BASE64`; set the all-zero key here so the in-process open
+    // and the child converge and neither hits the macOS Keychain.
+    std::env::set_var(
+        "SKYCOT_DB_KEY_BASE64",
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    );
     let _gateway_lock = gateway_lock_guard();
     let home = tempfile::tempdir().expect("ARGO_HOME");
     let workspace = tempfile::tempdir().expect("workspace");
@@ -42,10 +50,13 @@ async fn gateway_boot_spawns_closed_gate_duty_scheduler() {
     let mut child = Command::new(argo_bin())
         .current_dir(workspace.path())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("ARGO_DUTY_SCHEDULER_SECS", "1")
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--bind",
             "127.0.0.1",
             "--port",

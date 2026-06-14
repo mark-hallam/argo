@@ -9,11 +9,19 @@ use std::process::{Command, Stdio};
 
 #[tokio::test]
 async fn gateway_request_audit_appends_one_row_per_request_skipping_probes() {
+    // Opens the gateway-written store in-process; set the same all-zero
+    // SQLCipher key the child uses so `SessionStore::open` (which reads
+    // `SKYCOT_DB_KEY_BASE64`) matches it instead of hitting the Keychain.
+    std::env::set_var(
+        "SKYCOT_DB_KEY_BASE64",
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    );
     let _gateway_lock = common::gateway_lock_guard();
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
         // Bypass the provider-key startup check so the test does
         // not depend on `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` in
         // the test runner's environment — we never make a model

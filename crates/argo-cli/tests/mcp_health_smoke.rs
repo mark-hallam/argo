@@ -112,6 +112,8 @@ fn gateway_health_task_starts_with_fast_slow_and_dead_servers() {
     let port = free_port();
     let mut child = Command::new(env!("CARGO_BIN_EXE_argo"))
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("ARGO_VERTICALS_DIR", verticals.path())
         .env("ARGO_MCP_HEALTH_CHECK", "1")
         .env("ARGO_MCP_HEALTH_INTERVAL_MS", "50")
@@ -122,6 +124,7 @@ fn gateway_health_task_starts_with_fast_slow_and_dead_servers() {
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--bind",
             "127.0.0.1",
             "--port",

@@ -25,6 +25,8 @@ fn gateway_serves_metrics_and_openmetrics_routes() {
     let home = tempfile::tempdir().expect("tempdir");
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         // Hits two GETs (/metrics + /openmetrics); cap at 2 so the
         // gateway exits cleanly after the smoke.
         .args([

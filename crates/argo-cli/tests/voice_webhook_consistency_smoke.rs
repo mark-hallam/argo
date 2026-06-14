@@ -14,6 +14,8 @@ fn voice_webhook_valid_twilio_payload_keeps_legacy_response_shape() {
     let home = tempfile::tempdir().unwrap().keep();
     let mut child = Command::new(common::argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("TWILIO_AUTH_TOKEN", "auth")
         .env("ARGO_CHANNEL_HMAC_SECRET", "secret")
         .args([

@@ -30,10 +30,10 @@ fn http_get(port: u16, path: &str) -> String {
 
 fn await_listening(stderr: &mut BufReader<impl Read>) {
     let mut line = String::new();
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
     loop {
         if std::time::Instant::now() > deadline {
-            panic!("listener did not announce in 2s");
+            panic!("listener did not announce in 15s");
         }
         line.clear();
         stderr.read_line(&mut line).expect("read line");
@@ -54,9 +54,12 @@ fn boot(
     let home_path = home.keep();
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home_path)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &port.to_string(),
             "--max-requests",

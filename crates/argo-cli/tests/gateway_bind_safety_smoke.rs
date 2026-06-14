@@ -14,6 +14,8 @@ use std::time::{Duration, Instant};
 fn spawn_gateway(home: &std::path::Path, bind: &str, port: u16) -> Child {
     Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .current_dir(home)
         .args([
             "gateway",

@@ -60,6 +60,8 @@ fn run_argo(home: &Path, work: &Path, verticals: &Path, args: &[&str]) -> std::p
     Command::new(argo_bin())
         .args(args)
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .env("ARGO_VERTICALS_DIR", verticals)
         .current_dir(work)
         .output()
@@ -97,9 +99,12 @@ impl Drop for Gateway {
 fn boot_gateway(home: &Path, port: u16, lock: GatewayLock) -> Gateway {
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &port.to_string(),
             // The boot path's `/sessions` probe consumes 1

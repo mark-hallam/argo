@@ -22,6 +22,8 @@ fn boot_with_workspace(
     // booting — gateway routes need a registered workspace.
     let init = Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .current_dir(workspace_root)
         .args(["workspace", "init"])
         .output()
@@ -37,10 +39,13 @@ fn boot_with_workspace(
     // test we set ARGO_HOME via env before invoking gateway.
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
         .current_dir(workspace_root)
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &port.to_string(),
             "--max-requests",

@@ -24,6 +24,18 @@ pub fn argo_bin() -> &'static str {
     env!("CARGO_BIN_EXE_argo")
 }
 
+/// A fixed all-zero 32-byte SQLCipher key (base64). Supplying it via
+/// `SKYCOT_DB_KEY_BASE64` makes the spawned gateway derive its store
+/// key from the env var instead of the OS keyring
+/// (`boot::open_store_at` → `get_or_create_db_key`). On macOS the
+/// keyring path can block the boot indefinitely under contention / a
+/// locked Keychain, which otherwise hangs these gateway-spawn smoke
+/// tests as `listener did not announce` (the panic at
+/// `await_listening`/`boot`). The DB is a throwaway tempdir, so a
+/// constant test key is fine. See auto-memory
+/// `project_gateway_spawn_tests_keychain_hang` + PR #2734.
+pub const TEST_DB_KEY_BASE64: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
 static NEXT_PORT: AtomicU16 = AtomicU16::new(0);
 
 pub fn pick_free_port() -> u16 {
@@ -222,6 +234,7 @@ pub fn boot(port: u16, max_requests: u32) -> (GatewayChild, StderrDrain) {
     let home = tempfile::tempdir().unwrap().keep();
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", TEST_DB_KEY_BASE64)
         .args([
             "gateway",
             "start",

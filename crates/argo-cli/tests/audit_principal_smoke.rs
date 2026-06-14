@@ -85,10 +85,12 @@ fn spawn_gateway(
 ) -> (Child, BufReader<std::process::ChildStderr>) {
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
         .env("ARGO_GATEWAY_BEARER_TOKEN", BEARER_TOKEN)
         .args([
             "gateway",
             "start",
+            "--skip-startup-check",
             "--port",
             &port.to_string(),
             "--max-requests",
@@ -118,6 +120,15 @@ async fn read_principals(home: &Path) -> Vec<(String, Option<String>)> {
 
 #[test]
 fn approve_with_principal_header_stamps_audit_row() {
+    // This test opens the gateway-written store in-process (`read_principals`),
+    // so the test process must derive the SAME SQLCipher key the spawned child
+    // uses. `SessionStore::open` reads `SKYCOT_DB_KEY_BASE64` directly; set it
+    // here so the in-process open matches the all-zero key passed to the child
+    // and never falls back to the macOS Keychain.
+    std::env::set_var(
+        "SKYCOT_DB_KEY_BASE64",
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    );
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
     // 3 requests: create session, approve (with principal), approve (anon).

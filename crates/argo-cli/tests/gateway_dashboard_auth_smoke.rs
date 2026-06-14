@@ -36,6 +36,7 @@ const BEARER_TOKEN: &str = "test-bearer-token-dashboard-auth-gate";
 fn spawn_gateway(home: &Path, port: u16, max_requests: u32) -> (Child, BufReader<ChildStderr>) {
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
         .env("ARGO_GATEWAY_BEARER_TOKEN", BEARER_TOKEN)
         // Startup check requires a provider key; supply a dummy and
         // pair with `--skip-startup-check` so the gateway boots in

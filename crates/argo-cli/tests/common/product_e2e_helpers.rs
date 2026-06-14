@@ -27,6 +27,7 @@ pub fn fixtures_dir() -> PathBuf {
 pub fn run_argo(home: &Path, work: &Path, args: &[&str]) -> Output {
     Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", super::TEST_DB_KEY_BASE64)
         .current_dir(work)
         .args(args)
         .output()

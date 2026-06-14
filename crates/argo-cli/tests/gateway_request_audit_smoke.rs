@@ -8,12 +8,20 @@ use std::time::{Duration, Instant};
 
 #[test]
 fn gateway_writes_request_audit_rows_for_public_gets() {
+    // Opens the gateway-written store in-process; set the same all-zero
+    // SQLCipher key the child uses so `SessionStore::open` (which reads
+    // `SKYCOT_DB_KEY_BASE64`) matches it instead of hitting the Keychain.
+    std::env::set_var(
+        "SKYCOT_DB_KEY_BASE64",
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    );
     let _gateway_lock = gateway_lock_guard();
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
 
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
         .env("ARGO_IP_RATE_LIMIT", "0")
         .env("ANTHROPIC_API_KEY", "sk-ant-test-only-not-real")
         .args([
@@ -45,6 +53,7 @@ fn gateway_writes_request_audit_rows_for_public_gets() {
 
     let list = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
         .args(["gateway", "audit", "list", "--since", "1h ago", "--json"])
         .output()
         .expect("audit list");
@@ -66,6 +75,7 @@ fn gateway_writes_request_audit_rows_for_public_gets() {
         .unwrap();
     let show = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
         .args(["gateway", "audit", "show", request_id, "--json"])
         .output()
         .expect("audit show");

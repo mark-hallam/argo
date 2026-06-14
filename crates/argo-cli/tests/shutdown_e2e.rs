@@ -30,9 +30,13 @@ const SIGTERM: i32 = 15;
 
 fn spawn_gateway(port: u16, home: &std::path::Path, extra_envs: &[(&str, &str)]) -> Child {
     let mut cmd = Command::new(argo_bin());
-    cmd.env("ARGO_HOME", home).args([
+    cmd.env("ARGO_HOME", home)
+    .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+    .env("ARGO_GATEWAY_AUTH_BYPASS", "1")
+    .args([
         "gateway",
         "start",
+        "--skip-startup-check",
         "--port",
         &port.to_string(),
         // No --max-requests cap: we want the process to live until

@@ -128,6 +128,7 @@ fn slack_gateway_accepts_signed_callback_and_reaches_settle() {
     // can flip verified=false depending on schema version).
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", &gw.home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
         .args(["audit", "verify-chain", "--json"])
         .output()
         .expect("audit verify-chain");
@@ -287,6 +288,7 @@ fn boot_gateway_with_secrets() -> Gw {
     let port = pick_free_port();
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", &home)
+        .env("SKYCOT_DB_KEY_BASE64", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
         .env("SLACK_APPROVALS_SIGNING_SECRET", SIGNING)
         .env("ARGO_CHANNEL_HMAC_SECRET", HMAC)
         .args([
