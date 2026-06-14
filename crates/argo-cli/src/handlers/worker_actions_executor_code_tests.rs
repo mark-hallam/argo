@@ -290,3 +290,41 @@ async fn integration_node_round_trip_runs_real_script_when_enabled() {
         result.stdout
     );
 }
+
+/// `build_command` must emit shell syntax the platform's shell can run: POSIX
+/// `ulimit`/`2>/dev/null`/`;` on unix (byte-identical to before), and a bare
+/// `<runner> <script>` on Windows (cmd.exe has none of those). Writes a real
+/// script file but runs nothing, so it's deterministic on every platform.
+/// `win-cli-code-executor-build-command-posix-syntax`.
+#[test]
+fn build_command_emits_platform_appropriate_syntax() {
+    let bundle = tempfile::tempdir().unwrap();
+    let req = parse_request(&json!({ "language": "python", "code": "print(1)" })).unwrap();
+    let cfg = ResolvedConfig::from_env(&req);
+    let cmd = build_command(&req, &cfg, bundle.path()).unwrap();
+    assert!(cmd.contains("python3"), "must invoke the runner: {cmd}");
+    assert!(cmd.contains("script.py"), "must reference the script: {cmd}");
+    #[cfg(windows)]
+    {
+        assert!(!cmd.contains("ulimit"), "no POSIX ulimit on cmd.exe: {cmd}");
+        assert!(!cmd.contains("2>/dev/null"), "no /dev/null on cmd.exe: {cmd}");
+        assert!(!cmd.contains(';'), "no `;` statement-separator on cmd.exe: {cmd}");
+        assert!(cmd.starts_with("python3 "), "runs the script directly: {cmd}");
+    }
+    #[cfg(not(windows))]
+    {
+        assert!(cmd.starts_with("ulimit -v "), "unix keeps the rlimit cap: {cmd}");
+        assert!(cmd.contains("2>/dev/null;"), "unix keeps the redirect + sep: {cmd}");
+    }
+}
+
+/// `shell_escape` quotes a space-bearing path with the platform shell's quoting
+/// (POSIX single-quotes on unix, cmd double-quotes on Windows).
+#[test]
+fn shell_escape_uses_platform_quoting_for_spaces() {
+    let escaped = shell_escape("/tmp/a b/script.py");
+    #[cfg(windows)]
+    assert_eq!(escaped, "\"/tmp/a b/script.py\"", "cmd uses double-quotes");
+    #[cfg(not(windows))]
+    assert_eq!(escaped, "'/tmp/a b/script.py'", "POSIX uses single-quotes");
+}

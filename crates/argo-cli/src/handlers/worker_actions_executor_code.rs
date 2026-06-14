@@ -419,20 +419,46 @@ pub(crate) fn build_command(
             artifacts_dir.display()
         ))
     })?;
-    Ok(format!(
-        "ulimit -v {mem_kib} 2>/dev/null; {runner} {}",
-        shell_escape(&script_path.display().to_string())
-    ))
+    let escaped = shell_escape(&script_path.display().to_string());
+    // POSIX `ulimit`/`2>/dev/null`/`;` do not exist on cmd.exe — and the
+    // LocalSandbox fallback (no ARGO_E2B_TOKEN) runs this string via `cmd /C` on
+    // Windows (#2948). So on Windows run the script directly; the per-command
+    // memory cap is unix-only here (a Windows Job Object would be the equivalent
+    // — follow-up). Unix string byte-identical. See
+    // win-cli-code-executor-build-command-posix-syntax.
+    #[cfg(windows)]
+    {
+        let _ = mem_kib;
+        Ok(format!("{runner} {escaped}"))
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(format!("ulimit -v {mem_kib} 2>/dev/null; {runner} {escaped}"))
+    }
 }
 
-/// Tiny single-quote shell escape — enough for the
-/// path-with-spaces case we care about, no full POSIX coverage.
+/// Minimal shell escape for the script PATH (covers paths-with-spaces, not full
+/// coverage). The path is argo-generated under the per-action bundle dir, so it
+/// is not attacker-controlled.
+///
+/// Unix uses POSIX single-quoting; cmd.exe uses double-quotes (single quotes are
+/// literal there), so the Windows arm wraps a spaced path in `"..."`.
+#[cfg(not(windows))]
 fn shell_escape(s: &str) -> String {
     if !s.contains(['\'', ' ', '\\']) {
         return s.to_string();
     }
     let escaped = s.replace('\'', r"'\''");
     format!("'{escaped}'")
+}
+
+#[cfg(windows)]
+fn shell_escape(s: &str) -> String {
+    if s.contains(' ') && !s.starts_with('"') {
+        format!("\"{s}\"")
+    } else {
+        s.to_string()
+    }
 }
 
 /// Walk `<bundle>/artifacts/` and report `[ {name, size} ]` entries.
