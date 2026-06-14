@@ -5,10 +5,14 @@
 //! alongside the existing local/sandbox routing.
 //!
 //! When `ToolContext::progress_tx` is `Some(tx)`, the local backend
-//! executes `bash -c` directly with piped stdio so per-line output
-//! reaches the agent loop / TUI / gateway before the child exits, and
-//! emits a final `Exited` sentinel. The accumulated batch result is
-//! still returned so existing callers see byte-identical behavior.
+//! executes the command through the platform shell
+//! ([`crate::process_registry::shell_command`]: `bash -c` on unix, `cmd /C` on
+//! Windows) with piped stdio so per-line output reaches the agent loop / TUI /
+//! gateway before the child exits, and emits a final `Exited` sentinel. The
+//! accumulated batch result is still returned so existing callers see
+//! byte-identical behavior. (This path hardcoded `bash` until
+//! `win-terminal-streaming-bash-portability` — `bash` is not guaranteed on a
+//! native-Windows host, so streaming `terminal` failed `NotFound` there.)
 
 use crate::tool::{ToolProgressEvent, STREAM_CHUNK_MAX_BYTES};
 use argo_sandbox::RunResult;
@@ -36,9 +40,10 @@ pub(crate) async fn run_streaming(
     tx: mpsc::Sender<ToolProgressEvent>,
 ) -> std::io::Result<RunResult> {
     let started = Instant::now();
-    let mut child = tokio::process::Command::new("bash")
-        .arg("-c")
-        .arg(command)
+    // Shell selection is shared with `ProcessRegistry::spawn` via the one
+    // `shell_command` seam (`bash -c` on unix, `cmd /C` on Windows) so the
+    // streaming bypass does not re-introduce the hardcoded-`bash` Windows break.
+    let mut child = crate::process_registry::shell_command(command)
         .current_dir(cwd)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -187,4 +192,56 @@ pub(crate) fn render_capped(head: &[u8], total: usize) -> String {
         "{s}\n... [truncated {} bytes from this stream]",
         total - head.len()
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `echo <token>` exists in both `cmd` (Windows, via `cmd /C`) and
+    /// `bash`/`sh` (unix, via `bash -c`), so a bare single-token echo is
+    /// byte-portable across the [`crate::process_registry::shell_command`] seam.
+    /// This proves `run_streaming` spawns through a shell that EXISTS on the host
+    /// and streams its output — the regression guard for the hardcoded-`bash`
+    /// Windows break (`win-terminal-streaming-bash-portability`). Runs on every
+    /// platform (no cfg-gate), so the macOS/Linux swarm covers it too.
+    #[tokio::test]
+    async fn run_streaming_uses_platform_shell_and_streams() {
+        let (tx, mut rx) = mpsc::channel(64);
+        let cwd = std::env::temp_dir();
+        let result = run_streaming("echo win-stream-ok", &cwd, Duration::from_secs(30), tx)
+            .await
+            .expect("streaming spawn must succeed on this platform's shell");
+
+        assert_eq!(
+            result.exit_code, 0,
+            "echo should exit 0; stderr={}",
+            result.stderr
+        );
+        assert!(!result.timed_out, "echo must not time out");
+        assert!(
+            result.stdout.contains("win-stream-ok"),
+            "batch stdout should carry the echoed line, got: {:?}",
+            result.stdout
+        );
+
+        // Drain progress events: at least one Stdout chunk + the final Exited.
+        let mut saw_stdout = false;
+        let mut saw_exited = false;
+        while let Ok(ev) = rx.try_recv() {
+            match ev {
+                ToolProgressEvent::Stdout(s) if s.contains("win-stream-ok") => saw_stdout = true,
+                ToolProgressEvent::Exited { exit_code } => {
+                    assert_eq!(exit_code, 0, "Exited sentinel must carry exit 0");
+                    saw_exited = true;
+                }
+                _ => {}
+            }
+        }
+        assert!(
+            saw_stdout,
+            "expected a Stdout progress event carrying the echoed line"
+        );
+        assert!(saw_exited, "expected the final Exited sentinel");
+    }
 }

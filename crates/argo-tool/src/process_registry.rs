@@ -138,7 +138,12 @@ struct ProcessHandle {
 /// spawn primitive itself unusable there. The command-line *syntax* remains the
 /// caller's responsibility per platform — a bash-syntax command will not run
 /// under `cmd` — this only selects a shell binary that exists.
-fn shell_command(command: &str) -> tokio::process::Command {
+///
+/// `pub(crate)` so the streaming terminal bypass
+/// ([`crate::tools::terminal_streaming::run_streaming`]) shares one shell-selection
+/// seam instead of hardcoding `bash` a second time (it previously did, breaking
+/// streaming `terminal` on native Windows; see `win-terminal-streaming-bash-portability`).
+pub(crate) fn shell_command(command: &str) -> tokio::process::Command {
     #[cfg(windows)]
     {
         let mut c = tokio::process::Command::new("cmd");
