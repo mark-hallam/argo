@@ -92,7 +92,12 @@ while true; do
   echo "$NEW_HEAD" > "$LAST_CHECKED"
 
   t0="$(date +%s)"
-  suite_out="$(CARGO_TARGET_DIR="$CONDUCTOR_BUILD_TARGET" bash "$REPO/scripts/main-verify-suite.sh" --worktree "$CONDUCTOR_BUILD_WT" 2>&1)"
+  # Run the suite + its config FROM the synced worktree (not $REPO): the worktree
+  # always matches the commit under test and is always present, so the daemon does
+  # NOT depend on the volatile shared checkout having the new scripts. (The two
+  # bootstrap helpers free-ram-mb.sh / conductor-build-worktree.sh come from $REPO
+  # — they predate this and are always present even in a stale checkout.)
+  suite_out="$(CARGO_TARGET_DIR="$CONDUCTOR_BUILD_TARGET" bash "$CONDUCTOR_BUILD_WT/scripts/main-verify-suite.sh" --worktree "$CONDUCTOR_BUILD_WT" 2>&1)"
   suite_ec=$?
   dur=$(( $(date +%s) - t0 ))
   printf '%s\n' "$suite_out" | tail -8

@@ -12,16 +12,22 @@ copy, and never touches the workers' working folder. The only thing it changes i
 a small flag file under `~/.argo/` that tells the merge process "stop, main is
 red."
 
-## Install (one time)
+## Install / update (one command)
 
 ```bash
-cp deploy/launchd/com.skycot.main-verify.plist ~/Library/LaunchAgents/
-launchctl load -w ~/Library/LaunchAgents/com.skycot.main-verify.plist
+bash scripts/main-verify-install.sh
 ```
 
-It starts immediately and re-runs on every login. (The committed file in
-`deploy/launchd/` is the source of truth — `.claude/` is gitignored, so the plist
-lives here and you copy it into place.)
+This copies the daemon to a **stable** runtime dir (`~/.argo/main-verify/bin`) and
+the plist to `~/Library/LaunchAgents`, pulling both from `origin/main` (so it works
+even if your working tree is behind), then loads it. It starts immediately and
+re-runs on every login. **First run does a cold compile (~15 min)** in its own
+build folder; every run after is incremental and fast.
+
+Why a stable copy rather than running from the repo: the daemon guards `main`, and
+the workers' shared checkout is volatile (reset/dirty), so the daemon must not
+depend on it for its own scripts. It verifies from its own freshly-synced worktree.
+Re-run the install command after pulling a new version of the daemon to update it.
 
 ## Check status anytime
 

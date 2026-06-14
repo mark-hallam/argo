@@ -39,7 +39,7 @@
     <array>
       <string>/bin/zsh</string>
       <string>-lc</string>
-      <string>cd ~/code/argo &amp;&amp; exec bash scripts/main-verify-sweep.sh</string>
+      <string>cd ~/code/argo &amp;&amp; exec bash ~/.argo/main-verify/bin/main-verify-sweep.sh</string>
     </array>
     <key>RunAtLoad</key><true/>
     <key>KeepAlive</key><true/>
