@@ -9,8 +9,8 @@
 //!   `terminal`, …) work without translation.
 //! - Sets the container's working directory to `req.working_dir`
 //!   so `pwd` inside the command sees the right path.
-//! - Runs `bash -c <command>` so the same shell-line semantics
-//!   as [`super::LocalSandbox`] hold.
+//! - Runs `sh -c <command>` (POSIX `sh` — present in alpine/minimal images,
+//!   unlike bash) so a command runs in any Linux image.
 //! - Honors `req.timeout` via `tokio::time::timeout`; on fire we
 //!   send the container `docker kill --signal SIGKILL`.
 //! - Honors `req.env` and `req.inherit_env` (default-inherits the
@@ -68,7 +68,13 @@ impl Sandbox for DockerSandbox {
             cmd.arg("-e").arg(format!("{k}={v}"));
         }
         cmd.arg(&self.image);
-        cmd.arg("bash").arg("-c").arg(&req.command);
+        // `sh -c`, not `bash -c`: minimal images (alpine:3 — our own test image,
+        // distroless-ish bases) ship only POSIX `sh`/busybox, no bash. Hardcoding
+        // bash made `docker run alpine:3 bash -c ...` fail exit 127
+        // ("bash: executable file not found") — so the code-exec sandbox could not
+        // run a command in any bash-less image. Sibling of the LocalSandbox shell
+        // fix (#2948); `sh` exists in virtually every Linux image.
+        cmd.arg("sh").arg("-c").arg(&req.command);
         match tokio::time::timeout(timeout, cmd.output()).await {
             Ok(Ok(output)) => Ok(RunResult {
                 stdout: truncate_stream(&output.stdout, MAX_OUTPUT_BYTES),
