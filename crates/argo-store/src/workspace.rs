@@ -112,6 +112,10 @@ pub(super) async fn ensure_workspace(
     let tenant = TenantId::new();
     let workspace = WorkspaceId::new();
     let created_at = Utc::now().timestamp();
+    // Store the SAME canonical key the read path (`lookup_by_root`) binds, so
+    // a later resolve of any spelling of this directory reuses this row
+    // instead of minting a phantom tenant (win-store-canonicalize-workspace-root).
+    let root_key = canonicalize_root_key(root_path);
     sqlx::query(
         "INSERT INTO workspace (id, tenant_id, name, root_path, created_at) \
          VALUES (?, ?, ?, ?, ?)",
@@ -119,7 +123,7 @@ pub(super) async fn ensure_workspace(
     .bind(workspace.0.as_bytes().as_slice())
     .bind(tenant.0.as_bytes().as_slice())
     .bind(name)
-    .bind(root_path)
+    .bind(&root_key)
     .bind(created_at)
     .execute(pool)
     .await
@@ -131,9 +135,10 @@ async fn lookup_by_root(
     pool: &Pool<Sqlite>,
     root_path: &str,
 ) -> Result<Option<(TenantId, WorkspaceId)>, ArgoError> {
+    let key = canonicalize_root_key(root_path);
     let row: Option<(Vec<u8>, Vec<u8>)> =
         sqlx::query_as("SELECT id, tenant_id FROM workspace WHERE root_path = ? LIMIT 1")
-            .bind(root_path)
+            .bind(&key)
             .fetch_optional(pool)
             .await
             .map_err(|e| ArgoError::Provider(format!("ensure_workspace lookup: {e}")))?;
@@ -144,3 +149,55 @@ async fn lookup_by_root(
         )
     }))
 }
+
+/// Canonicalize a workspace `root_path` into a stable comparison key before it
+/// is bound to SQL, so the SAME directory always resolves to the SAME
+/// `(TenantId, WorkspaceId)` regardless of how the caller spelled the path.
+///
+/// On **unix** this is a byte-for-byte passthrough — a given `cwd`'s
+/// `to_string_lossy()` is already stable there, so every existing row and the
+/// live workspace keep resolving exactly as before (no migration, no re-mint).
+///
+/// On **Windows** the SAME directory can arrive as `C:\..` vs `C:/..`, with a
+/// lowercase drive letter, a `\\?\` verbatim prefix, or a trailing separator —
+/// each a different string that would otherwise MISS [`lookup_by_root`] and
+/// mint a phantom tenant, splitting one tenant's data across phantom tenants
+/// (`win-store-canonicalize-workspace-root`). The Windows branch normalizes
+/// those purely as strings — no filesystem access (`std::fs::canonicalize`
+/// would hit disk, follow symlinks, and can fail; out of scope).
+#[cfg(not(windows))]
+fn canonicalize_root_key(root_path: &str) -> String {
+    root_path.to_string()
+}
+
+/// Windows comparison-key normalizer — see [`canonicalize_root_key`]. Pure
+/// string canonicalization, idempotent (`f(f(x)) == f(x)`).
+#[cfg(windows)]
+fn canonicalize_root_key(root_path: &str) -> String {
+    // Strip a `\\?\` verbatim prefix BEFORE separator translation, while it is
+    // still backslashes (e.g. `\\?\C:\Users\x` -> `C:\Users\x`).
+    let stripped = root_path.strip_prefix(r"\\?\").unwrap_or(root_path);
+    // Canonical separator: forward slash.
+    let key = stripped.replace('\\', "/");
+    // Lowercase a leading drive letter (`C:` -> `c:`) via char iteration so the
+    // result is always valid UTF-8 without an unwrap.
+    let key = match key.split_once(':') {
+        Some((drive, rest))
+            if drive.len() == 1 && drive.chars().all(|c| c.is_ascii_alphabetic()) =>
+        {
+            format!("{}:{rest}", drive.to_ascii_lowercase())
+        }
+        _ => key,
+    };
+    // Trim a single trailing separator, but never reduce a bare drive root
+    // (`c:/`) to `c:` — only trim when a path component follows the drive.
+    let mut key = key;
+    if key.len() > 3 && key.ends_with('/') {
+        key.pop();
+    }
+    key
+}
+
+#[cfg(test)]
+#[path = "workspace_root_key_tests.rs"]
+mod workspace_root_key_tests;
