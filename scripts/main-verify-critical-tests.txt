@@ -26,3 +26,8 @@ CU:-p argo-executor-computer-use-macos --test claim_5_live_macos_cu_smoke_test
 
 # --- public-surface contract pins across all 17 crates (catch silent API drift) ---
 --workspace --test surface_contract
+
+# --- deferred-substrate caller pin (catch a "small refactor" adding a caller to a
+# v1.x-deferred crate; the 2026-06-15 cu-windows-tests drift RED'd argo-sandbox and the
+# curated suite missed it — #2949). Hermetic, ~0.8s. ---
+-p argo-sandbox --test v1_deferred_status_pin
