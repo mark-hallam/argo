@@ -191,6 +191,18 @@ libc = "0.2"
 [target.'cfg(target_os = "linux")'.dependencies]
 argo-executor-computer-use-linux = { path = "../argo-executor-computer-use-linux" }
 
+# Win32 Console API for interactive-secret echo suppression
+# (`handlers/secret_input.rs`): `GetConsoleMode`/`SetConsoleMode` clear
+# `ENABLE_ECHO_INPUT` so `argo cred set` / `argo connector authorize` do not echo
+# the typed secret on the Windows console. Same `windows` 0.58 line already
+# vendored via `argo-executor-computer-use-windows`; the unix path uses `stty`
+# (no dep). See win-cli-console-echo-suppression-secrets.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_System_Console",
+] }
+
 [features]
 default = []
 # Pass-through to argo-voice-tui's whisper-native feature: enables

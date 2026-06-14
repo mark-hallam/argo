@@ -2,7 +2,6 @@
 
 use super::connector_authorize_paths::{credential_value, provider_err};
 use argo_types::ArgoResult;
-use std::io::Write;
 use std::path::Path;
 
 pub(super) struct OAuthArgs {
@@ -29,48 +28,10 @@ pub(super) fn resolve_arg_or_credential(
         })
 }
 
+/// Read an OAuth token from stdin with terminal echo suppressed. Delegates to
+/// the shared [`super::secret_input::read_hidden_value`] so the echo-suppression
+/// (unix `stty` / Windows Console API) lives in ONE place — the Windows arm is
+/// no longer a silent no-op (win-cli-console-echo-suppression-secrets).
 pub(super) fn read_hidden_value(label: &str) -> ArgoResult<String> {
-    eprint!("value for {label}: ");
-    std::io::stderr()
-        .flush()
-        .map_err(|e| provider_err(format!("stderr flush: {e}")))?;
-    let echo_disabled = disable_echo();
-    let mut value = String::new();
-    let result = std::io::stdin()
-        .read_line(&mut value)
-        .map_err(|e| provider_err(format!("read token from stdin: {e}")));
-    if echo_disabled {
-        let _ = enable_echo();
-        eprintln!();
-    }
-    result?;
-    Ok(value.trim_end_matches(['\r', '\n']).to_string())
-}
-
-#[cfg(unix)]
-fn disable_echo() -> bool {
-    std::process::Command::new("stty")
-        .arg("-echo")
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
-}
-
-#[cfg(not(unix))]
-fn disable_echo() -> bool {
-    false
-}
-
-#[cfg(unix)]
-fn enable_echo() -> bool {
-    std::process::Command::new("stty")
-        .arg("echo")
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
-}
-
-#[cfg(not(unix))]
-fn enable_echo() -> bool {
-    false
+    super::secret_input::read_hidden_value(label)
 }

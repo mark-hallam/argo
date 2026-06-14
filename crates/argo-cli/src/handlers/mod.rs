@@ -236,6 +236,7 @@ pub mod roster_remove_member;
 pub mod roster_show;
 pub mod route;
 pub mod sandbox_e2b;
+pub mod secret_input;
 pub mod security_audit;
 #[cfg(test)]
 mod security_audit_tests;
