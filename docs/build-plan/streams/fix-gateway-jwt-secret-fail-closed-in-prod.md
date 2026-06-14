@@ -1,5 +1,15 @@
 # fix-gateway-jwt-secret-fail-closed-in-prod
 
+> **🛑 STALE — ALREADY FIXED (verified 2026-06-15, conductor). DO NOT BUILD.**
+> The fail-closed JWT-secret boot guard ALREADY EXISTS: `startup_check.rs::jwt_secret_boot_guard`
+> (shipped in #2706 `sprint(ws1-1c)`, present in the audit base `903072258`) returns `Err` in
+> production when `SKYCOT_AUTH_JWT_SECRET` is unset/empty **or < 32 bytes** (HS256 floor), and
+> `boot_serve.rs` `run_startup_checks` Err -> `eprintln!("STARTUP CHECK FAILED ... refusing to
+> bind"); std::process::exit(STARTUP_CHECK_EXIT)` — i.e. it DOES fail closed, more thoroughly
+> than this brief proposed. Tests: `health_check_tests::prod_mode_missing_secret_refuses` (+ empty/short).
+> The AWS audit grepped `boot.rs`/`boot_serve.rs` and missed the guard in `startup_check.rs`
+> (called *by* `boot_serve` via `run_startup_checks`). No change needed. — conductor verify-before-fix.
+
 **Authored against:** origin/main `7f98b30cf` on 2026-06-15
 **Validate before claim:** `bash scripts/check-brief-freshness.sh fix-gateway-jwt-secret-fail-closed-in-prod`
 **Priority:** 🔴 P1 / HIGH — silent availability defect for paying users on a fresh deploy.

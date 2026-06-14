@@ -8,6 +8,8 @@ Supersedes/reconciles the [2026-06-14 deploy-readiness audit](2026-06-14-aws-dep
 
 ## Verdict: GO **pending the operator apply + a short punch-list** (raw tally: 69 PASS / 3 BLOCKER / 8 HIGH / 16 MED)
 
+**⚠️ Correction (2026-06-15, conductor):** one of the 3 HIGH punch-list items — the JWT-fail-closed finding — was a **FALSE POSITIVE** (the guard already ships in `startup_check.rs::jwt_secret_boot_guard`, #2706). So **2** real HIGH gaps remain (backup-image DR + WAF rate-limit), not 3. See the punch-list row below.
+
 **There are ZERO code/infra blockers.** The setup is sound: all six go-live fixes are
 confirmed present + correct on current main (#2927 signup-email TF vars, #2928 ALB
 Cloudflare-lockdown-by-default + double hard-gate, #2929 non-root uid 10001 in all 3
@@ -29,7 +31,7 @@ The "NO-GO (blockers)" tally decomposes as:
 ### Real code/config gaps → queued as briefs
 | Finding | Sev | Brief |
 |---|---|---|
-| **JWT secret doesn't fail closed.** `auth_magic_link_token.rs:74-92` mints an ephemeral per-process key + only warns if `SKYCOT_AUTH_JWT_SECRET` is unset → a skipped secret boots green but **every session dies on the next Fargate restart (silent mass-logout)**. bearer + DB key both abort boot; JWT doesn't. | HIGH | `fix-gateway-jwt-secret-fail-closed-in-prod` |
+| ~~**JWT secret doesn't fail closed.**~~ **❌ FALSE POSITIVE — corrected 2026-06-15 (conductor verify-before-fix).** The guard DOES exist and IS fatal: `startup_check.rs::jwt_secret_boot_guard` (shipped #2706, present in this audit's base `903072258`) returns `Err` in production when `SKYCOT_AUTH_JWT_SECRET` is unset/empty/<32 bytes; `boot_serve.rs` exits (`refusing to bind`). Tested by `health_check_tests::prod_mode_missing_secret_refuses`. This audit grepped `boot.rs`/`boot_serve.rs` but the guard lives in `startup_check.rs` (invoked via `run_startup_checks`). No fix needed. | ~~HIGH~~ → **N/A** | `fix-gateway-jwt-secret-fail-closed-in-prod` (STALE-FIXED) |
 | **Automated daily offsite backup never runs.** The runtime image bundles neither `scripts/` nor the AWS CLI, and `ARGO_HOME=/data` ≠ backup's `/data/.argo` → the scheduled RunTask fails daily (the module's own README/schedule.tf disclose it). Bucket/IAM live; no working automated DR. | HIGH | `fix-backup-image-bake-scripts-awscli-and-argo-home` |
 | **WAF (genesis LLM-cost rate-limit) is standalone/optional** — only applies if the operator runs a 3rd apply → direct-$ LLM-cost exposure unprotected by default. | HIGH | `fix-deploy-waf-fold-into-root-or-require` |
 
