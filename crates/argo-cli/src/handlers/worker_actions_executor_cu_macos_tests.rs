@@ -1,9 +1,7 @@
 #[cfg(not(target_os = "macos"))]
 use super::ComputerUseMacOSExecutor;
 use crate::handlers::worker_actions::ActionRecord;
-use crate::handlers::worker_actions_executor::{
-    resolve_executor, ActionOutcome, Executor, ExecutorKind,
-};
+use crate::handlers::worker_actions_executor::{resolve_executor, ActionOutcome, ExecutorKind};
 
 fn rec_for(action_id: &str, action_type: &str) -> ActionRecord {
     serde_json::from_value(serde_json::json!({
