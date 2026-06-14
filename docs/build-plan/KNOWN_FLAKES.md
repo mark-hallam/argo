@@ -258,3 +258,17 @@ the default parallel runner on clean main but pass with `--test-threads=1`
 (0.11s, 2/2). Same class as the 2026-06-02 "~20 parallelism flakes" finding:
 process-global env (`ARGO_HOME`/JWT secret) raced by parallel tests. Not a
 product bug; serialize or fix the fixtures to use `shared_env_lock`.
+
+
+## doctor_channels::ok_status_reports_ok parallel-load flake (verified 2026-06-15)
+
+`handlers::doctor::doctor_channels::tests::ok_status_reports_ok` (argo-cli)
+intermittently fails (`left: "ERROR"  right: "OK"` at `doctor_channels.rs:243`)
+when `cargo test -p argo-cli --bin argo doctor` runs the full doctor suite in
+parallel under machine load (e.g. 3 swarm workers compiling concurrently). The
+test binds a local mock HTTP server and probes 5 channels against it; under
+contention one probe's connection transiently errors. **PASSES 3/3 on isolated
+re-run** (`...doctor_channels::tests::ok_status_reports_ok`). Not a product bug,
+not caused by #2950 (which doesn't touch `doctor_channels.rs`). Fix: give the
+test its own bound port + a connect retry, or serialize. Surfaced while gating
+#2950, 2026-06-15.
