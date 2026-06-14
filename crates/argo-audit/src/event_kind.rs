@@ -339,4 +339,40 @@ pub enum AuditKind {
     /// customer mutation still committed — the webhook reconcile heals
     /// the drift). Tenant-scoped.
     SeatQuantitySynced,
+    /// The self-improvement loop's cohort distillation call returned a
+    /// candidate skill body (DEC-042 Stage-2 "audited" leg,
+    /// `dec042-p1c-distill-and-proposal-audit-rows`). The FIRST tamper-evident
+    /// row in the self-improve chain — written the instant a distillation
+    /// call (the deterministic cron caller or the real Dreams provider via
+    /// `argo skill distill-now`) yields a candidate, BEFORE the proposal or
+    /// the promotion decision, so provider spend/model/outcome is no longer
+    /// invisible to the audit trail. Tenant-scoped. Payload carries the
+    /// cohort (`vertical`, `action`, `size`), `model`, `cost_usd_micros`,
+    /// `skill_name`, and `skill_version`. Chains through the SAME
+    /// `session_id IS NULL` hash-chain as [`Self::SkillProposedForReview`]
+    /// and the `skill.self_improve.decision` row.
+    ///
+    /// ```
+    /// use argo_audit::AuditKind;
+    /// assert_eq!(AuditKind::SkillDistilled.label(), "skill.distilled");
+    /// ```
+    SkillDistilled,
+    /// A distilled skill candidate entered the human review queue
+    /// (`pending_review`) — the SECOND row in the self-improve chain
+    /// (`dec042-p1c-distill-and-proposal-audit-rows`). Distinct from
+    /// [`Self::SkillCandidatePromoted`] (memory-backed promotion) and
+    /// [`Self::SkillApproved`] (a human approving a queued skill): this fires
+    /// when the loop ITSELF queues a candidate, recording HOW it arrived so
+    /// the operator can trace the provenance. Tenant-scoped. Payload carries
+    /// `skill_name`, `skill_version`, `vertical`, `source`
+    /// (`distilled` | `judged_memory` | `manual`), and `learned_in` (session).
+    ///
+    /// ```
+    /// use argo_audit::AuditKind;
+    /// assert_eq!(
+    ///     AuditKind::SkillProposedForReview.label(),
+    ///     "skill.proposed_for_review"
+    /// );
+    /// ```
+    SkillProposedForReview,
 }

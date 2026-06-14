@@ -423,3 +423,9 @@ async fn unscoped_tick_skips_clusters_spanning_multiple_tenants() {
         "no distilled proposal may land from a mixed-tenant cluster"
     );
 }
+
+// DEC-042 p1c distill + proposal audit-chain tests live in a sibling file
+// (keeps each test file under the 500-LOC ceiling); they reuse this module's
+// seed helpers via `super::`.
+#[path = "self_improve_cron_audit_tests.rs"]
+mod audit;

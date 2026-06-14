@@ -105,6 +105,8 @@ impl AuditKind {
             Self::WorkerCapabilityGrantChanged => "worker.capability_grant_changed",
             Self::BudgetCeilingBlocked => "budget.ceiling_blocked",
             Self::SeatQuantitySynced => "billing.seat_quantity_synced",
+            Self::SkillDistilled => "skill.distilled",
+            Self::SkillProposedForReview => "skill.proposed_for_review",
         }
     }
 
@@ -205,6 +207,8 @@ impl AuditKind {
             "worker.capability_grant_changed" => Self::WorkerCapabilityGrantChanged,
             "budget.ceiling_blocked" => Self::BudgetCeilingBlocked,
             "billing.seat_quantity_synced" => Self::SeatQuantitySynced,
+            "skill.distilled" => Self::SkillDistilled,
+            "skill.proposed_for_review" => Self::SkillProposedForReview,
             _ => return None,
         })
     }
@@ -305,6 +309,8 @@ impl AuditKind {
             Self::WorkerCapabilityGrantChanged,
             Self::BudgetCeilingBlocked,
             Self::SeatQuantitySynced,
+            Self::SkillDistilled,
+            Self::SkillProposedForReview,
         ];
         v.sort_by_key(|k| k.label());
         v

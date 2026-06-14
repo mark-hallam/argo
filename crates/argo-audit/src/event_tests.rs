@@ -23,9 +23,34 @@ fn all_kind_count_tracks_declared_variants() {
     // VoiceTranscriptTurn (live-voice transcript persistence),
     // EnterpriseInquiryReceived (WS6-2 enterprise EOI capture), and
     // WorkerOnboardingQuizExchange (Genesis Phase 2 sandbox-quiz gate),
-    // ApprovalVoteRecorded, WorkerCapabilityGrantChanged (tg3b grant), and
-    // BudgetCeilingBlocked (WS5 hard [budget.ceiling] open-wallet close).
-    assert_eq!(AuditKind::all().len(), 91);
+    // ApprovalVoteRecorded, WorkerCapabilityGrantChanged (tg3b grant),
+    // BudgetCeilingBlocked (WS5 hard [budget.ceiling] open-wallet close), and
+    // SkillDistilled + SkillProposedForReview (DEC-042 p1c self-improve
+    // audit chain — distill + proposal events made tamper-evident).
+    assert_eq!(AuditKind::all().len(), 93);
+}
+
+#[test]
+fn skill_distilled_round_trips_and_listed() {
+    assert_eq!(
+        AuditKind::from_label("skill.distilled"),
+        Some(AuditKind::SkillDistilled)
+    );
+    assert_eq!(AuditKind::SkillDistilled.label(), "skill.distilled");
+    assert!(AuditKind::all().contains(&AuditKind::SkillDistilled));
+}
+
+#[test]
+fn skill_proposed_for_review_round_trips_and_listed() {
+    assert_eq!(
+        AuditKind::from_label("skill.proposed_for_review"),
+        Some(AuditKind::SkillProposedForReview)
+    );
+    assert_eq!(
+        AuditKind::SkillProposedForReview.label(),
+        "skill.proposed_for_review"
+    );
+    assert!(AuditKind::all().contains(&AuditKind::SkillProposedForReview));
 }
 
 #[test]

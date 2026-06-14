@@ -170,8 +170,9 @@ pub use scheduled_reeval_cron::{
     scheduled_reeval_tick_with_config, InputEchoEvalExecutor, ReevalReport, ScheduledReevalConfig,
 };
 pub use self_improve_cron::{
-    self_improve_tick, self_improve_tick_with, DeterministicDistillationCaller, SelfImproveConfig,
-    SelfImproveOutcome, SelfImproveReport, SelfImproveTrace, DECISION_AUDIT_KIND, TRACE_AUDIT_KIND,
+    emit_distilled_audit, emit_proposed_for_review_audit, self_improve_tick,
+    self_improve_tick_with, DeterministicDistillationCaller, SelfImproveConfig, SelfImproveOutcome,
+    SelfImproveReport, SelfImproveTrace, DECISION_AUDIT_KIND, TRACE_AUDIT_KIND,
 };
 pub use skill::{
     EvalCase, ExpectedOutcome, LifecycleState, PrincipalOverride, Provenance, Skill,

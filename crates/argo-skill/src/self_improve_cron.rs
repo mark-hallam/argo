@@ -52,8 +52,7 @@
 //! audit row is emitted per cluster outcome regardless.
 
 use crate::ab_test::{create_run, ensure_ab_schema, promote_with_regression_gate};
-use crate::dreams_distillation::{distill_and_propose_judged_for_tenant_gated, Cohort,
-    DistillationResult, SkillDistillationCaller};
+use crate::dreams_distillation::{Cohort, DistillationResult, SkillDistillationCaller};
 use crate::self_improve_loop::{
     cluster_to_cohort, PromotionDecision, PromotionPolicy, TraceMember,
 };
@@ -71,6 +70,9 @@ use uuid::Uuid;
 
 #[path = "self_improve_cron_helpers.rs"]
 mod helpers;
+
+// DEC-042 p1c audit emitters: defined in `helpers` (LOC ceiling), re-exported.
+pub use helpers::{emit_distilled_audit, emit_proposed_for_review_audit};
 
 /// Audit `kind` written for each self-improvement promotion decision.
 pub const DECISION_AUDIT_KIND: &str = "skill.self_improve.decision";
@@ -289,22 +291,24 @@ pub async fn self_improve_tick_with(
             PromotionDecision::Reject { reason } => Some(reason.as_str()),
             _ => None,
         };
-        let proposed_skill_id = match distill_and_propose_judged_for_tenant_gated(
+        // Distill + p1c audit leg (extracted to helpers::distill_and_audit to
+        // hold this fn under 80 LOC): distilled (+ proposed unless gate-Rejected)
+        // emitted BEFORE the decision row → chain reads distilled → proposed →
+        // decision. `None` skips the cluster (distill/propose failure is
+        // non-fatal — logged + skipped, matching the prior inline behavior).
+        let learned_in = SessionId::new();
+        let Some(proposed_skill_id) = helpers::distill_and_audit(
+            skills,
             &cohort,
             caller,
-            skills,
-            SessionId::new(),
+            learned_in,
             judge,
             &rep.tenant_id,
             ab_reject_reason,
         )
-        .await
-        {
-            Ok((skill, _)) => Some(skill.id.to_string()),
-            Err(err) => {
-                tracing::warn!(target: "argo_skill::self_improve_cron", error = %err, "cluster skipped: distill/propose");
-                continue;
-            }
+        .await?
+        else {
+            continue;
         };
         if decision.is_promote() {
             apply_promotion(skills, rep, &config).await?;
@@ -315,7 +319,7 @@ pub async fn self_improve_tick_with(
             skill_name: rep.skill_name.clone(),
             tenant_id: rep.tenant_id.clone(),
             decision,
-            proposed_skill_id,
+            proposed_skill_id: Some(proposed_skill_id),
         });
     }
     Ok(report)

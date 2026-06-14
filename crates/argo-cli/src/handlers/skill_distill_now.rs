@@ -20,6 +20,7 @@ use argo_skill::dreams_distillation::{
     distill_cohort, group_into_cohorts, Cohort, DistillationResult, SkillDistillationCaller,
     TrajectoryInput,
 };
+use argo_skill::{emit_distilled_audit, SkillCandidate, SkillStore};
 use argo_types::{ArgoError, ArgoResult};
 use async_trait::async_trait;
 use chrono::Utc;
@@ -67,16 +68,26 @@ pub struct DistillCohortSummary {
 /// `--worker` argument (default `skill-distillation`); per-worker
 /// scope can land once trajectory data carries worker_id.
 ///
+/// Each successful distillation emits a `skill.distilled` audit row
+/// (DEC-042 p1c) onto the self-improve hash-chain when `tenant` is
+/// `Some` — so the real Dreams provider spend on this CLI path is
+/// tamper-evident, not just stdout. `tenant = None` skips the audit
+/// (no tenant to attribute the spend to); the emission never writes
+/// the migration placeholder.
+///
 /// # Errors
 /// - JSON parse failure
 /// - I/O failures on the daily-cap state file (other than
 ///   cap-exceeded, which is reported per cohort)
+/// - Propagates the audit-row insert error on the emit path.
 pub async fn run(
     worker: &str,
     state_root: &std::path::Path,
     caller: &dyn SkillDistillationCaller,
     reader: &mut dyn Read,
     json: bool,
+    store: &SkillStore,
+    tenant: Option<&str>,
 ) -> ArgoResult<()> {
     let mut buf = String::new();
     reader
@@ -96,14 +107,32 @@ pub async fn run(
     let mut summaries: Vec<DistillCohortSummary> = Vec::new();
     for cohort in &cohorts {
         match try_distill(cohort, caller, &cap, today).await {
-            Ok(result) => summaries.push(DistillCohortSummary {
-                vertical_id: cohort.vertical_id.clone(),
-                action_type: cohort.action_type.clone(),
-                size: cohort.members.len(),
-                distilled: true,
-                skipped_reason: None,
-                cost_micros: Some(result.cost_micros),
-            }),
+            Ok((candidate, result)) => {
+                // Tamper-evident audit of the provider spend (DEC-042 p1c).
+                // Emitted only with a real tenant — never the placeholder.
+                if let Some(t) = tenant {
+                    emit_distilled_audit(
+                        store,
+                        t,
+                        &cohort.vertical_id,
+                        &cohort.action_type,
+                        cohort.members.len(),
+                        &result.model,
+                        result.cost_micros,
+                        &candidate.name,
+                        &candidate.version,
+                    )
+                    .await?;
+                }
+                summaries.push(DistillCohortSummary {
+                    vertical_id: cohort.vertical_id.clone(),
+                    action_type: cohort.action_type.clone(),
+                    size: cohort.members.len(),
+                    distilled: true,
+                    skipped_reason: None,
+                    cost_micros: Some(result.cost_micros),
+                });
+            }
             Err(reason) => summaries.push(DistillCohortSummary {
                 vertical_id: cohort.vertical_id.clone(),
                 action_type: cohort.action_type.clone(),
@@ -160,13 +189,13 @@ async fn try_distill(
     caller: &dyn SkillDistillationCaller,
     cap: &DailyCapTracker,
     day: chrono::NaiveDate,
-) -> Result<DistillationResult, String> {
-    let (_candidate, result) = distill_cohort(cohort, caller)
+) -> Result<(SkillCandidate, DistillationResult), String> {
+    let (candidate, result) = distill_cohort(cohort, caller)
         .await
         .map_err(|e| format!("distill: {e}"))?;
     cap.check_and_charge(day, result.cost_micros)
         .map_err(|e| format!("daily cap: {e}"))?;
-    Ok(result)
+    Ok((candidate, result))
 }
 
 /// HTTP-backed [`SkillDistillationCaller`] using
@@ -303,6 +332,17 @@ pub async fn run_cli(worker: &str, json: bool) -> ArgoResult<()> {
         return Ok(());
     }
     let caller = EnvSkillDistillationCaller::from_env()?;
+    // Audit attribution (DEC-042 p1c): resolve the workspace's real tenant
+    // and open the skill store so each successful distillation lands a
+    // tamper-evident `skill.distilled` row. `workspace_tenant()` ensures the
+    // workspace row exists and returns its real tenant id (never the
+    // migration placeholder).
+    let tenant = crate::handlers::duty_list::workspace_tenant()
+        .await?
+        .to_string();
+    let store = std::sync::Arc::new(argo_store::SessionStore::open(crate::home::db_path(&home)).await?);
+    store.migrate().await?;
+    let skills = SkillStore::new(store);
     // Re-serialize so the inner `run` can re-parse from a
     // single source-of-truth path.
     let payload = serde_json::to_string(
@@ -313,5 +353,9 @@ pub async fn run_cli(worker: &str, json: bool) -> ArgoResult<()> {
     )
     .map_err(|e| ArgoError::Provider(format!("distill-now reserialize: {e}")))?;
     let mut cursor = std::io::Cursor::new(payload.into_bytes());
-    run(worker, &home, &caller, &mut cursor, json).await
+    run(worker, &home, &caller, &mut cursor, json, &skills, Some(&tenant)).await
 }
+
+#[cfg(test)]
+#[path = "skill_distill_now_tests.rs"]
+mod tests;
