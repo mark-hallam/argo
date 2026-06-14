@@ -113,3 +113,15 @@ fn load_keypair_from_disk_roundtrips() {
     assert_eq!(verifying.to_bytes(), kp.verifying_key().to_bytes());
     let _ = fs::remove_dir_all(dir);
 }
+
+/// On non-unix the 0600 lockdown is excluded; assert the documented-gap note
+/// names the file + that hardening is unix-only, so the downgrade is observable
+/// (NO THEATER) rather than silent. `win-portability-skill-sign-private-key-unix-perms`.
+#[cfg(not(unix))]
+#[test]
+fn perm_hardening_note_names_file_and_gap() {
+    let note = perm_hardening_unix_only_note(std::path::Path::new("C:/keys/cosign.key"));
+    assert!(note.contains("C:/keys/cosign.key"), "note must name the path: {note}");
+    assert!(note.contains("WITHOUT 0600"), "note must state the gap: {note}");
+    assert!(note.contains("unix-only"), "note must say hardening is unix-only: {note}");
+}

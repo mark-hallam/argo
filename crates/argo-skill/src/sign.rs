@@ -353,7 +353,44 @@ fn write_secret_file(path: &Path, bytes: &[u8]) -> ArgoResult<()> {
 
 #[cfg(not(unix))]
 fn write_secret_file(path: &Path, bytes: &[u8]) -> ArgoResult<()> {
-    write_file(path, bytes)
+    // The 0600 lockdown in the `#[cfg(unix)]` arm has no portable equivalent
+    // here; surface the reduced hardening once rather than downgrading SILENTLY
+    // (this is a PRIVATE signing key). Mirrors `argo_config::cred::io`'s
+    // one-shot warning. See `win-portability-skill-sign-private-key-unix-perms`.
+    write_file(path, bytes)?;
+    warn_perm_hardening_unix_only(path);
+    Ok(())
+}
+
+/// Message for the one-shot non-unix private-key hardening warning.
+///
+/// Pure (no I/O, no logging) so it can be asserted in tests; the firing
+/// side-effect lives in [`warn_perm_hardening_unix_only`].
+#[cfg(not(unix))]
+fn perm_hardening_unix_only_note(path: &Path) -> String {
+    format!(
+        "skill signing private key {} written WITHOUT 0600 permission hardening: \
+         file-permission lockdown is unix-only; on this platform the file inherits \
+         its parent directory ACL — restrict access manually (documented gap, not a \
+         silent downgrade)",
+        path.display()
+    )
+}
+
+/// Emit [`perm_hardening_unix_only_note`] exactly once per process. One-shot so a
+/// repeated `keygen` cannot spam the log.
+#[cfg(not(unix))]
+fn warn_perm_hardening_unix_only(path: &Path) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static WARNED: AtomicBool = AtomicBool::new(false);
+    if WARNED.swap(true, Ordering::Relaxed) {
+        return;
+    }
+    tracing::warn!(
+        target: "argo_skill::sign",
+        "{}",
+        perm_hardening_unix_only_note(path)
+    );
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
