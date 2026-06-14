@@ -248,9 +248,21 @@ pub(super) async fn stop() -> ArgoResult<()> {
         )));
     }
     if let Err(e) = signal_term(pid) {
-        return Err(ArgoError::Provider(format!("kill pid {pid}: {e}")));
+        return Err(ArgoError::Provider(format!("stop pid {pid}: {e}")));
     }
-    println!("argo gateway: sent SIGTERM to pid {pid}");
+    #[cfg(windows)]
+    {
+        // `signal_term` uses `taskkill /F`, which force-terminates the daemon so
+        // its `PidGuard` never runs to delete the PID file — remove it here.
+        let _ = std::fs::remove_file(&pidfile);
+        println!("argo gateway: stopped pid {pid} (taskkill)");
+    }
+    #[cfg(not(windows))]
+    {
+        // Unix path unchanged: SIGTERM → the daemon shuts down gracefully and
+        // its `PidGuard` removes the PID file on the way out.
+        println!("argo gateway: sent SIGTERM to pid {pid}");
+    }
     Ok(())
 }
 
