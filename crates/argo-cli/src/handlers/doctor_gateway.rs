@@ -6,9 +6,8 @@ use std::path::Path;
 /// Report whether the gateway daemon is running. Reads
 /// `<ARGO_HOME>/gateway.pid`; if the file exists and the PID
 /// is alive, returns `{running: true, pid: N}`. Otherwise
-/// `{running: false}` (the file may be present but stale —
-/// the live-PID check shells out to `kill -0` so we don't
-/// pull in libc just for this one call).
+/// `{running: false}` (the file may be present but stale).
+/// The live-PID probe is platform-specific — see [`pid_is_alive`].
 pub(super) fn gateway_status(home: &Path) -> serde_json::Value {
     let pid_path = home.join("gateway.pid");
     let Ok(s) = std::fs::read_to_string(&pid_path) else {
@@ -17,17 +16,41 @@ pub(super) fn gateway_status(home: &Path) -> serde_json::Value {
     let Ok(pid) = s.trim().parse::<u32>() else {
         return serde_json::json!({"running": false});
     };
-    // `kill -0 <pid>` exit 0 → live, !=0 → gone or not ours.
-    // Safe, side-effect-free probe; works on every Unix.
-    let alive = std::process::Command::new("kill")
-        .args(["-0", &pid.to_string()])
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false);
     serde_json::json!({
-        "running": alive,
+        "running": pid_is_alive(pid),
         "pid": pid,
     })
+}
+
+/// Side-effect-free liveness probe for `pid`.
+///
+/// On unix, `kill -0 <pid>` (exit 0 → live, !=0 → gone or not ours) — no `libc`
+/// dependency needed for the one call. On Windows there is no `kill`; the
+/// built-in `tasklist /FI "PID eq <pid>"` lists a CSV row for a live process and
+/// prints `INFO: No tasks...` otherwise, so a live process shows the quoted pid
+/// in stdout. Previously this hardcoded `kill`, which fails `NotFound` on
+/// Windows whenever a `gateway.pid` exists (latent — #2931's smoke passed only
+/// because no pid file was present). See `win-cli-doctor-gateway-kill-portability`.
+fn pid_is_alive(pid: u32) -> bool {
+    #[cfg(not(windows))]
+    {
+        std::process::Command::new("kill")
+            .args(["-0", &pid.to_string()])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
+    #[cfg(windows)]
+    {
+        std::process::Command::new("tasklist")
+            .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
+            .output()
+            .map(|o| {
+                let stdout = String::from_utf8_lossy(&o.stdout);
+                stdout.contains(&format!("\"{pid}\""))
+            })
+            .unwrap_or(false)
+    }
 }
 
 pub(super) fn print_gateway(v: &serde_json::Value) {
@@ -106,4 +129,28 @@ pub(super) fn print_routes(v: &serde_json::Value) {
     let get = v["get"].as_u64().unwrap_or(0);
     let post = v["post"].as_u64().unwrap_or(0);
     println!("  routes:     {total} endpoints ({get} GET, {post} POST)");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pid_is_alive;
+
+    /// The running test process is, by definition, alive. Exercises the real
+    /// liveness probe on BOTH platforms (`tasklist` on Windows, `kill -0` on
+    /// unix) — the regression guard for the hardcoded-`kill` Windows break
+    /// (`win-cli-doctor-gateway-kill-portability`).
+    #[test]
+    fn current_process_reads_as_alive() {
+        assert!(
+            pid_is_alive(std::process::id()),
+            "the running test process must read as alive on this platform"
+        );
+    }
+
+    /// A PID this high is never assigned on either platform, so the probe must
+    /// report it dead (not error out / falsely report alive).
+    #[test]
+    fn improbable_pid_reads_as_dead() {
+        assert!(!pid_is_alive(4_294_967_294));
+    }
 }

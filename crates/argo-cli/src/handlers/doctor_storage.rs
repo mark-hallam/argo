@@ -6,6 +6,9 @@ use argo_store::wal_tuning::{self, WalTuningProfile};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use std::path::Path;
+// `Command` drives the POSIX `df` probe in `disk_usage`, which is unix-only;
+// gating the import keeps the Windows build warning-free (win-doctor-disk-usage-df-portability).
+#[cfg(not(windows))]
 use std::process::Command;
 use std::str::FromStr;
 
@@ -262,17 +265,32 @@ async fn dbstat_bytes(store: &SessionStore, table: &str) -> Option<i64> {
         .ok()
 }
 
+/// Best-effort `(total, free, used_pct)` for the filesystem holding `path`.
+///
+/// Unix parses POSIX `df -Pk`. `df` does not exist on native Windows, so rather
+/// than spawn a doomed process (whose error `.ok()?` silently swallowed → a
+/// misleading capacity `WARN`), return `None` directly there. A native readout
+/// (Win32 `GetDiskFreeSpaceExW` or the `sysinfo` crate) is the follow-up. See
+/// `win-doctor-disk-usage-df-portability`.
 fn disk_usage(path: &Path) -> Option<(u64, u64, u64)> {
-    let out = Command::new("df").arg("-Pk").arg(path).output().ok()?;
-    if !out.status.success() {
-        return None;
+    #[cfg(windows)]
+    {
+        let _ = path;
+        None
     }
-    let text = String::from_utf8(out.stdout).ok()?;
-    let cols: Vec<&str> = text.lines().nth(1)?.split_whitespace().collect();
-    let total = cols.get(1)?.parse::<u64>().ok()?.saturating_mul(1024);
-    let free = cols.get(3)?.parse::<u64>().ok()?.saturating_mul(1024);
-    let used_pct = cols.get(4)?.trim_end_matches('%').parse::<u64>().ok()?;
-    Some((total, free, used_pct))
+    #[cfg(not(windows))]
+    {
+        let out = Command::new("df").arg("-Pk").arg(path).output().ok()?;
+        if !out.status.success() {
+            return None;
+        }
+        let text = String::from_utf8(out.stdout).ok()?;
+        let cols: Vec<&str> = text.lines().nth(1)?.split_whitespace().collect();
+        let total = cols.get(1)?.parse::<u64>().ok()?.saturating_mul(1024);
+        let free = cols.get(3)?.parse::<u64>().ok()?.saturating_mul(1024);
+        let used_pct = cols.get(4)?.trim_end_matches('%').parse::<u64>().ok()?;
+        Some((total, free, used_pct))
+    }
 }
 
 fn doctor_u64(cwd: &Path, key: &str, default: u64) -> u64 {

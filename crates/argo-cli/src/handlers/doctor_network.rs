@@ -197,43 +197,61 @@ fn valid_host(host: &str) -> bool {
         })
 }
 
+/// Fetch cert expiry + SHA256 fingerprint for `host`.
+///
+/// Unix shells the `openssl s_client | openssl x509` pipeline through `sh`.
+/// Native Windows has no POSIX `sh` (and the `2>/dev/null` redirection isn't
+/// cmd syntax), so the pipeline cannot run; rather than spawn a doomed `sh`
+/// (which `.ok()?` silently swallowed), return `None` → the caller reports
+/// "certificate details unavailable". The TLS *reachability* check in
+/// [`NetworkChecks::tls`] (reqwest) still runs cross-platform; only the
+/// expiry/fingerprint readout is gapped. A native port (rustls cert inspection)
+/// is the follow-up. See `win-cli-doctor-cert-summary-sh-portability`.
 async fn cert_summary(host: &str) -> Option<String> {
     if !valid_host(host) {
         return None;
     }
-    let cmd = format!(
-        "printf '' | openssl s_client -servername {host} -connect {host}:443 2>/dev/null | openssl x509 -noout -enddate -fingerprint -sha256"
-    );
-    let out = tokio::time::timeout(
-        TIMEOUT,
-        tokio::process::Command::new("sh")
-            .arg("-c")
-            .arg(cmd)
-            .output(),
-    )
-    .await
-    .ok()?
-    .ok()?;
-    if !out.status.success() {
-        return None;
+    #[cfg(windows)]
+    {
+        let _ = host;
+        None
     }
-    let raw = String::from_utf8_lossy(&out.stdout);
-    let mut expiry = None;
-    let mut fingerprint = None;
-    for line in raw.lines() {
-        if let Some(value) = line.strip_prefix("notAfter=") {
-            expiry = Some(value.to_string());
-        } else if let Some(value) = line.strip_prefix("sha256 Fingerprint=") {
-            fingerprint = Some(value.replace(':', "").to_ascii_lowercase());
+    #[cfg(not(windows))]
+    {
+        let cmd = format!(
+            "printf '' | openssl s_client -servername {host} -connect {host}:443 2>/dev/null | openssl x509 -noout -enddate -fingerprint -sha256"
+        );
+        let out = tokio::time::timeout(
+            TIMEOUT,
+            tokio::process::Command::new("sh")
+                .arg("-c")
+                .arg(cmd)
+                .output(),
+        )
+        .await
+        .ok()?
+        .ok()?;
+        if !out.status.success() {
+            return None;
         }
-    }
-    match (expiry, fingerprint) {
-        (Some(expiry), Some(fingerprint)) => {
-            Some(format!("expires {expiry}, sha256 {fingerprint}"))
+        let raw = String::from_utf8_lossy(&out.stdout);
+        let mut expiry = None;
+        let mut fingerprint = None;
+        for line in raw.lines() {
+            if let Some(value) = line.strip_prefix("notAfter=") {
+                expiry = Some(value.to_string());
+            } else if let Some(value) = line.strip_prefix("sha256 Fingerprint=") {
+                fingerprint = Some(value.replace(':', "").to_ascii_lowercase());
+            }
         }
-        (Some(expiry), None) => Some(format!("expires {expiry}")),
-        (None, Some(fingerprint)) => Some(format!("sha256 {fingerprint}")),
-        (None, None) => None,
+        match (expiry, fingerprint) {
+            (Some(expiry), Some(fingerprint)) => {
+                Some(format!("expires {expiry}, sha256 {fingerprint}"))
+            }
+            (Some(expiry), None) => Some(format!("expires {expiry}")),
+            (None, Some(fingerprint)) => Some(format!("sha256 {fingerprint}")),
+            (None, None) => None,
+        }
     }
 }
 
