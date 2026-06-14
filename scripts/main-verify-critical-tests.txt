@@ -1,0 +1,28 @@
+# main-verify critical verifiers — run on every origin/main advance by
+# scripts/main-verify-suite.sh (Phase B). Each line is the args passed to
+# `cargo test`. RULES:
+#   - each line MUST yield >=1 passed test; a line matching 0 tests is RED
+#     (a clobbered/renamed verifier is the exact failure mode we guard).
+#   - any non-allowlisted test failure is RED.
+#   - keep these HERMETIC (no live gateway / network / keychain) — only such
+#     tests belong on the per-advance hot path. Slow/CU tests go behind CU:.
+# Edit this list as critical verifiers are added; a removed test that should
+# exist will surface as a 0-pass RED, which is the point.
+
+# --- the #2936 regression CANARY (silently clobbered by a concurrent merge once) ---
+-p argo-cli --bin argo approve_converges_and_does_not_climb_on_reload
+
+# --- mission-claim LIVE regressions (the user-facing guarantees, cold-cargo hermetic) ---
+-p argo-identity --test claim_1_live_workers_persist
+-p argo-orchestrator --test claim_2_live_duty_runs
+-p argo-skill --test claim_4_live_install_invoke
+-p argo-workflow --test claim_5_live_mcp_cap_audit_test
+-p argo-workflow --test claim_5_live_mcp_pool_routing_test
+-p argo-channels --test claim_6_outbound_signed_token_e2e
+-p argo-audit --test claim_6_cross_tenant_approval_select_no_existence_leak
+
+# --- claim_5 native computer-use (slow / keychain-bound) — only with MAIN_VERIFY_INCLUDE_CU=1 ---
+CU:-p argo-executor-computer-use-macos --test claim_5_live_macos_cu_smoke_test
+
+# --- public-surface contract pins across all 17 crates (catch silent API drift) ---
+--workspace --test surface_contract

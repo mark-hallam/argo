@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.skycot.main-verify — the post-merge main-verification sweep daemon.
+
+  Re-verifies origin/main after each merge in an ISOLATED worktree and sets
+  ~/.argo/main-verify/merge-freeze on RED so the conductor stops merging onto a
+  broken main. Closes the DEC-042 build-loop "ends in a checkable verifier on
+  main" gap (CI is permanently off — GitHub billing blocked, operator decision).
+
+  COMMITTED TEMPLATE — `.claude/` is gitignored, so the source of truth lives
+  here; the operator copies it to ~/Library/LaunchAgents/. (This also fixes the
+  prior gap where the worker-supervisor plist was committed nowhere.)
+
+  Install:
+    cp deploy/launchd/com.skycot.main-verify.plist ~/Library/LaunchAgents/
+    launchctl load -w ~/Library/LaunchAgents/com.skycot.main-verify.plist
+  Restart after edit:
+    launchctl kickstart -k gui/$(id -u)/com.skycot.main-verify
+  Pause (loop survives) / hard stop:
+    touch ~/.argo/main-verify-stop
+    launchctl unload ~/Library/LaunchAgents/com.skycot.main-verify.plist
+  Status:
+    bash scripts/main-verify-status.sh
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key><string>com.skycot.main-verify</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>HOME</key><string>~</string>
+      <key>PATH</key><string>~/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+      <key>CARGO_BUILD_JOBS</key><string>4</string>
+      <key>CARGO_INCREMENTAL</key><string>0</string>
+      <key>RUSTC_WRAPPER</key><string>/opt/homebrew/bin/sccache</string>
+      <key>SCCACHE_CACHE_SIZE</key><string>20G</string>
+    </dict>
+    <key>ProgramArguments</key>
+    <array>
+      <string>/bin/zsh</string>
+      <string>-lc</string>
+      <string>cd ~/code/argo &amp;&amp; exec bash scripts/main-verify-sweep.sh</string>
+    </array>
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key><true/>
+    <key>ThrottleInterval</key><integer>60</integer>
+    <key>StandardOutPath</key><string>~/.argo/logs/main-verify.launchd.log</string>
+    <key>StandardErrorPath</key><string>~/.argo/logs/main-verify.launchd.log</string>
+    <key>WorkingDirectory</key><string>~/code/argo</string>
+  </dict>
+</plist>

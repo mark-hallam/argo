@@ -100,6 +100,16 @@ fail() { printf '\033[31m[pre-merge-gate FAIL]\033[0m %s\n' "$*" >&2; fail_count
 
 log "running on $(git rev-parse --short HEAD)"
 
+# main-verify MERGE FREEZE (post-merge sweep): refuse to gate/merge while
+# origin/main is RED — merging onto a known-broken main is what silently
+# reverted #2936. The sweep clears this automatically on RED->GREEN. This is the
+# load-bearing guard (works even if the conductor prompt drifts). Operator-locked
+# 2026-06-14 (CI permanently off; see scripts/main-verify-sweep.sh + the DEC).
+if [[ -f "$HOME/.argo/main-verify/merge-freeze" ]]; then
+  printf '\033[31m[pre-merge-gate FAIL]\033[0m main-verify MERGE FREEZE active — origin/main is RED; refusing to gate/merge until green. Run: bash scripts/main-verify-status.sh\n' >&2
+  exit 1
+fi
+
 # DEC-042 B-1: optionally run the two cargo-heavy gates (test-compile + workspace
 # clippy) in a DEDICATED build worktree + target dir so they never contend with
 # the worker swarm's shared checkout/target. This is what removes the manual

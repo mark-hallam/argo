@@ -117,3 +117,4 @@ _DEC-001..DEC-018 were backfilled 2026-05-29 from CLAUDE.md, auto-memory, and
 session history (a reconstruction of decisions already made). DEC-019 onward are
 captured at decision-time, as intended._
 - [DEC-054](DEC-054-windows-as-real-executor-target.md) — Windows becomes a real computer-use executor target (operator-locked 2026-06-14; deliberate expansion of DEC-002's Windows deferral; the executor's primitives are proven on real Windows, wire run() into resolve_executor).
+- [DEC-055](DEC-055-ci-off-local-post-merge-main-verify-sweep.md) — CI stays permanently off (GitHub billing blocked, operator-locked permanent 2026-06-14); main integrity guarded by a LOCAL post-merge verification sweep (scripts/main-verify-sweep.sh, launchd com.skycot.main-verify) that re-verifies the merged origin/main and freezes conductor merges on RED. Closes the #2936 silent-clobber hole; the DEC-042 build-loop spine applied to origin/main.

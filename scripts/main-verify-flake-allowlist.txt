@@ -1,0 +1,14 @@
+# main-verify flake allowlist — substring match against a FAILING test name.
+# A failure whose name matches a line here is TOLERATED (does not trip RED).
+# Seeded from docs/build-plan/KNOWN_FLAKES.md (keep in sync). Keep this SHORT and
+# justified — every entry is a hole in the guard. The curated suite mostly avoids
+# these by only running specific hermetic tests, so this is belt-and-suspenders
+# (and covers the optional nightly --workspace full run).
+
+# parallelism flake: a concurrent test writes .skycot/ into the crate tree; passes in isolation
+run_writes_bundle_into_tempdir_not_crate_tree
+# env-leak flake (empty vertical registry)
+vertical_step_skips_empty_registry
+# parallel-env audit-feed flakes (pass with --test-threads=1)
+owner_sees_unredacted_own_tenant
+legacy_admin_feed_id_fetches_detail
