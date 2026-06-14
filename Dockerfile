@@ -57,6 +57,12 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates libssl3 libdbus-1-3 && rm -rf /var/lib/apt/lists/*
 
+# Non-root runtime user (uid/gid 10001, "app"). The gateway parses untrusted
+# Stripe/Discord/SMS webhooks + runs computer-use, so it must NOT run as root.
+# Port 8080 is > 1024 so no CAP_NET_BIND_SERVICE is needed. Kept at PARITY with
+# deploy/Dockerfile.gateway (same uid/gid + /data chown).
+RUN groupadd -g 10001 app && useradd -u 10001 -g 10001 -m -s /usr/sbin/nologin app
+
 WORKDIR /app
 COPY --from=builder /workspace/target/release/argo /usr/local/bin/argo
 
@@ -81,6 +87,14 @@ ENV ARGO_HOME=/data \
     ARGO_PITCH_POLICY_DIR=/app/policies/truth-boundary \
     RUST_LOG=info
 
+# Make ARGO_HOME (/data) writable by the non-root uid on a FRESH empty volume.
+# A bare VOLUME/bind mount comes up root-owned; chowning at build time covers
+# the docker-run path. On k8s the PVC mount is covered by fsGroup: 10001 in the
+# Deployment securityContext (the in-image chown does not reach a PVC mount).
+RUN mkdir -p /data && chown 10001:10001 /data
+
 EXPOSE 8080
+# Drop to the non-root user for the runtime process.
+USER 10001
 ENTRYPOINT ["/usr/local/bin/argo"]
 CMD ["gateway", "start", "--bind", "0.0.0.0", "--bind-non-loopback", "--accept-insecure-bind-warning", "--port", "8080", "--quiet"]

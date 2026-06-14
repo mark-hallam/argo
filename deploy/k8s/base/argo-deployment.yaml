@@ -19,10 +19,21 @@ spec:
         app.kubernetes.io/name: argo
         app.kubernetes.io/component: gateway
     spec:
+      # Run the gateway as a non-root user (uid/gid 10001 — matches the USER in
+      # Dockerfile / deploy/Dockerfile.gateway). fsGroup makes the mounted /data
+      # PVC group-writable to 10001 on a fresh volume (an in-image chown cannot
+      # reach a PVC mount, which comes up root-owned).
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
       containers:
         - name: argo
           image: argo:dev
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
           ports:
             - name: http
               containerPort: 8080

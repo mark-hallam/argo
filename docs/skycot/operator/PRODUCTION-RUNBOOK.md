@@ -63,6 +63,18 @@ The whole stack is one Terraform root: [`infra/terraform`](../../../infra/terraf
 (`main.tf` + `modules/{network,alb,ecr,ecs,efs,iam,kms,secrets,observability}`),
 default region `ap-southeast-2` (Sydney), default host `api.skycot.com`.
 
+> **Non-root containers (uid 10001).** All three runtime images now run as a
+> non-root user (uid/gid 10001, "app") — `USER 10001` in `Dockerfile`,
+> `deploy/Dockerfile.gateway`, `deploy/Dockerfile.web`. The two `/data`-writing
+> images `chown 10001:10001 /data` at build time, which covers a fresh empty
+> Docker volume. **A mounted EFS/PVC volume comes up root-owned and the in-image
+> chown does NOT reach it** — so the gateway must be able to write `/data` as
+> uid 10001. On k8s this is handled by `fsGroup: 10001` in the pod
+> `securityContext`. On ECS/EFS, ensure the EFS access point (or mount target)
+> is owned by / group-writable to gid 10001 (an EFS access point with
+> `PosixUser`/`RootDirectory.CreationInfo` set to 10001 is the clean fix), else
+> the gateway crash-loops at boot unable to open the SQLCipher store.
+
 ---
 
 ## Prerequisites (operator-runs)

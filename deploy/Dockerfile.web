@@ -48,5 +48,10 @@ ENV NODE_ENV=production PORT=3000 HOSTNAME=127.0.0.1
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+# Non-root runtime user (uid/gid 10001, "app"). The SPA writes no persistent
+# volume, so no chown is needed; PORT 3000 is > 1024 so no privileged-port cap
+# is needed. USER goes AFTER the COPYs so the static output lands root-readable.
+RUN groupadd -g 10001 app && useradd -u 10001 -g 10001 -m -s /usr/sbin/nologin app
 EXPOSE 3000
+USER 10001
 CMD ["node", "server.js"]
