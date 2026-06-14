@@ -28,6 +28,14 @@ The full operator order is also mirrored in
 
 ## 0. Prereqs (operator verifies, one-off)
 
+- ⏰ **SES out of the sandbox — START EARLY (~24h AWS approval lead).** A fresh AWS
+  account's SES (Simple Email Service) is **sandboxed**: it can only send to
+  pre-verified addresses, so a real stranger's signup email will **not** deliver
+  until you request **production access** (SES console → "Request production
+  access") AND verify the sending domain + DKIM for `skycot.com`. The
+  cold-stranger smoke (§ cold journey) depends on this — without it the magic-link
+  email never arrives. *(skycot.com: already granted — see
+  [`../operator/LAUNCH-CHECKLIST-2026-06-12.md`](../operator/LAUNCH-CHECKLIST-2026-06-12.md). This is the prerequisite for any fresh account.)*
 - AWS CLI v2 installed and authenticated for the target account/region:
   ```sh
   aws configure              # access key + secret + region=ap-southeast-2
@@ -133,8 +141,11 @@ While you're here, stage the tfvars (gitignored — never put real secrets in it
 ```sh
 cp terraform.tfvars.example terraform.tfvars
 # Edit: region/domain_name already default correctly. Leave route53_zone_id ""
-# (Cloudflare DNS path). Leave front_with_cloudflare = false. Set alert_email
-# and image_tag as desired. image_tag stays "latest" until the first push (step 6).
+# (Cloudflare DNS path). Leave front_with_cloudflare at its SECURE DEFAULT (true)
+# — see §9; the origin-lockdown gate (§12) refuses an open origin. Only set it
+# false (with allow_open_origin_bringup = true) for a transient pre-DNS bring-up,
+# then revert. Set alert_email and image_tag as desired. image_tag stays "latest"
+# until the first push (step 6).
 #
 # FRONT-DOOR (sign-in email) — set these or the very first user touch breaks:
 #   public_base_url = "https://app.skycot.com"   # the SPA's public origin; magic-link
@@ -335,7 +346,7 @@ creates the empty ECR repo. The registry login host is derived from
 `ecr_repository_url` (the segment before the first `/`), so this step runs
 **after** step 5.
 Targets: [`Dockerfile`](../../../Dockerfile) (ARG `CARGO_FEATURES=bundled-sqlcipher`
-by default; `rust:1.82-bookworm` builder → `gcr.io/distroless/cc-debian12`) +
+by default; `rust:1.82-bookworm` builder → `debian:bookworm-slim` runtime, non-root uid 10001 — NOT distroless: the binary dynamically links libdbus/libssl3, which distroless/cc lacks) +
 [`infra/terraform/modules/ecr/main.tf`](../../../infra/terraform/modules/ecr/main.tf)
 + [`infra/terraform/modules/ecs/main.tf`](../../../infra/terraform/modules/ecs/main.tf).
 
@@ -374,7 +385,7 @@ aws ecs wait services-stable \
 
 **Success signals:**
 - `docker login` → `Login Succeeded`.
-- `docker build` completes; final stage is distroless with `/usr/local/bin/argo`.
+- `docker build` completes; final stage is `debian:bookworm-slim` (non-root uid 10001) with `/usr/local/bin/argo`.
 - `docker push` prints the pushed digest; ECR scan-on-push runs.
 - `update-service` → JSON with `rolloutState: IN_PROGRESS`. Cluster
   `skycot-prod-cluster`, service `skycot-prod-argo`.
@@ -391,8 +402,10 @@ aws ecs wait services-stable \
   `maximum_percent 100` means the old task is stopped *before* the new one starts —
   every rollout has a brief downtime window. This is intentional (one SQLite DB
   file on EFS `/data`; two writers would corrupt it). Do not raise desired_count.
-- The container's own ECS healthcheck is a no-op (`exit 0`; distroless has no
-  shell). **Trust the ALB target-group health, not the ECS container health.**
+- The container's own ECS healthcheck is a deliberate no-op (`CMD-SHELL exit 0`)
+  — the runtime image (`debian:bookworm-slim`) does have a shell, but the real
+  liveness gate is the **ALB target-group health on `/health/ready`**, not the
+  ECS container health. **Trust the ALB target-group health.**
 - If the task crash-loops, check CloudWatch Logs `/aws/ecs/skycot-prod-argo`
   (stream prefix `argo`) — most likely the SQLCipher boot gate (missing
   `SKYCOT_DB_KEY_BASE64` or a non-SQLCipher image).
@@ -535,7 +548,7 @@ ingress on 80/443 is Cloudflare's published CIDRs (15 IPv4 + 7 IPv6), NOT
 per-IP rate limiter keys on the **real** client IP (the SG lockdown is what makes
 X-Forwarded-For non-spoofable — the three are deliberately set together via the
 single root var). Confirm with the §12 gate before go-live:
-`terraform plan -out tfplan && terraform show -json tfplan | bash scripts/check-alb-origin-locked.sh` → exit 0.
+`terraform plan -out tfplan && terraform show -json tfplan | bash ../../scripts/check-alb-origin-locked.sh` → exit 0 *(run from `infra/terraform`, so the script path is `../../scripts/`)*.
 
 **Truth-bounded notes:**
 - The Cloudflare proxy/DNS itself is NOT created by this stack (it's step 8).

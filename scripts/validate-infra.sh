@@ -30,14 +30,23 @@ for arg in "$@"; do
   esac
 done
 
-if ! command -v terraform >/dev/null 2>&1; then
-  echo "ERROR: terraform not on PATH" >&2
+# Terraform OR OpenTofu — the runbooks say either works; accept whichever is on PATH.
+TF="$(command -v terraform || command -v tofu || true)"
+if [ -z "$TF" ]; then
+  echo "ERROR: neither terraform nor tofu on PATH" >&2
   exit 2
 fi
+echo "using: $TF"
 
 # Every directory with at least one .tf at its top level is a module
 # root. Skip .terraform/ children so we don't reflect-validate caches.
-mapfile -t MODULE_DIRS < <(
+# NB: a plain `while read` loop (not `mapfile`) so this runs on macOS's
+# stock bash 3.2 — the operator's pre-flight host — where `mapfile` (bash 4+)
+# is absent.
+MODULE_DIRS=()
+while IFS= read -r _dir; do
+  [ -n "$_dir" ] && MODULE_DIRS+=("$_dir")
+done < <(
   find infra deploy -type f -name '*.tf' 2>/dev/null \
     | grep -v '/\.terraform/' \
     | xargs -n1 dirname 2>/dev/null \
@@ -56,8 +65,8 @@ for dir in "${MODULE_DIRS[@]}"; do
   printf '  %-60s ' "$dir"
   out=$(
     cd "$dir" && \
-    terraform init -backend=false -input=false -no-color 2>&1 && \
-    terraform validate -no-color 2>&1
+    "$TF" init -backend=false -input=false -no-color 2>&1 && \
+    "$TF" validate -no-color 2>&1
   )
   rc=$?
   if [ $rc -eq 0 ]; then

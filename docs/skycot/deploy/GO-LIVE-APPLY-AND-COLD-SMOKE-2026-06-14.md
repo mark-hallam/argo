@@ -6,7 +6,7 @@
 - **#2927** — signup-email Terraform variables now wired (root declares `public_base_url` + `email_outbound`, threaded into the container, plus an `smtp_password` secret slot). *The runbook tfvars no longer error.*
 - **#2928** — the front door is **locked by default** (only Cloudflare can reach the server; secure-by-default, no opt-in).
 - **#2929** — all containers run as a **non-root** user (uid 10001), not as the all-powerful root.
-- **#2930** — **offsite backups** (a second, independent copy of the database in S3) are provisioned by the apply.
+- **#2930** — the **offsite backup bucket** (a second, independent copy of the database in S3) is provisioned by the apply. *Caveat: the bucket + lifecycle + IAM are created, but the **automated daily backup job** needs an image follow-up (`fix-backup-image-bake-scripts-awscli-and-argo-home` — the runtime image must bundle `scripts/` + the AWS CLI, and `ARGO_HOME` must match the backup path) before the scheduled run works. Until that lands, run `scripts/backup-cron.sh` manually (`AWS_DEPLOY_RUNBOOK.md` §13b).*
 - **#2934 / #2935** — both container images (the gateway/server image **and** the website image) now **build cleanly**. *These were the "won't even build" blockers; gone.*
 
 > **Plain-English glossary (read once):**
@@ -19,11 +19,14 @@
 ## Legend
 
 - 🟢 **AGENT-PREPPABLE** — an assistant can do/validate this for you (no real money, no live secrets).
+- 🟡 **AGENT-DOABLE WITH YOUR AWS CREDENTIALS** — an assistant can run this *only if* it has access to your live AWS credentials, and it makes real (but tiny, ~cents) changes. Operator-supervised.
 - 🔴 **OPERATOR-ONLY** — *you* do this: it spends real money, enters real credentials, or makes a payment.
 
 ---
 
 ## 0. One-time prerequisites 🔴 OPERATOR-ONLY (account + tools)
+
+> ⏰ **START THIS FIRST — it has a ~24-hour AWS approval lead time.** **Get AWS SES out of the "sandbox."** A fresh AWS account's email service (**SES** — Simple Email Service, AWS's outbound email) is *sandboxed*: it can only send to addresses you've pre-verified, so a **real stranger's signup email will NOT be delivered** until you request **production access** (AWS console → SES → "Request production access"; approval typically takes ~24 hours). You must **also** verify your sending domain + **DKIM** (DomainKeys Identified Mail — the cryptographic signature that proves the email is really from you) for `skycot.com`. Without both, the cold-stranger smoke (§6b) can never receive its magic-link. *(For skycot.com this is already done — see [`../operator/LAUNCH-CHECKLIST-2026-06-12.md`](../operator/LAUNCH-CHECKLIST-2026-06-12.md); this note is the prerequisite for any fresh account a reader stands up.)*
 
 1. **AWS account with the AWS credits applied, used as a throwaway.** This whole stand-up is disposable: prove it works, then tear it down (step 7). Nothing here is your permanent production account.
 2. **Install Terraform (or OpenTofu, the open-source fork — either works).**
@@ -37,13 +40,13 @@
    aws sts get-caller-identity # prints your account number — confirm it's the right one
    ```
 4. **Install Docker** (builds the container images). On an Apple-Silicon Mac, builds MUST target Intel — the commands below already pass `--platform linux/amd64`.
-5. **Bootstrap the state bucket (one command set).** This creates the small S3 bucket Terraform uses to remember what it built. 🟢 An agent can run this for you; it costs cents.
+5. **Bootstrap the state bucket (one command set).** This creates the small S3 bucket Terraform uses to remember what it built. 🟡 An agent can run this **only with your live AWS credentials**; it makes a real (but ~cents) S3 bucket.
    ```sh
    cd infra/terraform-bootstrap
    terraform init && terraform apply        # creates skycot-prod-tfstate + lock table
    terraform output                          # note state_bucket + lock_table
    ```
-   Then create `infra/terraform/backend.tf` (do **not** commit it) from those outputs and migrate — exact block is in `AWS_DEPLOY_RUNBOOK.md` §2. 🟢 agent-preppable.
+   Then create `infra/terraform/backend.tf` (do **not** commit it) from those outputs and migrate — exact block is in `AWS_DEPLOY_RUNBOOK.md` §2. 🟡 agent-doable with your AWS credentials.
 
 ---
 
@@ -75,9 +78,9 @@ email_outbound = {
 
 ---
 
-## 2. Build + push the two container images to ECR 🟢 AGENT-PREPPABLE
+## 2. Build + push the two container images to ECR 🟡 AGENT-DOABLE WITH YOUR AWS CREDENTIALS (live ECR push; costs cents)
 
-Both images now build (today's #2934/#2935). The apply (step 5) creates the empty registry; this step fills it. *Run after step 4's `terraform plan` so the registry URL exists — or push right after apply, then force a redeploy.*
+Both images now build (today's #2934/#2935). **Run this AFTER step 5 (`terraform apply`)** — the apply is what *creates* the ECR registry and populates the `ecr_repository_url` output. After only a `terraform plan` (step 4) that output is still **empty**, so the `docker login` / `build -t` / `push` commands below would resolve the URL to `""` and fail (`docker build -t ":latest"`). If the apply's first ECS deploy raced ahead of the image, push here and then force a redeploy (`aws ecs update-service --force-new-deployment …`, see §5).
 
 ```sh
 # Log Docker in to your private AWS registry:
