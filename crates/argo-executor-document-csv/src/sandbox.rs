@@ -20,6 +20,7 @@
 
 use argo_executor_filesystem::{FsExecutorError, Sandbox};
 use argo_types::ArgoError;
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
@@ -115,21 +116,39 @@ fn tenant_path_segment(tenant_id: &str) -> Result<&str, CsvSandboxError> {
     }
 }
 
-/// Expand a leading `~/` against `$HOME` (or accept the value
-/// verbatim if no tilde / no $HOME). Mirrors the behaviour of the
-/// `argo-config` tilde helper so operators see consistent paths.
+/// Expand a leading `~/` against the user's home dir (or accept the value
+/// verbatim if no tilde / no home). Mirrors the `argo-config` tilde helper so
+/// operators see consistent paths across platforms.
 fn expand_tilde(p: &Path) -> PathBuf {
     let s = p.to_string_lossy();
     if let Some(rest) = s.strip_prefix("~/") {
-        if let Some(home) = std::env::var_os("HOME") {
-            return PathBuf::from(home).join(rest);
+        if let Some(home) = home_dir() {
+            return home.join(rest);
         }
     } else if s == "~" {
-        if let Some(home) = std::env::var_os("HOME") {
-            return PathBuf::from(home);
+        if let Some(home) = home_dir() {
+            return home;
         }
     }
     p.to_path_buf()
+}
+
+/// Resolve the user's home dir cross-platform: `HOME` (unix convention, wins
+/// when set) → `USERPROFILE` (native Windows, where `HOME` is usually unset).
+/// Mirrors the #2904 argo-config pattern; without it `DEFAULT_OUTPUT_ROOT`
+/// (`~/.argo/exports/csv/`) expanded to a literal `~` directory under the CWD on
+/// Windows. See `win-csv-sandbox-tilde-userprofile-fallback`.
+fn home_dir() -> Option<PathBuf> {
+    home_dir_from(std::env::var_os("HOME"), std::env::var_os("USERPROFILE"))
+}
+
+/// Pure core of [`home_dir`] — env values passed explicitly so the precedence is
+/// asserted without mutating process-global environment. Empty values are
+/// treated as unset.
+fn home_dir_from(home: Option<OsString>, userprofile: Option<OsString>) -> Option<PathBuf> {
+    home.filter(|h| !h.is_empty())
+        .or_else(|| userprofile.filter(|h| !h.is_empty()))
+        .map(PathBuf::from)
 }
 
 /// If `path` is absolute, strip a leading match of `root` and return
@@ -193,4 +212,37 @@ fn fs_err_to_sandbox(err: FsExecutorError) -> CsvSandboxError {
 
 fn fs_err_to_sandbox_io(err: FsExecutorError) -> CsvSandboxError {
     CsvSandboxError::Io(err.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Pure home-dir precedence — env injected, no process-global mutation, so it
+    // runs on every platform (the swarm covers the HOME-set path).
+    // `win-csv-sandbox-tilde-userprofile-fallback`.
+    #[test]
+    fn home_wins_when_set() {
+        let got = home_dir_from(Some("/home/alice".into()), Some("C:\\Users\\alice".into()));
+        assert_eq!(got, Some(PathBuf::from("/home/alice")));
+    }
+
+    #[test]
+    fn falls_back_to_userprofile_when_home_unset() {
+        // Native Windows: HOME unset → USERPROFILE, not a literal `~` dir.
+        let got = home_dir_from(None, Some("C:\\Users\\alice".into()));
+        assert_eq!(got, Some(PathBuf::from("C:\\Users\\alice")));
+    }
+
+    #[test]
+    fn empty_home_is_ignored_and_userprofile_used() {
+        let got = home_dir_from(Some("".into()), Some("C:\\Users\\bob".into()));
+        assert_eq!(got, Some(PathBuf::from("C:\\Users\\bob")));
+    }
+
+    #[test]
+    fn none_when_neither_set() {
+        assert_eq!(home_dir_from(None, None), None);
+        assert_eq!(home_dir_from(Some("".into()), Some("".into())), None);
+    }
 }
