@@ -5,14 +5,29 @@
 > feature + roadmap source of truth (Live / Partial / Scaffold / Planned /
 > Backlog, with phase + timeline). Last verified 2026-05-29.
 
-Last sweep: 2026-05-23 (operator-directed staleness audit during quota-halt).
-Next sweep due: when this date is >14 days old OR after any major
-architectural change.
+Last sweep: 2026-06-14 (current-truth refresh — replaced the long-dead
+2026-05-23 quota-halt banner). Next sweep due: when this date is >14 days
+old OR after any major architectural change.
 
-**🛑 IF YOU'RE JOINING POST-2026-05-23 QUOTA HALT**: read
-[`../skycot/operator/quota-conservation-handoff-2026-05-23.md`](../skycot/operator/quota-conservation-handoff-2026-05-23.md)
-FIRST. The swarm was deliberately halted at 98% Claude quota. Do NOT
-spawn workers or run ticks autonomously until you've read it.
+**🟢 CURRENT STATE (2026-06-14) — NO HALT. The swarm builds 24/7.**
+The 2026-05-23 quota halt is LONG OVER. Run-mode is **DEC-034** (the
+paying-ready sprint): the operator drives merges + the live stranger-signup
+gate, while the **macOS worker swarm AND a separate Windows fleet build 24/7
+under launchd**. A macOS queue at `TODO=0` is **normal standdown** (the
+supervisor respawns workers ~120s when new briefs land) — it is NOT a halt,
+and you are clear to spawn workers / run ticks. The Windows fleet runs separately and drains
+[`BUILD_STATUS_WINDOWS.md`](BUILD_STATUS_WINDOWS.md).
+
+**🎯 The CURRENT v1.0 gate is AWS deploy-readiness, not a demo MP4.** The old
+"only the demo MP4 recording remains as the ship gate" framing is DEAD. As of
+2026-06-14 both AWS go-live build blockers are FIXED and merged (the ECS image
+now builds), so merge-side work is done; the ONE remaining blocker is
+**operator-gated**: the stack has only ever run LOCALLY — it must be APPLIED
+ONCE on real AWS and the cold-stranger cloud smoke (signup → SES email →
+Genesis-hire → Stripe-pay) must run in-cloud. The investor-demo hero is the
+**live Portia pitch** (real, truth-bounded, hash-chained audit), not a 6-scene
+recording. **Read first:**
+[`../skycot/SESSION-HANDOFF-2026-06-14-deploy-fixes-and-readiness-eval.md`](../skycot/SESSION-HANDOFF-2026-06-14-deploy-fixes-and-readiness-eval.md).
 
 A new agent picking up SKYCOT (Argo) work reads this page first.
 
