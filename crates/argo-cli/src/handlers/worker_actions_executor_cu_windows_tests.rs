@@ -7,10 +7,10 @@
 use super::ComputerUseWindowsExecutor;
 use crate::handlers::worker_actions::ActionRecord;
 use crate::handlers::worker_actions_executor::{resolve_executor, ExecutorKind};
-// `ActionOutcome` is only named by the Windows-gated tests below
-// (`maps_completed_and_handoff_outcomes` + `dispatch_on_windows_*`). Importing it
-// unconditionally is an unused import (→ `-D warnings` error) on macOS/Linux.
-#[cfg(target_os = "windows")]
+// `ActionOutcome` is named by `maps_completed_and_handoff_outcomes` (now
+// cross-platform, runs on every target) AND by the windows-only
+// `dispatch_on_windows_*` tests — so it is always used; an unconditional import
+// is correct on macOS/Linux too.
 use crate::handlers::worker_actions_executor::ActionOutcome;
 
 fn rec_for(action_id: &str, action_type: &str) -> ActionRecord {
@@ -114,16 +114,13 @@ executor = { kind = "computer_use_windows_garbage" }
 
 /// Exercises `map_windows_outcome` (and through it `bundle_path` + `build_bundle`).
 ///
-/// Windows-gated: `map_windows_outcome` and
-/// `argo_executor_computer_use_windows::WindowsCuOutcome` both live behind the
-/// windows-only crate dependency (`[target.'cfg(target_os = "windows")']` in
-/// `argo-cli/Cargo.toml`), so this test cannot compile on macOS/Linux. The prior
-/// "non-cfg, covered on the swarm too" claim was false — the crate is absent
-/// there, which broke `cargo test -p argo-cli` on macOS. Restoring cross-host
-/// mapper coverage (the original intent) requires making the windows-CU crate's
-/// pure outcome types cross-platform; tracked as the Windows-fleet brief
-/// `win-cu-windows-types-cross-platform-for-mapper-coverage`.
-#[cfg(target_os = "windows")]
+/// Cross-platform again (win-cu-windows-types-cross-platform-for-mapper-coverage):
+/// `argo-executor-computer-use-windows` is now a normal cross-platform dep of
+/// `argo-cli` (its pure types — `WindowsCuOutcome` — compile everywhere; the
+/// OS-call modules are `#[cfg(target_os = "windows")]` internally), and
+/// `map_windows_outcome` is un-gated, so this test compiles + RUNS on the
+/// macOS/Linux swarm too — restoring the coverage the interim fix-forward
+/// (`4b4e4cb64`) had to drop to unbreak the macOS test compile.
 #[test]
 fn maps_completed_and_handoff_outcomes() {
     let r = rec_for("act-cu-win-complete", "do_thing");

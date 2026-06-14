@@ -73,6 +73,13 @@ argo-vertical-packs = { workspace = true }
 argo-workplace-knowledge = { path = "../argo-workplace-knowledge" }
 argo-executor-computer-use = { path = "../argo-executor-computer-use" }
 argo-executor-computer-use-macos = { path = "../argo-executor-computer-use-macos" }
+# Native Windows CU executor — a CROSS-PLATFORM dep (mirrors the macOS sibling):
+# the crate's pure types (`WindowsCuOutcome`, …) compile everywhere; its OS-call
+# modules are `#[cfg(target_os = "windows")]` internally (NotWindows stubs
+# off-Windows). Linking it on every platform lets `map_windows_outcome` + its
+# unit test compile + RUN on the macOS/Linux swarm
+# (win-cu-windows-types-cross-platform-for-mapper-coverage).
+argo-executor-computer-use-windows = { path = "../argo-executor-computer-use-windows" }
 argo-executor-document = { path = "../argo-executor-document" }
 argo-executor-document-csv = { path = "../argo-executor-document-csv" }
 argo-executor-document-gsuite = { path = "../argo-executor-document-gsuite" }
@@ -183,14 +190,6 @@ libc = "0.2"
 # clean Provider error without touching this crate.
 [target.'cfg(target_os = "linux")'.dependencies]
 argo-executor-computer-use-linux = { path = "../argo-executor-computer-use-linux" }
-
-# Native Windows computer-use executor — only linked on Windows so
-# the `#[cfg(target_os = "windows")]` blocks in
-# `handlers/worker_actions_executor_cu_windows.rs` can reference
-# its public types. On macOS/Linux the dispatch arm returns a
-# clean Provider error without touching this crate.
-[target.'cfg(target_os = "windows")'.dependencies]
-argo-executor-computer-use-windows = { path = "../argo-executor-computer-use-windows" }
 
 [features]
 default = []

@@ -124,10 +124,9 @@ fn dispatch_on_platform(
 }
 
 /// Per-action bundle dir (audit + handoff instructions live here).
-/// Windows-gated: both callers (`dispatch_on_platform`'s windows arm and
-/// `map_windows_outcome`) are `#[cfg(target_os = "windows")]`, so this is dead
-/// code off-Windows (the windows-CU crate it serves is a windows-only dep).
-#[cfg(target_os = "windows")]
+/// Cross-platform (pure path join) — un-gated alongside `map_windows_outcome`
+/// (its non-test caller `dispatch_on_platform` stays windows-gated; on the
+/// macOS/Linux swarm the unit test keeps it covered).
 fn bundle_path(action: &ActionRecord, cwd: &Path) -> std::path::PathBuf {
     cwd.join(".skycot")
         .join("outputs")
@@ -138,7 +137,10 @@ fn bundle_path(action: &ActionRecord, cwd: &Path) -> std::path::PathBuf {
 
 /// Map the executor's [`WindowsCuOutcome`] onto the dispatcher's
 /// `ActionOutcome` — `Completed` auto-completes, `HumanHandoff` writes a bundle.
-#[cfg(target_os = "windows")]
+/// Cross-platform (pure mapping over the windows-CU crate's cross-platform
+/// types) — mirrors the un-gated macOS `map_macos_outcome` so the macOS/Linux
+/// swarm covers this logic too
+/// (win-cu-windows-types-cross-platform-for-mapper-coverage).
 fn map_windows_outcome(
     action: &ActionRecord,
     cwd: &Path,
@@ -284,13 +286,9 @@ fn run_preflight_summary(
     }
 }
 
-// Windows-gated: its only caller, `map_windows_outcome`, is
-// `#[cfg(target_os = "windows")]` (the windows-CU outcome type it maps is a
-// windows-only dep), so this is dead code off-Windows. It touches only
-// `std::fs` / `serde_json` and could compile anywhere — restoring cross-host
-// mapper coverage is tracked in
-// `win-cu-windows-types-cross-platform-for-mapper-coverage`.
-#[cfg(target_os = "windows")]
+// Cross-platform (pure `std::fs` / `serde_json` / format) — un-gated alongside
+// `map_windows_outcome` (its caller). On the macOS/Linux swarm the unit test
+// keeps it covered; on Windows `dispatch_on_platform` also calls it.
 fn build_bundle(
     action: &ActionRecord,
     cwd: &Path,
