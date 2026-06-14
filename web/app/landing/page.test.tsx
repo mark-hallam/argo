@@ -11,17 +11,17 @@ describe("MarketingLandingPage", () => {
     render(<MarketingLandingPage />);
 
     expect(
-      screen.getByRole("heading", { level: 1, name: /hire a teammate/i }),
+      screen.getByRole("heading", { level: 1, name: /hire an AI teammate/i }),
     ).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent(/multi-provider routing/i);
     expect(document.body).not.toHaveTextContent(/provider routing/i);
   });
 
-  it("leads with the four verified-unique differentiators (the moat)", () => {
+  it("leads with the trust pillars (the moat), reframed honestly per the 2026-06-15 re-verification", () => {
     render(<MarketingLandingPage />);
 
     expect(
-      screen.getByRole("heading", { name: /four things.*ships/i }),
+      screen.getByRole("heading", { name: /trust layer.*let an AI act/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /Every action, provable/i }),

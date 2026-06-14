@@ -185,25 +185,25 @@ export default function MarketingLandingPage() {
               Early access · Inviting our first 100 teams
             </div>
             <h1 className="land-hero-h1">
-              Don&apos;t buy another tool.
+              Hire an AI teammate that <strong>can&apos;t</strong> lie.
               <br />
-              Hire a <strong>teammate</strong>.<br />
-              (Seriously.)
+              (Seriously &mdash; we prove it.)
             </h1>
             <p className="land-hero-sub">
-              SKYCOT turns a plain-English job description into an AI teammate that lives in Slack,
-              learns from your feedback, and asks for approval before it acts. Provable by design,
-              truth-bounded, enterprise-grade.
+              Every SKYCOT teammate is truth-bounded: it can&apos;t state a number or make a claim
+              it can&apos;t back up &mdash; it defers to you instead. And every action it takes lands in
+              a tamper-evident, hash-chained record you could hand to your board or your regulator.
+              That&apos;s the part you need before you let an AI <em>act</em>.
             </p>
             <div className="land-hero-waitlist">
               <p className="land-hero-waitlist-label">
-                Hire your first teammate
+                Get early access &mdash; and a governance walkthrough
               </p>
               <WaitlistForm source="landing-hero" size="lg" />
             </div>
             <div className="land-hero-actions">
-              <a href="#why" className="land-btn-secondary">
-                Why we&apos;re different
+              <a href="/auth/signup" className="land-btn-secondary">
+                Try a live teammate
               </a>
               <a href="#demo" className="land-btn-secondary">
                 Watch the demo
@@ -309,15 +309,14 @@ export default function MarketingLandingPage() {
         {/* The moat — verified differentiators, led hard, right under the hero */}
         <section className="land-section land-moat" id="why">
           <h2 className="land-section-title">
-            Four things <strong>nobody else</strong> ships.
+            The trust layer that lets you <strong>actually</strong> let an AI act.
           </h2>
           <p className="land-moat-lede">
-            We surveyed 25 AI-agent platforms — Microsoft Agent 365, Salesforce
-            Agentforce, Sierra, Decagon, Lindy, Ema, Dust, LangGraph, CrewAI and
-            more. <strong>Not one matched all four.</strong> The field is crowding
-            on orchestration and &ldquo;AI employees.&rdquo; Our wedge is the part a
-            serious buyer needs before they let an AI <em>do</em> anything: trust
-            and governance for agents that take real action.
+            We surveyed the field — Microsoft, Salesforce Agentforce, Sierra,
+            Decagon, Lindy and more. Two of these, <strong>no one else ships</strong>:
+            an agent that can&apos;t overclaim, and a tamper-evident record of every
+            action it takes. The other two we just do properly. Together they&apos;re the
+            part a serious buyer needs before they let an AI <em>do</em> anything.
           </p>
           <div className="land-moat-grid">
             {DIFFERENTIATORS.map((item) => (
