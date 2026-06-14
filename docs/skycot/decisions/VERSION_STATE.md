@@ -16,6 +16,32 @@ output). The deploy kit (Dockerfiles + nginx gate + runbook,
 authored; the operator does the AWS account/DNS, and the deploy itself is
 prepped-but-unverified until the instance exists.
 
+**Update 2026-06-14 — deploy-readiness is now far advanced (18+ PRs merged on
+main today).** Both AWS go-live BLOCKERS are FIXED: signup-email Terraform
+wiring (#2927) + the Application Load Balancer now Cloudflare-locked-down by
+default (#2928). Both container-image BUILD blockers are FIXED: the root
+Dockerfile's `libdbus`/`pkg-config` resolution (#2934 — the AWS ECS image now
+actually BUILDS) + the web Dockerfile build-context so pricing stays
+single-sourced (#2935, CI 3/3). Plus offsite-backup IaC (#2930), non-root
+containers (#2929), and the dec042-p1c audit leg (#2926). The
+Infrastructure-as-Code is now production-grade. A 15× local Chrome e2e soak ran
+clean (120/120 steps PASS, tenant-isolation clean, 0 console errors, 0 5xx on
+:3000/:7400; one real defect — /approvals PENDING counter drifts on reload —
+fix #2936 in review). The Portia pitch hero is verified LIVE today (real
+claude-sonnet, truth-bounded, refuses over-claims, hash-chained audit rows).
+**The ONE remaining go-live blocker is now OPERATOR-GATED, not engineering:**
+the stack has never been APPLIED to real AWS, and the cold-stranger
+signup→SES-email→Genesis-hire→Stripe-pay journey has never run IN-CLOUD (proven
+only LOCALLY). Apply the IaC to AWS once + run the cold-stranger cloud smoke =
+the gate. The earlier "only the demo MP4 recording remains as the v1.0 ship
+gate" framing is DEAD — the gate is AWS deploy-readiness (DEC-034), and the
+investor-demo hero is the live Portia pitch, not a 6-scene MP4. Evaluation
+verdict: GO-LIVE 62% (architecture production-grade; the remaining blocker is
+operator-gated), PITCH 88%, MISSION-CLAIMS 88% (all 6 genuinely LIVE in runtime
+AND user-experienceable in the SPA — the 2026-05-29 "~24 surfaces mock" reframe
+is now OUTDATED/closed). See
+[`SESSION-HANDOFF-2026-06-14-deploy-fixes-and-readiness-eval.md`](../SESSION-HANDOFF-2026-06-14-deploy-fixes-and-readiness-eval.md).
+
 **As of 2026-05-30 we are in the Sprint-2 platform build-out** ([[DEC-019]] +
 [[DEC-022]]): the program has moved **beyond demo-prep** to building out the
 whole platform for real, removing ALL theatre, and driving to the mission —
