@@ -75,11 +75,14 @@ export async function POST(req: NextRequest) {
   const ticketId = await persistTicket(email, message, session?.gatewayToken);
 
   const fwd = req.headers.get("x-forwarded-for");
+  // SECURITY (MF-4): never forward the submitter's gateway bearer token to the
+  // outbound support webhook — a leaked token grants the holder the submitter's
+  // full gateway authority. Downstream identifies the user from `email` (and the
+  // server-side-minted `ticket_id`), which is all it needs.
   const payload = {
     email,
     message,
     context: {
-      gateway_token: session?.gatewayToken,
       ticket_id: ticketId,
       user_agent: req.headers.get("user-agent") ?? null,
       client_ip: (fwd?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip")) || null,
