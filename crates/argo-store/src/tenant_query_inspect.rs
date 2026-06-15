@@ -118,19 +118,33 @@ pub async fn rename_tenant(
             updated.push(update_blob(&mut tx, table, old, new).await?);
         }
     }
+    // MF-3: the `audit_record` table is the tamper-evident,
+    // hash-chained ledger. Each row's `self_hash` =
+    // sha256(parent_hash || kind || 0x00 || payload_json) (see
+    // `argo_audit::compute_chain_hash` + `argo-audit/src/verify.rs`),
+    // so rewriting `payload_json` here WITHOUT recomputing every
+    // row's `self_hash` and relinking the chain forward would make
+    // `argo audit verify` fail on every touched row — the rename
+    // would SILENTLY break the integrity proof the ledger exists to
+    // provide. Re-chaining in-place is also architecturally
+    // impossible from `argo-store`: it sits BELOW `argo-audit` in the
+    // crate graph (`argo-audit` depends on `argo-store`), so the
+    // canonical `chain_hash` is unreachable here and duplicating it
+    // would be a forbidden parallel abstraction. First-principles
+    // correct behaviour: a tenant-id rename is administrative
+    // metadata and must NEVER retroactively rewrite + re-sign the
+    // immutable audit history. We therefore leave every audit row
+    // exactly as written, and report the deliberate skip so the
+    // operation is transparent rather than appearing to have touched
+    // the ledger.
     if table_exists(store, "audit_record").await? {
-        let rows = sqlx::query(
-            "UPDATE audit_record SET payload_json = replace(payload_json, ?, ?) \
-             WHERE instr(payload_json, ?) > 0",
-        )
-        .bind(old.to_string())
-        .bind(new.to_string())
-        .bind(old.to_string())
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("tenant rename audit_record: {e}")))?
-        .rows_affected();
-        updated.push(json!({"table": "audit_record", "rows": rows}));
+        updated.push(json!({
+            "table": "audit_record",
+            "rows": 0,
+            "skipped": true,
+            "reason": "tamper-evident hash chain left immutable (MF-3); \
+                       audit rows are never rewritten by a tenant rename",
+        }));
     }
     tx.commit()
         .await
