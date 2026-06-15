@@ -13,7 +13,7 @@ locals {
 
 resource "aws_security_group" "alb" {
   name        = "${var.name_prefix}-alb-sg"
-  description = "ALB — public ingress on 80 and 443 (Cloudflare-only by default; open only for a deliberate pre-DNS bring-up)."
+  description = "ALB - public ingress on 80 and 443 (Cloudflare-only by default; open only for a deliberate pre-DNS bring-up)."
   vpc_id      = var.vpc_id
 
   # Hard-gate: a prod plan/apply FAILS LOUD if the resolved origin is open to the
@@ -57,7 +57,7 @@ resource "aws_security_group" "alb" {
 # Egress all (the gateway calls provider APIs + secrets + ECR via NAT).
 resource "aws_security_group" "service" {
   name        = "${var.name_prefix}-svc-sg"
-  description = "Fargate service SG — accepts only from ALB SG on container port."
+  description = "Fargate service SG - accepts only from ALB SG on container port."
   vpc_id      = var.vpc_id
 
   ingress {

@@ -1,6 +1,6 @@
 resource "aws_security_group" "efs" {
   name        = "${var.name_prefix}-efs-sg"
-  description = "EFS — NFS 2049 from the ECS service SG only."
+  description = "EFS - NFS 2049 from the ECS service SG only."
   vpc_id      = var.vpc_id
 
   ingress {
