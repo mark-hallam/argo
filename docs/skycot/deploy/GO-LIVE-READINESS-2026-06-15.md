@@ -9,9 +9,9 @@ region **ap-southeast-2 (Sydney)**.
 |---|---|---|---|
 | 1 | **SES out of sandbox + DKIM** | ✅ **CONFIRMED 2026-06-15** | See SES record below. A cold stranger's signup email will deliver. |
 | 2 | **Stripe** (keys + Pro price + overage price + webhook) | 🟡 in progress | Operator has the account + is creating test-mode keys/products. Spec: `docs/skycot/deploy/` Stripe section. |
-| 3 | **Cloudflare API token** (DNS + WAF/Ruleset edit on skycot.com) | ⬜ pending | Needed for the DNS + WAF apply (which now also provisions the rate-limit — PR #2965). |
+| 3 | **Cloudflare** (DNS + token) | 🟡 **DECISION** | skycot.com DNS is on **AWS Route 53** (`awsdns-*` nameservers), NOT Cloudflare. The validated path fronts with Cloudflare (DNS + WAF/rate-limit #2965 + origin-lockdown #2928). Choice: **move skycot.com to Cloudflare (free, ~15min)** then make the token, OR use the Route 53 path (`route53_zone_id`) and lose the Cloudflare edge WAF + adjust the lockdown. Recommend the Cloudflare move. |
 | 4 | **Vercel SPA** (`app.skycot.com` deployed) | ⬜ pending | The stranger signs up on the SPA (Vercel), separate from the AWS gateway. |
-| 5 | **AWS credits** applied to `...0000` | ⬜ pending | Throwaway-test budget; the test itself costs a few dollars. |
+| 5 | **AWS credits** applied to `...0000` | ✅ **CONFIRMED 2026-06-15** | AWS Activate credits issued and active. Ample — test costs a few dollars; ~5mo of 24/7 runway. |
 
 ## Prerequisite 1 — SES (CONFIRMED 2026-06-15)
 
