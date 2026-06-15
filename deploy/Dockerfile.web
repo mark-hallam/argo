@@ -27,10 +27,21 @@ COPY web/ ./
 ARG NEXT_PUBLIC_SKYCOT_DEMO_MODE=1
 ARG NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1
 ARG NEXT_PUBLIC_GATEWAY_URL=https://try.skycot.com
+# Stripe price ids are build-time public env (NEXT_PUBLIC_*). The SPA reads
+# NEXT_PUBLIC_STRIPE_PRICE_PRO / _ENTERPRISE (app/pricing/page.tsx,
+# app/(app)/billing/subscribe/page.tsx) and POSTs the id to the gateway billing
+# route (server-side Checkout — no browser Stripe.js / publishable key). Docker
+# DROPS a --build-arg whose ARG is not declared, so without these two ARG+ENV
+# lines a real (non-demo) build ships with "No Stripe price configured" and the
+# upgrade/pay flow is dead. Default empty = the demo build is unaffected.
+ARG NEXT_PUBLIC_STRIPE_PRICE_PRO=
+ARG NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE=
 ENV NODE_ENV=production \
     NEXT_PUBLIC_SKYCOT_DEMO_MODE=${NEXT_PUBLIC_SKYCOT_DEMO_MODE} \
     NEXT_PUBLIC_SKYCOT_DEMO_LIVE=${NEXT_PUBLIC_SKYCOT_DEMO_LIVE} \
-    NEXT_PUBLIC_GATEWAY_URL=${NEXT_PUBLIC_GATEWAY_URL}
+    NEXT_PUBLIC_GATEWAY_URL=${NEXT_PUBLIC_GATEWAY_URL} \
+    NEXT_PUBLIC_STRIPE_PRICE_PRO=${NEXT_PUBLIC_STRIPE_PRICE_PRO} \
+    NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE=${NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE}
 RUN pnpm run build
 # REFINE-ON-DEPLOY (DEPLOYMENT.md #6): confirm the prod SPA renders the seeded
 # demo without a login wall. isAuthBypassed() is FALSE in a production build
@@ -41,7 +52,14 @@ RUN pnpm run build
 # ---- runtime ----
 FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
-ENV NODE_ENV=production PORT=3000 HOSTNAME=127.0.0.1
+# HOSTNAME=0.0.0.0: Next standalone server.js binds to $HOSTNAME. 127.0.0.1 makes
+# the container reachable only from inside itself, so any out-of-container front
+# door (App Runner health check + inbound, an ALB target group, a sibling nginx
+# container) cannot reach it and the service never goes healthy. 0.0.0.0 binds all
+# interfaces — correct behind App Runner/ALB/nginx alike; the container network
+# (not the bind addr) is the isolation boundary. The old 127.0.0.1 only worked for
+# a same-container/same-pod loopback proxy, which the split topology does not use.
+ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
 # Next standalone output is self-contained (Next traces + copies the real dep
 # files, so pnpm's symlinked store does not need to ship). Static assets +
 # public/ sit beside the server.
