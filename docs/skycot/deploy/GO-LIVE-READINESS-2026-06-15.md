@@ -40,3 +40,23 @@ Prerequisites 2–5 above. The apply itself is operator-driven (it spends real m
 + enters real credentials); the conductor prepares config/secrets/image/plan and
 co-pilots the run live. Cost: a few dollars for a few-hours test (fully covered by
 the credits); ~$105–130/mo only if left running 24/7.
+
+---
+
+## Pre-apply AWS inventory — 2026-06-16 (read-only)
+
+Account `123456789012`, `ap-southeast-2`. **Verdict: clean — NO `skycot-prod-*` collisions; the stack creates everything fresh; the apply is additive + non-destructive to existing resources.**
+
+**Existing SKYCOT footprint (apply does NOT touch — all different names):**
+- `skycot-holding-page` (S3) + CloudFront `d316sxiiew7wrx` on apex `skycot.com` + `www` → current landing page. Stays live.
+- `skycot-waitlist` (DynamoDB) + `skycot-waitlist-lambda-role` + `/aws/lambda/skycot-waitlist-capture` → waitlist capture. Stays.
+- `alias/skycot-user-facts` (KMS); `/ecs/skycot-platform` (CW log group — prior context, harmless, NOT the stack's `/aws/ecs/skycot-prod-argo`).
+- SES fully set up (3× DKIM, `_amazonses`, `_dmarc`, MX→Google) — verified.
+
+**Other projects in this shared account (do NOT touch):** `another-project` (ECR), `another-project` (App Runner), `acmeco` (secret + cron connection), CDK bootstrap bucket/repo.
+
+**Stack will create (all `skycot-prod-*`, none exist):** VPC + NAT, `skycot-prod-cluster` (ECS), ALB + ACM cert (ap-southeast-2, auto-validated via route53; CAA allows amazontrust), ECR repo, EFS, `alias/skycot-prod-secrets` (KMS), Secrets Manager secrets, IAM `skycot-prod-*`, `skycot-prod-tfstate` (state S3) + backup bucket, `skycot-prod-tflock` (DynamoDB), `/aws/ecs/skycot-prod-argo`, `skycot-prod-alerts` (SNS). Plus App Runner (web) + Route 53 `api`→ALB, `app`→App Runner.
+
+**Limits — headroom OK:** VPC 1/5 (+1), EIP 2/5 (NAT +1 → 3/5), App Runner already in use (another-project). No EC2 running.
+
+**Notes:** (1) account uses **ROOT** credentials — works, but an IAM user is best practice (and non-root helps later Activate-Portfolio applications). (2) apex/www holding page untouched — apply only adds `api`/`app`. (3) `api.skycot.com` ACM cert (ap-southeast-2) doesn't exist yet — stack creates + auto-validates it.
