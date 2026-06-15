@@ -1,16 +1,15 @@
 # SKYCOT go-live readiness — prerequisites tracker (2026-06-15)
 
 Live tracker for the **one-time full-production AWS apply + cold-stranger test**
-(the DEC-034 ship gate). Updated as each prerequisite is confirmed. Deploy path =
-**ECS Fargate + ALB** (full production state). AWS account **123456789012**,
+(the DEC-034 ship gate). Updated as each prerequisite is confirmed. Deploy path = **ECS Fargate + ALB** — **DECIDED 2026-06-15 (operator, Option 1)**: use the already-built + audited full-production path rather than production-ise the single box (validation found the single-box compose is a *gated-demo* config, not self-serve production — demo-mode web, basic-auth wall, gateway in demo-bypass; the repo's DEPLOYMENT.md designates ECS as the 'real production' shape). Route 53 hosted zone: **Z0000000EXAMPLEZONE**. AWS account **123456789012**,
 region **ap-southeast-2 (Sydney)**.
 
 | # | Prerequisite | Status | Evidence / notes |
 |---|---|---|---|
 | 1 | **SES out of sandbox + DKIM** | ✅ **CONFIRMED 2026-06-15** | See SES record below. A cold stranger's signup email will deliver. |
 | 2 | **Stripe** (keys + Pro price + overage price + webhook) | 🟡 in progress | Operator has the account + is creating test-mode keys/products. Spec: `docs/skycot/deploy/` Stripe section. |
-| 3 | **DNS / edge** | ✅ **DECIDED 2026-06-15: Route 53 for the test** | skycot.com is on **AWS Route 53**. For the test we stay on Route 53 — it's *less* setup (`route53_zone_id` auto-validates the SSL cert; no domain move, no Cloudflare token). Config: `front_with_cloudflare=false` + `allow_open_origin_bringup=true` (documented bring-up mode) + create api/app records in Route 53. **Before going PUBLIC: move to Cloudflare (FREE plan)** for DDoS + the WAF/rate-limit (#2965, free-plan-compatible) + origin-lockdown (#2928). No AWS-WAF module exists, so Route 53 has NO edge rate-limit — fine for a controlled test, add Cloudflare before public. |
-| 4 | **Vercel SPA** (`app.skycot.com` deployed) | ⬜ pending | The stranger signs up on the SPA (Vercel), separate from the AWS gateway. |
+| 3 | **DNS / edge** | ✅ **DECIDED 2026-06-15: Route 53 for the test** | skycot.com is on **AWS Route 53**. For the test we stay on Route 53 — it's *less* setup (`route53_zone_id` auto-validates the SSL cert; no domain move, no Cloudflare token). Config: `route53_zone_id=Z0000000EXAMPLEZONE` (auto-validates ACM cert), `front_with_cloudflare=false` + `allow_open_origin_bringup=true` (bring-up mode), api.skycot.com → ALB alias, app.skycot.com → Vercel. **Before going PUBLIC: move to Cloudflare (FREE plan)** for DDoS + the WAF/rate-limit (#2965, free-plan-compatible) + origin-lockdown (#2928). No AWS-WAF module exists, so Route 53 has NO edge rate-limit — fine for a controlled test, add Cloudflare before public. |
+| 4 | **Vercel SPA** (`app.skycot.com` deployed) | ⬜ **pending — required for Fargate path** | Deploy `web/` to Vercel + set NEXT_PUBLIC_ env (Stripe publishable key + Pro price ID + API base = https://api.skycot.com). The stranger signs up on this SPA; the AWS gateway is the api. |
 | 5 | **AWS credits** applied to `...0000` | ✅ **CONFIRMED 2026-06-15** | AWS Activate credits issued and active. Ample — test costs a few dollars; ~5mo of 24/7 runway. |
 
 ## Prerequisite 1 — SES (CONFIRMED 2026-06-15)
