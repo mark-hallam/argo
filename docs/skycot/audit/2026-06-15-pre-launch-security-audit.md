@@ -99,3 +99,17 @@ The audit applied these adversarial lenses across the codebase, and I re-verifie
 Fix **MF-1 through MF-4** (all small, localized changes — the safe patterns already exist in the codebase for MF-1 and MF-2). Then: confirm the ALB-lock gate passes on the final plan, and put **Cloudflare in front before any public/self-serve launch**. After that, you have a clean GO for the controlled test. The Genesis cost-cap and the price-id allowlist are the top two fast-follows for week one.
 
 Files cited are all absolute under `~/code/argo/`.
+---
+
+## Resolution — 2026-06-15 (all 4 blockers FIXED + merged + macOS-gated green)
+
+| Blocker | Fix | PR | Merge |
+|---|---|---|---|
+| MF-1 audit-export/screenshot dev-secret fallback | prod boot-gate (mirrors JWT) + secret_bytes refuses dev fallback in prod + 2 secrets wired into Secrets Manager/ECS | #2969 | `96a0ab31f` |
+| MF-2 cross-tenant session-approval writes | `assert_session_belongs_to_tenant` guard on all 3 handlers (copied sibling pattern) | #2968 | `d8f214faf` |
+| MF-3 tenant-rename breaks audit chain | `rename_tenant` refuses to modify `audit_record` (admin metadata never rewrites the immutable chain) | #2967 | `97fa7467e` |
+| MF-4 support-ticket leaks gateway token | stripped `gateway_token` from the outbound payload | #2966 | `ffe62af0b` |
+
+**Combined macOS gate (conductor re-verified, NO THEATER):** argo-cli 34/34, argo-audit 124+ /0, `tofu validate` ✅, web vitest 3/3. Each fix's regression test confirmed fail-before/pass-after. New required prod secrets `ARGO_AUDIT_EXPORT_SECRET` + `ARGO_AUDIT_SCREENSHOT_SECRET` staged.
+
+**Security gate: 🟢 GO.** Post-launch fast-follows (Genesis LLM-cost cap, Stripe price-id allowlist, X-Argo-Principal onboarding trust, session-TTL tuning) tracked for week one. Standing: add Cloudflare before any public/self-serve launch.
