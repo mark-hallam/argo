@@ -18,9 +18,10 @@
 use super::store_unavailable;
 use argo_store::SessionStore;
 use base64::{engine::general_purpose, Engine as _};
+use rand_core::{OsRng, RngCore};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 /// Lifetime of a freshly-signed screenshot URL, in seconds. Brief J15
 /// fixes this at 10 minutes (a leaked URL stays short-lived but the
@@ -30,6 +31,16 @@ pub(super) const SCREENSHOT_URL_TTL_SECS: i64 = 600;
 const SECRET_ENV: &str = "ARGO_AUDIT_SCREENSHOT_SECRET";
 const DEV_FALLBACK_SECRET: &[u8] = b"argo-dev-screenshot-secret-do-not-use-in-prod";
 const SHA256_BLOCK: usize = 64;
+
+/// Process-lifetime random fallback used INSTEAD of [`DEV_FALLBACK_SECRET`]
+/// when the gateway is in production but `ARGO_AUDIT_SCREENSHOT_SECRET` is
+/// unset (`fix-mf1-audit-export-secret-fail-closed`). The boot guard
+/// (`startup_check::audit_signing_secret_boot_guard`) already refuses to
+/// boot a production gateway with the secret missing; this is
+/// defense-in-depth — even if reached it is cryptographically random and
+/// unknown to any attacker (unlike the hardcoded, open-source dev
+/// constant), so a forged screenshot URL still fails verification.
+static PROD_RANDOM_FALLBACK: OnceLock<[u8; 32]> = OnceLock::new();
 
 /// `GET /api/v1/audit/<actionId>/screenshots/<idx>?exp=…&sig=…`.
 pub(super) async fn screenshot_response(
@@ -121,10 +132,28 @@ fn compute_signature(action_id: &str, idx: usize, exp: i64) -> String {
 
 fn secret_bytes() -> Vec<u8> {
     // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
-    argo_config::cred::get_unscoped(SECRET_ENV)
+    if let Some(s) = argo_config::cred::get_unscoped(SECRET_ENV)
         .ok()
         .filter(|s| !s.is_empty())
-        .map_or_else(|| DEV_FALLBACK_SECRET.to_vec(), String::into_bytes)
+    {
+        return s.into_bytes();
+    }
+    // fix-mf1-audit-export-secret-fail-closed: NEVER use the hardcoded,
+    // publicly-known dev fallback in production — that would let anyone
+    // who reads the (open-source) constant forge a valid screenshot `sig`
+    // for any audit row. In production fall back to a per-process random
+    // secret instead (defense-in-depth behind the boot guard, which
+    // already refuses to boot without the env var set).
+    if super::routes_auth_production_mode::bind_aware_production_mode() {
+        return PROD_RANDOM_FALLBACK
+            .get_or_init(|| {
+                let mut buf = [0u8; 32];
+                OsRng.fill_bytes(&mut buf);
+                buf
+            })
+            .to_vec();
+    }
+    DEV_FALLBACK_SECRET.to_vec()
 }
 
 /// HMAC-SHA256 per RFC 2104. Inlined to avoid taking `hmac` as a new

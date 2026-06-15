@@ -48,6 +48,14 @@ locals {
       id   = "skycot-smtp-password"
       desc = "SKYCOT_SMTP_PASSWORD — the SES (or other SMTP) outbound-email password. Injected into the ECS task as a secret env var via module.ecs (lookup of `smtp_password` in secret_arns); NEVER set in tfvars. The SES SMTP username + host go in email_outbound (plaintext, non-secret)."
     }
+    audit_export_secret = {
+      id   = "skycot-audit-export-secret"
+      desc = "ARGO_AUDIT_EXPORT_SECRET — HMAC secret that signs the /api/v1/audit/export/<id> download URLs. REQUIRED in production: the gateway refuses to boot without it (signed download links would otherwise fall back to a publicly-known dev secret = forgeable per-tenant). openssl rand -hex 32."
+    }
+    audit_screenshot_secret = {
+      id   = "skycot-audit-screenshot-secret"
+      desc = "ARGO_AUDIT_SCREENSHOT_SECRET — HMAC secret that signs the /api/v1/audit/<id>/screenshots/<idx> URLs. REQUIRED in production: same fail-closed boot guard as ARGO_AUDIT_EXPORT_SECRET. openssl rand -hex 32."
+    }
   }
 }
 

@@ -94,6 +94,13 @@ async fn run_startup_checks_inner(skip: bool, bind: &str, cwd: &Path) -> ArgoRes
     // unset / empty / too-short. Runs FIRST among the critical checks
     // (before any store/provider work) so a misconfig surfaces cheaply.
     jwt_secret_boot_guard(bind, cwd)?;
+    // fix-mf1-audit-export-secret-fail-closed: refuse to bind in
+    // production mode when either audit-signing secret is unset / empty.
+    // Without these the signed audit-export download + screenshot URLs
+    // fall back to a hardcoded, publicly-known dev secret — making the
+    // links forgeable for ANY tenant. Same production gate + escape
+    // hatches as the JWT-secret guard above.
+    audit_signing_secret_boot_guard(bind, cwd)?;
     let started = Instant::now();
     let home = resolve_home(cwd)?;
     ensure_dir(&home)?;
@@ -325,6 +332,49 @@ fn jwt_secret_boot_guard(bind: &str, cwd: &Path) -> ArgoResult<()> {
              secret of at least {MIN_JWT_SECRET_BYTES} bytes (256-bit) in production.",
             secret.len()
         )));
+    }
+    Ok(())
+}
+
+/// Env vars holding the two audit-signing HMAC secrets. These sign the
+/// public download URLs for `GET /api/v1/audit/export/<id>` (export
+/// bundles) and `GET /api/v1/audit/<id>/screenshots/<idx>` (computer-use
+/// screenshots). Mirror the local-const pattern used for
+/// `SESSION_JWT_SECRET_ENV` (the canonical names also live in
+/// `routes_audit_export_signing.rs` / `routes_audit_screenshot.rs`).
+const AUDIT_EXPORT_SECRET_ENV: &str = "ARGO_AUDIT_EXPORT_SECRET";
+const AUDIT_SCREENSHOT_SECRET_ENV: &str = "ARGO_AUDIT_SCREENSHOT_SECRET";
+
+/// Fail-closed boot-guard for the two audit-signing HMAC secrets
+/// (`fix-mf1-audit-export-secret-fail-closed`).
+///
+/// `routes_audit_export_signing::secret_bytes` and
+/// `routes_audit_screenshot::secret_bytes` previously fell back to a
+/// hardcoded, publicly-known dev secret
+/// (`b"argo-dev-export-secret-do-not-use-in-prod"` /
+/// `b"argo-dev-screenshot-secret-do-not-use-in-prod"`) whenever the env
+/// var was unset. In production that makes the signed audit-download +
+/// screenshot URLs **forgeable for any tenant** — anyone who reads the
+/// (open-source) fallback constant can mint a valid `sig` for any bundle
+/// id. **This is the upstream guard.** In production mode both secrets
+/// MUST be set and non-empty. Dev / demo / bypass runs are left
+/// untouched (same escape hatches as the JWT-secret guard), so the
+/// loopback dev-without-secret path still works.
+fn audit_signing_secret_boot_guard(bind: &str, cwd: &Path) -> ArgoResult<()> {
+    if !jwt_guard_active(bind, cwd) {
+        return Ok(());
+    }
+    for env in [AUDIT_EXPORT_SECRET_ENV, AUDIT_SCREENSHOT_SECRET_ENV] {
+        let secret = std::env::var(env).unwrap_or_default();
+        if secret.trim().is_empty() {
+            return Err(ArgoError::Provider(format!(
+                "{env} must be set in production — the signed audit-download \
+                 + screenshot URLs are forgeable without it (they fall back to \
+                 a publicly-known dev secret). Set it to a random secret (e.g. \
+                 openssl rand -hex 32), or set ARGO_GATEWAY_AUTH_BYPASS=1 for \
+                 dev/demo runs."
+            )));
+        }
     }
     Ok(())
 }

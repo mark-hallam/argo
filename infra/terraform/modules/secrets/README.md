@@ -21,6 +21,8 @@ Keys (logical name → env var the gateway reads):
 | `stripe_secret_key` | `STRIPE_SECRET_KEY` |
 | `stripe_webhook_secret` | `STRIPE_WEBHOOK_SECRET` |
 | `stripe_price_ids` | operator record only — NOT read by the gateway (SPA sends the price id via `NEXT_PUBLIC_STRIPE_PRICE_*`) |
+| `audit_export_secret` | `ARGO_AUDIT_EXPORT_SECRET` (HMAC for signed audit-export download URLs — required in prod, gateway refuses to boot without it) |
+| `audit_screenshot_secret` | `ARGO_AUDIT_SCREENSHOT_SECRET` (HMAC for signed audit-screenshot URLs — required in prod) |
 
 Population is the operator's step — see [`AWS_DEPLOY_RUNBOOK.md`](../../../../docs/skycot/deploy/AWS_DEPLOY_RUNBOOK.md)
 and the canonical secret list at

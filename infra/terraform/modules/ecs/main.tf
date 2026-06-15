@@ -43,6 +43,12 @@ locals {
     { env = "SKYCOT_DB_KEY_BASE64", key = "db_key" },
     { env = "STRIPE_SECRET_KEY", key = "stripe_secret_key" },
     { env = "STRIPE_WEBHOOK_SECRET", key = "stripe_webhook_secret" },
+    # Required in production: the audit-signing boot guard (fix-mf1) fails
+    # closed unless both are set. Without them the signed audit-export
+    # download + screenshot URLs fall back to a publicly-known dev secret,
+    # making the links forgeable for any tenant.
+    { env = "ARGO_AUDIT_EXPORT_SECRET", key = "audit_export_secret" },
+    { env = "ARGO_AUDIT_SCREENSHOT_SECRET", key = "audit_screenshot_secret" },
   ]
 
   container_secrets = concat([

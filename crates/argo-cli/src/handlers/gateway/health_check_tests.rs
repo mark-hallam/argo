@@ -283,6 +283,13 @@ async fn prod_mode_valid_secret_boots() {
     let _g = crate::handlers::gateway::shared_env_lock().await;
     let _prod = force_production();
     let _j = EnvVar::set("SKYCOT_AUTH_JWT_SECRET", VALID_JWT_SECRET);
+    // fix-mf1-audit-export-secret-fail-closed: this test forces production,
+    // so the audit-signing boot-guard (which runs right after the JWT
+    // guard) now also requires both audit secrets to reach Ok. Set them
+    // so this test isolates the "valid JWT secret boots" property it
+    // actually exercises.
+    let _ae = EnvVar::set("ARGO_AUDIT_EXPORT_SECRET", "a-real-export-secret");
+    let _as = EnvVar::set("ARGO_AUDIT_SCREENSHOT_SECRET", "a-real-screenshot-secret");
     // Full happy env so the run reaches Ok once the guard clears.
     let (home_dir, home_path) = fresh_home();
     let _h = EnvVar::set("ARGO_HOME", home_path.to_str().unwrap());
@@ -466,3 +473,10 @@ async fn store_probe_retry_fails_closed_on_unopenable_path() {
         "expected a store-unreachable error, got: {msg}"
     );
 }
+
+// fix-mf1-audit-export-secret-fail-closed: the audit-signing boot-guard
+// tests live in a sibling file to keep this one under the 500-LOC budget.
+// They reuse this module's `EnvVar` / `force_production` / `VALID_JWT_SECRET`
+// helpers via `super::`.
+#[path = "health_check_audit_secret_tests.rs"]
+mod audit_secret_tests;
