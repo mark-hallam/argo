@@ -13,6 +13,7 @@
 //! CLI verbatim — same audit kinds, same SQLite write path,
 //! same precedence rules.
 use super::routes_auth_principal::{principal_id_for_audit, principal_payload};
+use super::tenant_header::{assert_session_belongs_to_tenant, request_tenant_id};
 use super::{body_from_request, store_unavailable};
 use argo_audit::{AuditKind, AuditSink};
 use argo_store::SessionStore;
@@ -34,6 +35,14 @@ pub(super) async fn session_approve_response(
     let Ok(sid) = parse_sid(sid_str) else {
         return bad_request(&format!("invalid session id '{sid_str}'"));
     };
+    // Tenant guard (MF-2): reject cross-tenant writes before any
+    // unscoped read/write. Mirrors the sibling
+    // `routes_session_skills_lifecycle.rs` pattern verbatim.
+    if let Err(resp) =
+        assert_session_belongs_to_tenant(store, sid, sid_str, &request_tenant_id(req)).await
+    {
+        return resp;
+    }
     let body = body_from_request(req);
     let parsed: serde_json::Value = match serde_json::from_str(body) {
         Ok(v) => v,
@@ -121,6 +130,14 @@ pub(super) async fn session_revoke_approval_response(
     let Ok(sid) = parse_sid(sid_str) else {
         return bad_request(&format!("invalid session id '{sid_str}'"));
     };
+    // Tenant guard (MF-2): reject cross-tenant revokes before any
+    // unscoped read/write. Mirrors the sibling
+    // `routes_session_skills_lifecycle.rs` pattern verbatim.
+    if let Err(resp) =
+        assert_session_belongs_to_tenant(store, sid, sid_str, &request_tenant_id(req)).await
+    {
+        return resp;
+    }
     let body = body_from_request(req);
     let parsed: serde_json::Value = match serde_json::from_str(body) {
         Ok(v) => v,
@@ -178,6 +195,7 @@ pub(super) async fn session_revoke_approval_response(
 /// the CLI's `--json` mode: `{session_id, count, grants:[…]}`.
 pub(super) async fn session_grants_get_response(
     sid_str: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -186,15 +204,14 @@ pub(super) async fn session_grants_get_response(
     let Ok(sid) = parse_sid(sid_str) else {
         return bad_request(&format!("invalid session id '{sid_str}'"));
     };
-    let exists = match store.get_session(sid).await {
-        Ok(opt) => opt.is_some(),
-        Err(e) => return server_error(&format!("get_session: {e}")),
-    };
-    if !exists {
-        return (
-            "404 Not Found",
-            format!("{{\"error\":\"no session with id '{sid_str}'\"}}"),
-        );
+    // Tenant guard (MF-2): cross-tenant reads return 404 (the same
+    // shape as a non-existent session) instead of leaking another
+    // tenant's grant list. Mirrors the sibling
+    // `routes_session_skills_lifecycle.rs` pattern verbatim.
+    if let Err(resp) =
+        assert_session_belongs_to_tenant(store, sid, sid_str, &request_tenant_id(req)).await
+    {
+        return resp;
     }
     let grants = match store.list_session_grants(sid).await {
         Ok(v) => v,
@@ -238,4 +255,180 @@ fn server_error(msg: &str) -> (&'static str, String) {
         "500 Internal Server Error",
         format!("{{\"error\":\"{msg}\"}}"),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    //! MF-2 regression: cross-tenant session-approval writes/reads.
+    //! Before the fix all three handlers called unscoped
+    //! `store.get_session(sid)` and returned 200 for a request
+    //! carrying a *different* tenant's `X-Argo-Tenant-Id` header —
+    //! letting tenant B grant/revoke/list approvals on tenant A's
+    //! session. These tests would FAIL (return 200) before the
+    //! `assert_session_belongs_to_tenant` guard was added.
+    use super::*;
+    use argo_types::{TenantId, WorkspaceId};
+
+    async fn mem_store() -> Arc<SessionStore> {
+        let store = SessionStore::open(":memory:").await.expect("open mem db");
+        store.migrate().await.expect("migrate");
+        Arc::new(store)
+    }
+
+    async fn seed_session(store: &Arc<SessionStore>) -> (TenantId, SessionId) {
+        let tenant = TenantId::new();
+        let workspace = WorkspaceId::new();
+        sqlx::query(
+            "INSERT INTO workspace (id, tenant_id, name, root_path, created_at)
+             VALUES (?, ?, 'mf2-approval', '.', strftime('%s','now'))",
+        )
+        .bind(workspace.0.as_bytes().as_slice())
+        .bind(tenant.0.as_bytes().as_slice())
+        .execute(store.pool())
+        .await
+        .expect("seed workspace");
+        let session = store
+            .create_session(tenant, workspace, "m", "p", Some("mf2-approval"), None)
+            .await
+            .expect("create session");
+        (tenant, session)
+    }
+
+    fn req_with_tenant(method: &str, path: &str, tenant: &TenantId, body: &str) -> String {
+        format!(
+            "{method} {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {}\r\nContent-Length: {}\r\n\r\n{body}",
+            tenant.0,
+            body.len()
+        )
+    }
+
+    #[tokio::test]
+    async fn approve_rejects_cross_tenant_and_writes_no_grant() {
+        let store = mem_store().await;
+        let (_tenant_a, session) = seed_session(&store).await;
+        let sid = session.0.to_string();
+        // Tenant B (a *different* tenant) tries to grant on A's session.
+        let tenant_b = TenantId::new();
+        let req = req_with_tenant(
+            "POST",
+            &format!("/sessions/{sid}/approve"),
+            &tenant_b,
+            "{\"tool\":\"delegate_task\"}",
+        );
+
+        let (status, body) = session_approve_response(&sid, &req, Some(&store)).await;
+
+        assert!(
+            !status.starts_with("200"),
+            "cross-tenant approve must NOT succeed, got status={status} body={body}"
+        );
+        assert!(status.starts_with("404"), "expected 404, got {status}");
+        // No grant should have been written to A's session.
+        let grants = store
+            .list_session_grants(session)
+            .await
+            .expect("list grants");
+        assert!(
+            grants.is_empty(),
+            "cross-tenant approve leaked a grant: {grants:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn approve_allows_matching_tenant() {
+        let store = mem_store().await;
+        let (tenant_a, session) = seed_session(&store).await;
+        let sid = session.0.to_string();
+        let req = req_with_tenant(
+            "POST",
+            &format!("/sessions/{sid}/approve"),
+            &tenant_a,
+            "{\"tool\":\"delegate_task\"}",
+        );
+
+        let (status, body) = session_approve_response(&sid, &req, Some(&store)).await;
+
+        assert!(
+            status.starts_with("200"),
+            "matching-tenant approve must succeed, got status={status} body={body}"
+        );
+        let grants = store
+            .list_session_grants(session)
+            .await
+            .expect("list grants");
+        assert_eq!(grants.len(), 1, "matching-tenant approve should grant once");
+    }
+
+    #[tokio::test]
+    async fn revoke_rejects_cross_tenant() {
+        let store = mem_store().await;
+        let (tenant_a, session) = seed_session(&store).await;
+        let sid = session.0.to_string();
+        // A real grant exists on A's session.
+        store
+            .add_session_grant(session, "delegate_task", "gateway", None, false, None)
+            .await
+            .expect("seed grant");
+        let tenant_b = TenantId::new();
+        let req = req_with_tenant(
+            "POST",
+            &format!("/sessions/{sid}/revoke-approval"),
+            &tenant_b,
+            "{\"tool\":\"delegate_task\"}",
+        );
+
+        let (status, body) =
+            session_revoke_approval_response(&sid, &req, Some(&store)).await;
+
+        assert!(
+            !status.starts_with("200"),
+            "cross-tenant revoke must NOT succeed, got status={status} body={body}"
+        );
+        assert!(status.starts_with("404"), "expected 404, got {status}");
+        // A's grant must still be present.
+        let grants = store
+            .list_session_grants(session)
+            .await
+            .expect("list grants");
+        assert_eq!(
+            grants.len(),
+            1,
+            "cross-tenant revoke must not delete A's grant"
+        );
+        // Sanity: tenant A *can* revoke it.
+        let req_a = req_with_tenant(
+            "POST",
+            &format!("/sessions/{sid}/revoke-approval"),
+            &tenant_a,
+            "{\"tool\":\"delegate_task\"}",
+        );
+        let (status_a, _) = session_revoke_approval_response(&sid, &req_a, Some(&store)).await;
+        assert!(status_a.starts_with("200"), "owner revoke should succeed");
+    }
+
+    #[tokio::test]
+    async fn grants_get_rejects_cross_tenant() {
+        let store = mem_store().await;
+        let (tenant_a, session) = seed_session(&store).await;
+        let sid = session.0.to_string();
+        store
+            .add_session_grant(session, "delegate_task", "gateway", None, false, None)
+            .await
+            .expect("seed grant");
+        let tenant_b = TenantId::new();
+        let req = req_with_tenant("GET", &format!("/sessions/{sid}/grants"), &tenant_b, "");
+
+        let (status, body) = session_grants_get_response(&sid, &req, Some(&store)).await;
+
+        assert!(
+            !status.starts_with("200"),
+            "cross-tenant grants-list must NOT succeed, got status={status} body={body}"
+        );
+        assert!(status.starts_with("404"), "expected 404, got {status}");
+        // The owning tenant still sees the grant.
+        let req_a = req_with_tenant("GET", &format!("/sessions/{sid}/grants"), &tenant_a, "");
+        let (status_a, body_a) = session_grants_get_response(&sid, &req_a, Some(&store)).await;
+        assert!(status_a.starts_with("200"), "owner list should succeed");
+        assert!(body_a.contains("delegate_task"), "owner should see grant");
+    }
 }

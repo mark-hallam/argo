@@ -134,7 +134,7 @@ pub(super) async fn dispatch_session_get(
         // allowed through the escalation gate".
         if tail.starts_with("grants ") || tail.starts_with("grants?") {
             return Some(
-                super::routes_session_approval::session_grants_get_response(sid, store).await,
+                super::routes_session_approval::session_grants_get_response(sid, req, store).await,
             );
         }
         if tail.starts_with("judge ") || tail.starts_with("judge?") {
