@@ -135,11 +135,17 @@ locals {
     environment = local.container_env
     secrets     = local.container_secrets
 
-    mountPoints = [{
+    # When gateway_db_on_efs=false the DB lives on the task's local disk at
+    # /data/.argo (the image pre-creates + chowns /data/.argo), avoiding SQLite's
+    # WAL-on-NFS incompatibility (WAL needs a -shm mmap EFS can't provide, which
+    # crash-loops the gateway on /health/ready once the WAL checkpoints). Local
+    # disk is ephemeral (DB resets on task restart) — fine for a bring-up smoke;
+    # the durable fix is no-WAL-on-EFS (tracked follow-up).
+    mountPoints = var.gateway_db_on_efs ? [{
       sourceVolume  = "argo-data"
       containerPath = "/data"
       readOnly      = false
-    }]
+    }] : []
 
     logConfiguration = {
       logDriver = "awslogs"
@@ -174,16 +180,19 @@ resource "aws_ecs_task_definition" "this" {
     cpu_architecture        = "X86_64"
   }
 
-  volume {
-    name = "argo-data"
+  dynamic "volume" {
+    for_each = var.gateway_db_on_efs ? [1] : []
+    content {
+      name = "argo-data"
 
-    efs_volume_configuration {
-      file_system_id     = var.efs_file_system_id
-      transit_encryption = "ENABLED"
+      efs_volume_configuration {
+        file_system_id     = var.efs_file_system_id
+        transit_encryption = "ENABLED"
 
-      authorization_config {
-        access_point_id = var.efs_access_point_id
-        iam             = "DISABLED"
+        authorization_config {
+          access_point_id = var.efs_access_point_id
+          iam             = "DISABLED"
+        }
       }
     }
   }

@@ -109,6 +109,7 @@ module "ecs" {
   trust_xff           = var.front_with_cloudflare
   public_base_url     = var.public_base_url
   email_outbound      = var.email_outbound
+  gateway_db_on_efs   = var.gateway_db_on_efs
 }
 
 module "backup" {

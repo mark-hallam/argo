@@ -107,3 +107,9 @@ variable "email_outbound" {
   })
   default = {}
 }
+
+variable "gateway_db_on_efs" {
+  description = "When true (default), the gateway SQLite DB lives on the EFS volume (durable across task restarts). Set false to keep the DB on the task's LOCAL ephemeral disk at /data/.argo — required because SQLite WAL mode is incompatible with NFS/EFS (the -shm shared-memory index can't be mmap'd over EFS, so WAL checkpoints fail and the gateway crash-loops on /health/ready). Local disk is ephemeral (DB resets on task restart): correct for a bring-up smoke, NOT durable production (use the no-WAL-on-EFS durable fix for that)."
+  type        = bool
+  default     = true
+}
