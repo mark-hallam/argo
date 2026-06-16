@@ -224,9 +224,32 @@ async function readSessionPeek(): Promise<SessionPeek> {
     );
     if (!res.ok) return {};
     const session = (await res.json()) as SessionPeek;
+    let principal = session?.principal;
+    // Split-topology fallback: a gateway-magic-link login leaves NextAuth
+    // tokenless, so /api/auth/session omits the principal. Derive it from the
+    // verified __Host-session cookie via /api/principal so the request below
+    // can stamp X-Argo-Principal (the proxy forwards the header; the HttpOnly
+    // cookie itself is not proxied cross-origin). Only fetched when absent, so
+    // no extra round-trip once NextAuth carries the principal.
+    if (!principal) {
+      try {
+        const pr = await fetchWithTimeout(
+          "/api/principal",
+          { credentials: "same-origin" },
+          SESSION_PEEK_TIMEOUT_MS,
+          "/api/principal",
+        );
+        if (pr.ok) {
+          const pj = (await pr.json()) as { principal?: string };
+          if (pj?.principal) principal = pj.principal;
+        }
+      } catch {
+        /* keep principal undefined */
+      }
+    }
     return {
       gatewayToken: session?.gatewayToken,
-      principal: session?.principal,
+      principal,
       tenantId: session?.tenantId,
     };
   } catch {
