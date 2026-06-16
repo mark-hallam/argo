@@ -4,10 +4,12 @@ import { expect, test } from "@playwright/test";
  * Logout-button wire (Stream `web-auth-logout-button-wire`).
  *
  * The sign-out control lives in the `AppShell` workspace footer
- * popover. Click → `POST /api/v1/auth/logout` → on 2xx clear the
- * NextAuth session and redirect to `/auth/signin`. On 401 (cookie
- * already revoked) we treat it as success. On 5xx we toast an error
- * and keep the user where they are so they can retry.
+ * popover. Click → `POST /api/auth/logout` (the SAME-ORIGIN Next route
+ * that clears the app-origin `__Host-session` / `__Host-csrf` cookies;
+ * NOT the cross-origin gateway, which can't see them) → on 2xx clear
+ * any NextAuth session and redirect to `/auth/signin`. On 401 we treat
+ * it as success. On a network failure reaching the route we toast an
+ * error and keep the user where they are so they can retry.
  *
  * The local Playwright lane points `NEXT_PUBLIC_GATEWAY_URL` at
  * `http://127.0.0.1:1`, so every assertion goes through `page.route`
@@ -25,7 +27,7 @@ import { expect, test } from "@playwright/test";
  * relying on a process-wide bypass.
  */
 
-const LOGOUT_URL = /\/api\/v1\/auth\/logout$/;
+const LOGOUT_URL = /\/api\/auth\/logout$/;
 
 test.beforeEach(async ({ context, baseURL }) => {
   const url = baseURL ?? "http://localhost:3000";
@@ -47,7 +49,7 @@ async function openUserMenu(page: import("@playwright/test").Page) {
   await expect(page.getByTestId("appshell-sign-out")).toBeVisible();
 }
 
-test("happy path: sign out POSTs to gateway and redirects to /auth/signin", async ({
+test("happy path: sign out POSTs to the same-origin logout route and redirects to /auth/signin", async ({
   page,
 }) => {
   let logoutHits = 0;
@@ -71,7 +73,7 @@ test("happy path: sign out POSTs to gateway and redirects to /auth/signin", asyn
   expect(logoutHits).toBe(1);
 });
 
-test("401 from gateway (cookie already revoked) is treated as success", async ({
+test("401 from the logout route (cookie already revoked) is treated as success", async ({
   page,
 }) => {
   await page.route(LOGOUT_URL, async (route) => {
@@ -89,15 +91,14 @@ test("401 from gateway (cookie already revoked) is treated as success", async ({
   await expect(page).toHaveURL(/\/auth\/signin/, { timeout: 5_000 });
 });
 
-test("5xx surfaces an error toast and keeps the user signed in", async ({
+test("network failure reaching the logout route surfaces an error toast and keeps the user signed in", async ({
   page,
 }) => {
+  // The same-origin route returns 200 once the cookie is cleared, so the
+  // realistic failure is the route being unreachable. `signOut()` maps a
+  // thrown fetch to `{ ok: false }` → error toast, user stays put.
   await page.route(LOGOUT_URL, async (route) => {
-    await route.fulfill({
-      status: 500,
-      contentType: "application/json",
-      body: JSON.stringify({ error: "boom" }),
-    });
+    await route.abort("failed");
   });
 
   await page.goto("/");

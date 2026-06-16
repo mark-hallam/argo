@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { signOut as nextAuthSignOut } from "next-auth/react";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
-import { signOut as gatewaySignOut } from "@/lib/api/auth";
+import { signOut as appSignOut } from "@/lib/api/auth";
 import { purgeClientTenantState } from "@/lib/auth/purge-client-state";
 import { useSkycotSession } from "@/lib/skycot/use-session";
 import { useToast } from "@/lib/ui/use-toast";
@@ -19,8 +19,9 @@ import { useToast } from "@/lib/ui/use-toast";
  * (which honors `NEXT_PUBLIC_SKYCOT_DEMO_MODE` for v1.0 demo replay) so
  * a fresh signup no longer sees "Sam Harlow · Acmeco · Owner" baked
  * into the chrome. The popover hosts the sign-out action; click flows
- * through the gateway sign-out endpoint to revoke the JWT jti before
- * dropping the NextAuth session client-side.
+ * through the same-origin `/api/auth/logout` route (which clears the
+ * app-origin `__Host-session` / `__Host-csrf` cookies and best-effort
+ * revokes the JWT jti) before dropping any NextAuth session client-side.
  */
 export function UserPill() {
   const session = useSkycotSession();
@@ -45,22 +46,31 @@ export function UserPill() {
   async function handleSignOut() {
     if (signingOut) return;
     setSigningOut(true);
-    const result = await gatewaySignOut();
+    const result = await appSignOut();
     if (!result.ok) {
       setSigningOut(false);
       setOpen(false);
       toast.error("Couldn't sign out — please refresh and try again.");
       return;
     }
-    // Gateway has cleared `__Host-session` via Set-Cookie and recorded
-    // the JWT's jti in `revoked_tokens`. Purge ALL client-side tenant
-    // state (React Query cache + namespaced storage) BEFORE dropping the
-    // NextAuth session, so the next user on this browser can never observe
-    // this tenant's cached data (workers, approvals, audit, PII grants).
+    // The same-origin `/api/auth/logout` route has cleared
+    // `__Host-session` + `__Host-csrf` via Set-Cookie and best-effort
+    // recorded the JWT's jti in `revoked_tokens`. Purge ALL client-side
+    // tenant state (React Query cache + namespaced storage) BEFORE
+    // dropping the NextAuth session, so the next user on this browser can
+    // never observe this tenant's cached data (workers, approvals, audit,
+    // PII grants).
     purgeClientTenantState(queryClient);
-    // Drop the NextAuth session client-side; `redirect: false` keeps
-    // router state consistent.
-    await nextAuthSignOut({ redirect: false });
+    // Drop any NextAuth session client-side; `redirect: false` keeps
+    // router state consistent. Best-effort: in the gateway-magic-link
+    // topology there's usually no NextAuth token, and a hiccup here must
+    // not trap the user pre-redirect — the cookie clear above is what
+    // actually logged them out.
+    try {
+      await nextAuthSignOut({ redirect: false });
+    } catch {
+      // ignore — proceed to redirect regardless
+    }
     toast.success("Signed out");
     router.replace("/auth/signin");
   }
