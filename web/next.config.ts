@@ -19,6 +19,12 @@ const gatewayUrl =
 
 const config: NextConfig = {
   output: "standalone",
+  // Per-page static-generation timeout (default 60s). The 5 opengraph-image
+  // routes render via @vercel/og (Satori + resvg-WASM), which is fine (<5s) on a
+  // native builder but exceeds 60s under linux/amd64 QEMU emulation (e.g. building
+  // the deploy image on an Apple-Silicon host), failing the build after 3 retries.
+  // 600s lets a slow/emulated builder finish; fast native builds are unaffected.
+  staticPageGenerationTimeout: 600,
   poweredByHeader: false,
   reactStrictMode: true,
   typedRoutes: true,
