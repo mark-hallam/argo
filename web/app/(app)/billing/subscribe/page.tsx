@@ -16,9 +16,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { useCheckout, redirectToCheckout } from "@/lib/billing/use-checkout";
 
-const PRICE_ENV: Record<string, string> = {
-  pro: "NEXT_PUBLIC_STRIPE_PRICE_PRO",
-  enterprise: "NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE",
+// Static LITERAL env reads so Next.js inlines the NEXT_PUBLIC_* values into the
+// client bundle at build time. A DYNAMIC read (process.env[varName]) is NOT
+// inlined and resolves to undefined in the browser, which made every upgrade
+// fail "No Stripe price configured" even when the build-arg was set. See
+// app/pricing/page.tsx which reads the same var statically (and works).
+const PRICE_BY_PLAN: Record<string, string | undefined> = {
+  pro: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO,
+  enterprise: process.env.NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE,
 };
 
 export default function BillingSubscribePage() {
@@ -56,15 +61,14 @@ function SubscribeContent() {
   const router = useRouter();
   const params = useSearchParams();
   const plan = params?.get("plan") ?? params?.get("tier") ?? "pro";
-  const priceEnv = PRICE_ENV[plan];
-  const priceId = priceEnv ? process.env[priceEnv] : undefined;
+  const priceId = PRICE_BY_PLAN[plan];
   const checkout = useCheckout();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!priceId) {
       setErrorMessage(
-        `No Stripe price configured for plan "${plan}". Set ${priceEnv ?? "NEXT_PUBLIC_STRIPE_PRICE_<TIER>"}.`,
+        `No Stripe price configured for plan "${plan}". Set NEXT_PUBLIC_STRIPE_PRICE_${plan.toUpperCase()} at build time.`,
       );
       return;
     }

@@ -77,6 +77,15 @@ const PLANS: PlanOffer[] = [
   },
 ];
 
+// Static LITERAL env reads (inlined by Next at build time) keyed by tier. A
+// dynamic read — process.env[plan.priceEnv] — is NOT inlined into the client
+// bundle and resolves to undefined, which disabled every upgrade button. Keyed
+// by tier so it stays in lockstep with PLANS.
+const PRICE_BY_TIER: Record<string, string | undefined> = {
+  pro: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO,
+  enterprise: process.env.NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE,
+};
+
 /**
  * Bounded backoff for the post-checkout tier auto-refresh poll.
  *
@@ -239,7 +248,7 @@ function PlanCard({
   onUpgrade: (priceId: string) => void;
 }) {
   const isCurrent = currentTier === plan.tier;
-  const priceId = plan.priceEnv ? process.env[plan.priceEnv] : "";
+  const priceId = PRICE_BY_TIER[plan.tier] ?? "";
   const disabled = isCurrent || busy || !priceId;
   return (
     <Card className="p-4 flex flex-col gap-3" selected={isCurrent}>
