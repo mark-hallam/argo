@@ -85,7 +85,7 @@ pub(super) fn principal_email(req: &str) -> Option<String> {
     let headers = req
         .split_once("\r\n\r\n")
         .map_or(req, |(headers, _body)| headers);
-    headers
+    let from_header = headers
         .lines()
         .skip(1)
         .find_map(|line| {
@@ -95,6 +95,19 @@ pub(super) fn principal_email(req: &str) -> Option<String> {
         })
         .and_then(|raw| raw.strip_prefix(HUMAN_PRINCIPAL_PREFIX).map(str::to_string))
         .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty() && s.contains('@'));
+    if from_header.is_some() {
+        return from_header;
+    }
+    // Split-topology fallback: when the SPA is served from a separate origin
+    // (App Runner) and proxies to the gateway, its simple rewrite forwards the
+    // `__Host-session` cookie but does NOT stamp the `X-Argo-Principal` header.
+    // Derive the human principal from the verified session JWT the gateway
+    // already validates for page access (same HS256 signature; the `email`
+    // claim is the verified human identity) — no weaker than the header, since
+    // both ultimately trace to the gateway's own signed magic-link JWT.
+    super::session_jwt::extract_session_claims(req)
+        .map(|c| c.email.trim().to_string())
         .filter(|s| !s.is_empty() && s.contains('@'))
 }
 
