@@ -118,7 +118,16 @@ ENV ARGO_HOME=/data/.argo \
 # build time covers the docker-run path. On k8s the PVC mount is covered by
 # fsGroup: 10001 in the Deployment securityContext (the in-image chown does not
 # reach a PVC mount). chown -R so the pre-created .argo subdir is owned too.
-RUN mkdir -p /data/.argo && chown -R 10001:10001 /data
+#
+# Also chown /app: the COPYs above land root-owned, but the runtime writes some
+# mutable state UNDER the bundled tree — notably Genesis intake conversations at
+# $ARGO_VERTICALS_DIR/.genesis-intake/<tenant>/<conv>.json (argo-genesis
+# intake_store, rooted at argo_vertical::default_dir() = /app/verticals) and the
+# sibling SOP store. As non-root uid 10001 those dir.create()s fail with
+# "Permission denied (os error 13)" -> Genesis conversation 500s. chown -R /app so
+# the runtime user can create those subdirs. (Mutable-under-read-only is a smell;
+# the durable fix is to relocate Genesis runtime state under ARGO_HOME.)
+RUN mkdir -p /data/.argo && chown -R 10001:10001 /data /app
 
 EXPOSE 8080
 # Drop to the non-root user for the runtime process.
