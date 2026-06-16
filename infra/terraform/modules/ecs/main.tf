@@ -97,6 +97,17 @@ locals {
     { name = "ARGO_IP_RATE_LIMIT", value = "1" },
   ] : []
 
+  # The gateway's CSRF/origin guard (middleware_origin_check.rs) rejects
+  # state-changing requests whose `Origin` header is not in
+  # ARGO_TRUSTED_ORIGINS (its unset-default list does NOT include the SPA's
+  # public origin). In the split topology the browser's Origin is the SPA's
+  # public origin (== public_base_url), forwarded verbatim by the Next proxy,
+  # so without this every POST (onboarding/provision, billing/checkout, ...)
+  # 403s `origin_rejected`. Trust the SPA origin explicitly.
+  trusted_origins_env = var.public_base_url != "" ? [
+    { name = "ARGO_TRUSTED_ORIGINS", value = var.public_base_url },
+  ] : []
+
   container_env = concat([
     # ARGO_GATEWAY_PROFILE=production forces auth_bypass=false in routes_auth.rs.
     { name = "ARGO_GATEWAY_PROFILE", value = "production" },
@@ -120,7 +131,7 @@ locals {
     # deleted). Read by routes_pitch_ask.rs corpus_dir()/policy_dir().
     { name = "ARGO_PITCH_CORPUS_DIR", value = "/app/skill-library/canonical-qa/corpora/skycot" },
     { name = "ARGO_PITCH_POLICY_DIR", value = "/app/policies/truth-boundary" },
-  ], local.proxy_env, local.email_env)
+  ], local.proxy_env, local.email_env, local.trusted_origins_env)
 
   container_def = [{
     name      = "argo"
