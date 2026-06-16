@@ -67,7 +67,17 @@ fn signature_stale_timestamp_rejected() {
         now_at(1_700_000_000 + SIGNATURE_TOLERANCE + 1),
     )
     .expect_err("must reject");
-    assert!(matches!(err, WebhookError::StaleTimestamp(_)));
+    // Pin which number is which: `signed_at` is the header `t=`, `drift` is
+    // the gap from the receiver clock (the prior tuple variant logged the
+    // drift but labelled it "timestamp"). Clock is t + tolerance + 1, so the
+    // drift is exactly tolerance + 1.
+    match err {
+        WebhookError::StaleTimestamp { signed_at, drift } => {
+            assert_eq!(signed_at, 1_700_000_000);
+            assert_eq!(drift, SIGNATURE_TOLERANCE + 1);
+        }
+        other => panic!("expected StaleTimestamp, got {other:?}"),
+    }
 }
 
 #[test]

@@ -52,8 +52,19 @@ pub enum WebhookError {
     #[error("signature verification failed")]
     BadSignature,
     /// The signed timestamp drifted more than [`SIGNATURE_TOLERANCE`].
-    #[error("timestamp {0} outside {SIGNATURE_TOLERANCE}s tolerance window")]
-    StaleTimestamp(i64),
+    /// `signed_at` is the `t=` value Stripe put in the header; `drift` is
+    /// how far (absolute seconds) it sits from the receiver clock. Both are
+    /// named so the log says which number is which — the prior message
+    /// printed the drift but labelled it "timestamp", so a header `t=0`
+    /// logged as a ~56-year-old timestamp (drift ≈ the current epoch) and
+    /// cost real diagnosis time during the 2026-06-16 AWS go-live.
+    #[error("Stripe signature timestamp {signed_at} is {drift}s outside the {SIGNATURE_TOLERANCE}s tolerance window")]
+    StaleTimestamp {
+        /// The `t=` value parsed from the `Stripe-Signature` header.
+        signed_at: i64,
+        /// Absolute seconds between `signed_at` and the receiver clock.
+        drift: i64,
+    },
     /// JSON body could not be parsed as a Stripe event envelope.
     #[error("event decode: {0}")]
     EventDecode(String),
@@ -100,7 +111,10 @@ pub fn verify_signature(
     let (timestamp, signatures) = parse_signature_header(header_value)?;
     let drift = (now.timestamp() - timestamp).abs();
     if drift > SIGNATURE_TOLERANCE {
-        return Err(WebhookError::StaleTimestamp(drift));
+        return Err(WebhookError::StaleTimestamp {
+            signed_at: timestamp,
+            drift,
+        });
     }
     let mut payload = Vec::with_capacity(body.len() + 16);
     payload.extend_from_slice(timestamp.to_string().as_bytes());
