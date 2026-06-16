@@ -16,6 +16,10 @@ locals {
   #  - id    : the SecretsManager id segment (final ARN is .../skycot-prod/<id>)
   #  - desc  : description shown in the SecretsManager console
   secret_specs = {
+    anthropic_api_key = {
+      id   = "anthropic-api-key"
+      desc = "ANTHROPIC_API_KEY - LLM provider key. REQUIRED in production: the gateway startup check refuses to bind with no provider key set (need ANTHROPIC_API_KEY or OPENAI_API_KEY). Create at console.anthropic.com. Injected into the ECS task as ANTHROPIC_API_KEY."
+    }
     bearer_token = {
       id   = "argo-gateway-bearer-token"
       desc = "ARGO_GATEWAY_BEARER_TOKEN — non-loopback bind admin bearer. openssl rand -hex 32."

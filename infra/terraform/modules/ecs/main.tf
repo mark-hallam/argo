@@ -34,6 +34,10 @@ locals {
   # operator record only (see modules/secrets), so binding it here would inject a
   # variable nothing reads. Only real gateway-read secrets are bound below.
   secret_env_bindings = [
+    # Required in production: the provider startup check refuses to bind unless a
+    # provider API key is set (ANTHROPIC_API_KEY or OPENAI_API_KEY). Without this
+    # the gateway exits 78 (EX_CONFIG) before listening and the ALB has no target.
+    { env = "ANTHROPIC_API_KEY", key = "anthropic_api_key" },
     { env = "ARGO_GATEWAY_BEARER_TOKEN", key = "bearer_token" },
     { env = "SKYCOT_WORKSPACE_ROOT_KEY_BASE64", key = "workspace_root_key" },
     { env = "ARGO_CREDENTIALS_MASTER_KEY", key = "workspace_root_key" },
