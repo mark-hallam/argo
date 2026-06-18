@@ -109,6 +109,13 @@ resource "aws_scheduler_schedule" "backup" {
   name        = "${var.name_prefix}-backup-daily"
   description = "Daily offsite SQLite backup: snapshot -> verify -> S3 -> prune."
 
+  # DEC-056: this task mounts the gateway's EFS access point to snapshot the DB,
+  # so it is only meaningful when the DB is actually ON EFS. With the DB on local
+  # disk (gateway_db_on_efs=false / B′), it would mount an empty EFS and fail the
+  # empty-db guard every day — so it is DISABLED and the in-container snapshot
+  # loop (scripts/gateway-entrypoint.sh) provides durability instead.
+  state = var.scheduled_backup_enabled ? "ENABLED" : "DISABLED"
+
   flexible_time_window {
     mode = "OFF"
   }

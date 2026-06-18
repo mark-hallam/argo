@@ -141,6 +141,15 @@ locals {
     # safety judge) and the Pitch LLM path.
     { name = "ARGO_GENESIS_LLM_PROVIDER", value = "anthropic" },
     { name = "ARGO_PITCH_LLM_PROVIDER", value = "anthropic" },
+    # DEC-056 durable DB ("B′"): the entrypoint wrapper (scripts/gateway-entrypoint.sh)
+    # restores-on-boot (fail-closed) + streams whole-file snapshots of the
+    # local-disk SQLite DB to S3. ARGO_WORKSPACE=/data so the snapshot
+    # (backup-cron.sh) roots at /data/.argo. An EMPTY bucket makes the wrapper a
+    # no-op (dev / no-backups apply) — same image runs everywhere.
+    { name = "ARGO_WORKSPACE", value = "/data" },
+    { name = "DB_SNAPSHOT_S3_BUCKET", value = var.db_snapshot_bucket },
+    { name = "DB_SNAPSHOT_S3_PREFIX", value = var.db_snapshot_prefix },
+    { name = "DB_SNAPSHOT_INTERVAL", value = var.db_snapshot_interval },
   ], local.proxy_env, local.email_env, local.trusted_origins_env)
 
   container_def = [{

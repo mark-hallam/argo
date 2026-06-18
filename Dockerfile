@@ -138,5 +138,11 @@ RUN mkdir -p /data/.argo && chown -R 10001:10001 /data /app
 EXPOSE 8080
 # Drop to the non-root user for the runtime process.
 USER 10001
-ENTRYPOINT ["/usr/local/bin/argo"]
+# DEC-056 durable DB ("B′"): the entrypoint is a wrapper that (1) restores the
+# latest S3 snapshot before boot FAIL-CLOSED (never boots empty when a snapshot
+# should exist) and (2) runs a background snapshot loop, then `exec`s the gateway
+# (so argo is PID 1 and owns SIGTERM). The wrapper is a NO-OP when
+# DB_SNAPSHOT_S3_BUCKET is unset, so dev/compose/single-box runs are unaffected.
+# CMD is passed through verbatim as the gateway's args.
+ENTRYPOINT ["/app/scripts/gateway-entrypoint.sh"]
 CMD ["gateway", "start", "--bind", "0.0.0.0", "--bind-non-loopback", "--accept-insecure-bind-warning", "--port", "8080", "--quiet"]

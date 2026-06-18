@@ -109,7 +109,27 @@ variable "email_outbound" {
 }
 
 variable "gateway_db_on_efs" {
-  description = "When true (default), the gateway SQLite DB lives on the EFS volume (durable across task restarts). Set false to keep the DB on the task's LOCAL ephemeral disk at /data/.argo — required because SQLite WAL mode is incompatible with NFS/EFS (the -shm shared-memory index can't be mmap'd over EFS, so WAL checkpoints fail and the gateway crash-loops on /health/ready). Local disk is ephemeral (DB resets on task restart): correct for a bring-up smoke, NOT durable production (use the no-WAL-on-EFS durable fix for that)."
+  description = "When true (default), the gateway SQLite DB lives on the EFS volume (durable across task restarts). Set false to keep the DB on the task's LOCAL ephemeral disk at /data/.argo — required because SQLite WAL mode is incompatible with NFS/EFS (the -shm shared-memory index can't be mmap'd over EFS, so WAL checkpoints fail and the gateway crash-loops on /health/ready). Local disk is ephemeral (DB resets on task restart): correct for a bring-up smoke. DURABILITY for local-disk mode comes from DEC-056 (db_snapshot_bucket below) — snapshot-to-S3 + fail-closed restore-on-boot — NOT from EFS."
   type        = bool
   default     = true
+}
+
+# DEC-056 durable DB ("B′") — the gateway entrypoint snapshots the local-disk
+# SQLite DB to this bucket and restores from it on boot.
+variable "db_snapshot_bucket" {
+  description = "S3 bucket the gateway streams DB snapshots to + restores from on boot (DEC-056). EMPTY STRING disables the feature (the entrypoint wrapper becomes a no-op) — used for dev / no-offsite-backups applies. Typically '<name_prefix>-backups'."
+  type        = string
+  default     = ""
+}
+
+variable "db_snapshot_prefix" {
+  description = "Key prefix under db_snapshot_bucket for the gateway's live DB snapshots (kept separate from any daily tarball prefix)."
+  type        = string
+  default     = "gateway-live"
+}
+
+variable "db_snapshot_interval" {
+  description = "Seconds between background DB snapshots in the gateway container (string — it is an env value). Worst-case data-loss window on a hard crash is one interval."
+  type        = string
+  default     = "300"
 }

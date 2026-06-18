@@ -102,6 +102,12 @@ variable "schedule_timezone" {
   default     = "UTC"
 }
 
+variable "scheduled_backup_enabled" {
+  description = "DEC-056: whether the daily EFS-mounting backup task is ENABLED. Meaningful only when the gateway DB is on EFS — with the DB on local disk (gateway_db_on_efs=false / B′) this task backs up an empty EFS and fails daily, so the root sets it to var.gateway_db_on_efs and the in-container snapshot loop provides durability instead. The bucket + IAM + lifecycle stay regardless (B′ snapshots use the same bucket)."
+  type        = bool
+  default     = true
+}
+
 variable "transition_glacier_days" {
   description = "Days after which a backup object transitions to GLACIER (cold, cheap)."
   type        = number

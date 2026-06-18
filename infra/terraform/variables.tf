@@ -118,7 +118,22 @@ variable "enable_offsite_backups" {
 }
 
 variable "gateway_db_on_efs" {
-  description = "When true (default), the gateway SQLite DB lives on the EFS volume (durable across task restarts). Set false to keep the DB on the task's LOCAL ephemeral disk at /data/.argo — required because SQLite WAL mode is incompatible with NFS/EFS (the -shm shared-memory index can't be mmap'd over EFS, so WAL checkpoints fail and the gateway crash-loops on /health/ready every ~26 min). Local disk is ephemeral (DB resets on task restart): correct for a bring-up smoke, NOT durable production. Threaded into module.ecs."
+  description = "When true (default), the gateway SQLite DB lives on the EFS volume (durable across task restarts). Set false to keep the DB on the task's LOCAL ephemeral disk at /data/.argo — required because SQLite WAL mode is incompatible with NFS/EFS (the -shm shared-memory index can't be mmap'd over EFS, so WAL checkpoints fail and the gateway crash-loops on /health/ready every ~26 min). Local disk is ephemeral (DB resets on task restart): correct for a bring-up smoke; DURABILITY for local-disk mode is DEC-056 (snapshot-to-S3 + fail-closed restore-on-boot), not EFS. Threaded into module.ecs."
   type        = bool
   default     = true
+}
+
+# DEC-056 durable DB ("B′") — snapshot-to-S3 + restore-on-boot config for the
+# gateway when the DB is on local disk. Bucket = module.backup's bucket (wired in
+# main.tf, gated by enable_offsite_backups).
+variable "gateway_db_snapshot_prefix" {
+  description = "S3 key prefix for the gateway's live DB snapshots under the backups bucket (DEC-056)."
+  type        = string
+  default     = "gateway-live"
+}
+
+variable "gateway_db_snapshot_interval_seconds" {
+  description = "Seconds between background gateway DB snapshots (DEC-056). Worst-case data-loss window on a hard crash is one interval. Lower = less loss + more S3 PUTs/snapshot I/O."
+  type        = number
+  default     = 300
 }

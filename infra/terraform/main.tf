@@ -110,6 +110,15 @@ module "ecs" {
   public_base_url     = var.public_base_url
   email_outbound      = var.email_outbound
   gateway_db_on_efs   = var.gateway_db_on_efs
+
+  # DEC-056 durable DB ("B′"): the gateway entrypoint snapshots its local-disk DB
+  # to the offsite backup bucket + restores on boot (fail-closed). Tie activation
+  # to enable_offsite_backups (the bucket is provisioned by module.backup); empty
+  # bucket => the wrapper is a no-op. The gateway task role gets scoped S3+KMS on
+  # this bucket via the iam module (same deterministic name).
+  db_snapshot_bucket   = var.enable_offsite_backups ? "${local.name_prefix}-backups" : ""
+  db_snapshot_prefix   = var.gateway_db_snapshot_prefix
+  db_snapshot_interval = tostring(var.gateway_db_snapshot_interval_seconds)
 }
 
 module "backup" {
@@ -129,6 +138,12 @@ module "backup" {
   secret_arns         = module.secrets.secret_arns
   kms_key_arn         = module.kms.key_arn
   log_retention_days  = var.log_retention_days
+
+  # DEC-056: the daily EFS-mounting backup task only makes sense when the DB is
+  # actually on EFS. On local disk (B′) it would back up an empty EFS and fail
+  # daily — disable it; the gateway's in-container snapshot loop is the durability
+  # mechanism. The bucket + IAM + lifecycle in this module stay (B′ uses them).
+  scheduled_backup_enabled = var.gateway_db_on_efs
 }
 
 module "observability" {
