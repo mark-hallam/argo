@@ -10,9 +10,11 @@ import { expect, test } from "@playwright/test";
  *
  * The local Playwright lane points the SPA at `127.0.0.1:1` so a real
  * gateway call would fail and the SPA would fall back to mocked
- * sample data. This spec intercepts the same-origin Next.js proxy
- * route `/api/workers/<id>/run` directly with `page.route()` so the
- * test exercises:
+ * sample data. This spec intercepts the gateway run endpoint
+ * `/api/v1/workers/<id>/run` directly with `page.route()` (the SPA now
+ * calls it via the shared authenticated `apiPost` client, the same path
+ * `hireWorker` uses — not the old `/api/workers/<id>/run` Next proxy
+ * handler) so the test exercises:
  *   1. The button is rendered above the Responsibilities card.
  *   2. Clicking it fires a POST to the proxy with the documented body.
  *   3. The success toast renders with "View in audit" affordance.
@@ -27,7 +29,7 @@ test("worker overview Run-now button POSTs and toast deep-links to /audit", asyn
   page,
 }) => {
   let postBody: string | null = null;
-  await page.route(`**/api/workers/${SAMPLE_WORKER_ID}/run`, async (route) => {
+  await page.route(`**/api/v1/workers/${SAMPLE_WORKER_ID}/run`, async (route) => {
     postBody = route.request().postData();
     await route.fulfill({
       status: 200,
@@ -63,7 +65,7 @@ test("worker overview Run-now button POSTs and toast deep-links to /audit", asyn
 test("worker overview Run-now button shows error toast on proxy failure", async ({
   page,
 }) => {
-  await page.route(`**/api/workers/${SAMPLE_WORKER_ID}/run`, async (route) => {
+  await page.route(`**/api/v1/workers/${SAMPLE_WORKER_ID}/run`, async (route) => {
     await route.fulfill({
       status: 502,
       contentType: "application/json",

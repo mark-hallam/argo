@@ -223,6 +223,27 @@ export function middleware(req: NextRequest) {
     // these exact paths so the rest of `/api/v1/*` stays cookie-gated.
     pathname === "/api/v1/waitlist" ||
     pathname === "/api/v1/enterprise-inquiry" ||
+    // Genuinely-PUBLIC gateway API routes, proxied via the `/api/v1/:path*`
+    // rewrite (next.config.ts). These mirror the gateway's own anonymous
+    // allowlist (`is_public_get` in
+    // `crates/argo-cli/src/handlers/gateway/routes_auth.rs`) plus the
+    // anonymous public-pitch POST front door. The SPA must let them reach
+    // the gateway — which enforces its own per-IP-rate-limited / public
+    // scheme — and must NOT 307-redirect an anonymous XHR/fetch to the HTML
+    // `/auth/signin` page. Bouncing a public API call into signin returns
+    // HTML where the caller expects JSON and breaks the surface entirely
+    // (e.g. `/api/v1/meta/error-reporting` stayed broken in-browser even
+    // after it was made public gateway-side in #2984, because this
+    // middleware caught it first). Kept as EXACT matches to mirror the
+    // gateway allowlist's precision — the rest of `/api/v1/*` stays
+    // cookie-gated. NB: `/scim/v2/*` and `/openmetrics` are deliberately
+    // absent — they have no `next.config.ts` rewrite, so allowlisting them
+    // here would be dead config (SCIM/metrics clients hit the gateway
+    // origin directly, never the SPA).
+    pathname === "/api/v1/meta/error-reporting" ||
+    pathname === "/api/v1/skills/marketplace" ||
+    pathname === "/api/v1/skill-library/list" ||
+    pathname === "/api/v1/pitch/ask/public" ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
     pathname.startsWith("/landing") ||

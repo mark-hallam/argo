@@ -424,67 +424,46 @@ export async function triggerWorkerRun(
   const body: Record<string, unknown> = { trigger_source: "manual_run_now" };
   if (note && note.trim()) body.note = note.trim();
   if (approveTools && approveTools.length > 0) body.approve_tools = approveTools;
-  return postProxy<WorkerRunResult>(
-    `/api/workers/${encodeURIComponent(workerId)}/run`,
+  return apiPost<WorkerRunResult>(
+    `/api/v1/workers/${encodeURIComponent(workerId)}/run`,
     body,
   );
 }
 
 /**
- * Freeze a worker via the Next.js proxy route. The proxy forwards
- * the session bearer token to `POST /api/v1/workers/<id>/freeze` on
- * the gateway; gateway enforces `worker.freeze` capability.
+ * Freeze a worker. Uses the shared authenticated `apiPost` client — the
+ * SAME path `hireWorker` uses — which forwards the session bearer + CSRF
+ * token to `POST /api/v1/workers/<id>/freeze` on the gateway, where the
+ * `worker.freeze` capability is enforced.
+ *
+ * NB: this used to go through the `/api/workers/<id>/freeze` Next.js
+ * proxy route handler, which relied on a server-side NextAuth
+ * `session.gatewayToken` that is empty under the production magic-link
+ * (`__Host-session`) flow — so the gateway saw no credential and
+ * rejected with "missing or invalid bearer token". Unifying on `apiPost`
+ * (the proven hire path) removes that divergent, prod-broken auth path.
  */
 export async function freezeWorker(
   workerId: string,
   reason: string,
 ): Promise<FreezeRecord> {
-  return postProxy<FreezeRecord>(`/api/workers/${encodeURIComponent(workerId)}/freeze`, {
-    reason,
-  });
-}
-
-/**
- * Unfreeze a worker via the Next.js proxy route. Single-click — the
- * safe direction; the gateway accepts an empty body.
- */
-export async function unfreezeWorker(workerId: string): Promise<UnfreezeResult> {
-  return postProxy<UnfreezeResult>(
-    `/api/workers/${encodeURIComponent(workerId)}/unfreeze`,
-    undefined,
+  return apiPost<FreezeRecord>(
+    `/api/v1/workers/${encodeURIComponent(workerId)}/freeze`,
+    { reason },
   );
 }
 
-async function postProxy<T>(path: string, body: unknown): Promise<T> {
-  const init: RequestInit = {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    cache: "no-store",
-  };
-  if (body !== undefined) init.body = JSON.stringify(body);
-  const res = await fetch(path, init);
-  const text = await res.text();
-  let parsed: unknown = null;
-  if (text) {
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      /* leave parsed null */
-    }
-  }
-  if (!res.ok) {
-    const envelope =
-      parsed && typeof parsed === "object" && "error" in parsed
-        ? (parsed as { error?: { code?: string; message?: string } }).error
-        : undefined;
-    throw new ApiError(
-      res.status,
-      envelope?.message ?? res.statusText ?? `HTTP ${res.status}`,
-      envelope?.code,
-      parsed ?? text,
-    );
-  }
-  return parsed as T;
+/**
+ * Unfreeze a worker. Single-click — the safe direction; the gateway
+ * accepts an empty body. Uses the shared authenticated `apiPost` client
+ * (see {@link freezeWorker} for why the old Next.js proxy route was
+ * dropped).
+ */
+export async function unfreezeWorker(workerId: string): Promise<UnfreezeResult> {
+  return apiPost<UnfreezeResult>(
+    `/api/v1/workers/${encodeURIComponent(workerId)}/unfreeze`,
+    {},
+  );
 }
 
 /**

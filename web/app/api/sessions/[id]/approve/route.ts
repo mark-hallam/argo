@@ -17,10 +17,18 @@ import { resolveGatewayUrl } from "@/lib/config/gateway-url";
  * - Passes through the gateway's status + body so the client surface
  *   can read the grant envelope / error envelope unchanged.
  *
- * Mirrors `web/app/api/workers/[id]/run/route.ts` — no business
- * logic here; capability gating lives on the gateway. Consumed by
- * `lib/api/session-approvals.ts` for the in-SPA probation tool
- * approval flow (day-1 unblock FIX 1).
+ * A thin same-origin proxy — no business logic here; capability gating
+ * lives on the gateway. Consumed by `lib/api/session-approvals.ts` for
+ * the in-SPA probation tool approval flow (day-1 unblock FIX 1).
+ *
+ * NB: this handler still relies on the server-side NextAuth
+ * `session.gatewayToken` (see the sibling `workers/[id]/{run,freeze,
+ * unfreeze}` proxies that were dropped in
+ * `fix-worker-detail-run-now-action-and-endpoint` for exactly this
+ * reason — that token is empty under the production magic-link
+ * `__Host-session` flow). If the in-SPA "Approve & run" flow shows the
+ * same "missing or invalid bearer token" failure in production, migrate
+ * its client to the shared authenticated `apiPost` path too.
  */
 
 function gatewayBase(): string {

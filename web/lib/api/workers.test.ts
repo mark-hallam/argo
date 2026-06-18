@@ -156,7 +156,7 @@ describe("lib/api/workers", () => {
   // an older gateway that omits them must still parse.
   it("triggerWorkerRun passes session_id / held_tools / probation through", async () => {
     installMock((req) => {
-      expect(req.url).toMatch(/\/api\/workers\/w-1\/run$/);
+      expect(req.url).toMatch(/\/api\/v1\/workers\/w-1\/run$/);
       return makeResponse({
         body: {
           action_id: "a1",
@@ -200,7 +200,7 @@ describe("lib/api/workers", () => {
   // `approved_tools` reports what was actually granted.
   it("triggerWorkerRun sends approve_tools and parses approved_tools", async () => {
     installMock(async (req) => {
-      expect(req.url).toMatch(/\/api\/workers\/w-1\/run$/);
+      expect(req.url).toMatch(/\/api\/v1\/workers\/w-1\/run$/);
       const body = (await req.json()) as Record<string, unknown>;
       expect(body.approve_tools).toEqual(["send_email", "web_search"]);
       expect(body.trigger_source).toBe("manual_run_now");

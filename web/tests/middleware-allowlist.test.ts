@@ -152,3 +152,65 @@ describe("middleware — anonymous marketing POST proxies bypass the signin redi
     );
   });
 });
+
+// fix-spa-middleware-redirects-public-api-routes: genuinely-public gateway API
+// routes proxied via the `/api/v1/:path*` rewrite must reach the gateway, not
+// the HTML signin page — bouncing an anonymous XHR into /auth/signin returns
+// HTML where JSON is expected and breaks the surface (e.g. error-reporting
+// stayed broken in-browser even after it was made public gateway-side in
+// #2984). Mirrors the gateway's `is_public_get` allowlist + the public-pitch
+// POST front door. Pinned as EXACT matches so the tenant-scoped neighbours
+// (`/api/v1/skills`, the rest of `/api/v1/meta/*`, the authed `/api/v1/pitch/ask`)
+// stay cookie-gated.
+describe("middleware — public gateway API routes bypass the signin redirect", () => {
+  beforeEach(() => {
+    Object.defineProperty(process.env, "NODE_ENV", {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: "test",
+    });
+    delete process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
+    delete process.env.NEXT_PUBLIC_ARGO_DEMO_MODE;
+  });
+
+  afterEach(() => {
+    restoreEnv();
+  });
+
+  for (const path of [
+    "/api/v1/meta/error-reporting",
+    "/api/v1/skills/marketplace",
+    "/api/v1/skill-library/list",
+  ]) {
+    it(`lets an unauthenticated GET ${path} pass through (no signin redirect)`, () => {
+      const res = middleware(makeRequest(`http://localhost:3000${path}`));
+
+      // NextResponse.next() carries no Location header; a redirect would.
+      expect(res.headers.get("location")).toBeNull();
+    });
+  }
+
+  it("lets an unauthenticated POST /api/v1/pitch/ask/public pass through (no signin redirect)", () => {
+    const res = middleware(makePost("http://localhost:3000/api/v1/pitch/ask/public"));
+
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  // Negative pins: the exact-match additions must NOT open the tenant-scoped
+  // neighbours. Each of these still bounces an anonymous caller to signin.
+  for (const path of [
+    "/api/v1/skills",
+    "/api/v1/meta/billing",
+    "/api/v1/pitch/ask",
+  ]) {
+    it(`still redirects an unauthenticated GET ${path} (exact-match did not open the prefix)`, () => {
+      const res = middleware(makeRequest(`http://localhost:3000${path}`));
+
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toBe(
+        `http://localhost:3000/auth/signin?returnTo=${encodeURIComponent(path)}`,
+      );
+    });
+  }
+});
