@@ -29,6 +29,7 @@
 
 import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import type { ApprovalRateSummary } from "@/components/skycot/approvals/ApprovalsKpiStrip";
 import type { Severity } from "@/components/skycot/approvals/SeverityPill";
 import {
   SAMPLE_APPROVALS,
@@ -47,6 +48,15 @@ export type DataSource = "live" | "mock-offline" | "mock-auth-bypass";
 export type ApprovalsResult = {
   items: ApprovalItem[];
   source: DataSource;
+  /**
+   * Durable tenant-wide approval rate from the gateway's audit-chain
+   * read-side (`fix-approvals-rate-kpi-durable-from-audit`). Present only
+   * when the live gateway returns the additive `approval_rate` envelope
+   * field AND at least one decision has landed; `null`/absent otherwise,
+   * in which case the dashboard falls back to its client compute over the
+   * pending list (back-compat, no behaviour change).
+   */
+  approvalRate?: ApprovalRateSummary | null;
 };
 
 export type ApprovalDecisionRequest = {
@@ -199,10 +209,35 @@ type ApprovalRowJson = {
   sla_expires_at?: string | null;
 };
 
+/** Server (snake_case) shape of the additive `approval_rate` envelope
+ *  field — mirrors the camelCase `ApprovalRateSummary` TS type. */
+type ApprovalRateJson = {
+  total: number;
+  approved_fraction: number;
+  refused_fraction: number;
+  expired_fraction: number;
+};
+
 type ApprovalsListJson = {
   items: ApprovalRowJson[];
   next_cursor?: string | null;
+  approval_rate?: ApprovalRateJson | null;
 };
+
+/** Map the server `approval_rate` object to the camelCase summary the KPI
+ *  strip + rate ring consume. `null` (back-compat) when the gateway omits
+ *  the field or returns a malformed object. */
+function rateToSummary(
+  rate?: ApprovalRateJson | null,
+): ApprovalRateSummary | null {
+  if (!rate || typeof rate.total !== "number") return null;
+  return {
+    total: rate.total,
+    approvedFraction: rate.approved_fraction ?? 0,
+    refusedFraction: rate.refused_fraction ?? 0,
+    expiredFraction: rate.expired_fraction ?? 0,
+  };
+}
 
 function rowToItem(row: ApprovalRowJson): ApprovalItem {
   return {
@@ -248,7 +283,8 @@ async function fetchApprovalsInner(): Promise<ApprovalsResult> {
       "/api/v1/approvals",
     );
     const rows = Array.isArray(raw) ? raw : raw.items;
-    return { items: rows.map(rowToItem), source: "live" };
+    const approvalRate = Array.isArray(raw) ? null : rateToSummary(raw.approval_rate);
+    return { items: rows.map(rowToItem), source: "live", approvalRate };
   } catch (err) {
     if (isMissingOrUnreachable(err)) {
       // Demo mode keeps the seeded SAMPLE_APPROVALS so the v1.0

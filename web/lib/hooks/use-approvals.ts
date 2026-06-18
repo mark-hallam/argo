@@ -36,6 +36,11 @@ export function useApprovals() {
     ...query,
     data: query.data?.items,
     dataSource: query.data?.source as DataSource | undefined,
+    // Durable tenant-wide approval rate from the gateway envelope
+    // (`fix-approvals-rate-kpi-durable-from-audit`). `undefined` while the
+    // first fetch is in flight or when the gateway omits it — the
+    // dashboard falls back to its client compute in both cases.
+    approvalRate: query.data?.approvalRate ?? undefined,
     liveStatus: live.status,
     lastLiveEventAt: live.lastEventAt,
   };

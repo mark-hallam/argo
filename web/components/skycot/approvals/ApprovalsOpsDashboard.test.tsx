@@ -404,4 +404,49 @@ describe("ApprovalsOpsDashboard", () => {
     });
     expect(toastSuccessMock.mock.calls[0]?.[0]).toBe("Refused");
   });
+
+  // Soak finding #2 (`fix-approvals-rate-kpi-durable-from-audit`): the
+  // APPROVAL RATE KPI used to reset to "—" on reload because it derived
+  // from the pending list, where resolved decisions have dropped out. When
+  // the gateway supplies a durable `serverApprovalRate`, the KPI must show
+  // the server value even though NO row in `items` carries a decision.
+  it("renders the durable server approval rate when the pending list has no decided rows", () => {
+    renderWithClient(
+      <ApprovalsOpsDashboard
+        items={[item({ id: "still-pending" })]}
+        serverApprovalRate={{
+          total: 8,
+          approvedFraction: 0.75,
+          refusedFraction: 0.25,
+          expiredFraction: 0,
+        }}
+      />,
+    );
+
+    // Server-derived: 75%, 8 resolved — NOT "—", despite no decided item.
+    expect(screen.getByTestId("kpi-approval-rate")).toHaveTextContent("75%");
+    expect(screen.getByTestId("kpi-approval-rate")).toHaveTextContent(
+      "8 resolved approvals",
+    );
+    // The aside ring renders (not the empty "—" placeholder).
+    expect(screen.getByTestId("approval-rate-ring")).toHaveAttribute(
+      "data-approved",
+      "75",
+    );
+    expect(screen.queryByTestId("approval-rate-empty")).not.toBeInTheDocument();
+  });
+
+  // Back-compat: with the server field absent, the KPI keeps its client
+  // compute over the pending list (the pre-brief behaviour, unchanged).
+  it("falls back to the client compute when no server rate is supplied", () => {
+    renderWithClient(
+      <ApprovalsOpsDashboard items={[item({ id: "still-pending" })]} />,
+    );
+
+    expect(screen.getByTestId("kpi-approval-rate")).toHaveTextContent("—");
+    expect(screen.getByTestId("kpi-approval-rate")).toHaveTextContent(
+      "no resolved approvals",
+    );
+    expect(screen.getByTestId("approval-rate-empty")).toBeInTheDocument();
+  });
 });

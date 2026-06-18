@@ -44,7 +44,10 @@ export default function ApprovalsLandingPage() {
         ) : approvalsQuery.isError ? (
           <DashboardError onRetry={() => approvalsQuery.refetch()} />
         ) : (
-          <ApprovalsOpsDashboard items={approvals} />
+          <ApprovalsOpsDashboard
+            items={approvals}
+            serverApprovalRate={approvalsQuery.approvalRate}
+          />
         )}
       </main>
     </div>

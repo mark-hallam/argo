@@ -73,6 +73,7 @@ mod routes_approvals_json;
 mod routes_approvals_json_helpers;
 mod routes_approvals_json_seeded;
 mod routes_approvals_probation;
+mod routes_approvals_rate;
 mod routes_approvals_threshold;
 mod audit_query;
 mod routes_audit;

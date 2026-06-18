@@ -3,7 +3,10 @@
 import { useCallback, useMemo, type KeyboardEvent } from "react";
 import { ApprovalRateRing } from "@/components/skycot/approvals/ApprovalRateRing";
 import { ApprovalRowActions } from "@/components/skycot/approvals/ApprovalRowActions";
-import { ApprovalsKpiStrip } from "@/components/skycot/approvals/ApprovalsKpiStrip";
+import {
+  ApprovalsKpiStrip,
+  type ApprovalRateSummary as ServerApprovalRate,
+} from "@/components/skycot/approvals/ApprovalsKpiStrip";
 import { ChannelChip } from "@/components/skycot/approvals/ChannelChip";
 import { ConfidenceDonut } from "@/components/skycot/approvals/ConfidenceDonut";
 import { DollarAtRisk } from "@/components/skycot/approvals/DollarAtRisk";
@@ -24,6 +27,15 @@ import { cn } from "@/lib/utils";
 
 interface ApprovalsOpsDashboardProps {
   items: ApprovalItem[];
+  /**
+   * Durable tenant-wide approval rate from the gateway's audit-chain
+   * read-side (`fix-approvals-rate-kpi-durable-from-audit`). When present
+   * it OVERRIDES the client `computeApprovalRate(items)`, which only sees
+   * the ephemeral pending list and reset the KPI to "—" once resolved rows
+   * dropped out on reload. Absent (older gateway / no decisions yet) →
+   * the client compute is used, so there is no behaviour change.
+   */
+  serverApprovalRate?: ServerApprovalRate | null;
 }
 
 type SeverityTier = {
@@ -117,13 +129,39 @@ function channelCounts(items: ApprovalItem[]): Array<[ChannelKind, number]> {
   return [...counts.entries()].sort((a, b) => b[1] - a[1]);
 }
 
-export function ApprovalsOpsDashboard({ items }: ApprovalsOpsDashboardProps) {
+export function ApprovalsOpsDashboard({
+  items,
+  serverApprovalRate,
+}: ApprovalsOpsDashboardProps) {
   const pending = useMemo(
     () => sortBySeverityThenSla(items.filter((item) => item.decision == null)),
     [items],
   );
-  const approvalRate = useMemo(() => computeApprovalRate(items), [items]);
-  const kpis = useApprovalsKpis(items);
+  // Prefer the durable server rate (history-bearing, from the audit chain)
+  // over the client compute (which only sees the pending list and resets to
+  // "—" once resolved rows drop out). Fall back when the gateway omits it.
+  const approvalRate = useMemo<ApprovalRateSummary | null>(() => {
+    if (serverApprovalRate) {
+      return {
+        total: serverApprovalRate.total,
+        approved: serverApprovalRate.approvedFraction,
+        refused: serverApprovalRate.refusedFraction,
+        expired: serverApprovalRate.expiredFraction,
+      };
+    }
+    return computeApprovalRate(items);
+  }, [serverApprovalRate, items]);
+  const baseKpis = useApprovalsKpis(items);
+  // The APPROVAL RATE KPI cell reads `kpis.approvalRate`; override it with
+  // the durable server summary so it no longer resets after the pending
+  // list empties (soak finding #2).
+  const kpis = useMemo(
+    () =>
+      serverApprovalRate
+        ? { ...baseKpis, approvalRate: serverApprovalRate }
+        : baseKpis,
+    [baseKpis, serverApprovalRate],
+  );
   const totalAtRisk = pending.reduce((sum, item) => sum + (item.dollarAtRisk ?? 0), 0);
   const avgConfidence = averageConfidence(pending);
   const riskyCount = pending.filter((item) => (item.dollarAtRisk ?? 0) > 0).length;

@@ -222,6 +222,19 @@ pub(super) async fn list_response(
     if let Some(c) = next_cursor {
         body["next_cursor"] = Value::String(c);
     }
+    // Durable tenant-wide APPROVAL RATE arm (soak finding #2): the KPI used
+    // to be derived web-side from this page's DECIDED rows, but resolved
+    // decisions drop out of every list arm above, so the rate reset to "—"
+    // on reload. Surface an additive `approval_rate` from the hash-chained
+    // `approval.granted` / `approval.declined` audit rows — the honest,
+    // history-bearing source. Omitted (no field) without a store or when no
+    // decisions have landed; the web layer then keeps its client compute.
+    if let Some(store) = store {
+        if let Some(rate) = super::routes_approvals_rate::approval_rate_for_request(req, store).await
+        {
+            body["approval_rate"] = rate;
+        }
+    }
     ("200 OK", body.to_string())
 }
 
