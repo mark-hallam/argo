@@ -366,7 +366,10 @@ impl ConversationClient {
 #[async_trait]
 impl IntakeClient for ConversationClient {
     async fn complete(&self, prompt: &str) -> ArgoResult<String> {
-        complete_once(&self.provider_id, prompt, self.store.as_ref()).await
+        // 1024 max_tokens (not the classifier's 64): a Talk-it-through reply is a
+        // short conversational turn; the HTTP transport respects the cap, so 64
+        // truncated it.
+        complete_once(&self.provider_id, prompt, self.store.as_ref(), 1024).await
     }
 }
 

@@ -118,7 +118,11 @@ impl RubricClient for GateRubricClient {
         // default-OFF flag), NOT a pre-auth stranger surface — gated by
         // construction but uncapped (`None`). The genesis GENERATION path
         // carries the real anonymous cap.
-        match complete_once(&self.provider_id, prompt, None).await {
+        // 1024 max_tokens (not the classifier's 64): claude-sonnet-4-6 emits prose
+        // before the JSON rubric verdict and the HTTP transport respects the cap, so
+        // 64 truncated it. 1024 = ample for prose + JSON, at/under the thinking budget
+        // so the deterministic (temperature 0) grader keeps thinking OFF.
+        match complete_once(&self.provider_id, prompt, None, 1024).await {
             Ok(text) => Ok(text),
             Err(e) => {
                 self.transport_failed.store(true, Ordering::Relaxed);

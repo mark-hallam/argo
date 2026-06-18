@@ -165,6 +165,12 @@ pub(super) fn is_public_get(req: &str) -> bool {
             | "/version"
             | "/routes"
             | "/openmetrics"
+            // Browser-safe client error-reporting config (Sentry DSN + sample rate,
+            // or {enabled:false}). The handler returns 200 with NO tenant data, and
+            // the SPA + the (unauthenticated) marketing site fetch it before any
+            // session exists — auth-gating it 401'd the SPA's error reporter so it
+            // never initialised (task_9fc991e0).
+            | "/api/v1/meta/error-reporting"
             // Cross-tenant published-skill CATALOG — anonymous prospect browse
             // (no per-tenant scoping; the marketplace response strips identifying
             // tenant info). Conservative: ONLY the two doc-confirmed anonymous

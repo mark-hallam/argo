@@ -16,6 +16,15 @@ use argo_types::ArgoResult;
 use async_trait::async_trait;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+/// The safety judge replies with a small JSON verdict (`{verdict, reason}`), but
+/// claude-sonnet-4-6 emits reasoning prose before it; the HTTP Anthropic transport
+/// RESPECTS max_tokens, so the classifier's 64-token cap truncated the response
+/// before the JSON closed → "no JSON object" → fail-closed Block on EVERY hire
+/// (task_94955825 layer 2). 1024 is ample for prose + the JSON object, and stays
+/// at/under the extended-thinking budget so the deterministic (temperature 0)
+/// judge call keeps thinking OFF.
+const JUDGE_MAX_TOKENS: u32 = 1024;
+
 /// Dial the LLM safety judge and normalise its outcome into a
 /// [`SafetySignal`]. A transport/provider failure (the common CI / no-key
 /// case) becomes [`SafetySignal::Unavailable`] (degraded → needs_review),
@@ -82,7 +91,7 @@ impl GenesisJudgeClient for GateJudgeClient {
         // flag-gated), NOT a pre-auth stranger surface — gated by construction
         // but uncapped (`None`). The money-burning genesis GENERATION path
         // (classify/synthesize/author) carries the real anonymous cap.
-        match complete_once(&self.provider_id, prompt, None).await {
+        match complete_once(&self.provider_id, prompt, None, JUDGE_MAX_TOKENS).await {
             Ok(text) => Ok(text),
             Err(e) => {
                 self.transport_failed.store(true, Ordering::Relaxed);

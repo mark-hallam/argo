@@ -131,6 +131,16 @@ locals {
     # deleted). Read by routes_pitch_ask.rs corpus_dir()/policy_dir().
     { name = "ARGO_PITCH_CORPUS_DIR", value = "/app/skill-library/canonical-qa/corpora/skycot" },
     { name = "ARGO_PITCH_POLICY_DIR", value = "/app/policies/truth-boundary" },
+    # Route the Genesis + Pitch LLM surfaces at the Anthropic HTTP API (manifest
+    # `anthropic`, keyed by the ANTHROPIC_API_KEY secret). Without this the code
+    # default is `claude-code-cli` (DEC-012 dev/demo), which SPAWNS a local
+    # `claude` binary — absent in the container — so the Genesis hire safety judge
+    # degraded to needs_review and refused EVERY hire (task_94955825), and the
+    # authenticated Pitch LLM path failed identically. Read by
+    # routes_genesis_stream_llm::resolve_provider_id() (Genesis classifier +
+    # safety judge) and the Pitch LLM path.
+    { name = "ARGO_GENESIS_LLM_PROVIDER", value = "anthropic" },
+    { name = "ARGO_PITCH_LLM_PROVIDER", value = "anthropic" },
   ], local.proxy_env, local.email_env, local.trusted_origins_env)
 
   container_def = [{

@@ -158,9 +158,57 @@ fn quirks_send_thinking_blocks_enables_thinking_param() {
         manifest_str().trim_end()
     );
     let m = ProviderManifest::from_toml_str(&toml).unwrap();
-    let mut body = serde_json::json!({"model":"x"});
+    // max_tokens must exceed the thinking budget for thinking to be enabled.
+    let mut body = serde_json::json!({"model":"x","max_tokens":4096});
     apply_quirks(&mut body, &m);
     assert_eq!(body["thinking"]["type"], "enabled");
+}
+
+#[test]
+fn quirks_thinking_skipped_when_max_tokens_below_budget() {
+    // A small structured call (the Genesis classifier + hire safety judge use
+    // max_tokens=64) must NOT get thinking — the API requires
+    // max_tokens > thinking.budget_tokens — and its deterministic temperature
+    // must survive untouched, else the request 400s (task_94955825).
+    let toml = format!(
+        "{}\n[quirks]\nsend-thinking-blocks = true",
+        manifest_str().trim_end()
+    );
+    let m = ProviderManifest::from_toml_str(&toml).unwrap();
+    let mut body = serde_json::json!({"model":"x","max_tokens":64,"temperature":0.0});
+    apply_quirks(&mut body, &m);
+    assert!(
+        body.get("thinking").is_none(),
+        "thinking must be off for a sub-budget call"
+    );
+    assert_eq!(
+        body["temperature"], 0.0,
+        "temperature must be preserved when thinking is off"
+    );
+}
+
+#[test]
+fn quirks_thinking_strips_incompatible_temperature_and_top_p() {
+    // When thinking IS enabled (max_tokens > budget), the incompatible sampling
+    // knobs must be dropped — the API rejects temperature != 1 and top_p with
+    // thinking on.
+    let toml = format!(
+        "{}\n[quirks]\nsend-thinking-blocks = true",
+        manifest_str().trim_end()
+    );
+    let m = ProviderManifest::from_toml_str(&toml).unwrap();
+    let mut body =
+        serde_json::json!({"model":"x","max_tokens":4096,"temperature":0.0,"top_p":0.9});
+    apply_quirks(&mut body, &m);
+    assert_eq!(body["thinking"]["type"], "enabled");
+    assert!(
+        body.get("temperature").is_none(),
+        "temperature must be stripped when thinking is on"
+    );
+    assert!(
+        body.get("top_p").is_none(),
+        "top_p must be stripped when thinking is on"
+    );
 }
 
 #[test]

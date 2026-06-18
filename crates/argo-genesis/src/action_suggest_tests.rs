@@ -70,6 +70,18 @@ fn enumerate_skills_skips_missing_skills_dir() {
 }
 
 #[test]
+fn child_paths_missing_root_is_empty_not_error() {
+    // The prod-image failure mode (task_3d1506a6): action suggestion read a
+    // build-tree path baked at compile time (`/workspace/crates`) that does not
+    // exist in the deployed container. A missing root must degrade to an empty
+    // list — never error the whole request — so suggestions fall back to skills
+    // + generic actions instead of failing.
+    let missing = std::path::Path::new("/skycot-nonexistent-action-suggest-root/crates");
+    let paths = child_paths(missing, "test.missing_root").expect("missing dir must be Ok(empty)");
+    assert!(paths.is_empty(), "missing dir must yield no paths: {paths:?}");
+}
+
+#[test]
 fn demo_roles_get_three_non_empty_reason_actions() {
     for role in [
         "sales SDR who emails prospects",

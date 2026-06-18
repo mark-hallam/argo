@@ -98,7 +98,10 @@ struct GateAuthorClient {
 #[async_trait]
 impl AuthorClient for GateAuthorClient {
     async fn author(&self, prompt: &str) -> ArgoResult<String> {
-        complete_once(&self.provider_id, prompt, self.store.as_ref()).await
+        // 4096 max_tokens (not the classifier's 64): authoring emits the full role
+        // content (charter / prompts / skills), far larger than a slug; the HTTP
+        // transport respects the cap, so 64 truncated it.
+        complete_once(&self.provider_id, prompt, self.store.as_ref(), 4096).await
     }
 }
 

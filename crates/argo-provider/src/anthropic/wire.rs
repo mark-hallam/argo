@@ -12,6 +12,12 @@ use argo_types::{
 /// the caller omits it so the request doesn't 400.
 pub(super) const DEFAULT_MAX_TOKENS: u32 = 4096;
 
+/// Extended-thinking budget sent with the `thinking` param when the
+/// `send-thinking-blocks` quirk is on. The Anthropic API requires `max_tokens`
+/// to be STRICTLY GREATER than this, so a small structured call cannot use
+/// thinking (see [`apply_quirks`]).
+const THINKING_BUDGET_TOKENS: u32 = 1024;
+
 pub(super) fn build_request_body(
     manifest: &ProviderManifest,
     req: &ProviderRequest,
@@ -60,11 +66,29 @@ fn apply_sampling(body: &mut serde_json::Value, s: &Sampling) {
 /// - `prompt-caching-breakpoints = ["system", "tools"]` → tag the relevant
 ///   blocks with `cache_control = { type = "ephemeral" }`.
 pub(super) fn apply_quirks(body: &mut serde_json::Value, manifest: &ProviderManifest) {
-    if matches!(
+    let thinking_quirk = matches!(
         manifest.quirks.get("send-thinking-blocks"),
         Some(toml::Value::Boolean(true))
-    ) {
-        body["thinking"] = serde_json::json!({ "type": "enabled", "budget_tokens": 1024 });
+    );
+    // Extended thinking has two hard API constraints a blanket quirk would
+    // otherwise violate on small/deterministic calls:
+    //   1. `max_tokens` must be STRICTLY GREATER than `thinking.budget_tokens`,
+    //      so a tiny structured call (the Genesis classifier + hire safety judge
+    //      use max_tokens=64) cannot use thinking at all.
+    //   2. with thinking on, `temperature` may only be 1 (unset) and `top_p` is
+    //      rejected ("`temperature` may only be set to 1 when thinking is
+    //      enabled" → HTTP 400) — yet those calls deliberately send temperature=0
+    //      for determinism.
+    // So enable thinking ONLY when the request can support it, and when we do,
+    // drop the now-incompatible sampling knobs (apply_sampling ran first). This
+    // is what made EVERY anthropic structured call 400 in prod (task_94955825).
+    if thinking_quirk && thinking_request_compatible(body) {
+        body["thinking"] =
+            serde_json::json!({ "type": "enabled", "budget_tokens": THINKING_BUDGET_TOKENS });
+        if let Some(obj) = body.as_object_mut() {
+            obj.remove("temperature");
+            obj.remove("top_p");
+        }
     }
     if let Some(toml::Value::Array(bps)) = manifest.quirks.get("prompt-caching-breakpoints") {
         let labels: Vec<&str> = bps.iter().filter_map(|v| v.as_str()).collect();
@@ -75,6 +99,16 @@ pub(super) fn apply_quirks(body: &mut serde_json::Value, manifest: &ProviderMani
             tag_tools_for_cache(body);
         }
     }
+}
+
+/// Anthropic rejects extended thinking unless `max_tokens` exceeds the thinking
+/// budget. `build_request_body` always sets `max_tokens` (caller value or
+/// [`DEFAULT_MAX_TOKENS`]), so a missing/too-small value reads as not-compatible
+/// and thinking is left off — keeping the caller's deterministic sampling valid.
+fn thinking_request_compatible(body: &serde_json::Value) -> bool {
+    body.get("max_tokens")
+        .and_then(serde_json::Value::as_u64)
+        .is_some_and(|mt| mt > THINKING_BUDGET_TOKENS as u64)
 }
 
 fn tag_system_block_for_cache(body: &mut serde_json::Value) {

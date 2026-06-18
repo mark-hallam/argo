@@ -79,12 +79,15 @@ COPY --from=builder /workspace/target/release/argo /usr/local/bin/argo
 
 # On-disk runtime deps. The binary alone is NOT enough: the gateway reads
 # provider manifests, truth-boundary policies, and the pitch corpus from disk at
-# runtime. Copy ALL FOUR (parity with deploy/Dockerfile.gateway) so a
-# policy-dependent route never falls back to a missing workspace_root() path.
+# runtime. Copy ALL FIVE so a policy-dependent route never falls back to a
+# missing workspace_root() path. packs/ holds the pitch agent's company-facts
+# (packs/pitch-agent/facts.toml) — omitting it made CompanyFacts::load fail, so
+# POST /api/v1/pitch/ask returned 503 in prod (task_a39c28b7).
 COPY manifests     ./manifests
 COPY verticals     ./verticals
 COPY policies      ./policies
 COPY skill-library ./skill-library
+COPY packs         ./packs
 
 # scripts/ holds the operational entrypoints baked into the image — notably
 # scripts/backup-cron.sh, which the daily offsite-backup ECS RunTask invokes
@@ -96,8 +99,10 @@ COPY scripts       ./scripts
 # Pin the on-disk dep locations by env so resolution never depends on the
 # process cwd / the workspace_root() Cargo.toml walk (which finds nothing in a
 # deploy image). ARGO_PITCH_CORPUS_DIR + ARGO_PITCH_POLICY_DIR are read directly
-# by routes_pitch_ask.rs corpus_dir()/policy_dir(); ARGO_VERTICALS_DIR matches
-# the gateway image. (No ARGO_MANIFEST_DIR: no runtime code reads it; the
+# by routes_pitch_ask.rs corpus_dir()/policy_dir(); ARGO_PITCH_FACTS_PATH by
+# routes_pitch_ask_llm_facts.rs facts_path(); ARGO_VERTICALS_DIR matches
+# the gateway image (and argo-genesis action_suggest reads the SAME var). (No
+# ARGO_MANIFEST_DIR: no runtime code reads it; the
 # manifests resolve via the WORKDIR /app cwd fallback to /app/manifests.)
 # ARGO_HOME=/data/.argo (NOT /data): the gateway writes its db at
 # $ARGO_HOME/sessions.db, and scripts/backup-cron.sh snapshots
@@ -111,6 +116,7 @@ ENV ARGO_HOME=/data/.argo \
     ARGO_VERTICALS_DIR=/app/verticals \
     ARGO_PITCH_CORPUS_DIR=/app/skill-library/canonical-qa/corpora/skycot \
     ARGO_PITCH_POLICY_DIR=/app/policies/truth-boundary \
+    ARGO_PITCH_FACTS_PATH=/app/packs/pitch-agent/facts.toml \
     RUST_LOG=info
 
 # Make ARGO_HOME (/data/.argo) + its /data parent writable by the non-root uid on

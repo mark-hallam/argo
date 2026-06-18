@@ -73,8 +73,18 @@ pub(super) fn llm_classifier_enabled() -> bool {
 const GENESIS_MODEL: &str = "claude-sonnet-4-6";
 
 /// Classification prompts are tiny (one slug back). 64 tokens is ample
-/// headroom for the `<slug>` answer the prompt asks for.
+/// headroom for the `<slug>` answer the prompt asks for. The safety judge,
+/// the rubric, and broad-role synthesis pass their OWN, larger budgets via
+/// `complete_once`'s `max_tokens` param: the HTTP Anthropic transport RESPECTS
+/// max_tokens (unlike `claude-code-cli`, which ignores it), so this 64-token cap
+/// truncated their multi-line JSON output in prod → "no JSON object" → the
+/// Genesis hire safety judge hard-blocked every hire (task_94955825 layer 2).
 const GENESIS_MAX_TOKENS: u32 = 64;
+
+/// Off-taxonomy role synthesis (`BroadRoleClient`) emits a full CapabilitySpec
+/// JSON envelope — far larger than a slug — so it needs ample room or the HTTP
+/// transport truncates the spec.
+const GENESIS_SYNTH_MAX_TOKENS: u32 = 4096;
 
 /// Resolve the provider id for the Genesis LLM path.
 ///
@@ -222,7 +232,8 @@ impl GenesisLlmAdapter {
 #[async_trait::async_trait]
 impl ProviderClient for GenesisLlmAdapter {
     async fn classify(&self, prompt: &str) -> ArgoResult<String> {
-        let raw = complete_once(&self.provider_id, prompt, self.store.as_ref()).await?;
+        let raw = complete_once(&self.provider_id, prompt, self.store.as_ref(), GENESIS_MAX_TOKENS)
+            .await?;
         // The `claude-code-cli` model occasionally wraps the slug in
         // reasoning prose ("developer_advocate / not in the list /
         // research_analyst"). `argo_genesis::classify_llm` matches the
@@ -248,8 +259,15 @@ impl BroadRoleClient for GenesisLlmAdapter {
         // The broad-role prompt asks for a JSON envelope; the genesis parser
         // is tolerant of surrounding prose, so pass the raw response through.
         // (The safety judge runs separately at the hire gate, with the
-        // degraded-mode distinction — see `resolve_plan`.)
-        complete_once(&self.provider_id, prompt, self.store.as_ref()).await
+        // degraded-mode distinction — see `resolve_plan`.) Needs a large
+        // max_tokens — a full CapabilitySpec is far bigger than the classifier slug.
+        complete_once(
+            &self.provider_id,
+            prompt,
+            self.store.as_ref(),
+            GENESIS_SYNTH_MAX_TOKENS,
+        )
+        .await
     }
 }
 
@@ -279,6 +297,7 @@ pub(super) async fn complete_once(
     provider_id: &str,
     prompt: &str,
     store: Option<&Arc<SessionStore>>,
+    max_tokens: u32,
 ) -> ArgoResult<String> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let manifest = load_manifest(&cwd, provider_id).map_err(|e| {
@@ -295,9 +314,9 @@ pub(super) async fn complete_once(
         tools: Vec::new(),
         system: None,
         sampling: Sampling {
-            // Deterministic classification — same role, same slug.
+            // Deterministic classification / judging — same input, same output.
             temperature: Some(0.0),
-            max_tokens: Some(GENESIS_MAX_TOKENS),
+            max_tokens: Some(max_tokens),
             ..Sampling::default()
         },
     };

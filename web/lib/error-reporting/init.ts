@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
 type ErrorReportingConfig =
   | { enabled: false; mode?: string }
@@ -63,9 +62,14 @@ export async function initBrowserErrorReporting(
 }
 
 async function loadConfig(fetcher: Fetcher): Promise<ErrorReportingConfig | null> {
-  const base = resolveGatewayUrl();
   try {
-    const res = await fetcher(`${base}/api/v1/meta/error-reporting`, {
+    // Same-origin (relative) — the SPA's Next proxy forwards /api/v1/* to the
+    // gateway server-side, so the browser makes NO cross-origin request and needs
+    // no CORS. A previous cross-origin fetch to the gateway origin failed the
+    // browser CORS check (the public config route returns no CORS headers), so
+    // error reporting never initialised (task_9fc991e0). The gateway route is
+    // public, so credentials stay omitted.
+    const res = await fetcher(`/api/v1/meta/error-reporting`, {
       credentials: "omit",
       headers: { Accept: "application/json" },
     });

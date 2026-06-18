@@ -50,7 +50,7 @@ pub fn suggest(
     for connector in enumerate_connectors()? {
         push_connector(&mut out, &role_tokens, &connector);
     }
-    for skill in enumerate_skills(&workspace_root().join("verticals"))? {
+    for skill in enumerate_skills(&genesis_verticals_dir())? {
         push_skill(&mut out, &role_tokens, &skill);
     }
     out.sort_by(compare_candidates);
@@ -63,10 +63,7 @@ pub fn suggest(
 /// Enumerate MCP connector crates in the workspace.
 pub fn enumerate_connectors() -> Result<Vec<ConnectorSummary>, GenesisError> {
     let mut out = Vec::new();
-    for path in child_paths(
-        &workspace_root().join("crates"),
-        "action_suggest.connectors",
-    )? {
+    for path in child_paths(&genesis_crates_dir(), "action_suggest.connectors")? {
         let Some(name) = path.file_name().and_then(|s| s.to_str()) else {
             continue;
         };
@@ -302,15 +299,50 @@ fn workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
+/// Directory holding the vertical templates, honoring `ARGO_VERTICALS_DIR`.
+///
+/// `workspace_root()` is baked at COMPILE time (`CARGO_MANIFEST_DIR`) and points
+/// at the build tree (e.g. `/workspace`), which does NOT exist in a deployed
+/// container — so action suggestion read an absent path and failed. The env
+/// override (the SAME one [`argo_vertical::default_dir`] honors, so a single
+/// `ARGO_VERTICALS_DIR` configures the whole runtime) lets the deployed image
+/// point at where `verticals/` was actually bundled; unset (dev / tests) it
+/// keeps the build-tree layout so existing behavior is unchanged.
+fn genesis_verticals_dir() -> PathBuf {
+    match std::env::var(argo_vertical::ENV_VERTICALS_DIR) {
+        Ok(p) if !p.trim().is_empty() => PathBuf::from(p),
+        _ => workspace_root().join("verticals"),
+    }
+}
+
+/// Directory holding the MCP connector crates, honoring `ARGO_GENESIS_CRATES_DIR`.
+/// Same baked-path rationale as [`genesis_verticals_dir`]. In a deployed image the
+/// connector *source* crates are absent (they are compiled into the binary, not
+/// shipped), so this normally resolves to a missing dir and [`child_paths`]
+/// degrades to zero connectors rather than erroring.
+fn genesis_crates_dir() -> PathBuf {
+    match std::env::var("ARGO_GENESIS_CRATES_DIR") {
+        Ok(p) if !p.trim().is_empty() => PathBuf::from(p),
+        _ => workspace_root().join("crates"),
+    }
+}
+
 fn child_paths(path: &Path, what: &'static str) -> Result<Vec<PathBuf>, GenesisError> {
-    std::fs::read_dir(path)
-        .map_err(|source| GenesisError::Io { what, source })?
-        .map(|entry| {
-            entry
-                .map(|e| e.path())
-                .map_err(|source| GenesisError::Io { what, source })
-        })
-        .collect()
+    // A MISSING root dir is not an error: a deployed container has no source tree
+    // (`crates/`, and a non-overridden `verticals/`), and action suggestion must
+    // degrade to whatever sources ARE present (skills + generic fallbacks) rather
+    // than failing the whole request. Only a genuine read error propagates.
+    match std::fs::read_dir(path) {
+        Ok(rd) => rd
+            .map(|entry| {
+                entry
+                    .map(|e| e.path())
+                    .map_err(|source| GenesisError::Io { what, source })
+            })
+            .collect(),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
+        Err(source) => Err(GenesisError::Io { what, source }),
+    }
 }
 
 fn read_to_string(path: &Path, what: &'static str) -> Result<String, GenesisError> {

@@ -145,6 +145,9 @@ fn catalog_routes_public_but_tenant_scoped_skills_gated() {
         "/api/v1/skills/marketplace",
         "/api/v1/skill-library/list",
         "/api/v1/skills/marketplace?q=billing",
+        // Browser-safe error-reporting config — public so the SPA's error reporter
+        // can fetch it pre-session, with NO tenant data exposed (task_9fc991e0).
+        "/api/v1/meta/error-reporting",
     ] {
         assert!(
             gate(&get_req(path, Some("Bearer nope"))).is_none(),
