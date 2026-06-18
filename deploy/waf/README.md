@@ -1,7 +1,9 @@
 # deploy/waf — Cloudflare WAF + edge rate limiting
 
 Codifies the **edge** layer of the SKYCOT public-API abuse defense for `api.skycot.com`.
-Standalone Terraform module (mirrors `deploy/dns/`). These rules sit **above** the gateway's
+**Reusable child module — provisioned BY the `deploy/dns` Cloudflare apply** (`module "waf"`),
+so the rate-limit is enforced by default on go-live (no separate apply). The provider is
+configured by the root (`deploy/dns`); apply via `cd deploy/dns && terraform apply`, NOT here. These rules sit **above** the gateway's
 own per-IP / per-tenant / per-route limiter (`argo-config` `sections_rate_limit`), so abusive
 anonymous traffic is shed at Cloudflare before it reaches the single Fargate task.
 

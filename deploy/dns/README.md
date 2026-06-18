@@ -4,6 +4,11 @@ Operator runbook for the 6 SKYCOT subdomains, fronted by Cloudflare
 (proxy mode = orange-cloud) for DDoS protection, analytics, and
 automatic HTTPS via Cloudflare Universal SSL.
 
+> **Also provisions the edge WAF / rate-limit.** This module now calls `module "waf"`
+> (`cloudflare-waf.tf` → `../waf`), so a single `terraform apply` here sets the DNS
+> records **and** the per-IP rate-limit + custom-firewall rulesets (genesis LLM-cost
+> block + auth/api caps). One Cloudflare apply, rate-limit enforced by default.
+
 Two equivalent paths: Cloudflare UI, or `setup.sh` /
 `cloudflare-records.tf` for reproducible apply. Pick one; do not mix.
 

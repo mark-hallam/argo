@@ -4,8 +4,8 @@
 Every step is labelled `(operator runs)` or `(operator verifies)`. The IaC under
 [`infra/terraform/`](../../../infra/terraform/), the remote-state bootstrap under
 [`infra/terraform-bootstrap/`](../../../infra/terraform-bootstrap/), the
-Cloudflare DNS module under [`deploy/dns/`](../../../deploy/dns/), the standalone
-WAF module under [`deploy/waf/`](../../../deploy/waf/), and the SPA/Vercel config
+Cloudflare DNS module under [`deploy/dns/`](../../../deploy/dns/), the WAF
+module under [`deploy/waf/`](../../../deploy/waf/) (now called by `deploy/dns`), and the SPA/Vercel config
 under [`web/`](../../../web/) have been **authored + locally validated**
 (`terraform validate` + `terraform fmt -recursive -check` pass via
 `bash scripts/validate-infra.sh`), but **no AWS resource has been provisioned**.
@@ -555,21 +555,17 @@ single root var). Confirm with the §12 gate before go-live:
 - The hardcoded Cloudflare CIDR lists in `modules/alb/variables.tf` are
   point-in-time snapshots of `cloudflare.com/ips`; if Cloudflare changes ranges,
   refresh them or legitimate edge traffic is dropped.
-- **(Optional, standalone) Cloudflare WAF — `deploy/waf/`.** This is a **separate
-  standalone Terraform module, NOT wired into the root stack and NOT run by CI**
-  (root `main.tf` declares no `module "waf"`). It is OPTIONAL edge defense-in-depth
-  that sits above the gateway's own per-IP/route limiter, and its rules only apply
-  once `api.skycot.com` is Cloudflare-proxied (step 8). It is most naturally
-  applied here, alongside the lockdown:
-  ```sh
-  cd deploy/waf
-  export CLOUDFLARE_API_TOKEN=...
-  terraform init
-  terraform plan  -var "zone_id=<zone-id>"
-  terraform apply -var "zone_id=<zone-id>"   # prints rate_limit_ruleset_id + firewall_ruleset_id
-  ```
-  Local-validate path (credential-free, the one CI uses):
-  `cd deploy/waf && terraform init -backend=false && terraform validate && terraform fmt -recursive -check`.
+- **Cloudflare WAF / edge rate-limit — ENFORCED BY DEFAULT (folded into the DNS apply).**
+  `deploy/waf/` is now a reusable module **called by `deploy/dns`** (`module "waf"`),
+  so the **same `cd deploy/dns && terraform apply` (step 8)** that points the domain
+  at the stack **also provisions the per-IP rate-limit + custom-firewall rulesets** —
+  there is no separate WAF apply to remember. The rules sit above the gateway's own
+  per-IP/route limiter and take effect once `api.skycot.com` is Cloudflare-proxied.
+  The genesis LLM-cost block + auth/api per-IP caps use the module's defaults
+  (auth 30/min, genesis 20/min hard-block, api 600/min); tune via the `deploy/waf`
+  module variables. The `deploy/dns` apply outputs `rate_limit_ruleset_id` +
+  `firewall_ruleset_id` (via `module.waf`). Credential-free validate (what CI/the
+  pre-flight runs): `cd deploy/dns && terraform init -backend=false && terraform validate`.
   WAF only does request-rate caps (`http_ratelimit` + `http_request_firewall_custom`),
   NOT a cumulative dollar LLM-spend cap (that's a separate app-layer follow-up).
 
@@ -860,7 +856,7 @@ terraform destroy
   has `lifecycle prevent_destroy = true` in `infra/terraform-bootstrap/main.tf`.
   Tearing down the state store is a separate, deliberate act (remove the lifecycle
   block in `infra/terraform-bootstrap/` first).
-- `deploy/dns/` and `deploy/waf/` are separate operator-run modules with their own
+- `deploy/dns/` provisions DNS **and** the edge WAF/rate-limit (it calls `module "waf"` → `deploy/waf/`); both are applied by the single `cd deploy/dns && terraform apply` (Cloudflare plane, `CLOUDFLARE_API_TOKEN`), separate from the AWS root apply.
   (local) state — destroy them separately if you want to revert DNS/WAF.
 
 ---
