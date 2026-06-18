@@ -3,6 +3,19 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// The Stripe price ids are read at MODULE LOAD by `PRICE_BY_TIER` in
+// app/(app)/billing/page.tsx (static `process.env.NEXT_PUBLIC_STRIPE_PRICE_*`
+// reads). A `beforeEach` mutation lands too late — the module already
+// captured `undefined`. `vi.hoisted` runs before the import below evaluates,
+// so the Pro price resolves and PRO upgrade buttons are enabled. Enterprise
+// is left UNSET so the "disables when no price id" case still sees a disabled
+// "Contact sales" button.
+vi.hoisted(() => {
+  vi.stubEnv("NEXT_PUBLIC_STRIPE_PRICE_PRO", "price_pro_123");
+  vi.stubEnv("NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE", "");
+});
+
 import BillingPage from "@/app/(app)/billing/page";
 
 const assignMock = vi.fn();
@@ -24,8 +37,8 @@ beforeEach(() => {
       origin: "http://localhost:3000",
     },
   });
-  process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO = "price_pro_123";
-  delete process.env.NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE;
+  // Stripe price ids are stubbed at module load via vi.hoisted above
+  // (PRICE_BY_TIER reads them once at import time), so no per-test env reset.
 });
 
 afterEach(() => {
@@ -78,8 +91,10 @@ describe("BillingPage", () => {
         }),
     });
     render(wrap(<BillingPage />));
+    // The UsageMeter header now renders only the plan display_name (the
+    // "Used N of M actions" meter moved to MeterPanel per DEC-053 / #2871).
     await waitFor(() =>
-      expect(screen.getByText(/Used 5 of 100 actions/)).toBeInTheDocument(),
+      expect(screen.getByText("Free")).toBeInTheDocument(),
     );
   });
 
@@ -98,7 +113,7 @@ describe("BillingPage", () => {
         jsonResponse({ id: "cs_test_x", url: "https://stripe.test/cs_test_x" }),
     });
     render(wrap(<BillingPage />));
-    await screen.findByText(/Used 0 of 100/);
+    await screen.findByText("Free");
     const upgrade = await screen.findByRole("button", { name: /Upgrade to Pro/ });
     await userEvent.click(upgrade);
     await waitFor(() =>
@@ -119,7 +134,7 @@ describe("BillingPage", () => {
         }),
     });
     render(wrap(<BillingPage />));
-    await screen.findByText(/Used 12 of 5,000/);
+    await screen.findByText("Pro");
     const ent = screen.getByRole("button", { name: /Contact sales/ });
     expect(ent).toBeDisabled();
   });
@@ -139,7 +154,7 @@ describe("BillingPage", () => {
         jsonResponse({ id: "bps_test", url: "https://stripe.test/bps_test" }),
     });
     render(wrap(<BillingPage />));
-    await screen.findByText(/Used 0 of 5,000/);
+    await screen.findByText("Pro");
     const manage = await screen.findByRole("button", { name: /Manage subscription/ });
     await userEvent.click(manage);
     await waitFor(() =>

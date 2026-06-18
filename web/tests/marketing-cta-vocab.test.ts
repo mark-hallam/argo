@@ -103,9 +103,14 @@ describe("marketing CTA vocab — 'teammate' not 'worker'", () => {
     });
   }
 
-  it("/landing and /for vertical landings render 'Hire your first teammate' as the primary CTA", () => {
+  it("/landing renders its waitlist-hero primary CTA; /for vertical landings keep 'Hire your first teammate'", () => {
+    // GTM pivot: /landing's hero primary CTA is now the governance-walkthrough
+    // + early-access waitlist hero (the old "Hire your first teammate" CTA moved
+    // off the landing hero). The "teammate, not worker" guarantee still holds —
+    // see the banned-pattern guards above — but the landing primary CTA copy
+    // changed, so pin the current copy here rather than the retired phrase.
     const landing = readFileSync(join(APP_ROOT, "landing", "page.tsx"), "utf8");
-    expect(landing).toMatch(/Hire your first teammate/);
+    expect(landing).toMatch(/Book a governance walkthrough/);
 
     const verticalShell = readFileSync(
       join(APP_ROOT, "for", "_components", "VerticalLandingShell.tsx"),

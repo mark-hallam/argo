@@ -39,6 +39,9 @@ function installMock(
     if (url.endsWith("/api/auth/session")) {
       return Promise.resolve(makeResponse({ status: 200, body: sessionBody }));
     }
+    if (url.endsWith("/api/principal")) {
+      return Promise.resolve(makeResponse({ status: 200, body: { principal: "human:test@example.com" } }));
+    }
     const req = new Request(url, init);
     return Promise.resolve(gatewayResponder(req));
   });

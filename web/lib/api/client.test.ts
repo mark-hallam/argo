@@ -32,6 +32,9 @@ function installMock(gatewayResponder: (req: Request) => Response) {
     if (url.endsWith("/api/auth/session")) {
       return Promise.resolve(makeResponse({ status: 200, body: {} }));
     }
+    if (url.endsWith("/api/principal")) {
+      return Promise.resolve(makeResponse({ status: 200, body: { principal: null } }));
+    }
     const req = new Request(url, init);
     return Promise.resolve(gatewayResponder(req));
   });
@@ -302,6 +305,9 @@ describe("lib/api/client", () => {
         if (url.endsWith("/api/auth/session")) {
           return Promise.resolve(makeResponse({ status: 200, body: {} }));
         }
+        if (url.endsWith("/api/principal")) {
+          return Promise.resolve(makeResponse({ status: 200, body: { principal: null } }));
+        }
         if (url.endsWith("/api/v1/auth/csrf")) {
           return Promise.resolve(makeResponse({ status: 200, body: { token: "xhr-fallback-tok" } }));
         }
@@ -335,6 +341,9 @@ describe("lib/api/client", () => {
         const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
         if (url.endsWith("/api/auth/session")) {
           return Promise.resolve(makeResponse({ status: 200, body: {} }));
+        }
+        if (url.endsWith("/api/principal")) {
+          return Promise.resolve(makeResponse({ status: 200, body: { principal: null } }));
         }
         if (url.endsWith("/api/v1/auth/csrf")) {
           return Promise.resolve(makeResponse({ status: 500, body: "down" }));
@@ -385,6 +394,9 @@ describe("lib/api/client", () => {
         if (url.endsWith("/api/auth/session")) {
           return Promise.resolve(makeResponse({ status: 200, body: {} }));
         }
+        if (url.endsWith("/api/principal")) {
+          return Promise.resolve(makeResponse({ status: 200, body: { principal: null } }));
+        }
         if (url.endsWith("/api/v1/auth/csrf")) {
           return Promise.resolve(makeResponse({ status: 200, body: { token: "fresh-tok" } }));
         }
@@ -414,6 +426,9 @@ describe("lib/api/client", () => {
         if (url.endsWith("/api/auth/session")) {
           return Promise.resolve(makeResponse({ status: 200, body: {} }));
         }
+        if (url.endsWith("/api/principal")) {
+          return Promise.resolve(makeResponse({ status: 200, body: { principal: null } }));
+        }
         if (url.endsWith("/api/v1/auth/csrf")) {
           return Promise.resolve(makeResponse({ status: 200, body: { token: "fresh-tok" } }));
         }
@@ -436,6 +451,9 @@ describe("lib/api/client", () => {
         const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
         if (url.endsWith("/api/auth/session")) {
           return Promise.resolve(makeResponse({ status: 200, body: {} }));
+        }
+        if (url.endsWith("/api/principal")) {
+          return Promise.resolve(makeResponse({ status: 200, body: { principal: null } }));
         }
         if (url.endsWith("/api/v1/auth/csrf")) {
           csrfFetches += 1;
@@ -467,6 +485,9 @@ describe("lib/api/client", () => {
         const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
         if (url.endsWith("/api/auth/session")) {
           return Promise.resolve(makeResponse({ status: 200, body: {} }));
+        }
+        if (url.endsWith("/api/principal")) {
+          return Promise.resolve(makeResponse({ status: 200, body: { principal: null } }));
         }
         calls.push(url);
         const req = new Request(`http://localhost${url}`, init);
@@ -525,6 +546,12 @@ describe("lib/api/client", () => {
               : input.url;
         if (url.endsWith("/api/auth/session")) {
           return Promise.resolve(makeResponse({ status: 200, body: {} }));
+        }
+        // The /api/principal session-peek must resolve INSTANTLY so the
+        // 10s SESSION_PEEK_TIMEOUT_MS timer is never armed — only the
+        // gateway call below is left hanging for the read-timeout test.
+        if (url.endsWith("/api/principal")) {
+          return Promise.resolve(makeResponse({ status: 200, body: { principal: null } }));
         }
         return new Promise<Response>(() => {});
       }) as unknown as typeof fetch;

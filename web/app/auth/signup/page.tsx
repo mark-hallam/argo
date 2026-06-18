@@ -413,7 +413,7 @@ function DemoNapFallback({
   const panelStyle = {
     marginTop: 16,
     width: "100%",
-    background: "color-mix(in oklab, var(--brand-violet, #8b5cf6) 8%, transparent)",
+    background: "color-mix(in oklab, var(--brand-primary) 8%, transparent)",
     border: "1px solid color-mix(in oklab, var(--brand-ink) 18%, transparent)",
     borderRadius: 12,
     padding: "16px 16px",

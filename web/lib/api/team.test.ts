@@ -30,6 +30,9 @@ function installMock(gatewayResponder: (req: Request) => Response | Promise<Resp
     if (url.endsWith("/api/auth/session")) {
       return Promise.resolve(makeResponse({ status: 200, body: {} }));
     }
+    if (url.endsWith("/api/principal")) {
+      return Promise.resolve(makeResponse({ status: 200, body: { principal: null } }));
+    }
     const req = new Request(url, init);
     return Promise.resolve(gatewayResponder(req));
   });
@@ -319,6 +322,11 @@ describe("lib/api/team", () => {
             if (url.endsWith("/api/auth/session")) {
               return Promise.resolve(makeResponse({ status: 200, body: {} }));
             }
+            // The /api/principal session-peek must resolve INSTANTLY so the
+            // fake-timer schedule isn't stalled by an unadvanced 10s peek.
+            if (url.endsWith("/api/principal")) {
+              return Promise.resolve(makeResponse({ status: 200, body: { principal: null } }));
+            }
             // Never settle — simulates a wedged gateway TCP socket.
             return new Promise<Response>(() => {});
           },
@@ -356,6 +364,11 @@ describe("lib/api/team", () => {
               : input.url;
         if (url.endsWith("/api/auth/session")) {
           return Promise.resolve(makeResponse({ status: 200, body: {} }));
+        }
+        // The /api/principal session-peek must resolve INSTANTLY so the
+        // fake-timer schedule isn't stalled by an unadvanced 10s peek.
+        if (url.endsWith("/api/principal")) {
+          return Promise.resolve(makeResponse({ status: 200, body: { principal: null } }));
         }
         // Never settle — wedged gateway socket.
         return new Promise<Response>(() => {});
