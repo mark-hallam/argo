@@ -3,10 +3,14 @@
  *
  * A fresh teammate runs inside a 24-hour probation window: every tool
  * needs a one-time human OK before it can fire. The gateway exposes
- * the grant flow at `POST /sessions/<id>/approve` (#665); this module
- * routes through the Next.js proxy `web/app/api/sessions/[id]/approve`
- * so the session bearer token is attached server-side, mirroring the
- * run-now / freeze proxy idiom in `lib/api/workers.ts`.
+ * the grant flow at the BARE `POST /sessions/<id>/approve` (#665); this
+ * module reaches it via the shared authenticated `apiPost` client at
+ * `/api/v1/sessions/<id>/approve`, which `next.config.ts` rewrites to the
+ * gateway's `/sessions/*`. `apiPost` stamps the `__Host-session` cookie +
+ * `X-Argo-Principal` / `X-Argo-Tenant-Id` + CSRF token — the same proven
+ * path hire / run-now use. (The old `app/api/sessions/[id]/approve` Next
+ * proxy relied on a server-side NextAuth `session.gatewayToken` that is
+ * empty under the production magic-link flow — the "Approve & run" 401.)
  *
  * Body shape (one tool per call, matching the gateway contract):
  *   `{ tool: string, note?: string, one_shot?: boolean }`
@@ -19,7 +23,7 @@
  * harmless and audit-visible).
  */
 
-import { ApiError } from "@/lib/api/types";
+import { apiPost } from "@/lib/api/client";
 
 export interface SessionToolGrant {
   ok: boolean;
@@ -41,8 +45,11 @@ export interface ApproveSessionToolOptions {
 }
 
 /**
- * Grant one tool on one session via the Next proxy. Throws `ApiError`
- * carrying the gateway's error envelope message on any non-2xx.
+ * Grant one tool on one session via the shared authenticated `apiPost`
+ * client. Throws `ApiError` (raised by `apiPost`) carrying the gateway's
+ * error envelope on any non-2xx — `parseError` handles both the flat
+ * `{"error":"<string>"}` shape these session routes use and the nested
+ * `{"error":{"code","message"}}` shape.
  */
 export async function approveSessionTool(
   sessionId: string,
@@ -53,28 +60,10 @@ export async function approveSessionTool(
   if (options.note && options.note.trim()) body.note = options.note.trim();
   if (options.oneShot) body.one_shot = true;
 
-  const res = await fetch(
-    `/api/sessions/${encodeURIComponent(sessionId)}/approve`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      cache: "no-store",
-      body: JSON.stringify(body),
-    },
+  return apiPost<SessionToolGrant>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/approve`,
+    body,
   );
-  const text = await res.text();
-  let parsed: unknown = null;
-  if (text) {
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      /* leave parsed null */
-    }
-  }
-  if (!res.ok) {
-    throw new ApiError(res.status, errorMessage(parsed) ?? res.statusText, undefined, parsed ?? text);
-  }
-  return parsed as SessionToolGrant;
 }
 
 /**
@@ -92,22 +81,4 @@ export async function approveSessionTools(
     grants.push(await approveSessionTool(sessionId, tool, options));
   }
   return grants;
-}
-
-/**
- * The gateway session routes answer errors as `{"error":"<string>"}`
- * while the Next proxy's own failure envelope is
- * `{"error":{"code","message"}}` — accept both.
- */
-function errorMessage(parsed: unknown): string | undefined {
-  if (!parsed || typeof parsed !== "object" || !("error" in parsed)) {
-    return undefined;
-  }
-  const err = (parsed as { error: unknown }).error;
-  if (typeof err === "string") return err;
-  if (err && typeof err === "object" && "message" in err) {
-    const msg = (err as { message?: unknown }).message;
-    if (typeof msg === "string") return msg;
-  }
-  return undefined;
 }

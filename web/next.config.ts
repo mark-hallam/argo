@@ -53,6 +53,18 @@ const config: NextConfig = {
   // avoids CORS entirely.
   async rewrites() {
     return [
+      // The gateway's session-grant routes (#665 — approve / revoke-approval /
+      // grants) live at the BARE `/sessions/*` path, NOT under `/api/v1/*`.
+      // Expose them to the SPA under `/api/v1/sessions/*` so the shared
+      // authenticated `apiPost` client (same-origin → this rewrite) reaches them
+      // with the `__Host-session` cookie + `X-Argo-Principal`/`X-Argo-Tenant-Id`
+      // headers it stamps — the same proven path workers/hire use. This replaces
+      // the old `app/api/sessions/[id]/approve` Next route handler, which relied
+      // on a server-side NextAuth `session.gatewayToken` that is empty under the
+      // production magic-link flow (the in-SPA "Approve & run" 401 bug). MUST
+      // precede the general `/api/v1/:path*` rule below (first match wins) or it
+      // would forward to a non-existent gateway `/api/v1/sessions/*`.
+      { source: "/api/v1/sessions/:path*", destination: `${gatewayUrl}/sessions/:path*` },
       { source: "/api/v1/:path*", destination: `${gatewayUrl}/api/v1/:path*` },
       // Same-origin gateway-liveness passthrough. The gateway exposes
       // its combined health probe at the ROOT (`/health`), not under
