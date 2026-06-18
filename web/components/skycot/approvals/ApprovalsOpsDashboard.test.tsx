@@ -18,6 +18,25 @@ vi.mock("sonner", () => ({
   },
 }));
 
+// The two inline-decide tests (approve/refuse) click the row buttons and assert
+// the success toast fires. The toast moved from fire-and-forget at click to the
+// mutation's `onSuccess` (NO-THEATER day-1 unblock FIX 2 — see the component),
+// so the `useSubmitDecision` mutation must RESOLVE for the toast to fire. jsdom
+// has no gateway, so the real `submitDecision` fetch rejects and the toast never
+// fired — this is why these two tests were red on main. Stub the network calls
+// to resolve with no `execution` field, which lands on the generic
+// "Approved"/"Refused" + Undo toast branch. Every other export (types,
+// fetchApprovals, KPI helpers) stays real, so the render/KPI tests — which pass
+// `serverApprovalRate` as a prop and never fetch — are unaffected.
+vi.mock("@/lib/api/approvals", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/approvals")>();
+  return {
+    ...actual,
+    submitDecision: vi.fn().mockResolvedValue({}),
+    submitUndo: vi.fn().mockResolvedValue({}),
+  };
+});
+
 function renderWithClient(ui: ReactElement) {
   const client = new QueryClient({
     defaultOptions: {
