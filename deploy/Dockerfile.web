@@ -16,7 +16,16 @@
 # --build-arg NEXT_PUBLIC_GATEWAY_URL=https://<your-domain> for a different host.
 
 # ---- builder ----
-FROM node:20-bookworm-slim AS builder
+# `--platform=$BUILDPLATFORM`: run the Next build on the HOST's native arch.
+# On an Apple-Silicon host targeting `--platform linux/amd64`, this keeps the
+# `pnpm run build` (SWC, a native Rust compiler) on arm64 instead of running it
+# under amd64 QEMU emulation, which segfaults (`qemu: uncaught target signal 11`)
+# during `next build`. The runtime stage below stays on the TARGET platform
+# (amd64 for App Runner). The Next standalone output is pure JS (no native
+# runtime deps in this app), so the arm64-built output runs unchanged on amd64.
+# On an x86 builder (e.g. CodeBuild) $BUILDPLATFORM == the target, so this is a
+# no-op there.
+FROM --platform=$BUILDPLATFORM node:20-bookworm-slim AS builder
 WORKDIR /app
 RUN corepack enable
 # Lockfile-first install for layer caching; pnpm picks its version from
