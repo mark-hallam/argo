@@ -124,9 +124,12 @@ fn dispatch_on_platform(
 }
 
 /// Per-action bundle dir (audit + handoff instructions live here).
-/// Cross-platform (pure path join) — un-gated alongside `map_windows_outcome`
-/// (its non-test caller `dispatch_on_platform` stays windows-gated; on the
-/// macOS/Linux swarm the unit test keeps it covered).
+/// Cross-platform (pure path join). Compiled only where it has a caller — the
+/// windows-gated `dispatch_on_platform` and the cross-platform unit test — so
+/// the non-test macOS/Linux build doesn't flag it as dead code (its only
+/// non-test caller is `#[cfg(target_os = "windows")]`). `test` keeps the
+/// macOS/Linux swarm's unit-test coverage.
+#[cfg(any(target_os = "windows", test))]
 fn bundle_path(action: &ActionRecord, cwd: &Path) -> std::path::PathBuf {
     cwd.join(".skycot")
         .join("outputs")
@@ -138,9 +141,11 @@ fn bundle_path(action: &ActionRecord, cwd: &Path) -> std::path::PathBuf {
 /// Map the executor's [`WindowsCuOutcome`] onto the dispatcher's
 /// `ActionOutcome` — `Completed` auto-completes, `HumanHandoff` writes a bundle.
 /// Cross-platform (pure mapping over the windows-CU crate's cross-platform
-/// types) — mirrors the un-gated macOS `map_macos_outcome` so the macOS/Linux
-/// swarm covers this logic too
-/// (win-cu-windows-types-cross-platform-for-mapper-coverage).
+/// types). Compiled only under `windows` (its `dispatch_on_platform` caller) or
+/// `test` (the cross-platform unit test that covers it on the macOS/Linux swarm,
+/// per win-cu-windows-types-cross-platform-for-mapper-coverage), so the non-test
+/// macOS/Linux build doesn't flag it as dead code.
+#[cfg(any(target_os = "windows", test))]
 fn map_windows_outcome(
     action: &ActionRecord,
     cwd: &Path,
@@ -286,9 +291,11 @@ fn run_preflight_summary(
     }
 }
 
-// Cross-platform (pure `std::fs` / `serde_json` / format) — un-gated alongside
-// `map_windows_outcome` (its caller). On the macOS/Linux swarm the unit test
-// keeps it covered; on Windows `dispatch_on_platform` also calls it.
+// Cross-platform (pure `std::fs` / `serde_json` / format). Compiled only under
+// `windows` (its `dispatch_on_platform` + `map_windows_outcome` callers) or
+// `test` (the macOS/Linux swarm unit test keeps it covered), so the non-test
+// macOS/Linux build doesn't flag it as dead code.
+#[cfg(any(target_os = "windows", test))]
 fn build_bundle(
     action: &ActionRecord,
     cwd: &Path,
