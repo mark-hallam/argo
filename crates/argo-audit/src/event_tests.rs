@@ -26,8 +26,10 @@ fn all_kind_count_tracks_declared_variants() {
     // ApprovalVoteRecorded, WorkerCapabilityGrantChanged (tg3b grant),
     // BudgetCeilingBlocked (WS5 hard [budget.ceiling] open-wallet close), and
     // SkillDistilled + SkillProposedForReview (DEC-042 p1c self-improve
-    // audit chain — distill + proposal events made tamper-evident).
-    assert_eq!(AuditKind::all().len(), 93);
+    // audit chain — distill + proposal events made tamper-evident), and the
+    // three Platform* staff-console events (DEC-057 Phase 1 — tenant
+    // suspend/reactivate + cross-tenant account view, all audited).
+    assert_eq!(AuditKind::all().len(), 96);
 }
 
 #[test]

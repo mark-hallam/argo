@@ -57,6 +57,8 @@ pub mod cli_org_cmds;
 pub mod cli_persona_cmds;
 #[path = "cli_plan_cmds.rs"]
 pub mod cli_plan_cmds;
+#[path = "cli_platform_cmds.rs"]
+pub mod cli_platform_cmds;
 #[path = "cli_policy_cmds.rs"]
 pub mod cli_policy_cmds;
 #[path = "cli_recover_cmds.rs"]

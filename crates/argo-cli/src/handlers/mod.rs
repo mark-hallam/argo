@@ -211,6 +211,7 @@ pub mod operator_risk_overrides;
 pub mod org;
 pub mod packs;
 pub mod persona_edit;
+pub mod platform;
 pub mod persona_history;
 pub mod persona_revert;
 pub mod plan_execute;

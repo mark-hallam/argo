@@ -98,6 +98,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Command::Org { cmd } => main_dispatch_worker::org(cmd).await,
         Command::Operator { cmd } => main_dispatch_worker::operator(cmd).await,
         Command::Tenant { cmd } => main_dispatch_worker::tenant(cmd).await,
+        Command::Platform { cmd } => main_dispatch_worker::platform(cmd).await,
         Command::Duty { cmd } => main_dispatch_worker::duty(cmd).await,
         Command::Policy { cmd } => main_dispatch_worker::policy(cmd).await,
         Command::HandoffRules { cmd } => main_dispatch_worker::handoff_rules(cmd).await,

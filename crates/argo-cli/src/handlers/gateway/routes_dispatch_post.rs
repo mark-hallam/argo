@@ -375,6 +375,13 @@ async fn api_v1_dispatch(
     {
         return Some(resp);
     }
+    // DEC-057 Phase 1 — platform-staff console: suspend / reactivate a tenant
+    // account. Staff-gated (default-deny) inside the handlers.
+    if let Some(resp) =
+        super::routes_dispatch_post_paths::dispatch_platform_tenants(req, store).await
+    {
+        return Some(resp);
+    }
     // web-gateway-endpoints-notifications-batch — bell-popover backing
     // API. Routes `POST /api/v1/notifications/<id>/dismiss` and
     // `POST /api/v1/notifications/dismiss-all`.

@@ -299,6 +299,11 @@ mod routes_workflows_handlers;
 mod routes_workflows_handlers_helpers;
 mod routes_workflows_list_top_get;
 mod routes_workflows_test_runs;
+// DEC-057 Phase 1 — platform-staff console (account-level: suspend/reactivate
+// + cross-tenant account list) and the suspended-tenant write lockout.
+mod middleware_tenant_suspended;
+mod platform_staff_gate;
+mod routes_platform_tenants;
 mod routes_workspace;
 mod routes_workspace_members;
 mod routes_workspace_members_accept;

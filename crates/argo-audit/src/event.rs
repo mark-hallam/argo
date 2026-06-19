@@ -107,6 +107,9 @@ impl AuditKind {
             Self::SeatQuantitySynced => "billing.seat_quantity_synced",
             Self::SkillDistilled => "skill.distilled",
             Self::SkillProposedForReview => "skill.proposed_for_review",
+            Self::PlatformTenantSuspended => "platform.tenant_suspended",
+            Self::PlatformTenantReactivated => "platform.tenant_reactivated",
+            Self::PlatformAccountsViewed => "platform.accounts_viewed",
         }
     }
 
@@ -209,6 +212,9 @@ impl AuditKind {
             "billing.seat_quantity_synced" => Self::SeatQuantitySynced,
             "skill.distilled" => Self::SkillDistilled,
             "skill.proposed_for_review" => Self::SkillProposedForReview,
+            "platform.tenant_suspended" => Self::PlatformTenantSuspended,
+            "platform.tenant_reactivated" => Self::PlatformTenantReactivated,
+            "platform.accounts_viewed" => Self::PlatformAccountsViewed,
             _ => return None,
         })
     }
@@ -311,6 +317,9 @@ impl AuditKind {
             Self::SeatQuantitySynced,
             Self::SkillDistilled,
             Self::SkillProposedForReview,
+            Self::PlatformTenantSuspended,
+            Self::PlatformTenantReactivated,
+            Self::PlatformAccountsViewed,
         ];
         v.sort_by_key(|k| k.label());
         v

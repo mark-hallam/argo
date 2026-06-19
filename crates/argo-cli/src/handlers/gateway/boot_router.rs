@@ -20,8 +20,9 @@ use super::request_audit::RequestAuditDraft;
 use super::shutdown::ShutdownController;
 use super::boot_router_read::read_full_request;
 use super::{
-    metrics, proxy_guard, request_audit, routes, routes_channels, routes_openmetrics,
-    routes_orchestrator, routes_skills, runs_streaming, security_headers, streaming,
+    metrics, middleware_tenant_suspended, proxy_guard, request_audit, routes, routes_channels,
+    routes_openmetrics, routes_orchestrator, routes_skills, runs_streaming, security_headers,
+    streaming,
 };
 use argo_audit::{AuditKind, AuditSink, SYSTEM_AUDIT_TENANT_ID};
 use argo_config::{
@@ -151,6 +152,24 @@ async fn try_dispatch_gates(
         request_audit::spawn_record(audit.take(), ctx.store, "429 Too Many Requests", 0);
         return Some(429);
     }
+    // DEC-057 Phase 1 — suspended-tenant WRITE lockout. Mounted HERE, ahead of
+    // the streaming / SSE / Genesis peel-offs below (each of which `return
+    // Some(..)` before `dispatch_routes` is ever reached). This is the genuine
+    // single choke-point: it covers EVERY mutating route, including the
+    // `/sessions/.../{runs,replay}/stream`, `/forge/optimize/stream`, and
+    // `/api/v1/genesis` SSE variants that would otherwise bypass a check mounted
+    // inside `dispatch_routes`. A suspended tenant keeps read access; mutating
+    // verbs are refused `403 account_suspended` (billing/auth/platform lanes
+    // exempt). See `middleware_tenant_suspended`.
+    if let Some((status_line, body)) =
+        middleware_tenant_suspended::check_tenant_not_suspended(req, ctx.store).await
+    {
+        let resp = format_response(status_line, &body, sec);
+        let _ = stream.write_all(resp.as_bytes()).await;
+        request_audit::spawn_record(audit.take(), ctx.store, status_line, body.len());
+        let _ = stream.shutdown().await;
+        return Some(parse_status_line(status_line));
+    }
     if runs_streaming::is_streaming_runs_request(req) {
         let _ = runs_streaming::serve_streamed_run(req, ctx.store, stream).await;
         request_audit::spawn_record(audit.take(), ctx.store, "200 OK", 0);
@@ -238,6 +257,10 @@ async fn dispatch_routes(
     sec: &str,
     ctx: &ConnectionCtx<'_>,
 ) -> u16 {
+    // NB: the suspended-tenant WRITE lockout (DEC-057 Phase 1) is enforced
+    // earlier, in `try_dispatch_gates`, ahead of the streaming/SSE/Genesis
+    // peel-offs — so it covers EVERY mutating route, not just this dispatcher
+    // tier. See `middleware_tenant_suspended`.
     if routes_channels::is_email_webhook(req) {
         let (status_line, body) = routes_channels::email_webhook_response(req).await;
         let resp = format_response(status_line, &body, sec);
@@ -310,3 +333,7 @@ pub(super) async fn emit_insecure_bind_audit(store: &Arc<SessionStore>, bind: &s
         tracing::warn!(target: "gateway::bind", error = %e, "gateway insecure bind audit flush failed");
     }
 }
+
+#[cfg(test)]
+#[path = "boot_router_tests.rs"]
+mod tests;

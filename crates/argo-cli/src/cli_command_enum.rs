@@ -139,6 +139,14 @@ pub enum Command {
         #[command(subcommand)]
         cmd: TenantCmd,
     },
+    /// Platform-staff console (DEC-057 Phase 1): manage Skycot's own
+    /// operators (`staff add/list/remove`). Account-level only — staff
+    /// suspend/reactivate tenants and read account status; no workspace
+    /// access. Default-deny.
+    Platform {
+        #[command(subcommand)]
+        cmd: cli_platform_cmds::PlatformCmd,
+    },
     /// Operator-scoped surfaces. Currently:
     /// - `risk-overrides` — per-operator overrides of the
     ///   manifest-driven default risk classification (Stream

@@ -97,6 +97,32 @@ pub(super) async fn dispatch_worker_capability_grant(
     )
 }
 
+/// `POST /api/v1/platform/tenants/<id>/{suspend,reactivate}` — DEC-057
+/// Phase 1 platform-staff console. Staff authorization (default-deny, role
+/// from the verified session JWT) is enforced inside the handlers, not here.
+pub(super) async fn dispatch_platform_tenants(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> Option<(&'static str, String)> {
+    let rest = req.strip_prefix("POST /api/v1/platform/tenants/")?;
+    let (head, _) = rest.split_once(' ')?;
+    let head_no_query = head.split('?').next().unwrap_or(head);
+    let parts: Vec<&str> = head_no_query.split('/').collect();
+    if parts.len() != 2 {
+        return None;
+    }
+    let tenant_id = parts[0];
+    match parts[1] {
+        "suspend" => {
+            Some(super::routes_platform_tenants::post_suspend(tenant_id, req, store).await)
+        }
+        "reactivate" => {
+            Some(super::routes_platform_tenants::post_reactivate(tenant_id, req, store).await)
+        }
+        _ => None,
+    }
+}
+
 /// `/api/v1/approvals/bundles[/decide]` create + decide routes.
 pub(super) async fn dispatch_approval_bundles(
     req: &str,

@@ -34,5 +34,10 @@ pub(super) async fn dispatch_api_get(
     if let Some(resp) = super::routes_connectors::dispatch_get(req, store).await {
         return Some(resp);
     }
+    // DEC-057 Phase 1 — `GET /api/v1/platform/tenants` cross-tenant account
+    // list (staff-gated, account-level only).
+    if let Some(resp) = super::routes_platform_tenants::dispatch_get(req, store).await {
+        return Some(resp);
+    }
     None
 }

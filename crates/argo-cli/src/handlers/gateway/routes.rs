@@ -225,6 +225,10 @@ async fn dispatch_route_inner(
             return resp;
         }
     }
+    // NB: the suspended-tenant WRITE lockout (DEC-057 Phase 1) is NOT here — it
+    // is mounted ABOVE this dispatcher in `boot_router::dispatch_routes` so it
+    // also covers the channels / orchestrator / skills tiers that dispatch
+    // before `routes::dispatch_route`. See `middleware_tenant_suspended`.
     // Legacy server-rendered dashboards (`claude-web-dashboard-mvp`
     // + `claude-dashboard-fleet-view-html`). Mounted AFTER the
     // bearer-auth gate so spend ledger, audit records, pending

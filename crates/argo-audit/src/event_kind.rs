@@ -375,4 +375,17 @@ pub enum AuditKind {
     /// );
     /// ```
     SkillProposedForReview,
+    /// A platform-staff operator suspended a tenant account via the staff
+    /// console (DEC-057 Phase 1). Written to the *affected* tenant's chain so
+    /// the customer can see who suspended their account and when. Payload:
+    /// `{ tenant_id, actor, reason }`.
+    PlatformTenantSuspended,
+    /// A platform-staff operator reactivated a previously-suspended tenant
+    /// (DEC-057 Phase 1). Written to the affected tenant's chain. Payload:
+    /// `{ tenant_id, actor }`.
+    PlatformTenantReactivated,
+    /// A platform-staff operator viewed the cross-tenant account list (DEC-057
+    /// Phase 1). Cross-tenant read, written to the `system` audit chain.
+    /// Payload: `{ actor, account_count }`.
+    PlatformAccountsViewed,
 }

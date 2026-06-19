@@ -23,6 +23,9 @@ const ENSURE_TENANT_USAGE_SQL: &str =
 const ENSURE_TENANT_TABLE_SQL: &str = include_str!("../migrations/106__tenant.sql");
 const ENSURE_USER_ACCOUNT_SQL: &str = include_str!("../migrations/107__user_account.sql");
 const ENSURE_USER_TENANT_SQL: &str = include_str!("../migrations/108__user_tenant.sql");
+// DEC-057 Phase 1 — platform-staff console. Global identity substrate table
+// (no tenant scope), bootstrapped alongside the 106/107/108 tables.
+const ENSURE_PLATFORM_STAFF_SQL: &str = include_str!("../migrations/136__platform_staff.sql");
 
 pub(crate) const BLOB_TENANT_TABLES: &[&str] = &[
     "agent",
@@ -483,6 +486,7 @@ pub async fn ensure_tenant_substrate_schema(store: &SessionStore) -> ArgoResult<
         ("tenant", ENSURE_TENANT_TABLE_SQL),
         ("user_account", ENSURE_USER_ACCOUNT_SQL),
         ("user_tenant", ENSURE_USER_TENANT_SQL),
+        ("platform_staff", ENSURE_PLATFORM_STAFF_SQL),
     ] {
         for stmt in split_sql_statements(sql) {
             sqlx::query(&stmt).execute(store.pool()).await.map_err(|e| {

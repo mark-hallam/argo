@@ -30,6 +30,13 @@ pub mod classification;
 pub mod data_export;
 pub mod org;
 pub mod org_ingest;
+/// Platform-staff identity (DEC-057 Phase 1) — Skycot's own operators, a
+/// default-deny principal that lives OUTSIDE any tenant and runs account-level
+/// operations (read account status, suspend/reactivate) with every action
+/// audited. Distinct from [`user_tenant::UserTenantRole`]; never confers
+/// in-workspace access (that is DEC-057 Phase 2).
+pub mod platform_staff;
+pub mod platform_staff_store;
 pub mod policy;
 mod prompt;
 pub mod roster;
@@ -80,6 +87,9 @@ pub use store_hire_fs_root::{
     TEAMMATES_DIR_NAME,
 };
 pub use store_skills::BulkAssignSkillOutcome;
+pub use platform_staff::{
+    PlatformRole, PlatformStaff, PlatformStaffStatus, StaffAction,
+};
 pub use tenant::{Tenant, TenantStatus};
 pub use tenant_provision::{provision_for_user, ProvisionOutcome, ProvisionRequest};
 pub use tier::{AllowDecision, Tier, TierConfig, TierLimits};

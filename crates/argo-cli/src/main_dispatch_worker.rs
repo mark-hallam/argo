@@ -61,6 +61,10 @@ pub(crate) async fn tenant(cmd: cli::TenantCmd) -> ArgoResult<()> {
     handlers::tenant::run(cmd).await
 }
 
+pub(crate) async fn platform(cmd: cli::cli_platform_cmds::PlatformCmd) -> ArgoResult<()> {
+    handlers::platform::run(cmd).await
+}
+
 pub(crate) async fn duty(cmd: cli::DutyCmd) -> ArgoResult<()> {
     handlers::duty_list::run(cmd).await
 }
