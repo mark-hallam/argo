@@ -157,7 +157,7 @@ fn gtm_engineer_bundles_all_eight_spec_skills() {
         "find_target_accounts.skill.md",
         "research_company.skill.md",
         "research_person.skill.md",
-        "generate_outreach.skill.md",
+        "draft_outreach.skill.md",
         "analyze_campaign.skill.md",
         "detect_gtm_pattern.skill.md",
         "propose_gtm_skill.skill.md",

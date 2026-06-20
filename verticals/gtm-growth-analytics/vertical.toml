@@ -1,0 +1,123 @@
+schema_version = "1"
+
+[vertical]
+id          = "gtm-growth-analytics"
+name        = "Growth Analytics — Analyst & Experiment Runner (Ana)"
+description = "Ana is Skycot's growth analyst / experiment runner — she compiles funnel dashboards from real metrics, runs cohort and retention analysis, designs A/B tests (hypothesis, metric, sample size, guardrails), and interprets results. Analysis is autonomous; every number is sourced or marked unavailable. Launching a live experiment that changes what users see is approval-gated — the worker NEVER ships an experiment itself. Optional analytics/warehouse/experiments MCP connectors; degrades to dry-run when absent."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["growth", "analytics", "experimentation", "funnel", "cohort", "human-gated", "demo"]
+
+[role]
+system_prompt = "system_prompt.md"
+persona       = "persona.toml"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "web_search", "memory", "todo", "clarify"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory_schema.toml"
+
+[skills]
+bundle = "skills/"
+
+[evaluation]
+suites = ["eval/seeds.jsonl"]
+
+# All MCP connectors are OPTIONAL and may not exist yet. When a connector
+# is unreachable the worker degrades to dry-run: funnel / cohort numbers
+# come from operator paste-ins or memory pointers, every figure it cannot
+# source is marked "unavailable" rather than invented, and launch_experiment
+# remains a proposal handed to the operator instead of a live mutation.
+[mcp_servers]
+analytics   = { transport = "stdio", command = "argo-mcp-connector-analytics",   args = [] }
+warehouse   = { transport = "stdio", command = "argo-mcp-connector-warehouse",   args = [] }
+experiments = { transport = "stdio", command = "argo-mcp-connector-experiments", args = [] }
+
+[escalation]
+human_approval_required = []
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+# Ana's growth-analytics targets, declared via the [[kpi]] array (the
+# [success_metrics] block is a fixed legacy schema and cannot carry
+# custom-named metrics). Thresholds: 5% funnel-conversion target,
+# 2 experiments run per week.
+[[kpi]]
+name        = "funnel_conversion_target_pct"
+kind        = "percentage"
+threshold   = 5.0
+comparator  = "gte"
+gate        = "warn"
+description = "Overall funnel-conversion rate target (percent of top-of-funnel reaching conversion)."
+
+[[kpi]]
+name        = "experiments_run_weekly_target"
+kind        = "count"
+threshold   = 2.0
+comparator  = "gte"
+gate        = "warn"
+description = "Live A/B experiments run per week target."
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Growth Analytics"
+
+[actions]
+
+[actions.compile_funnel_dashboard]
+risk              = "low"
+requires_approval = false
+description       = "Compile a funnel dashboard from real metrics. Auto — output is a structured dashboard; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Compile a funnel dashboard for `{{ payload.period }}` from the analytics / warehouse connectors or memory pointers. Cite a source for EVERY number. Mark any number you cannot source as \"unavailable\". Never invent a figure."
+
+[actions.run_cohort_analysis]
+risk              = "low"
+requires_approval = false
+description       = "Run a cohort / retention analysis. Auto — output is a sourced cohort table; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Run a cohort / retention analysis for `{{ payload.cohort_window }}` using ONLY sourced data. Output a cohort table with per-cohort sizes and retention curves. Never fabricate a cohort or a retention number; mark any unsourced cell \"unavailable\"."
+
+[actions.design_experiment]
+risk              = "low"
+requires_approval = false
+description       = "Design an A/B test. Auto — output is a test design document; no execution."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Design an A/B test for `{{ payload.hypothesis }}` — state the hypothesis, the primary metric, the required sample size, and the guardrail metrics. This is a design only; nothing is launched."
+
+[actions.interpret_results]
+risk              = "low"
+requires_approval = false
+description       = "Interpret experiment results. Auto — output is a sourced interpretation; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Interpret the results for experiment `{{ payload.experiment_id }}` using ONLY sourced measurements. Refuse to claim significance without a sufficient sample — say the sample is too small rather than inventing a verdict. Report the effect with its source and confidence."
+
+[actions.launch_experiment]
+risk              = "medium"
+requires_approval = true
+description       = "Launch a live A/B test that changes what users see. ALWAYS human-gated — the worker NEVER ships an experiment itself; the proposal stops at the operator."
+executor          = "human"
+platforms         = ["internal"]
+instruction_template = "Launch the live A/B test `{{ payload.experiment_id }}` that changes what users see (variant `{{ payload.variant }}`, traffic `{{ payload.traffic_pct }}`%). Approved by `{{ approved_by }}` at `{{ approved_at }}`. Hand the launch to the operator; the worker NEVER ships an experiment itself."
+
+[actions.launch_experiment.retry]
+max_attempts = 1
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/analytics_review.workflow.toml"]

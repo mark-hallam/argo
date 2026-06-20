@@ -8,7 +8,7 @@ use crate::handlers::worker_actions_transitions::open_workspace_memory;
 
 /// cu5 (DEC-050 G5): approving a held action EXECUTES it in one click —
 /// the response carries an `execution` field and the worker-action row
-/// advances past `approved` (the `post_listing` fixture resolves to the
+/// advances past `approved` (the `send_outreach` fixture resolves to the
 /// keyless `human` executor, which writes a real handoff bundle and
 /// leaves the row at `executing`).
 #[tokio::test]

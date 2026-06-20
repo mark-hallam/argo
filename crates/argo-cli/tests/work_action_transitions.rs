@@ -9,7 +9,7 @@
 //! bundles (render, auto-refresh, manifest templates).
 //!
 //! Setup: `fresh_workspace_with_actions` (mock-mode worker
-//! produces `verify_price` pending + `post_listing` blocked).
+//! produces `find_target_accounts` pending + `send_outreach` blocked).
 //! Mock-mode only.
 
 mod common;
@@ -23,8 +23,8 @@ fn approval_refused_for_autonomous_safe_action() {
     let rows = list_actions(home.path(), work.path());
     let verify = rows
         .iter()
-        .find(|r| r["action_type"] == "verify_price")
-        .expect("verify_price row");
+        .find(|r| r["action_type"] == "find_target_accounts")
+        .expect("find_target_accounts row");
     let id = verify["action_id"].as_str().expect("action_id");
 
     let out = run_argo(
@@ -46,8 +46,8 @@ fn execute_then_complete_round_trips_an_autonomous_action() {
     let rows = list_actions(home.path(), work.path());
     let verify = rows
         .iter()
-        .find(|r| r["action_type"] == "verify_price")
-        .expect("verify_price row");
+        .find(|r| r["action_type"] == "find_target_accounts")
+        .expect("find_target_accounts row");
     let id = verify["action_id"].as_str().expect("action_id");
 
     let exec = run_argo(
@@ -73,7 +73,7 @@ fn execute_then_complete_round_trips_an_autonomous_action() {
             "complete",
             id,
             "--note",
-            "ran offline; price OK",
+            "ran offline; accounts OK",
             "--json",
         ],
     );
@@ -84,7 +84,7 @@ fn execute_then_complete_round_trips_an_autonomous_action() {
     );
     let v: Value = serde_json::from_slice(&complete.stdout).expect("complete json");
     assert_eq!(v["state"], "completed");
-    assert_eq!(v["result"]["summary"], "ran offline; price OK");
+    assert_eq!(v["result"]["summary"], "ran offline; accounts OK");
 }
 
 #[test]
@@ -93,8 +93,8 @@ fn status_emits_full_state_history_in_time_order() {
     let rows = list_actions(home.path(), work.path());
     let verify = rows
         .iter()
-        .find(|r| r["action_type"] == "verify_price")
-        .expect("verify_price row");
+        .find(|r| r["action_type"] == "find_target_accounts")
+        .expect("find_target_accounts row");
     let id = verify["action_id"].as_str().expect("action_id");
 
     let _ = run_argo(
@@ -135,8 +135,8 @@ fn fail_records_reason_for_an_executing_action() {
     let rows = list_actions(home.path(), work.path());
     let verify = rows
         .iter()
-        .find(|r| r["action_type"] == "verify_price")
-        .expect("verify_price row");
+        .find(|r| r["action_type"] == "find_target_accounts")
+        .expect("find_target_accounts row");
     let id = verify["action_id"].as_str().expect("action_id");
 
     let _ = run_argo(
@@ -153,7 +153,7 @@ fn fail_records_reason_for_an_executing_action() {
             "fail",
             id,
             "--reason",
-            "marketplace returned 503",
+            "account-research backend returned 503",
             "--json",
         ],
     );
@@ -164,5 +164,5 @@ fn fail_records_reason_for_an_executing_action() {
     );
     let v: Value = serde_json::from_slice(&fail.stdout).expect("fail json");
     assert_eq!(v["state"], "failed");
-    assert_eq!(v["result"]["failure"], "marketplace returned 503");
+    assert_eq!(v["result"]["failure"], "account-research backend returned 503");
 }

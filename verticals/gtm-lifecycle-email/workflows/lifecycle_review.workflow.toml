@@ -1,0 +1,24 @@
+schema_version = "1"
+
+# Smoke workflow per the spec ("keep workflows simple"): two
+# tool_call steps that read the vertical's manifest + the anchor
+# skill file. Proves the runner is wired against this vertical
+# end-to-end (#659). The display name is "Lifecycle review", which
+# is what the worker's Schedules card renders post-install.
+
+[workflow]
+name        = "lifecycle_review"
+description = "Open the manifest + the draft-lifecycle-sequence skill so the runner is wired against the gtm-lifecycle-email pack end-to-end."
+
+[[step]]
+name = "read_manifest"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/gtm-lifecycle-email/vertical.toml" }
+
+[[step]]
+name = "read_anchor_skill"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/gtm-lifecycle-email/skills/draft_lifecycle_sequence.skill.md" }
+depends_on = ["read_manifest"]

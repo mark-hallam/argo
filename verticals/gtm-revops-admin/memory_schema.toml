@@ -1,0 +1,27 @@
+schema_version = "1"
+
+# Memory entries hold POINTERS to source records + derived findings, not
+# the records themselves. Raw CRM records, customer PII, billing details,
+# and connector secrets stay in the source system (CRM / calendar /
+# billing) — never copied into memory. Only sourced findings + audit /
+# routing / schedule / triage state live here.
+
+[[entry]]
+key = "crm_audits"
+type = "list-of-objects"
+purpose = "CRM hygiene audit results. Each row: audit_id, scope, run_at, records_scanned (sourced count or 'unavailable'), duplicates_flagged, gaps_flagged, stale_flagged, data_quality_pct (sourced or 'unavailable'), source_pointers (list). Flagged records cite a source pointer; no record value is copied here."
+
+[[entry]]
+key = "routing_rules"
+type = "list-of-objects"
+purpose = "Drafted lead-routing rules. Each row: rule_id, criteria (territory|size|product_interest), branch_owner, drafted_at, status (drafted|proposed|active), source_pointer. Rules are drafts until the operator applies them; this row never applies routing itself."
+
+[[entry]]
+key = "schedules"
+type = "list-of-objects"
+purpose = "Booked meeting slots. Each row: schedule_id, title, attendees (list), slot_iso, duration_minutes, calendar_event_pointer, booked_at, status (booked|rescheduled|cancelled). Reversible bookings only; no deal value or billing detail stored."
+
+[[entry]]
+key = "billing_triage"
+type = "list-of-objects"
+purpose = "Billing-question triage state. Each row: triage_id, question, draft_answer_pointer, money_action_required (bool), escalated_to_operator (bool), triaged_at, status (drafted|escalated|resolved). The worker drafts answers and escalates any money action; it NEVER moves money or changes a plan."

@@ -175,7 +175,7 @@ created session 019def69-81a1-7713-8c24-9963cdbd1032
 
 The session is bound to `gtm-engineer`. All 8 bundled skills
 (`define_icp`, `find_target_accounts`, `research_company`,
-`research_person`, `generate_outreach`, `analyze_campaign`,
+`research_person`, `draft_outreach`, `analyze_campaign`,
 `detect_gtm_pattern`, `propose_gtm_skill`) attach automatically
 via the vertical manifest.
 

@@ -1,0 +1,26 @@
+schema_version = "1"
+
+# Memory entries hold POINTERS and metrics, never secrets. API keys,
+# connector tokens, and raw customer records stay in their source
+# systems (analytics, CRM) — never copied into memory. Only sourced
+# figures + experiment/delegation state live here.
+
+[[entry]]
+key = "funnel_snapshots"
+type = "list-of-objects"
+purpose = "Weekly funnel report cards. Each row: week_iso, attract (sourced value or 'unavailable'), convert, activate, retain, learn, source_per_metric (map of stage→source), compiled_at."
+
+[[entry]]
+key = "experiments"
+type = "list-of-objects"
+purpose = "Proposed growth experiments. Each row: experiment_id, week_iso, hypothesis, target_metric, threshold, owner_teammate, success_measure, status (proposed|running|measured|stopped), result (value or 'unavailable')."
+
+[[entry]]
+key = "delegations"
+type = "list-of-objects"
+purpose = "Scoped tasks handed to teammates. Each row: delegation_id, teammate (marketing-agent|sales-sdr|customer-onboarding|gtm-voice-of-customer), summary (one-line, no money/legal/named-customer commitment), funnel_stage, approved_by, delegated_at, status (pending_approval|delegated|completed|declined)."
+
+[[entry]]
+key = "budget_proposals"
+type = "list-of-objects"
+purpose = "Channel-budget shift proposals — handed to the operator, NEVER executed by the worker. Each row: proposal_id, amount_usd, from_channel, to_channel, rationale, approved_by, proposed_at, status (proposed|approved|rejected)."

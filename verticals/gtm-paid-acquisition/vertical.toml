@@ -1,0 +1,140 @@
+schema_version = "1"
+
+[vertical]
+id          = "gtm-paid-acquisition"
+name        = "Paid Acquisition — Ads Manager (Quinn)"
+description = "Quinn runs Skycot's paid-acquisition motion — drafts ad creative (headline/body/CTA variants), plans paid campaigns (audience, channels, budget split, success metric) across Meta/Google/LinkedIn, and analyzes campaign performance for CAC/ROAS, extracting winning/failing patterns without overfitting a small sample. Drafting and analysis are autonomous; launching a campaign or moving budget SPENDS operator funds and is always approval-gated — nothing fires autonomously. Truth-bounded: never claims a campaign worked without data; every figure is sourced or marked unavailable. Optional ads/analytics MCP connectors; degrades to draft/dry-run when absent."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["paid-acquisition", "ads", "gtm", "marketing", "cac", "roas", "human-gated", "demo"]
+
+[role]
+system_prompt = "system_prompt.md"
+persona       = "persona.toml"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "web_search", "web_extract", "memory", "todo", "clarify"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory_schema.toml"
+
+[skills]
+bundle = "skills/"
+
+[evaluation]
+suites = ["eval/seeds.jsonl"]
+
+# All MCP connectors are OPTIONAL and MAY NOT EXIST yet. When a
+# connector is absent the worker degrades to dry-run: campaign metrics
+# come from operator paste-ins / memory pointers, and any figure it
+# cannot source is marked "unavailable" rather than invented. These
+# connectors are read/plan surfaces only — a money-moving launch or
+# budget change is ALWAYS approval-gated via the human executor below,
+# never auto-fired through an MCP connector.
+[mcp_servers]
+meta_ads   = { transport = "stdio", command = "argo-mcp-connector-meta-ads",   args = [] }
+google_ads = { transport = "stdio", command = "argo-mcp-connector-google-ads", args = [] }
+analytics  = { transport = "stdio", command = "argo-mcp-connector-analytics",  args = [] }
+
+# `human_approval_required` lists built-in TOOLS to gate; per-action
+# approval (launch_campaign / adjust_budget) is enforced on each
+# [actions.*] block via `requires_approval = true`, so this stays empty —
+# the same pattern as the gtm-growth-lead / gtm-voice-of-customer packs.
+[escalation]
+human_approval_required = []
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+# Quinn's paid-acquisition targets, declared via the [[kpi]] array (the
+# fixed [success_metrics] block is a legacy schema that cannot carry
+# custom-named metrics). Thresholds: CAC <= $100, ROAS >= 3, 25 weekly
+# paid signups.
+[[kpi]]
+name        = "cac_target_usd"
+kind        = "count"
+threshold   = 100
+comparator  = "lte"
+gate        = "warn"
+description = "Customer acquisition cost target in USD (lower is better)."
+
+[[kpi]]
+name        = "roas_target"
+kind        = "count"
+threshold   = 3
+comparator  = "gte"
+gate        = "warn"
+description = "Return on ad spend target (revenue per dollar spent; higher is better)."
+
+[[kpi]]
+name        = "weekly_paid_signups_target"
+kind        = "count"
+threshold   = 25
+comparator  = "gte"
+gate        = "warn"
+description = "Weekly new signups from paid channels target."
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Paid Acquisition"
+
+[actions]
+
+[actions.draft_ad_creative]
+risk              = "low"
+requires_approval = false
+description       = "Draft ad creative (headline/body/CTA variants). No spend. Auto — output is a draft document; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Draft on-brand ad creative for `{{ payload.campaign }}` on channel `{{ payload.channel }}` — produce `{{ payload.variant_count }}` headline/body/CTA variants. No spend, no launch. Stay on Skycot brand voice; never invent a customer quote or a statistic to dress up the copy."
+
+[actions.plan_campaign]
+risk              = "low"
+requires_approval = false
+description       = "Plan a paid campaign (audience, channels, budget split, success metric). No spend. Auto — output is a plan document; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Plan a paid campaign for `{{ payload.objective }}` — target audience, channel mix (Meta | Google | LinkedIn), budget split, and ONE success metric with a threshold (CAC, ROAS, or paid signups). No spend, no launch — this is a plan the operator approves before any money moves."
+
+[actions.analyze_campaign_performance]
+risk              = "low"
+requires_approval = false
+description       = "Analyze campaign metrics; extract winning/failing patterns; propose next test; never overfit a small sample. Auto — output is a sourced analysis; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Analyze the performance of campaign `{{ payload.campaign }}` using ONLY sourced metrics (cite the source for CAC, ROAS, spend, signups). Extract winning/failing patterns and propose the next test. Mark any unsourced figure \"unavailable\"; mark a thin sample low-confidence and NEVER overfit it into a conclusion. Never claim the campaign \"worked\" without data."
+
+[actions.launch_campaign]
+risk              = "high"
+requires_approval = true
+description       = "Launch a paid campaign — SPENDS operator funds. ALWAYS approval-gated; the worker NEVER auto-launches."
+executor          = "human"
+platforms         = ["internal"]
+instruction_template = "Launch paid campaign `{{ payload.campaign }}` on `{{ payload.channel }}` at a daily budget of `{{ payload.daily_budget_usd }}`. This SPENDS operator funds. Approved by `{{ approved_by }}` at `{{ approved_at }}`. The worker NEVER launches autonomously; the proposal stops at the operator."
+
+[actions.adjust_budget]
+risk              = "high"
+requires_approval = true
+description       = "Change a live campaign budget — moves money. ALWAYS approval-gated; the worker NEVER moves money itself."
+executor          = "human"
+platforms         = ["internal"]
+instruction_template = "Change the budget of live campaign `{{ payload.campaign }}` from `{{ payload.current_budget_usd }}` to `{{ payload.new_budget_usd }}`. This MOVES money. Approved by `{{ approved_by }}` at `{{ approved_at }}`. The worker NEVER moves money itself; the proposal stops at the operator."
+
+[actions.launch_campaign.retry]
+max_attempts = 1
+
+[actions.adjust_budget.retry]
+max_attempts = 1
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/paid_acquisition_review.workflow.toml"]

@@ -38,7 +38,7 @@ fn pending_record_with_payload(id: &str, payload: serde_json::Value) -> ActionRe
         job_id: "job-1".into(),
         worker_id: argo_identity::WorkerId::nil(),
         item_id: None,
-        action_type: "post_listing".into(),
+        action_type: "send_outreach".into(),
         risk_level: "high".into(),
         requires_approval: true,
         state: "pending".into(),

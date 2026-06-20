@@ -313,13 +313,13 @@ mod tests {
             TenantId::new(),
             "gtm-engineer",
             Persona::named("Maya", "op"),
-            Role::new("Own approved marketplace follow-up."),
+            Role::new("Own approved GTM outreach follow-up."),
         )
     }
 
     fn portrait() -> Value {
         let w = worker();
-        json!({"generated_at":"2026-05-06T00:00:00Z","identity":identity_json(&w),"policy":{"resolved_policy":{"enabled":true},"source":"worker","worker_policy_enabled":true,"workspace_policy_enabled":false,"roster_lineage":[{"id":"r1","name":"ops","policy_enabled":true}]},"budget":{"spend_today_usd":1.0,"spend_month_usd":2.0,"daily_cap_usd_micros":5000000,"daily_headroom_usd":4.0},"recent_action_stats":{"window_hours":24,"completed":1,"failed":1,"average_latency_ms":1500.0,"average_retries":0.5},"open_handoffs":[{"id":"h1","from_worker_id":"w2","expected_outcome":"finish"}],"skill_candidates":[{"skill_name":"post_listing","vertical_id":"gtm-engineer","learned_at":"now"}],"anomalies":[],"circuit_breaker":{"state":"closed"}})
+        json!({"generated_at":"2026-05-06T00:00:00Z","identity":identity_json(&w),"policy":{"resolved_policy":{"enabled":true},"source":"worker","worker_policy_enabled":true,"workspace_policy_enabled":false,"roster_lineage":[{"id":"r1","name":"ops","policy_enabled":true}]},"budget":{"spend_today_usd":1.0,"spend_month_usd":2.0,"daily_cap_usd_micros":5000000,"daily_headroom_usd":4.0},"recent_action_stats":{"window_hours":24,"completed":1,"failed":1,"average_latency_ms":1500.0,"average_retries":0.5},"open_handoffs":[{"id":"h1","from_worker_id":"w2","expected_outcome":"finish"}],"skill_candidates":[{"skill_name":"send_outreach","vertical_id":"gtm-engineer","learned_at":"now"}],"anomalies":[],"circuit_breaker":{"state":"closed"}})
     }
 
     #[test]
@@ -393,7 +393,7 @@ mod tests {
             job_id: "job".into(),
             worker_id,
             item_id: None,
-            action_type: "post_listing".into(),
+            action_type: "define_icp".into(),
             risk_level: "low".into(),
             requires_approval: false,
             state: state.into(),

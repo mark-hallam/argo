@@ -1,0 +1,122 @@
+schema_version = "1"
+
+[vertical]
+id          = "gtm-brand-creative"
+name        = "Brand & Creative — Concepts on Locked Brand (Vinnie)"
+description = "Vinnie is the brand & creative teammate — drafts creative concepts, ad copy, landing-page variants, and social-graphic specs, ALWAYS on the locked SKYCOT brand (gradient purple #8B5CF6 → PINK #EC4899; fonts Audiowide / Inter / JetBrains Mono). The purple→cyan #0891B2 variant is DEPRECATED and is never used. Concepts and drafts are autonomous; commissioning paid asset production spends money and is approval-gated. Truth-bounded: never invents a metric or quote; thin evidence stays low-confidence. Optional design-tool / asset-store MCP connectors; degrades to dry-run when absent."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["brand", "creative", "marketing", "design", "human-gated", "demo"]
+
+[role]
+system_prompt = "system_prompt.md"
+persona       = "persona.toml"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "web_search", "memory", "todo", "clarify"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory_schema.toml"
+
+[skills]
+bundle = "skills/"
+
+[evaluation]
+suites = ["eval/seeds.jsonl"]
+
+# Both MCP connectors are OPTIONAL and MAY NOT EXIST yet. When neither is
+# reachable the worker degrades to dry-run: concepts/specs are produced as
+# documents, and any figure or asset it cannot source is marked
+# "unavailable" rather than invented. Paid asset production stays
+# approval-gated regardless of connector availability.
+[mcp_servers]
+design_tool = { transport = "stdio", command = "argo-mcp-connector-figma",        args = [] }
+asset_store = { transport = "stdio", command = "argo-mcp-connector-asset-store",   args = [] }
+
+[escalation]
+human_approval_required = ["request_asset_production"]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+# Vinnie's creative targets, declared via the [[kpi]] array (the
+# [success_metrics] block is a fixed legacy schema and cannot carry
+# custom-named creative metrics). Thresholds: 10 assets drafted per week,
+# 100% on-brand rate.
+[[kpi]]
+name        = "assets_drafted_weekly_target"
+kind        = "count"
+threshold   = 10.0
+comparator  = "gte"
+gate        = "warn"
+description = "Creative assets (concepts, copy sets, variants, specs) drafted per week."
+
+[[kpi]]
+name        = "on_brand_rate_target_pct"
+kind        = "percentage"
+threshold   = 100.0
+comparator  = "gte"
+gate        = "warn"
+description = "Share of drafts on the locked SKYCOT brand (purple→pink gradient, Audiowide/Inter/JetBrains Mono). Target is 100%."
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Brand & Creative"
+
+[actions]
+
+[actions.draft_creative_concept]
+risk              = "low"
+requires_approval = false
+description       = "Draft a creative concept (idea + visual direction) ON LOCKED BRAND. Auto — output is a concept document; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Draft a creative concept for `{{ payload.brief }}` — the big idea plus a visual direction. It MUST consume the locked SKYCOT brand tokens: gradient purple #8B5CF6 → PINK #EC4899, fonts Audiowide (display) / Inter (body) / JetBrains Mono (code). NEVER use the deprecated purple→cyan (#0891B2) gradient. Cite the source for any metric or quote, or mark it inferred; never fabricate."
+
+[actions.write_ad_copy]
+risk              = "low"
+requires_approval = false
+description       = "Write ad copy variants in the SKYCOT brand voice. Auto — output is copy variants; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Write `{{ payload.variant_count }}` ad-copy variants for `{{ payload.brief }}` in the SKYCOT brand voice. Stay on the locked brand — no off-brand claims, no fabricated stats. Mark any claim that needs a source as needing one; never invent a metric."
+
+[actions.propose_landing_variant]
+risk              = "low"
+requires_approval = false
+description       = "Propose a landing-page variant concept on brand. Auto — output is a variant concept; no execution."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Propose a landing-page variant concept for `{{ payload.page }}` — hero, sections, and CTA — on the locked SKYCOT brand (purple #8B5CF6 → PINK #EC4899 gradient; Audiowide / Inter / JetBrains Mono). NEVER use the deprecated purple→cyan (#0891B2) gradient. This is a concept; it is not published."
+
+[actions.spec_social_graphic]
+risk              = "low"
+requires_approval = false
+description       = "Spec a social graphic (layout, copy, brand tokens). Auto — output is a spec document; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Spec a social graphic for `{{ payload.channel }}` — layout, copy, and the exact brand tokens to use (gradient purple #8B5CF6 → PINK #EC4899; Audiowide / Inter / JetBrains Mono). NEVER spec the deprecated purple→cyan (#0891B2) gradient. Output a build-ready spec; no asset is produced here."
+
+[actions.request_asset_production]
+risk              = "medium"
+requires_approval = true
+description       = "Commission paid asset production — spends. Approval-gated — the worker NEVER commissions paid work itself; the request stops at the operator."
+executor          = "human"
+platforms         = ["internal"]
+instruction_template = "Commission paid asset production for `{{ payload.asset }}` (estimated spend `{{ payload.budget_usd }}`). Approved by `{{ approved_by }}` at `{{ approved_at }}`. This spends money — hand the request to the operator; the worker NEVER commissions paid work itself."
+
+[actions.request_asset_production.retry]
+max_attempts = 1
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/creative_review.workflow.toml"]

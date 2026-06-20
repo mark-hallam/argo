@@ -10,7 +10,7 @@ provenance:
 # When to use
 
 Call when the operator names a specific person OR when
-`generate_outreach` needs persona context for a role-based send.
+`draft_outreach` needs persona context for a role-based send.
 
 # Inputs you expect
 
@@ -56,7 +56,7 @@ Call when the operator names a specific person OR when
   `basis: "verified"` (sourced) or `basis: "role-inference"`
   (extrapolated from the role).
 - **Populate `uncertainty`.** The whole point of this output is
-  to let `generate_outreach` know what *not* to over-personalize.
+  to let `draft_outreach` know what *not* to over-personalize.
 
 # How to source
 

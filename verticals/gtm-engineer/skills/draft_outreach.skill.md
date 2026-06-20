@@ -1,5 +1,5 @@
 ---
-name: generate_outreach
+name: draft_outreach
 version: "0.1.0"
 description: "Drafts personalized outbound messaging from ICP + account + persona research. Refuses to draft when context is insufficient. Output is a draft only — never sent."
 provenance:

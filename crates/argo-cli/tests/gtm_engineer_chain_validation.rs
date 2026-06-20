@@ -1,13 +1,25 @@
 //! Manifest assertions for gtm-engineer's `on_complete_emit`
-//! configuration (#772) — split out of
-//! `gtm_engineer_chain.rs` to keep individual files below the
-//! 500-LOC ceiling.
+//! configuration — split out of `gtm_engineer_chain.rs` to keep
+//! individual files below the 500-LOC ceiling.
 //!
 //! These tests parse the shipped
-//! `verticals/gtm-engineer/vertical.toml` and assert the chain
-//! wiring + approval-gating contracts. The end-to-end
+//! `verticals/gtm-engineer/vertical.toml` and assert the GTM
+//! chain wiring + approval-gating contracts. The end-to-end
 //! integration that drives the chain through the actual `argo`
 //! binary lives in the sibling `gtm_engineer_chain.rs`.
+//!
+//! The GTM Engineer's action vocabulary is GTM-only (the
+//! marketplace skate-selling vocabulary from #772 was replaced).
+//! The two declarative chains:
+//!
+//!   research/draft loop (all autonomous-safe except the SEND):
+//!     define_icp → find_target_accounts → research_company →
+//!     research_person → draft_outreach → send_outreach
+//!     (send_outreach is approval-gated + TERMINAL)
+//!
+//!   learning loop (all autonomous-safe):
+//!     analyze_campaign → detect_gtm_pattern → propose_gtm_skill
+//!     (propose_gtm_skill is TERMINAL — operator-decided)
 //!
 //! Mock provider only — no API key required.
 
@@ -41,99 +53,74 @@ fn assert_chain(actions: &argo_vertical::ActionsSection, source: &str, expected:
 }
 
 #[test]
-fn pre_sale_chain_is_verify_to_draft_to_photos_to_post() {
-    // The four-step pre-sale chain. Each link's classification
-    // is exercised in the e2e test in the sibling file; here we
-    // just lock the manifest declarations.
+fn research_draft_chain_walks_icp_to_send() {
+    // The research/draft chain. Each link's classification is
+    // exercised in the e2e test in the sibling file; here we just
+    // lock the manifest declarations.
     let actions = load_gtm_actions();
-    assert_chain(&actions, "verify_price", &["create_listing_draft"]);
-    assert_chain(&actions, "create_listing_draft", &["request_photos"]);
-    assert_chain(&actions, "request_photos", &["post_listing"]);
+    assert_chain(&actions, "define_icp", &["find_target_accounts"]);
+    assert_chain(&actions, "find_target_accounts", &["research_company"]);
+    assert_chain(&actions, "research_company", &["research_person"]);
+    assert_chain(&actions, "research_person", &["draft_outreach"]);
+    assert_chain(&actions, "draft_outreach", &["send_outreach"]);
 }
 
 #[test]
-fn update_price_auto_emits_relist_item() {
+fn learning_loop_chain_walks_analyze_to_propose() {
     let actions = load_gtm_actions();
-    assert_chain(&actions, "update_price", &["relist_item"]);
+    assert_chain(&actions, "analyze_campaign", &["detect_gtm_pattern"]);
+    assert_chain(&actions, "detect_gtm_pattern", &["propose_gtm_skill"]);
 }
 
 #[test]
-fn post_listing_does_not_auto_emit_boost_listing() {
-    // Boosting spends operator funds — auto-emitting it would
-    // make the worker spend money on the operator's behalf
-    // without an explicit per-item decision. The operator must
-    // queue boost_listing manually when there's evidence of
-    // weak organic traction. Locks that contract.
+fn send_outreach_does_not_auto_emit_anything() {
+    // send_outreach is the single external-mutation action — it
+    // touches another human and is irreversible. It must NOT
+    // auto-emit a follow-up (no auto re-send, no auto "boost").
+    // Any follow-up send is a fresh operator-initiated decision.
+    // Mirrors the old marketplace post_listing "no auto-boost"
+    // contract. Locks that send_outreach stays terminal.
     let actions = load_gtm_actions();
-    let post_listing = actions
+    let send = actions
         .actions
-        .get("post_listing")
-        .expect("post_listing declared");
+        .get("send_outreach")
+        .expect("send_outreach declared");
     assert!(
-        post_listing.on_complete_emit.is_empty(),
-        "post_listing.on_complete_emit must stay empty — boost is operator-decided. \
-         Got: {:?}",
-        post_listing.on_complete_emit
+        send.on_complete_emit.is_empty(),
+        "send_outreach.on_complete_emit must stay empty — a follow-up send is \
+         operator-decided. Got: {:?}",
+        send.on_complete_emit
     );
 }
 
 #[test]
-fn mark_item_sold_does_not_auto_emit_anything() {
-    // mark_item_sold completing closes the inventory item; the
-    // sold-item gate (#769) handles the downstream stop, so
-    // there's no on_complete_emit needed. Locks this contract
-    // so a future edit that wires `mark_item_sold` →
-    // `follow_up_buyer` (which would race with the sold-gate)
-    // gets caught.
-    //
-    // The sold-gate logic itself is covered by the unit tests
-    // in `worker_actions_emit_tests.rs` (#769) and
-    // `worker_actions_followup_tests.rs` (#771): once a
-    // mark_item_sold is `completed` for `item_id = X`, every
-    // future emission with `item_id = X` (except a redundant
-    // mark_item_sold) gets downgraded to `blocked`. Those
-    // tests apply uniformly to the gtm-engineer chain because
-    // the gate is enforced at the OS level, not per-vertical.
+fn propose_gtm_skill_does_not_auto_emit_anything() {
+    // propose_gtm_skill completing queues a learned-skill proposal
+    // in pending_review; the operator decides whether to approve
+    // it (`argo skill review`). There is no downstream action to
+    // auto-emit — promotion is operator-gated by the lifecycle
+    // gate (#681), not a chain. Mirrors the old marketplace
+    // mark_item_sold "no auto-emit" contract. Locks this so a
+    // future edit that wires propose_gtm_skill → anything (which
+    // would bypass the operator's review) gets caught.
     let actions = load_gtm_actions();
-    let mark_sold = actions
+    let propose = actions
         .actions
-        .get("mark_item_sold")
-        .expect("mark_item_sold declared");
+        .get("propose_gtm_skill")
+        .expect("propose_gtm_skill declared");
     assert!(
-        mark_sold.on_complete_emit.is_empty(),
-        "mark_item_sold.on_complete_emit must stay empty — sold-gate handles closure. \
-         Got: {:?}",
-        mark_sold.on_complete_emit
+        propose.on_complete_emit.is_empty(),
+        "propose_gtm_skill.on_complete_emit must stay empty — promotion is \
+         operator-gated, not auto-chained. Got: {:?}",
+        propose.on_complete_emit
     );
-}
-
-#[test]
-fn buyer_touching_actions_have_no_auto_emit() {
-    // reply_to_buyer + follow_up_buyer touch another human and
-    // are HIGH RISK. They MUST be operator-initiated, not
-    // auto-emitted as part of a chain. Locks that contract
-    // independently from the manifest's `requires_approval`
-    // stamp so a future "convenience" edit can't sneak through.
-    let actions = load_gtm_actions();
-    for buyer_action in ["reply_to_buyer", "follow_up_buyer"] {
-        let decl = actions
-            .actions
-            .get(buyer_action)
-            .unwrap_or_else(|| panic!("{buyer_action} declared"));
-        assert!(
-            decl.on_complete_emit.is_empty(),
-            "{buyer_action}.on_complete_emit must stay empty — buyer-touching actions \
-             are operator-initiated only. Got: {:?}",
-            decl.on_complete_emit
-        );
-    }
 }
 
 #[test]
 fn every_chained_target_is_actually_declared() {
     // Cross-check: each action_type listed in any
     // on_complete_emit MUST itself be a declared action. A typo
-    // (`request_phots`) would otherwise silently emit a
+    // (`research_compny`) would otherwise silently emit a
     // `blocked` row at runtime — at lint-time we can catch it.
     let actions = load_gtm_actions();
     for (source_id, decl) in &actions.actions {
@@ -147,13 +134,76 @@ fn every_chained_target_is_actually_declared() {
 }
 
 #[test]
-fn every_approval_gated_action_stays_approval_gated() {
-    // The proof's load-bearing safety contract: every action
-    // that touches money / public surfaces / buyers must
-    // require approval. Lock the existing classifications so a
-    // future "let's relax this" edit gets caught by CI.
+fn autonomous_safe_actions_stay_autonomous_safe() {
+    // The eight research/draft/analysis steps are draft-only
+    // artifacts — autonomous-safe (no approval, no external
+    // mutation). Lock the existing classifications so a future
+    // "let's gate this too" or "let's not gate this" edit gets
+    // caught by CI. requires_approval=false AND risk=Low.
     let actions = load_gtm_actions();
-    let must_require_approval = [
+    let must_be_autonomous_safe = [
+        "define_icp",
+        "find_target_accounts",
+        "research_company",
+        "research_person",
+        "draft_outreach",
+        "analyze_campaign",
+        "detect_gtm_pattern",
+        "propose_gtm_skill",
+    ];
+    for action_id in must_be_autonomous_safe {
+        let decl = actions
+            .actions
+            .get(action_id)
+            .unwrap_or_else(|| panic!("{action_id} declared"));
+        assert!(
+            !decl.requires_approval,
+            "`{action_id}` MUST be autonomous-safe; manifest has requires_approval=true"
+        );
+        assert_eq!(
+            decl.risk,
+            argo_vertical::ActionRiskLevel::Low,
+            "`{action_id}` MUST be risk=low (draft-only artifact)"
+        );
+    }
+}
+
+#[test]
+fn send_outreach_is_approval_gated_high_risk() {
+    // The proof's load-bearing safety contract: the ONE action
+    // that touches another human / sends externally must require
+    // approval AND be classified high-risk. Lock it so a future
+    // "let's relax this" edit gets caught by CI.
+    let actions = load_gtm_actions();
+    let send = actions
+        .actions
+        .get("send_outreach")
+        .expect("send_outreach declared");
+    assert!(
+        send.requires_approval,
+        "send_outreach MUST be approval-gated; manifest has requires_approval=false"
+    );
+    assert_eq!(
+        send.risk,
+        argo_vertical::ActionRiskLevel::High,
+        "send_outreach MUST be risk=high — it touches another human and is irreversible"
+    );
+}
+
+#[test]
+fn no_marketplace_action_names_remain() {
+    // The vertical was de-marketplaced: the skate-selling action
+    // vocabulary (verify_price / create_listing_draft /
+    // request_photos / post_listing / boost_listing /
+    // update_price / relist_item / mark_item_sold /
+    // reply_to_buyer / follow_up_buyer) MUST NOT reappear. The
+    // action vocabulary is GTM-only. Locks the refactor so a
+    // future copy-paste from marketplace-seller gets caught.
+    let actions = load_gtm_actions();
+    let forbidden = [
+        "verify_price",
+        "create_listing_draft",
+        "request_photos",
         "post_listing",
         "boost_listing",
         "update_price",
@@ -162,14 +212,65 @@ fn every_approval_gated_action_stays_approval_gated() {
         "reply_to_buyer",
         "follow_up_buyer",
     ];
-    for action_id in must_require_approval {
+    for name in forbidden {
+        assert!(
+            !actions.actions.contains_key(name),
+            "marketplace action `{name}` leaked back into the GTM Engineer vocabulary"
+        );
+    }
+    // And the exact GTM-only set (9 actions) is what's declared.
+    let expected: std::collections::HashSet<&str> = [
+        "define_icp",
+        "find_target_accounts",
+        "research_company",
+        "research_person",
+        "draft_outreach",
+        "analyze_campaign",
+        "detect_gtm_pattern",
+        "propose_gtm_skill",
+        "send_outreach",
+    ]
+    .into_iter()
+    .collect();
+    let got: std::collections::HashSet<&str> =
+        actions.actions.keys().map(String::as_str).collect();
+    assert_eq!(
+        got, expected,
+        "GTM Engineer action vocabulary drift: expected exactly the 9 GTM actions"
+    );
+}
+
+#[test]
+fn research_steps_declare_retry_policy() {
+    // The web-research steps (find_target_accounts /
+    // research_company / research_person / analyze_campaign)
+    // declare max_attempts=3 so transient backend errors don't
+    // burn the safety budget. The single high-risk send stays
+    // tight at max 2. Locks the retry policy.
+    let actions = load_gtm_actions();
+    for action_id in [
+        "find_target_accounts",
+        "research_company",
+        "research_person",
+        "analyze_campaign",
+    ] {
         let decl = actions
             .actions
             .get(action_id)
             .unwrap_or_else(|| panic!("{action_id} declared"));
-        assert!(
-            decl.requires_approval,
-            "`{action_id}` MUST be approval-gated; manifest has requires_approval=false"
+        let retry = decl
+            .retry
+            .as_ref()
+            .unwrap_or_else(|| panic!("{action_id} must declare a [retry] policy"));
+        assert_eq!(
+            retry.max_attempts, 3,
+            "{action_id} research retry should allow 3 attempts"
         );
     }
+    let send = actions.actions.get("send_outreach").expect("declared");
+    let send_retry = send.retry.as_ref().expect("send_outreach retry");
+    assert_eq!(
+        send_retry.max_attempts, 2,
+        "send_outreach retry must stay tight (max 2) to avoid double-sending to a human"
+    );
 }

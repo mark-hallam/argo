@@ -3,7 +3,7 @@ schema_version = "1"
 [vertical]
 id          = "gtm-engineer"
 name        = "GTM Engineer"
-description = "Designs, executes, analyzes, and improves go-to-market strategies through ICP definition, account/persona research, personalized outreach drafts, campaign analysis, and learned-skill proposals. Drafts only — no sending."
+description = "Designs, executes, analyzes, and improves go-to-market strategies through ICP definition, account/persona research, personalized outreach drafts, campaign analysis, and learned-skill proposals. Research and outreach drafts are autonomous; outreach SENDS are approval-gated — nothing is auto-sent."
 version     = "0.1.0"
 authors     = ["Mark Hallam"]
 tags        = ["gtm", "sales", "growth", "outbound", "strategy", "ai-agent", "draft-only"]
@@ -64,20 +64,38 @@ human_approval_required = ["delegate_task"]
 escalate_after_failures = 2
 escalate_to             = "logs"
 
-[success_metrics]
-# Schema-supported fields only (#665 SuccessMetricsSection uses
-# deny_unknown_fields). The richer GTM-quality targets live in
-# README.md as documentation:
-# - hallucination_rate_max ≤ 0.05
-# - abstain when context is insufficient
-# - personalization_quality_target ≥ 0.85
-# - pattern_detection_target ≥ 0.80
-# - learned_skill_proposal_quality_target ≥ 0.80
-# A future SuccessMetricsSection extension can promote these to
-# typed first-class fields.
-deflection_target_pct       = 60
-median_response_seconds     = 120
-required_audit_chain_intact = true
+# GTM-quality targets as first-class [[kpi]] entries — the flexible,
+# named KPI mechanism the rest of the GTM verticals use. Replaces the
+# legacy [success_metrics] block, whose deny_unknown_fields schema only
+# accepted support-style deflection/response fields that never fit a
+# draft-only GTM agent.
+[[kpi]]
+name        = "personalization_quality_target"
+kind        = "percentage"
+threshold   = 85
+comparator  = "gte"
+gate        = "warn"
+
+[[kpi]]
+name        = "pattern_detection_target"
+kind        = "percentage"
+threshold   = 80
+comparator  = "gte"
+gate        = "warn"
+
+[[kpi]]
+name        = "learned_skill_proposal_quality_target"
+kind        = "percentage"
+threshold   = 80
+comparator  = "gte"
+gate        = "warn"
+
+[[kpi]]
+name        = "hallucination_rate_max_pct"
+kind        = "percentage"
+threshold   = 5
+comparator  = "lte"
+gate        = "warn"
 
 [evaluation]
 suites = [
@@ -110,49 +128,78 @@ overlay_label = "GTM Engineer"
 # runs it manually. Later (#733+) some of these will gain a
 # `browser_mcp` or per-platform `api` executor without
 # changing the action's name or payload shape.
+#
+# The GTM loop is wired declaratively via `on_complete_emit`:
+#   define_icp → find_target_accounts → research_company →
+#   research_person → draft_outreach → (operator approves) →
+#   send_outreach [TERMINAL, approval-gated]
+# and the learning loop:
+#   analyze_campaign → detect_gtm_pattern → propose_gtm_skill
+#   [TERMINAL — operator-decided, no auto-chain]
+# Every research/draft step is autonomous-safe; the ONE
+# external-mutation step (send_outreach) is approval-gated — it
+# NEVER auto-sends. On the model-emitted path the OS also downgrades
+# it to `blocked` when research evidence is thin; an auto-emitted
+# chain follow-up still lands `pending` (approval is the load-bearing
+# gate, not the evidence check).
 
 [actions]
 
 # Autonomous-safe — worker may execute without operator approval.
 
-[actions.create_listing_draft]
+[actions.define_icp]
 risk              = "low"
 requires_approval = false
-description       = "Draft a marketplace listing (title + body + tags) without posting it."
+description       = "Define or refine an Ideal Customer Profile (industry, size, buyer roles, pains, trigger signals, exclusions) — draft artifact only."
 executor          = "human"
-platforms         = ["facebook_marketplace", "ebay", "gumtree"]
-# After the operator confirms the draft is ready (`complete`),
-# auto-emit the next step: build the photo list. Both sides of
-# the chain are autonomous-safe so no approval gate fires; the
-# operator just sees a fresh `request_photos` row pending in
-# the ledger.
-on_complete_emit  = ["request_photos"]
-
-[actions.verify_price]
-risk              = "low"
-requires_approval = false
-description       = "Cross-check a proposed price against live retail / comp data via web_search + web_extract."
-executor          = "human"
-# Once the operator has confirmed the price is in band, queue
-# the actual listing draft. Autonomous-safe → autonomous-safe
-# so no approval gate fires; the next `request_photos` chain
-# kicks in once the operator completes the draft.
-on_complete_emit  = ["create_listing_draft"]
+# Once the operator confirms the ICP is worth targeting,
+# auto-emit the account-finding step. Autonomous-safe →
+# autonomous-safe so no approval gate fires.
+on_complete_emit  = ["find_target_accounts"]
 instruction_template = """
-# Verify price for `{{ item_id }}`
+# Define ICP for `{{ payload.product }}`
 
-Target price to verify: `${{ payload.target }}`.
+Target market hypothesis: `{{ payload.target_market }}`.
 
-Run a quick sanity check:
-1. Pull at least 2 comparable listings (same item, same condition).
-2. Note the median sold price and the median asking price.
-3. Decide: is `${{ payload.target }}` within ±10% of the median?
+Produce an Ideal Customer Profile:
+1. Industry / vertical, company size band, buyer roles.
+2. Pain points + trigger signals (what makes NOW the moment).
+3. Explicit exclusions (the negative ICP sharpens targeting).
+4. Separate `verified` facts from `assumed` inferences; list evidence gaps.
 
 When done, run:
 
 ```
-argo worker actions complete {{ action_id }} --note "<verdict>" \\
-  --result-json '{"median_asking": <num>, "median_sold": <num>, "verdict": "<within-band|too-high|too-low>"}'
+argo worker actions complete {{ action_id }} --note "<confidence>" \\
+  --result-json '{"industry": "<...>", "company_size": "<...>", "confidence": "<low|medium|high>"}'
+```
+"""
+
+[actions.find_target_accounts]
+risk              = "low"
+requires_approval = false
+description       = "Identify ICP-matched target accounts via web research — a ranked, evidence-backed list, not a dump."
+executor          = "human"
+# Once the operator confirms the account list, auto-emit
+# per-account company research. Autonomous-safe → autonomous-safe.
+on_complete_emit  = ["research_company"]
+instruction_template = """
+# Find target accounts for segment `{{ payload.target_segment }}`
+
+Using the ICP in scope, surface accounts that match strong
+trigger signals (recent funding, key hires, product launches).
+
+Rules:
+1. Prioritise verified signals over broad coverage.
+2. Never invent firmographics — mark `fit_score: low` + put the
+   gap in `missing_evidence` when a source returns nothing.
+3. Cap at the operator's requested size; an empty list is valid.
+
+When done, run:
+
+```
+argo worker actions complete {{ action_id }} --note "<count> accounts" \\
+  --result-json '{"accounts": [{"company": "<...>", "fit_score": "<...>"}]}'
 ```
 """
 
@@ -160,223 +207,245 @@ argo worker actions complete {{ action_id }} --note "<verdict>" \\
 # the worker / operator to re-attempt without burning the
 # manifest's safety budget. 3 attempts total = original + 2
 # retries.
-[actions.verify_price.retry]
+[actions.find_target_accounts.retry]
 max_attempts          = 3
 backoff               = "exponential"
 initial_delay_seconds = 30
 
-[actions.request_photos]
+[actions.research_company]
 risk              = "low"
 requires_approval = false
-description       = "Produce a list of photos the operator must supply before listing can post."
+description       = "Research a single account for GTM relevance — verified facts vs. inferred pains, with a sourced outreach angle. Draft artifact only."
 executor          = "human"
-# Once the operator has the photo list ready (and presumably
-# the photos themselves), queue the public-facing post_listing
-# step. post_listing is approval-gated → the follow-up lands
-# `pending` requiring an explicit operator approve before any
-# real listing goes live. The chain stops here for the
-# pre-sale phase: no auto boost, no auto buyer-reply.
-on_complete_emit  = ["post_listing"]
-
-# Approval-gated — touches money / public surfaces / buyers.
-# Worker may emit these as `pending` but cannot execute them
-# without an explicit `argo worker actions approve` from the
-# operator.
-
-[actions.post_listing]
-risk              = "medium"
-requires_approval = true
-description       = "Post a previously-drafted listing to a marketplace platform. Reversible (delete) but public."
-executor          = "human"
-platforms         = ["facebook_marketplace", "ebay", "gumtree"]
+# Once the company research lands, auto-emit per-role persona
+# research. Autonomous-safe → autonomous-safe.
+on_complete_emit  = ["research_person"]
 instruction_template = """
-# Post listing — `{{ payload.title }}` on `{{ platform }}`
+# Research company `{{ payload.company }}`
 
-Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+Build a GTM-relevant company profile:
+1. Verified summary (facts only, each cited to a source URL).
+2. `relevant_signals` with evidence + recency.
+3. `likely_pains` each marked `basis: verified|inferred`.
+4. A single `outreach_angle` grounded in a verified signal — or
+   `null` + `fit_score: low` when evidence is too thin to
+   personalise (abstain rather than invent).
 
-Title:    `{{ payload.title }}`
-Price:    `${{ payload.price }}`
-Item:     `{{ item_id }}`
-
-Steps:
-1. Sign into your `{{ platform }}` seller account.
-2. Create a new listing with the title above.
-3. Paste the description from the listing draft (see `assistant_output.md`).
-4. Set price to `${{ payload.price }}` and shipping per the draft.
-5. Upload photos (see `instructions.md` for the photo list if attached).
-6. Publish.
-
-When live, copy the listing URL and run:
+When done, run:
 
 ```
-argo worker actions complete {{ action_id }} --note "live" \\
-  --result-json '{"listing_url": "<url>", "platform": "{{ platform }}"}'
+argo worker actions complete {{ action_id }} --note "<fit_score>" \\
+  --result-json '{"company": "{{ payload.company }}", "fit_score": "<...>"}'
 ```
 """
 
-[actions.post_listing.instruction_templates]
-ebay = """
-# Post listing — `{{ payload.title }}` on **eBay**
+[actions.research_company.retry]
+max_attempts          = 3
+backoff               = "exponential"
+initial_delay_seconds = 30
 
-Approved by `{{ approved_by }}` at `{{ approved_at }}`.
-
-Listing:
-- title:    `{{ payload.title }}`
-- price:    `${{ payload.price }}`
-- item_id:  `{{ item_id }}`
-
-eBay-specific checklist:
-1. **Listing format** — pick `Buy it Now` for fixed-price OR `Auction` for high-demand items.
-2. **Category** — let eBay auto-detect; override if it lands in the wrong sub-category.
-3. **Item specifics** — fill EVERY required field (Brand, Model, Condition, Size). eBay's algo penalises sparse listings.
-4. **Photos** — at least 4. eBay caps at 12 free.
-5. **Shipping** — quote actual cost; never `local pickup only` unless the item ships heavy.
-6. **Returns** — 30-day returns recommended; reduces buyer-side friction.
-
-When live, copy the listing URL and run:
-
-```
-argo worker actions complete {{ action_id }} --note "ebay live" \\
-  --result-json '{"listing_url": "<url>", "platform": "ebay"}'
-```
-"""
-facebook_marketplace = """
-# Post listing — `{{ payload.title }}` on **Facebook Marketplace**
-
-Approved by `{{ approved_by }}` at `{{ approved_at }}`.
-
-Listing:
-- title:    `{{ payload.title }}`
-- price:    `${{ payload.price }}`
-- item_id:  `{{ item_id }}`
-
-Facebook Marketplace checklist:
-1. **Category** — Marketplace forces you to pick one. Use the closest match.
-2. **Photos** — Marketplace shows the first photo as the thumbnail. Pick the cleanest shot.
-3. **Location** — defaults to your account; verify it's the right city for buyer search.
-4. **Delivery** — `Local pickup` is fine; `Shipping` opens the listing to a wider audience.
-5. **Description** — paste from the draft. Marketplace strips most formatting; review the rendered preview.
-
-When live, copy the listing URL and run:
-
-```
-argo worker actions complete {{ action_id }} --note "fb live" \\
-  --result-json '{"listing_url": "<url>", "platform": "facebook_marketplace"}'
-```
-"""
-
-[actions.boost_listing]
-risk              = "medium"
-requires_approval = true
-description       = "Pay to boost an existing listing's visibility. Spends operator funds."
+[actions.research_person]
+risk              = "low"
+requires_approval = false
+description       = "Research a target person or buying role for outreach relevance — role-based fallback when personal data is thin; never invents personal facts. Draft artifact only."
 executor          = "human"
-platforms         = ["facebook_marketplace", "ebay"]
-
-[actions.update_price]
-risk              = "medium"
-requires_approval = true
-description       = "Change the public price on a posted listing."
-executor          = "human"
-platforms         = ["facebook_marketplace", "ebay", "gumtree"]
-# A price update typically goes hand-in-hand with a relist (the
-# old listing's algorithmic position is lost). Auto-emit the
-# relist as a `pending` (approval-gated) row so the operator
-# sees both moves queued together; they can approve / drop the
-# relist independently.
-on_complete_emit  = ["relist_item"]
-
-[actions.relist_item]
-risk              = "medium"
-requires_approval = true
-description       = "Re-post an expired or removed listing. Public, reversible."
-executor          = "human"
-platforms         = ["facebook_marketplace", "ebay", "gumtree"]
-
-[actions.mark_item_sold]
-risk              = "medium"
-requires_approval = true
-description       = "Mark an item sold on a platform — closes the listing to further offers."
-executor          = "human"
-platforms         = ["facebook_marketplace", "ebay", "gumtree"]
+# Once persona research lands, auto-emit the outreach draft.
+# Autonomous-safe → autonomous-safe (the DRAFT, not the send).
+on_complete_emit  = ["draft_outreach"]
 instruction_template = """
-# Mark sold — `{{ item_id }}` on `{{ platform }}`
+# Research person/role for `{{ payload.company }}`
 
-Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+Subject: person `{{ payload.person }}` / role `{{ payload.role }}`.
 
-Steps:
-1. Open the listing for `{{ item_id }}` on `{{ platform }}`.
-2. Mark it sold (not `delete`; mark-sold preserves history).
-3. Note the sale price + buyer username.
+1. `role_relevance` — why this role matters for the hypothesis.
+2. `likely_pains` each `basis: verified|role-inference`.
+3. A safe, business-relevant `personalization_angle` (public,
+   verifiable — never creepy LinkedIn-scrape detail).
+4. Populate `uncertainty` so the draft knows what NOT to
+   over-personalise.
 
-When done:
+When done, run:
 
 ```
-argo worker actions complete {{ action_id }} --note "sold" \\
-  --result-json '{"sale_price": <num>, "buyer": "<username>"}'
+argo worker actions complete {{ action_id }} --note "<buying_influence>" \\
+  --result-json '{"role": "{{ payload.role }}", "buying_influence": "<...>"}'
 ```
 """
 
-[actions.reply_to_buyer]
+[actions.research_person.retry]
+max_attempts          = 3
+backoff               = "exponential"
+initial_delay_seconds = 30
+
+[actions.draft_outreach]
+risk              = "low"
+requires_approval = false
+description       = "Draft personalised outbound messaging from ICP + account + persona research. A DRAFT only — the send lands separately and approval-gated."
+executor          = "human"
+# The draft is autonomous-safe. Completing it auto-emits the
+# send_outreach step, which is approval-gated → the follow-up
+# lands `pending`, requiring an explicit operator approve before
+# anything is sent. (Evidence-thin sends are downgraded to `blocked`
+# on the model-emitted path; the chain follow-up relies on the
+# approval gate.) The chain stops here: no auto-send.
+on_complete_emit  = ["send_outreach"]
+instruction_template = """
+# Draft outreach for `{{ payload.company }}`
+
+Ground every line in the account + persona research:
+1. No generic intros. Open with the reason THIS message is for
+   THIS person at THIS company NOW.
+2. No fabricated facts — every claim traces to the research.
+3. One low-friction CTA. ≤120 words for cold outreach.
+4. Abstain (return `abstained: true`) when context is
+   insufficient — do not pad a weak draft.
+
+When done, run:
+
+```
+argo worker actions complete {{ action_id }} --note "<confidence>" \\
+  --result-json '{"subject": "<...>", "confidence": "<low|medium|high>"}'
+```
+"""
+
+[actions.analyze_campaign]
+risk              = "low"
+requires_approval = false
+description       = "Analyze GTM campaign performance and extract winning + failing patterns — proposes the next experiment, does not overfit small samples. Draft artifact only."
+executor          = "human"
+# Once the analysis lands, auto-emit pattern detection.
+# Autonomous-safe → autonomous-safe.
+on_complete_emit  = ["detect_gtm_pattern"]
+instruction_template = """
+# Analyze campaign `{{ payload.campaign }}`
+
+From the supplied outcomes (replies, objections, conversions):
+1. Headline metrics + `what_worked` / `what_failed` (each with
+   its own confidence).
+2. `objection_themes` with verbatim quotes when available.
+3. `next_experiments` — hypothesis + test + expected signal.
+4. Set `sample_size_warning` when N is too small for confident
+   inference; do not overfit noise.
+
+When done, run:
+
+```
+argo worker actions complete {{ action_id }} --note "<reply_rate>" \\
+  --result-json '{"campaign": "{{ payload.campaign }}", "reply_rate": <num>}'
+```
+"""
+
+[actions.analyze_campaign.retry]
+max_attempts          = 3
+backoff               = "exponential"
+initial_delay_seconds = 30
+
+[actions.detect_gtm_pattern]
+risk              = "low"
+requires_approval = false
+description       = "Detect repeatable GTM patterns from accumulated evidence — requires ≥3 reinforcing observations; refuses to call a single observation a pattern. Draft artifact only."
+executor          = "human"
+# Once a pattern is detected, auto-emit the skill proposal step.
+# Autonomous-safe → autonomous-safe.
+on_complete_emit  = ["propose_gtm_skill"]
+instruction_template = """
+# Detect GTM patterns
+
+Across the supplied account research, outreach outcomes, and
+campaign results:
+1. Three reinforcing observations OR it is NOT a pattern (put
+   two-and-a-feeling in `non_patterns`).
+2. Every pattern carries a `do_not_use_when` boundary.
+3. `recommended_action`: watch | test | propose_skill.
+
+When done, run:
+
+```
+argo worker actions complete {{ action_id }} --note "<n patterns>" \\
+  --result-json '{"patterns": [{"pattern": "<...>", "data_points": <num>}]}'
+```
+"""
+
+[actions.propose_gtm_skill]
+risk              = "low"
+requires_approval = false
+description       = "Propose a reusable learned skill from a strong, evidence-backed pattern — always queued in pending_review, never auto-activated. Terminal: the operator decides whether to approve."
+executor          = "human"
+# TERMINAL — operator-decided, no auto-chain. The proposal lands
+# in pending_review and the operator reviews it via
+# `argo skill review`. on_complete_emit is INTENTIONALLY EMPTY
+# (locked by gtm_engineer_chain_validation).
+instruction_template = """
+# Propose GTM skill from a detected pattern
+
+Only when `detect_gtm_pattern` marked a pattern
+`recommended_action: propose_skill` with ≥3 reinforcing
+observations:
+1. `lifecycle_state` MUST be `pending_review` (never `active`).
+2. `scope_to_vertical: true` by default.
+3. Include ≥1 counterexample (or "none seen in N campaigns").
+4. Frame 1–3 narrow review questions for the operator.
+5. Refuse (`refused: true`) from weak / conflicting evidence.
+
+When done, run:
+
+```
+argo worker actions complete {{ action_id }} --note "pending_review" \\
+  --result-json '{"name": "<snake_case_skill>", "lifecycle_state": "pending_review"}'
+```
+"""
+
+# Approval-gated — touches another human / external surface.
+# Worker may emit this as `pending` (evidence-thin sends are
+# downgraded to `blocked` on the model-emitted path) but cannot
+# execute it without an explicit `argo worker actions approve`
+# from the operator.
+
+[actions.send_outreach]
 risk              = "high"
 requires_approval = true
-description       = "Send a reply to a buyer's message. Touches another human; not reversible."
+description       = "Send the approved outreach (email / LinkedIn) to the researched contact. HIGH RISK — touches another human; not reversible. Terminal: no auto follow-up."
 executor          = "human"
-platforms         = ["facebook_marketplace", "ebay", "gumtree"]
+# TERMINAL — no auto follow-up. on_complete_emit is
+# INTENTIONALLY EMPTY (locked by gtm_engineer_chain_validation).
+# Any follow-up send is a fresh operator-initiated decision.
 instruction_template = """
-# Reply to buyer — `{{ item_id }}` on `{{ platform }}`
+# Send outreach to `{{ payload.contact }}` at `{{ payload.company }}`
 
 ⚠️ **HIGH RISK** — touches another human; cannot be undone.
 
 Approved by `{{ approved_by }}` at `{{ approved_at }}`.
 
-Reply (review BEFORE sending):
+Message (review BEFORE sending):
 
 > {{ payload.message }}
 
+Hard rules:
+1. NEVER send without sufficient ICP + company + person research
+   evidence backing every personalised line — the evidence gate
+   blocks this action when the research is thin.
+2. Reference the research evidence: `{{ payload.evidence }}`.
+3. Channel: `{{ payload.channel }}` (email / LinkedIn).
+
 Steps:
-1. Open the buyer's thread for `{{ item_id }}` on `{{ platform }}`.
-2. Paste the reply above; tweak tone if it feels generic.
+1. Open `{{ payload.channel }}` for `{{ payload.contact }}`.
+2. Paste the approved message above; do not edit the claims.
 3. Send.
 
-When done:
+When done, run:
 
 ```
-argo worker actions complete {{ action_id }} --note "replied" \\
-  --result-json '{"buyer": "<username>", "message_sent": "<final-text>"}'
+argo worker actions complete {{ action_id }} --note "sent" \\
+  --result-json '{"contact": "{{ payload.contact }}", "channel": "{{ payload.channel }}"}'
 ```
 """
 
-[actions.follow_up_buyer]
-risk              = "high"
-requires_approval = true
-description       = "Send a follow-up to a buyer who didn't respond to a prior message."
-executor          = "human"
-platforms         = ["facebook_marketplace", "ebay", "gumtree"]
-
 # ─────────────────────────── retry policies ────────────────────
 # Retry caps per #755. The manifest defaults to max_attempts=1
-# (no retries) when omitted; declare here for action types where
-# transient retries make sense. High-risk public-surface +
-# buyer-touching actions stay tight (max 2) to avoid spamming;
-# autonomous research can retry more freely.
+# (no retries) when omitted; declared per-action above for the
+# research steps (autonomous web research can retry more freely:
+# max 3). The single high-risk send stays tight (max 2) to avoid
+# accidentally double-sending to a human.
 
-[actions.post_listing.retry]
-max_attempts = 2
-
-[actions.boost_listing.retry]
-max_attempts = 2
-
-[actions.update_price.retry]
-max_attempts = 2
-
-[actions.relist_item.retry]
-max_attempts = 2
-
-[actions.mark_item_sold.retry]
-max_attempts = 2
-
-[actions.reply_to_buyer.retry]
-max_attempts = 2
-
-[actions.follow_up_buyer.retry]
+[actions.send_outreach.retry]
 max_attempts = 2

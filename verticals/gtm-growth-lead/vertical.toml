@@ -1,0 +1,123 @@
+schema_version = "1"
+
+[vertical]
+id          = "gtm-growth-lead"
+name        = "Growth Lead — GTM Orchestrator (Gwen)"
+description = "Gwen orchestrates Skycot's go-to-market flywheel — compiles a weekly funnel report (attract→convert→activate→retain→learn), proposes one growth experiment per week, and delegates scoped tasks to the other GTM teammates (marketing-agent, sales-sdr, customer-onboarding, gtm-voice-of-customer). Truth-bounded: never reports a metric she cannot source; never moves money. Optional analytics/CRM MCP connectors; degrades to draft/dry-run when absent."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["growth", "gtm", "orchestration", "funnel", "human-gated", "demo"]
+
+[role]
+system_prompt = "system_prompt.md"
+persona       = "persona.toml"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "memory", "todo", "clarify", "delegate_task"]
+denied  = ["terminal", "file_write", "file_patch"]
+
+[memory]
+schema = "memory_schema.toml"
+
+[skills]
+bundle = "skills/"
+
+[evaluation]
+suites = ["eval/seeds.jsonl"]
+
+# Both MCP connectors are optional and MAY NOT EXIST yet. When neither
+# is reachable the worker degrades to dry-run: funnel numbers come from
+# operator paste-ins / memory pointers, and every figure it cannot
+# source is marked "unavailable" rather than invented.
+[mcp_servers]
+analytics = { transport = "stdio", command = "argo-mcp-connector-analytics", args = [] }
+crm       = { transport = "stdio", command = "argo-mcp-connector-hubspot",    args = [] }
+
+[escalation]
+human_approval_required = ["delegate_task"]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+# Gwen's growth targets, declared via the [[kpi]] array (the
+# [success_metrics] block is a fixed legacy schema and cannot carry
+# custom-named growth metrics). Thresholds: 50 weekly signups,
+# 40% activation, CAC <= $100.
+[[kpi]]
+name        = "weekly_signups_target"
+kind        = "count"
+threshold   = 50
+comparator  = "gte"
+gate        = "warn"
+description = "Weekly new signups target."
+
+[[kpi]]
+name        = "activation_rate_target_pct"
+kind        = "percentage"
+threshold   = 40
+comparator  = "gte"
+gate        = "warn"
+description = "Activation rate target (percent of signups reaching first value)."
+
+[[kpi]]
+name        = "cac_target_usd"
+kind        = "count"
+threshold   = 100
+comparator  = "lte"
+gate        = "warn"
+description = "Customer acquisition cost target in USD (lower is better)."
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Growth Lead"
+
+[actions]
+
+[actions.compile_funnel_report]
+risk              = "low"
+requires_approval = false
+description       = "Compile the weekly funnel report card across all five stages. Auto — output is a structured report; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Read the week's funnel metrics from memory/analytics and produce a weekly funnel report card across all five stages (attract→convert→activate→retain→learn), citing the source for EVERY number. Mark any number you cannot source as \"unavailable\". Never invent a figure."
+
+[actions.propose_experiment]
+risk              = "low"
+requires_approval = false
+description       = "Propose ONE growth experiment for the week. Auto — output is a proposal; no execution."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Propose ONE growth experiment for the week — hypothesis, target metric + threshold, which teammate runs it, how success is measured. No execution."
+
+[actions.delegate_growth_task]
+risk              = "medium"
+requires_approval = true
+description       = "Hand a scoped task to a GTM teammate. Approval-gated — delegation is Gwen's core function but never auto-fires."
+executor          = "human"
+platforms         = ["internal"]
+instruction_template = "Hand a scoped task to `{{ payload.teammate }}` (one of marketing-agent | sales-sdr | customer-onboarding | gtm-voice-of-customer). Approved by `{{ approved_by }}` at `{{ approved_at }}`. Summary: `{{ payload.summary }}`. Never delegate anything involving money, legal, or a named customer commitment."
+
+[actions.reallocate_budget]
+risk              = "high"
+requires_approval = true
+description       = "Propose shifting budget between channels. ALWAYS human-gated — the worker NEVER moves money itself; the proposal stops at the operator."
+executor          = "human"
+instruction_template = "Propose shifting `{{ payload.amount_usd }}` from `{{ payload.from_channel }}` to `{{ payload.to_channel }}`. Approved by `{{ approved_by }}`. Hand the proposal to the operator; the worker NEVER moves money itself."
+
+[actions.delegate_growth_task.retry]
+max_attempts = 1
+
+[actions.reallocate_budget.retry]
+max_attempts = 1
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/weekly_growth_review.workflow.toml"]

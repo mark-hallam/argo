@@ -37,13 +37,13 @@ fn render_writes_workspace_level_ledger_artifacts() {
     let completed =
         std::fs::read_to_string(dir.join("completed_actions.md")).expect("completed_actions.md");
 
-    // Mock evidence is insufficient → post_listing landed
+    // Mock evidence is insufficient → send_outreach landed
     // blocked, not pending. Approval queue is empty.
     assert!(queue.contains("(no actions awaiting approval)"));
-    // post_listing should appear in blocked.
+    // send_outreach should appear in blocked.
     assert!(
-        blocked.contains("post_listing"),
-        "expected post_listing in blocked; got:\n{blocked}"
+        blocked.contains("send_outreach"),
+        "expected send_outreach in blocked; got:\n{blocked}"
     );
     // No completes yet.
     assert!(completed.contains("(no actions have completed yet)"));
@@ -55,8 +55,8 @@ fn execute_writes_per_action_bundle_via_human_executor() {
     let rows = list_actions(home.path(), work.path());
     let verify = rows
         .iter()
-        .find(|r| r["action_type"] == "verify_price")
-        .expect("verify_price row");
+        .find(|r| r["action_type"] == "find_target_accounts")
+        .expect("find_target_accounts row");
     let id = verify["action_id"].as_str().expect("action_id");
     let job_id = verify["job_id"].as_str().expect("job_id");
 
@@ -89,23 +89,23 @@ fn execute_writes_per_action_bundle_via_human_executor() {
     let evidence = std::fs::read_to_string(bundle.join("evidence.md")).expect("evidence.md");
     let action_json: Value =
         serde_json::from_slice(&std::fs::read(bundle.join("action.json")).unwrap()).unwrap();
-    // gtm-engineer's verify_price now ships an instruction_template
+    // gtm-engineer's find_target_accounts now ships an instruction_template
     // (#732) — the rendered body is template-driven rather than
     // the generic dump, so we assert on template content.
     assert!(
-        instructions.contains("Verify price"),
-        "expected verify_price template content; got:\n{instructions}"
+        instructions.contains("Find target accounts"),
+        "expected find_target_accounts template content; got:\n{instructions}"
     );
     assert!(instructions.contains("argo worker actions complete"));
     assert!(evidence.contains("Evidence for action"));
-    assert_eq!(action_json["action_type"], "verify_price");
+    assert_eq!(action_json["action_type"], "find_target_accounts");
     assert_eq!(action_json["state"], "executing");
 }
 
 #[test]
 fn execute_renders_manifest_template_when_one_is_declared() {
-    // gtm-engineer's `verify_price` declares an
-    // `instruction_template` that includes `{{ payload.target }}`
+    // gtm-engineer's `find_target_accounts` declares an
+    // `instruction_template` that includes `{{ payload.target_segment }}`
     // and an `argo worker actions complete <id>` recipe. Confirm
     // the rendered bundle uses that template (not the generic
     // dump) when execute fires.
@@ -113,8 +113,8 @@ fn execute_renders_manifest_template_when_one_is_declared() {
     let rows = list_actions(home.path(), work.path());
     let verify = rows
         .iter()
-        .find(|r| r["action_type"] == "verify_price")
-        .expect("verify_price row");
+        .find(|r| r["action_type"] == "find_target_accounts")
+        .expect("find_target_accounts row");
     let id = verify["action_id"].as_str().expect("action_id");
 
     let exec = run_argo(
@@ -134,18 +134,20 @@ fn execute_renders_manifest_template_when_one_is_declared() {
     // The template body has these literal substrings — they
     // can't appear in the generic dump.
     assert!(
-        instr.contains("Verify price for"),
+        instr.contains("Find target accounts for segment"),
         "expected manifest template body; got:\n{instr}"
     );
     assert!(
         instr.contains("argo worker actions complete"),
         "manifest template should still steer the operator to the next CLI step; got:\n{instr}"
     );
-    // payload.target was 0 in the mock action — confirm it
-    // round-trips through the substitution.
+    // The template references {{ payload.target_segment }}; the mock
+    // action's payload has no target_segment key, so the substitution
+    // engine renders `(unset)` — confirming `{{ payload.X }}`
+    // substitution actually ran (not left as a literal `{{ }}`).
     assert!(
-        instr.contains("$0"),
-        "expected ${{payload.target}} (= 0) to render; got:\n{instr}"
+        instr.contains("(unset)") && !instr.contains("{{ payload"),
+        "expected payload-substitution to run (placeholder → (unset)); got:\n{instr}"
     );
 }
 
@@ -160,10 +162,10 @@ fn approve_auto_refreshes_workspace_ledger_files() {
     let rows = list_actions(home.path(), work.path());
     let post = rows
         .iter()
-        .find(|r| r["action_type"] == "post_listing")
-        .expect("post_listing row");
+        .find(|r| r["action_type"] == "send_outreach")
+        .expect("send_outreach row");
     let post_id = post["action_id"].as_str().expect("post_id");
-    // post_listing landed `blocked` under mock evidence — so
+    // send_outreach landed `blocked` under mock evidence — so
     // before any transition, blocked_actions.md doesn't exist
     // (no render has fired yet).
     let dir = work.path().join(".skycot");
@@ -172,12 +174,12 @@ fn approve_auto_refreshes_workspace_ledger_files() {
         "auto-render must NOT have fired before any transition"
     );
 
-    // Now run a transition (use verify_price → execute since
+    // Now run a transition (use find_target_accounts → execute since
     // it's the easiest transition and isn't blocked).
     let verify = rows
         .iter()
-        .find(|r| r["action_type"] == "verify_price")
-        .expect("verify_price row");
+        .find(|r| r["action_type"] == "find_target_accounts")
+        .expect("find_target_accounts row");
     let verify_id = verify["action_id"].as_str().expect("verify_id");
     let exec = run_argo(
         home.path(),
@@ -187,7 +189,7 @@ fn approve_auto_refreshes_workspace_ledger_files() {
     assert!(exec.status.success());
 
     // After the transition, all 3 ledger files exist (auto-
-    // refresh fired). The blocked file lists post_listing.
+    // refresh fired). The blocked file lists send_outreach.
     let blocked = std::fs::read_to_string(dir.join("blocked_actions.md"))
         .expect("blocked_actions.md auto-rendered");
     assert!(

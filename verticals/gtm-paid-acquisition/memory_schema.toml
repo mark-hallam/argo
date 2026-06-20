@@ -1,0 +1,27 @@
+schema_version = "1"
+
+# Memory entries hold POINTERS and sourced metrics, never secrets. Ad-
+# account tokens, connector credentials, and raw billing records stay in
+# their source systems (Meta Ads, Google Ads, analytics) — never copied
+# into memory. Only sourced figures + campaign/draft/budget/experiment
+# state live here.
+
+[[entry]]
+key = "campaigns"
+type = "list-of-objects"
+purpose = "Planned + live paid campaigns. Each row: campaign_id, objective, channel (meta|google|linkedin), audience, budget_split, success_metric, threshold, status (planned|pending_approval|live|paused|ended), launched_by, launched_at. Status only flips to 'live' after an approved launch_campaign."
+
+[[entry]]
+key = "ad_drafts"
+type = "list-of-objects"
+purpose = "Drafted ad creative — no spend attached. Each row: draft_id, campaign_id, channel, variant_label, headline, body, cta, on_brand (bool), drafted_at. Drafts never auto-launch; launching is a separate approval-gated action."
+
+[[entry]]
+key = "budgets"
+type = "list-of-objects"
+purpose = "Budget proposals + changes — handed to the operator, NEVER executed by the worker. Each row: budget_id, campaign_id, current_budget_usd, proposed_budget_usd, rationale, approved_by, proposed_at, status (proposed|approved|rejected|applied). 'applied' only after an approved adjust_budget."
+
+[[entry]]
+key = "experiments"
+type = "list-of-objects"
+purpose = "Paid-acquisition tests + their sourced results. Each row: experiment_id, campaign_id, hypothesis, target_metric (cac|roas|paid_signups), threshold, sample_size, confidence (low|medium|high), result (sourced value or 'unavailable'), measured_at. Thin samples stay low-confidence, never inflated into a conclusion."

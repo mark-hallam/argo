@@ -1,0 +1,27 @@
+schema_version = "1"
+
+# Memory entries hold POINTERS and brand-tagged drafts, never secrets.
+# Connector tokens, asset-store credentials, and any raw paid-vendor
+# records stay in their source systems (design tool, asset store) — never
+# copied into memory. Only on-brand concepts/specs + production-request
+# state live here.
+
+[[entry]]
+key = "concepts"
+type = "list-of-objects"
+purpose = "Creative concepts drafted on the locked brand. Each row: concept_id, brief, big_idea, visual_direction, brand_tokens (gradient + fonts used, always purple→pink / Audiowide-Inter-JetBrains-Mono), on_brand (bool), drafted_at."
+
+[[entry]]
+key = "ad_copy"
+type = "list-of-objects"
+purpose = "Ad-copy variant sets in the brand voice. Each row: copy_id, brief, channel, variants (list of headline/body), claims_needing_source (list), on_brand (bool), drafted_at."
+
+[[entry]]
+key = "landing_variants"
+type = "list-of-objects"
+purpose = "Proposed landing-page variant concepts — concepts only, never published. Each row: variant_id, page, hero, sections (list), cta, brand_tokens, on_brand (bool), status (proposed|reviewed|discarded), proposed_at."
+
+[[entry]]
+key = "graphic_specs"
+type = "list-of-objects"
+purpose = "Build-ready social-graphic specs. Each row: spec_id, channel, layout, copy, brand_tokens (gradient purple #8B5CF6 → pink #EC4899; Audiowide / Inter / JetBrains Mono), on_brand (bool), specced_at. NEVER specs the deprecated purple→cyan gradient."

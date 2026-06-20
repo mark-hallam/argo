@@ -10,13 +10,13 @@
 //! Mock-mode only — no API key required. Uses the production
 //! `verticals/gtm-engineer/vertical.toml` so the assertions are
 //! anchored on its real `[actions]` declarations:
-//!   * `verify_price`  — autonomous-safe (low risk, no approval)
-//!   * `post_listing`  — approval-gated (medium risk + approval)
+//!   * `find_target_accounts`  — autonomous-safe (low risk, no approval)
+//!   * `send_outreach` — approval-gated (high risk + approval)
 //!
 //! Mock mode never calls `web_search` / `web_extract`, so the
 //! research-evidence gate trips for any approval-gated action:
-//!   * `verify_price` lands `pending` (autonomous, gate bypassed)
-//!   * `post_listing` lands `blocked` with a "research evidence
+//!   * `find_target_accounts` lands `pending` (autonomous, gate bypassed)
+//!   * `send_outreach` lands `blocked` with a "research evidence
 //!     insufficient" reason (gate downgrade)
 
 mod common;
@@ -68,7 +68,7 @@ fn mock_run_emits_actions_and_writes_execution_plan() {
     let (home, work) = fresh_workspace();
 
     // Enqueue a job for gtm-engineer (which now declares
-    // `verify_price` + `post_listing` in its [actions] section).
+    // `find_target_accounts` + `send_outreach` in its [actions] section).
     let add = run_argo(
         home.path(),
         work.path(),
@@ -78,7 +78,7 @@ fn mock_run_emits_actions_and_writes_execution_plan() {
             "--vertical",
             "gtm-engineer",
             "--prompt",
-            "List a pair of skates.",
+            "Run the first GTM outreach experiment.",
             "--json",
         ],
     );
@@ -89,7 +89,7 @@ fn mock_run_emits_actions_and_writes_execution_plan() {
     );
 
     // --max-steps 1 + mock provider → run_mock_step emits both
-    // a verify_price (autonomous) + a post_listing (approval-
+    // a find_target_accounts (autonomous) + a send_outreach (approval-
     // gated) action block in the assistant text.
     let serve = run_argo(
         home.path(),
@@ -139,25 +139,25 @@ fn mock_run_emits_actions_and_writes_execution_plan() {
         plan.contains("Emitted 2 action(s)"),
         "execution_plan.md should summarise the emission count; got:\n{plan}"
     );
-    // verify_price is autonomous-safe → in the autonomous section.
+    // find_target_accounts is autonomous-safe → in the autonomous section.
     assert!(
         plan.contains("## Pending (autonomous-safe)"),
-        "verify_price (autonomous-safe) should land in the safe section; got:\n{plan}"
+        "find_target_accounts (autonomous-safe) should land in the safe section; got:\n{plan}"
     );
     assert!(
-        plan.contains("`verify_price`"),
-        "execution_plan.md should mention verify_price; got:\n{plan}"
+        plan.contains("`find_target_accounts`"),
+        "execution_plan.md should mention find_target_accounts; got:\n{plan}"
     );
     // Mock mode runs no web tools → research evidence is
-    // insufficient → post_listing (approval-gated) downgrades to
+    // insufficient → send_outreach (approval-gated) downgrades to
     // blocked, NOT pending-approval.
     assert!(
         plan.contains("## Blocked"),
-        "post_listing should fall into the Blocked section under mock evidence; got:\n{plan}"
+        "send_outreach should fall into the Blocked section under mock evidence; got:\n{plan}"
     );
     assert!(
-        plan.contains("`post_listing`"),
-        "execution_plan.md should mention post_listing; got:\n{plan}"
+        plan.contains("`send_outreach`"),
+        "execution_plan.md should mention send_outreach; got:\n{plan}"
     );
     assert!(
         plan.contains("research evidence insufficient"),
@@ -192,7 +192,7 @@ fn mock_run_emits_actions_and_writes_execution_plan() {
         .collect();
     assert_eq!(rows.len(), 2, "expected 2 action rows; got {rows:?}");
 
-    // verify_price is pending; post_listing is blocked w/ reason.
+    // find_target_accounts is pending; send_outreach is blocked w/ reason.
     let by_type: std::collections::HashMap<&str, &Value> = rows
         .iter()
         .filter_map(|r| {
@@ -201,19 +201,19 @@ fn mock_run_emits_actions_and_writes_execution_plan() {
                 .map(|t| (t, r))
         })
         .collect();
-    let vp = by_type.get("verify_price").expect("verify_price row");
+    let vp = by_type.get("find_target_accounts").expect("find_target_accounts row");
     assert_eq!(vp["state"], "pending");
     assert_eq!(vp["risk_level"], "low");
     assert_eq!(vp["requires_approval"], false);
 
-    let pl = by_type.get("post_listing").expect("post_listing row");
+    let pl = by_type.get("send_outreach").expect("send_outreach row");
     assert_eq!(pl["state"], "blocked");
-    assert_eq!(pl["risk_level"], "medium");
+    assert_eq!(pl["risk_level"], "high");
     assert_eq!(pl["requires_approval"], true);
     let reason = pl["blocked_reason"].as_str().unwrap_or("");
     assert!(
         reason.contains("research evidence insufficient"),
-        "post_listing blocked_reason missing the gate text; got: {reason}"
+        "send_outreach blocked_reason missing the gate text; got: {reason}"
     );
 
     // actions.json is the machine-readable mirror of
@@ -244,8 +244,8 @@ fn mock_run_emits_actions_and_writes_execution_plan() {
         .iter()
         .filter_map(|r| r["action_type"].as_str())
         .collect();
-    assert!(types.contains(&"verify_price"));
-    assert!(types.contains(&"post_listing"));
+    assert!(types.contains(&"find_target_accounts"));
+    assert!(types.contains(&"send_outreach"));
 
     // result.json now carries the per-job action bundle pointers
     // so operators can find both the markdown + the JSON via

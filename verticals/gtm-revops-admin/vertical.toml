@@ -1,0 +1,124 @@
+schema_version = "1"
+
+[vertical]
+id          = "gtm-revops-admin"
+name        = "RevOps & Admin — CRM Hygiene & Routing (Aria)"
+description = "Aria runs revenue operations and admin for the GTM team — audits the CRM for duplicates, gaps, and stale records; drafts lead-routing rules from real criteria; schedules meetings; and triages billing questions. Truth-bounded: never invents a CRM record, metric, or quote. Audits, drafts, and scheduling run autonomously; mutating a CRM record or touching billing is approval-gated. Optional CRM / calendar / billing MCP connectors; degrades to dry-run when absent."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["revops", "gtm", "admin", "crm-hygiene", "lead-routing", "human-gated", "demo"]
+
+[role]
+system_prompt = "system_prompt.md"
+persona       = "persona.toml"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "memory", "todo", "clarify"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory_schema.toml"
+
+[skills]
+bundle = "skills/"
+
+[evaluation]
+suites = ["eval/seeds.jsonl"]
+
+# All MCP connectors are OPTIONAL and MAY NOT EXIST yet. When a connector
+# is unreachable the worker degrades to dry-run: CRM records, calendar
+# slots, and billing context come from operator paste-ins / memory
+# pointers, and anything it cannot source is marked "unavailable" rather
+# than invented. No record is ever mutated and no money ever moves in
+# dry-run mode — those paths are approval-gated regardless.
+[mcp_servers]
+crm      = { transport = "stdio", command = "argo-mcp-connector-hubspot", args = [] }
+calendar = { transport = "stdio", command = "argo-mcp-connector-gcal",    args = [] }
+billing  = { transport = "stdio", command = "argo-mcp-connector-stripe",  args = [] }
+
+[escalation]
+human_approval_required = []
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+# Aria's operational targets, declared via the [[kpi]] array (the
+# [success_metrics] block is a fixed legacy schema and cannot carry
+# custom-named RevOps metrics). Thresholds: 95% CRM data quality,
+# 10 hours saved per week.
+[[kpi]]
+name        = "data_quality_target_pct"
+kind        = "percentage"
+threshold   = 95.0
+comparator  = "gte"
+gate        = "warn"
+description = "CRM data-quality target (percent of records clean — no dupes, gaps, or stale fields)."
+
+[[kpi]]
+name        = "hours_saved_weekly_target"
+kind        = "count"
+threshold   = 10.0
+comparator  = "gte"
+gate        = "warn"
+description = "Admin hours saved per week through automated hygiene, routing, and scheduling."
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "RevOps & Admin"
+
+[actions]
+
+[actions.audit_crm_hygiene]
+risk              = "low"
+requires_approval = false
+description       = "Audit the CRM for duplicates, gaps, and stale records. Auto — output is a structured audit report; no external mutation, no record is ever invented."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Audit the CRM scope `{{ payload.scope }}` for duplicates, missing-field gaps, and stale records. Emit a structured audit report citing the source pointer for EVERY flagged record. NEVER invent a record, a field value, or a count. Mark anything you cannot source as \"unavailable\". Propose fixes only — never mutate a record from this action."
+
+[actions.draft_lead_routing]
+risk              = "low"
+requires_approval = false
+description       = "Draft lead-routing rules from real criteria. Auto — output is a draft rule set; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Draft lead-routing rules for `{{ payload.criteria }}` using ONLY real, sourced criteria (territory, size, product interest). Output a draft rule set with the owner per branch. Never invent a rep, a territory, or a quota. The draft is a proposal — routing is not applied from this action."
+
+[actions.schedule_meeting]
+risk              = "medium"
+requires_approval = true
+description       = "Book a meeting slot via the calendar connector. Approval-gated — events.insert creates a real calendar event and emails an invite to the attendees (an external action that touches another human); you can delete the event afterward but cannot un-send the invite, so it is NOT autonomous-safe. The event body never carries sensitive CRM context."
+executor          = { kind = "mcp", server = "calendar", tool = "events.insert", budget_usd = 0.05 }
+platforms         = ["calendar"]
+instruction_template = "Book `{{ payload.title }}` for `{{ payload.attendees }}` — slot `{{ payload.slot_iso }}` ({{ payload.duration_minutes }} min). Approved by `{{ approved_by }}` at `{{ approved_at }}`. Never put a deal value, billing detail, or rubric note in the event body."
+
+[actions.update_crm_record]
+risk              = "medium"
+requires_approval = true
+description       = "Mutate a CRM record (merge, edit, reassign, or delete). Approval-gated — the worker proposes the change; the operator decides; nothing mutates a record autonomously."
+executor          = "human"
+platforms         = ["crm"]
+instruction_template = "Mutate CRM record `{{ payload.record_id }}` — change `{{ payload.change }}`. Approved by `{{ approved_by }}` at `{{ approved_at }}`. Cite the source for the current value. The worker NEVER mutates or deletes a record itself; this proposal stops at the operator's approval."
+
+[actions.triage_billing_question]
+risk              = "low"
+requires_approval = false
+description       = "Draft an answer to a billing question. Auto — output is a draft answer; any real money action (refund, charge, plan change) is escalated to the operator."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Draft an answer to billing question `{{ payload.question }}` using ONLY sourced billing context. Cite the source for every figure; mark anything you cannot source as \"unavailable\". Escalate ANY real money action — refund, charge, plan change — to the operator. NEVER move money or change a plan from this action."
+
+[actions.update_crm_record.retry]
+max_attempts = 1
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/revops_review.workflow.toml"]

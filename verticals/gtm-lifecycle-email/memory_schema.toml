@@ -1,0 +1,27 @@
+schema_version = "1"
+
+# Memory entries hold POINTERS, drafts, and sourced figures — never
+# secrets. Email-platform API keys, connector tokens, and raw recipient
+# records (PII) stay in their source systems (email platform / CRM /
+# analytics) and are NEVER copied into memory. Only drafts, segment
+# definitions, sourced counts, and send state live here.
+
+[[entry]]
+key = "sequences"
+type = "list-of-objects"
+purpose = "Drafted multi-step drip/win-back/onboarding sequences. Each row: sequence_id, kind (drip|win_back|onboarding|newsletter|in_product_nudge), segment, steps (list of {goal, delay, subject, body_pointer}), status (draft|scheduled_pending_approval|scheduled|paused), drafted_at."
+
+[[entry]]
+key = "email_drafts"
+type = "list-of-objects"
+purpose = "Single lifecycle email drafts. Each row: draft_id, goal, segment, subject, body_pointer, source_citations (list of source→claim for any stat/quote, or 'none'), status (draft|in_sequence|sent_pending_approval), drafted_at."
+
+[[entry]]
+key = "segments"
+type = "list-of-objects"
+purpose = "Audience segment definitions from real criteria. Each row: segment_id, label, inclusion_rules, exclusion_rules, size (sourced count or 'unavailable'), size_source (email_platform|crm|analytics|null), defined_at. Never invent a list size."
+
+[[entry]]
+key = "sends"
+type = "list-of-objects"
+purpose = "Scheduled sends + broadcasts — handed to the operator, NEVER fired by the worker. Each row: send_id, kind (sequence|broadcast), segment, recipient_count (sourced or 'unavailable'), start_iso, approved_by, requested_at, status (pending_approval|scheduled|sent|cancelled)."

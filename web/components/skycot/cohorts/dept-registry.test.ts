@@ -25,6 +25,23 @@ const PACK_MANIFEST_VERTICALS = [
   "vendor-manager",
 ] as const;
 
+// The GTM teammate verticals under verticals/gtm-*, mapped to the
+// Marketing or Growth department in the cohort taxonomy.
+const GTM_MARKETING_VERTICALS = [
+  "gtm-paid-acquisition",
+  "gtm-seo",
+  "gtm-lifecycle-email",
+  "gtm-brand-creative",
+] as const;
+
+const GTM_GROWTH_VERTICALS = [
+  "gtm-growth-lead",
+  "gtm-voice-of-customer",
+  "gtm-growth-analytics",
+  "gtm-revops-admin",
+  "gtm-customer-success",
+] as const;
+
 function makeCohort(vertical: string): CohortSummary {
   return {
     cohort_id: `${vertical}::unknown`,
@@ -60,6 +77,20 @@ describe("deptForVertical", () => {
 
   it("routes the Patrick (status-reporter) cohort to the Project & Ops tab", () => {
     expect(deptForVertical("status-reporter").id).toBe("project-ops");
+  });
+
+  it("routes the GTM marketing teammates to the Marketing tab", () => {
+    for (const v of GTM_MARKETING_VERTICALS) {
+      expect(deptForVertical(v).id, `gtm vertical "${v}" should bucket to marketing`).toBe(
+        "marketing",
+      );
+    }
+  });
+
+  it("routes the GTM growth teammates to the Growth tab", () => {
+    for (const v of GTM_GROWTH_VERTICALS) {
+      expect(deptForVertical(v).id, `gtm vertical "${v}" should bucket to growth`).toBe("growth");
+    }
   });
 
   it("is case-insensitive", () => {

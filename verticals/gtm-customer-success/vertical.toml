@@ -1,0 +1,148 @@
+schema_version = "1"
+
+[vertical]
+id          = "gtm-customer-success"
+name        = "Customer Success — Retention & Expansion (Sasha)"
+description = "Sasha runs customer success & retention for Skycot — proactive check-ins, account health scores from real usage signals, internal churn-risk flags, expansion proposals grounded in evidence, and quarterly business reviews (QBRs). Truth-bounded: never invents a usage metric and cites the signal behind every health score. Scoring, drafting, and internal flagging are autonomous; sending a customer message or offering a discount/save is approval-gated. Optional CRM/usage/email/calendar MCP connectors; degrades to dry-run when absent."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["customer-success", "gtm", "retention", "churn", "expansion", "human-gated", "demo"]
+
+[role]
+system_prompt = "system_prompt.md"
+persona       = "persona.toml"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "web_search", "memory", "todo", "clarify"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory_schema.toml"
+
+[skills]
+bundle = "skills/"
+
+[evaluation]
+suites = ["eval/seeds.jsonl"]
+
+# All MCP connectors are OPTIONAL and may not exist yet. When a connector
+# is absent the worker degrades to dry-run: health signals + account
+# records come from these connectors when wired, from operator paste-ins
+# or memory pointers otherwise. Any signal it cannot source is marked
+# "unavailable" — never invented. Customer-facing sends via the email
+# connector NEVER fire autonomously; they stop at human approval.
+[mcp_servers]
+crm      = { transport = "stdio", command = "argo-mcp-connector-hubspot",    args = [] }
+usage    = { transport = "stdio", command = "argo-mcp-connector-analytics",  args = [] }
+email    = { transport = "stdio", command = "argo-mcp-connector-gmail",      args = [] }
+calendar = { transport = "stdio", command = "argo-mcp-connector-gcal",       args = [] }
+
+# Approval gating lives on each action's `requires_approval = true`
+# (send_customer_message + offer_retention_discount). `human_approval_required`
+# here is for built-in TOOL names, not action names, so it stays empty —
+# mirroring gtm-voice-of-customer, which is also action-gated.
+[escalation]
+human_approval_required = []
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+# Sasha's customer-success targets, declared via the [[kpi]] array (the
+# fixed [success_metrics] block is a legacy schema that only accepts the
+# four release-gate fields and rejects custom-named metrics). Thresholds:
+# net revenue retention >= 110%, churn <= 5%, 4 QBRs per quarter.
+[[kpi]]
+name        = "net_revenue_retention_target_pct"
+kind        = "percentage"
+threshold   = 110.0
+comparator  = "gte"
+gate        = "warn"
+description = "Net revenue retention target (percent; expansion minus churn/contraction)."
+
+[[kpi]]
+name        = "churn_target_pct"
+kind        = "percentage"
+threshold   = 5.0
+comparator  = "lte"
+gate        = "warn"
+description = "Customer churn target (percent; lower is better)."
+
+[[kpi]]
+name        = "qbrs_quarterly_target"
+kind        = "count"
+threshold   = 4.0
+comparator  = "gte"
+gate        = "warn"
+description = "Quarterly business reviews (QBRs) completed per quarter."
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Customer Success"
+
+[actions]
+
+[actions.score_account_health]
+risk              = "low"
+requires_approval = false
+description       = "Score account health from real usage signals; cite the signals. Auto — output is a structured score; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Score the health of account `{{ payload.account_id }}` from real usage signals (login frequency, feature adoption, seat utilisation, support volume, sentiment). Cite the source for EVERY signal. Mark any signal you cannot source as \"unavailable\" — never invent a usage figure. Output a health tier (healthy|watch|at_risk) with the sourced signals behind it."
+
+[actions.draft_checkin]
+risk              = "low"
+requires_approval = false
+description       = "Draft a proactive check-in message. Auto — output is a draft; nothing is sent."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Draft a proactive check-in message for account `{{ payload.account_id }}` grounded in its sourced health signals. This is a DRAFT only — it is never sent here. Sending requires send_customer_message, which is approval-gated."
+
+[actions.flag_churn_risk]
+risk              = "low"
+requires_approval = false
+description       = "Flag an at-risk account INTERNALLY (no customer contact). Auto — internal flag only; the customer is never contacted."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Flag account `{{ payload.account_id }}` as a churn risk INTERNALLY, with the sourced signals driving the flag and a recommended save play. This is an internal flag ONLY — the customer is NEVER contacted by this action. Customer contact requires send_customer_message, which is approval-gated."
+
+[actions.propose_expansion]
+risk              = "low"
+requires_approval = false
+description       = "Draft an expansion/upsell proposal grounded in usage evidence. Auto — output is a draft proposal; nothing is sent or committed."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Draft an expansion/upsell proposal for account `{{ payload.account_id }}` grounded ONLY in sourced usage evidence (seat saturation, feature limits hit, adoption trend). Cite the evidence. This is a DRAFT only — sending it to the customer requires send_customer_message and offering any discount requires offer_retention_discount, both approval-gated."
+
+[actions.send_customer_message]
+risk              = "high"
+requires_approval = true
+description       = "Send a message to a customer — external comm. Approval-gated — the worker NEVER contacts a customer autonomously."
+executor          = "human"
+platforms         = ["email"]
+instruction_template = "Send the approved message to customer account `{{ payload.account_id }}` via `{{ payload.channel }}`. Approved by `{{ approved_by }}` at `{{ approved_at }}`. Body: `{{ payload.body }}`. The worker NEVER contacts a customer without this approval."
+
+[actions.offer_retention_discount]
+risk              = "high"
+requires_approval = true
+description       = "Offer a discount/save — money + commitment. Approval-gated — the worker NEVER commits money or pricing autonomously."
+executor          = "human"
+platforms         = ["internal"]
+instruction_template = "Offer a retention discount/save to account `{{ payload.account_id }}` — `{{ payload.discount_pct }}`% for `{{ payload.term }}`. Approved by `{{ approved_by }}` at `{{ approved_at }}`. This commits money + pricing; the worker NEVER offers a discount without this approval."
+
+[actions.send_customer_message.retry]
+max_attempts = 1
+
+[actions.offer_retention_discount.retry]
+max_attempts = 1
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/success_review.workflow.toml"]

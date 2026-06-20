@@ -1,0 +1,133 @@
+schema_version = "1"
+
+[vertical]
+id          = "gtm-lifecycle-email"
+name        = "Lifecycle & Email — Drip, Newsletter & Win-back (Lena)"
+description = "Lena is Skycot's lifecycle & email marketer — she drafts drip sequences, newsletters, in-product nudges, and win-back flows, and defines audience segments from real criteria. Drafting and segmenting are autonomous; scheduling a sequence that will SEND and sending a broadcast are mass-external sends and are ALWAYS approval-gated. Truth-bounded: never invents a list size, open rate, or quote; cites the source or marks it inferred. Optional email-platform / CRM / analytics MCP connectors; degrades to draft/dry-run when absent."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["lifecycle", "email", "marketing", "drip", "win-back", "human-gated", "demo"]
+
+[role]
+system_prompt = "system_prompt.md"
+persona       = "persona.toml"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "web_search", "memory", "todo", "clarify"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory_schema.toml"
+
+[skills]
+bundle = "skills/"
+
+[evaluation]
+suites = ["eval/seeds.jsonl"]
+
+# All MCP connectors are OPTIONAL and MAY NOT EXIST yet. When a
+# connector is absent the worker degrades to draft/dry-run: drafts and
+# segment definitions are produced as documents, list sizes / open
+# rates / segment counts come from the email platform, CRM, or analytics
+# connectors when wired and from operator paste-ins otherwise — any
+# figure it cannot source is marked "unavailable", never invented. No
+# send EVER fires without an approval, connector present or not.
+[mcp_servers]
+email_platform = { transport = "stdio", command = "argo-mcp-connector-customerio", args = [] }
+crm            = { transport = "stdio", command = "argo-mcp-connector-hubspot",     args = [] }
+analytics      = { transport = "stdio", command = "argo-mcp-connector-analytics",   args = [] }
+
+# The send gates live on the actions themselves: schedule_sequence and
+# send_broadcast each carry requires_approval = true. [escalation]
+# human_approval_required lists TOOLS (not actions), and Lena gates no
+# raw tool — drafting/segmenting tools run free, sending is gated at the
+# action layer — so this stays empty (mirrors gtm-voice-of-customer).
+[escalation]
+human_approval_required = []
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+# Lena's lifecycle targets, declared via the [[kpi]] array (the
+# [success_metrics] block is a fixed legacy schema and cannot carry
+# custom-named lifecycle metrics). Thresholds: 15% win-back reactivation
+# rate, +10% email-driven activation lift.
+[[kpi]]
+name        = "reactivation_rate_target_pct"
+kind        = "percentage"
+threshold   = 15.0
+comparator  = "gte"
+gate        = "warn"
+description = "Win-back reactivation rate target (percent of dormant users re-engaged by a win-back flow)."
+
+[[kpi]]
+name        = "email_activation_lift_pct"
+kind        = "percentage"
+threshold   = 10.0
+comparator  = "gte"
+gate        = "warn"
+description = "Email-driven activation lift target (percent uplift in activation attributable to lifecycle email)."
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Lifecycle & Email"
+
+[actions]
+
+[actions.draft_email]
+risk              = "low"
+requires_approval = false
+description       = "Draft a single lifecycle email (subject + body) on brand. Auto — output is a draft document; no send, no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Draft a single lifecycle email on brand for goal `{{ payload.goal }}`, audience `{{ payload.segment }}`. Produce a subject line + body. NEVER fabricate a stat, testimonial, or quote — cite the source or mark it inferred. This is a draft only; it is NOT sent."
+
+[actions.draft_sequence]
+risk              = "low"
+requires_approval = false
+description       = "Draft a multi-step drip/win-back sequence with timing + goals. Auto — output is a draft document; no send, no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Draft a multi-step `{{ payload.kind }}` sequence (drip|win-back|onboarding) for audience `{{ payload.segment }}`. For each step give the goal, the trigger/delay timing, and the subject + body. NEVER invent a stat or quote. This is a draft only; scheduling it to SEND is a separate, approval-gated action."
+
+[actions.segment_audience]
+risk              = "low"
+requires_approval = false
+description       = "Define an audience segment from real criteria; never invent list sizes. Auto — output is a segment definition; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Define an audience segment from the real criteria in `{{ payload.criteria }}`. State the inclusion/exclusion rules explicitly. NEVER invent a list size — report the size only from a sourced count (email platform / CRM / analytics) or mark it \"unavailable\"."
+
+[actions.schedule_sequence]
+risk              = "medium"
+requires_approval = true
+description       = "Schedule/activate a sequence that will SEND to users. Approval-gated — this turns drafts into live sends; it NEVER auto-fires."
+executor          = "human"
+platforms         = ["internal"]
+instruction_template = "Schedule/activate sequence `{{ payload.sequence_id }}` to SEND to segment `{{ payload.segment }}`, starting `{{ payload.start_iso }}`. Approved by `{{ approved_by }}` at `{{ approved_at }}`. This activates live sends to real users; the worker NEVER schedules a send without this approval."
+
+[actions.send_broadcast]
+risk              = "high"
+requires_approval = true
+description       = "Send a one-off broadcast to a segment/list — mass external send. Approval-gated — ALWAYS stops at the operator; the worker NEVER broadcasts itself."
+executor          = "human"
+platforms         = ["internal"]
+instruction_template = "Send a one-off broadcast `{{ payload.broadcast_id }}` to segment `{{ payload.segment }}` (recipient count `{{ payload.recipient_count }}` — sourced, never invented). Approved by `{{ approved_by }}` at `{{ approved_at }}`. This is a mass external send; the worker NEVER broadcasts to a list without this approval."
+
+[actions.schedule_sequence.retry]
+max_attempts = 1
+
+[actions.send_broadcast.retry]
+max_attempts = 1
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/lifecycle_review.workflow.toml"]

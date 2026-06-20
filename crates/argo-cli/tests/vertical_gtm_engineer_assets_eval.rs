@@ -197,7 +197,7 @@ fn gtm_engineer_assets_do_not_leak_into_pr_checker() {
     let leaked = [
         "define_icp.skill.md",
         "find_target_accounts.skill.md",
-        "generate_outreach.skill.md",
+        "draft_outreach.skill.md",
         "propose_gtm_skill.skill.md",
     ];
     for name in &leaked {

@@ -11,7 +11,7 @@ provenance:
 
 Call per-account after `find_target_accounts` lists candidates,
 or whenever the operator names a single company. The output
-feeds `generate_outreach` and is the source of truth for the
+feeds `draft_outreach` and is the source of truth for the
 fit-score on `memory.account_research[]`.
 
 # Inputs you expect
@@ -58,7 +58,7 @@ A single fenced JSON block:
   prevent.
 - **Abstain on personalization when evidence is weak.** When all
   you have is the company name, return `outreach_angle: null`
-  and an honest `fit_score: "low"` — `generate_outreach` will
+  and an honest `fit_score: "low"` — `draft_outreach` will
   refuse to draft from a null angle.
 - **Explain non-fits too.** A "this company is NOT a fit because
   X" is as valuable as a positive — it stops the operator from

@@ -1,0 +1,27 @@
+schema_version = "1"
+
+# Memory entries hold POINTERS and sourced figures, never secrets.
+# Connector tokens, CMS credentials, and raw analytics exports stay in
+# their source systems (Search Console / Ahrefs / blog CMS) — never
+# copied into memory. Only sourced figures + research/audit/proposal
+# state live here. Every figure carries the source it came from.
+
+[[entry]]
+key = "keyword_research"
+type = "list-of-objects"
+purpose = "Keyword research rows. Each row: keyword, search_volume (sourced value or 'unavailable'), difficulty (sourced value or 'unavailable'), intent (informational|navigational|commercial|transactional), source_per_metric (map of metric→source), researched_at."
+
+[[entry]]
+key = "content_briefs"
+type = "list-of-objects"
+purpose = "Drafted SEO content briefs. Each row: brief_id, target_keyword, title_options (list), outline (list of sections), internal_links (list), justifying_volume_source, drafted_at, status (draft|approved|published)."
+
+[[entry]]
+key = "onpage_audits"
+type = "list-of-objects"
+purpose = "On-page SEO audit results. Each row: audit_id, url, findings (list of {area, issue, fix, impact}), metrics_cited (map of metric→source or 'unavailable'), audited_at."
+
+[[entry]]
+key = "backlink_targets"
+type = "list-of-objects"
+purpose = "Proposed backlink targets — proposals only, no outreach sent by the worker. Each row: target_domain, relevance, authority_signal (sourced value or 'unavailable'), authority_source, rationale, proposed_at, status (proposed|reachable|won|declined)."

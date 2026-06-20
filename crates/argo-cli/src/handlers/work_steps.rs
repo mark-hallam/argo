@@ -41,6 +41,33 @@ pub(crate) struct StepRunOutput {
     pub outcome: work_loop::LoopOutcome,
 }
 
+/// The pair of action_types the mock emits per bound vertical:
+/// `(autonomous_safe, approval_gated)`.
+///
+/// The mock is deterministic + provider-free, so it can't ask an
+/// LLM what to emit — it picks a known pair from the bound
+/// vertical's action vocabulary. Marketplace-flavored verticals
+/// (the default) get `verify_price` (autonomous-safe, lands
+/// `pending`, declares `max_attempts = 3`) + `post_listing`
+/// (approval-gated, lands `blocked` under mock evidence).
+///
+/// The GTM Engineer has a GTM-only action vocabulary, so it gets
+/// `find_target_accounts` (autonomous-safe, also declares
+/// `max_attempts = 3` — the GTM web-research analog of
+/// verify_price) + `send_outreach` (approval-gated) — the same
+/// two-category + retry-3 shape every downstream test relies on,
+/// just with names that actually exist in the gtm-engineer
+/// manifest. `find_target_accounts` also roots the GTM chain
+/// (→ research_company → research_person → draft_outreach →
+/// send_outreach), mirroring how `verify_price` rooted the
+/// marketplace chain.
+fn mock_action_pair(vertical_id: &str) -> (&'static str, &'static str) {
+    match vertical_id {
+        "gtm-engineer" => ("find_target_accounts", "send_outreach"),
+        _ => ("verify_price", "post_listing"),
+    }
+}
+
 /// Synthetic single-step mock. Worker v2 still wants four
 /// labelled sections in the output so the artifact splitter
 /// has something to split, plus the `[STOP: TASK_COMPLETE]`
@@ -57,6 +84,7 @@ pub(crate) async fn run_mock_step(
         .append_message(session_id, MessageRole::User, &user_content)
         .await
         .map_err(|e| ArgoError::Provider(format!("append user msg: {e}")))?;
+    let (safe_action, gated_action) = mock_action_pair(vertical_id);
     let text = format!(
         "[mock] vertical={vertical_id} job={job_id_str} processed at {}\n\n\
          prompt:\n{prompt}\n\n\
@@ -66,10 +94,10 @@ pub(crate) async fn run_mock_step(
          ## listings\n_(mock: listings stub)_\n\n\
          ## approval_checklist\n- [ ] human review (mock placeholder)\n\n\
          ```action\n\
-         {{\"action_type\": \"verify_price\", \"payload\": {{\"target\": 0}}}}\n\
+         {{\"action_type\": \"{safe_action}\", \"payload\": {{\"target\": 0}}}}\n\
          ```\n\n\
          ```action\n\
-         {{\"action_type\": \"post_listing\", \"payload\": {{\"title\": \"mock\"}}}}\n\
+         {{\"action_type\": \"{gated_action}\", \"payload\": {{\"title\": \"mock\"}}}}\n\
          ```\n\n\
          [STOP: TASK_COMPLETE]\n",
         Utc::now().to_rfc3339(),

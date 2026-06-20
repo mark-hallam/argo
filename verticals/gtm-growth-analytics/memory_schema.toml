@@ -1,0 +1,26 @@
+schema_version = "1"
+
+# Memory entries hold POINTERS to source records + derived metrics, never
+# secrets. API keys, connector tokens, and raw event data stay in their
+# source systems (analytics, warehouse, experiments) — never copied into
+# memory. Only sourced figures + experiment/design state live here.
+
+[[entry]]
+key = "dashboards"
+type = "list-of-objects"
+purpose = "Compiled funnel dashboards. Each row: dashboard_id, period (e.g. 2026-W25), stages (map of stage→{value or 'unavailable', source}), overall_conversion_pct (sourced value or 'unavailable'), source_per_metric, compiled_at."
+
+[[entry]]
+key = "cohorts"
+type = "list-of-objects"
+purpose = "Cohort / retention analyses. Each row: cohort_id, cohort_window, cohort_size (sourced value or 'unavailable'), retention_curve (list of {period, retained_pct or 'unavailable'}), source, analyzed_at. No fabricated cohorts."
+
+[[entry]]
+key = "experiments"
+type = "list-of-objects"
+purpose = "Designed A/B tests. Each row: experiment_id, hypothesis, primary_metric, required_sample_size, guardrail_metrics (list), variant, traffic_pct, status (designed|pending_approval|launched|stopped), designed_at, approved_by."
+
+[[entry]]
+key = "results"
+type = "list-of-objects"
+purpose = "Interpreted experiment results. Each row: experiment_id, observed_sample, effect (value or 'unavailable'), confidence (low|medium|high), significant (bool or 'insufficient_sample'), source, interpreted_at. A significance call requires a sufficient sample — never asserted otherwise."

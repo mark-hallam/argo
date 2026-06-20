@@ -1,0 +1,133 @@
+schema_version = "1"
+
+[vertical]
+id          = "gtm-voice-of-customer"
+name        = "Voice of Customer — Research & PMF Compass (Vera)"
+description = "Vera mines every customer signal (sales notes, support tickets, surveys, usage, interviews), clusters them into evidence-cited themes, scores which segment is pulling hardest (the product–market-fit compass), and files synthesized insights into the build loop. Truth-bounded: never invents a quote or statistic; every theme cites its sources; thin evidence is marked low-confidence. Optional CRM/support/survey/analytics MCP connectors; degrades to dry-run when absent."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["voice-of-customer", "research", "pmf", "feedback", "human-gated", "demo"]
+
+[role]
+system_prompt = "system_prompt.md"
+persona       = "persona.toml"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "memory", "todo", "clarify", "web_search"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory_schema.toml"
+
+[skills]
+bundle = "skills/"
+
+[evaluation]
+suites = ["eval/seeds.jsonl"]
+
+# All MCP connectors are OPTIONAL and may not exist yet. The worker
+# degrades to dry-run when a connector is absent: feedback_corpus +
+# segment_fit are populated by these connectors when wired, by operator
+# paste-ins otherwise.
+[mcp_servers]
+crm       = { transport = "stdio", command = "argo-mcp-connector-hubspot",        args = [] }
+support   = { transport = "stdio", command = "argo-mcp-connector-support-inbox",  args = [] }
+surveys   = { transport = "stdio", command = "argo-mcp-connector-typeform",       args = [] }
+analytics = { transport = "stdio", command = "argo-mcp-connector-analytics",      args = [] }
+
+[escalation]
+human_approval_required = []
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+# Success metrics. The fixed `[success_metrics]` block only accepts the
+# four legacy release-gate fields (deflection/response/csat/audit-chain),
+# so Vera's three operator-chosen targets are declared as `[[kpi]]`
+# entries — the flexible, named KPI mechanism — instead.
+[[kpi]]
+name        = "insights_filed_weekly_target"
+kind        = "count"
+threshold   = 5.0
+comparator  = "gte"
+gate        = "warn"
+description = "Synthesized product insights filed to the build loop per week."
+
+[[kpi]]
+name        = "interviews_completed_weekly_target"
+kind        = "count"
+threshold   = 3.0
+comparator  = "gte"
+gate        = "warn"
+description = "User interviews completed per week."
+
+[[kpi]]
+name        = "segments_scored_target"
+kind        = "count"
+threshold   = 3.0
+comparator  = "gte"
+gate        = "warn"
+description = "Candidate segments scored on the PMF compass."
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Voice of Customer"
+
+[actions]
+
+[actions.synthesize_feedback]
+risk              = "low"
+requires_approval = false
+description       = "Cluster a feedback set into evidence-cited themes. Auto — output is a structured synthesis; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Cluster the supplied feedback set `{{ payload.source_set }}` into themes. Each theme MUST cite verbatim source snippets + a count. NEVER invent a quote. Mark thin themes as low-confidence."
+
+[actions.score_segment_fit]
+risk              = "low"
+requires_approval = false
+description       = "Rank candidate segments by PMF signal. Auto — output is a sourced ranking; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Rank the candidate segments by PMF signal (pull, retention, willingness-to-pay) using ONLY sourced evidence. Output a ranked table and name the single segment pulling hardest. Mark any dimension with thin evidence."
+
+[actions.draft_interview_guide]
+risk              = "low"
+requires_approval = false
+description       = "Draft a user-interview guide for a segment. Auto — output is a draft document; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Draft a `{{ payload.count }}`-question user-interview guide for segment `{{ payload.segment }}`. Non-leading, jobs-to-be-done framing."
+
+[actions.request_user_interview]
+risk              = "medium"
+requires_approval = true
+description       = "Hand an interview request to the operator. Approval-gated — the worker NEVER emails a customer directly."
+executor          = "human"
+platforms         = ["internal"]
+instruction_template = "Hand an interview request for `{{ payload.user_id }}` (segment `{{ payload.segment }}`) to the operator. Approved by `{{ approved_by }}` at `{{ approved_at }}`. The worker NEVER emails a customer directly."
+
+[actions.file_product_insight]
+risk              = "medium"
+requires_approval = true
+description       = "File a synthesized insight into the product build loop. Approval-gated — the worker proposes; the operator decides what ships."
+executor          = "human"
+instruction_template = "File a synthesized insight into the product build loop — title `{{ payload.title }}`, affected segment `{{ payload.segment }}`, sourced evidence, recommended change. Approved by `{{ approved_by }}`. The worker proposes; the operator decides what ships."
+
+[actions.request_user_interview.retry]
+max_attempts = 1
+
+[actions.file_product_insight.retry]
+max_attempts = 1
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/voc_review.workflow.toml"]

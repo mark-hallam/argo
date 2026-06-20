@@ -72,7 +72,7 @@ bundled skills:
   pain hypothesis, fit scoring.
 - **research_person** — per-role persona research:
   responsibilities, buying signals, message angles.
-- **generate_outreach** — drafts personalized outreach using
+- **draft_outreach** — drafts personalized outreach using
   verified facts and role/company research.
 - **analyze_campaign** — ingests operator-reported campaign
   outcomes; surfaces what worked, proposes next experiments.

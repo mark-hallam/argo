@@ -66,13 +66,20 @@ export const DEPARTMENTS: readonly Department[] = [
     id: "it-devex",
     label: "IT & Dev-ex",
     icon: "🔧",
-    verticals: ["it", "engineering", "devex", "infrastructure", "gtm-engineer"],
+    verticals: ["it", "engineering", "devex", "infrastructure"],
   },
   {
     id: "marketing",
     label: "Marketing",
     icon: "📣",
-    verticals: ["marketing", "marketing-intern"],
+    verticals: [
+      "marketing",
+      "marketing-intern",
+      "gtm-paid-acquisition",
+      "gtm-seo",
+      "gtm-lifecycle-email",
+      "gtm-brand-creative",
+    ],
   },
   { id: "legal", label: "Legal", icon: "⚖", verticals: ["legal", "compliance"] },
   {
@@ -85,7 +92,16 @@ export const DEPARTMENTS: readonly Department[] = [
     id: "growth",
     label: "Growth",
     icon: "📈",
-    verticals: ["gtm", "growth", "gtm-engineer"],
+    verticals: [
+      "gtm",
+      "growth",
+      "gtm-engineer",
+      "gtm-growth-lead",
+      "gtm-voice-of-customer",
+      "gtm-growth-analytics",
+      "gtm-revops-admin",
+      "gtm-customer-success",
+    ],
   },
 ];
 

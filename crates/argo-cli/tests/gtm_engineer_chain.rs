@@ -1,8 +1,29 @@
-//! Skate-selling proof chain — end-to-end integration that
-//! drives the gtm-engineer manifest chain (#772) through the
-//! actual `argo` binary, completing each step in turn and
-//! asserting the next follow-up appears in the ledger with the
-//! right classification (autonomous-safe vs. pending-approval).
+//! GTM research/draft proof chain — end-to-end integration that
+//! drives the gtm-engineer manifest chain through the actual
+//! `argo` binary, completing each step in turn and asserting the
+//! next follow-up appears in the ledger with the right
+//! classification (autonomous-safe vs. pending-approval).
+//!
+//! The vertical's action vocabulary is GTM-only (the marketplace
+//! skate-selling vocabulary from #772 was replaced). The mock
+//! worker (vertical-aware in `work_steps::run_mock_step`) emits
+//! `find_target_accounts` (autonomous-safe → lands `pending`,
+//! boots the chain; the GTM analog of the old verify_price) +
+//! `send_outreach` (approval-gated → lands `blocked` under mock
+//! evidence). Completing each autonomous-safe link auto-emits the
+//! next per the manifest's `on_complete_emit`:
+//!
+//!   find_target_accounts → research_company → research_person →
+//!   draft_outreach → send_outreach
+//!
+//! (The full manifest chain also has `define_icp →
+//! find_target_accounts` upstream; the mock boots from
+//! find_target_accounts so the chain test exercises the research
+//! → draft → gated-send arc. The define_icp link is locked in the
+//! sibling validation test.)
+//!
+//! send_outreach is approval-gated, so the final follow-up lands
+//! `pending` awaiting an explicit operator `approve`.
 //!
 //! The companion file `gtm_engineer_chain_validation.rs` holds
 //! the manifest-only assertions (chain wiring, approval-gating
@@ -143,7 +164,7 @@ fn execute_and_complete_next(home: &Path, work: &Path, action_type: &str) -> Str
 /// `argo://chain/<id>` in `evidence` (#774), so this lets the
 /// test distinguish chain-emitted rows from any other rows
 /// the mock provider produced (e.g. the mock initially emits
-/// a `post_listing` that lands `blocked` under mock evidence).
+/// a `send_outreach` that lands `blocked` under mock evidence).
 fn latest_row_evidence(home: &Path, work: &Path, action_type: &str, state: &str) -> Vec<String> {
     let list = run_argo(
         home,
@@ -179,10 +200,10 @@ fn latest_row_evidence(home: &Path, work: &Path, action_type: &str, state: &str)
 }
 
 #[test]
-fn pre_sale_chain_fires_through_the_binary() {
+fn research_draft_chain_fires_through_the_binary() {
     let (home, work) = fresh_workspace_for_chain();
 
-    // Boot the chain: the mock worker emits a verify_price
+    // Boot the chain: the mock worker emits a find_target_accounts
     // action when given any prompt. From there, every operator
     // `complete` triggers the next link in the manifest chain.
     let add = run_argo(
@@ -194,7 +215,7 @@ fn pre_sale_chain_fires_through_the_binary() {
             "--vertical",
             "gtm-engineer",
             "--prompt",
-            "verify the skate price",
+            "find target accounts and run the first GTM experiment",
             "--json",
         ],
     );
@@ -223,39 +244,51 @@ fn pre_sale_chain_fires_through_the_binary() {
         String::from_utf8_lossy(&serve.stderr)
     );
 
-    // Step 1: complete verify_price. Find the verify_price
-    // pending row, walk it through execute → complete. The
-    // chain's evidence URL points back at this verify_price.
-    let verify_id = execute_and_complete_next(home.path(), work.path(), "verify_price");
+    // Step 1: complete find_target_accounts → research_company.
+    // Find the find_target_accounts pending row, walk it through
+    // execute → complete. The chain's evidence URL points back at
+    // it. (find_target_accounts is the mock's chain root — the GTM
+    // analog of the old marketplace verify_price.)
+    let accounts_id =
+        execute_and_complete_next(home.path(), work.path(), "find_target_accounts");
+    let company_evidence =
+        latest_row_evidence(home.path(), work.path(), "research_company", "pending");
+    assert!(
+        company_evidence.contains(&format!("argo://chain/{accounts_id}")),
+        "research_company follow-up must reference find_target_accounts `{accounts_id}` in \
+         evidence; got: {company_evidence:?}"
+    );
+
+    // Step 2: complete research_company → research_person.
+    let company_id = execute_and_complete_next(home.path(), work.path(), "research_company");
+    let person_evidence =
+        latest_row_evidence(home.path(), work.path(), "research_person", "pending");
+    assert!(
+        person_evidence.contains(&format!("argo://chain/{company_id}")),
+        "research_person follow-up must reference research_company `{company_id}`"
+    );
+
+    // Step 3: complete research_person → draft_outreach.
+    let person_id = execute_and_complete_next(home.path(), work.path(), "research_person");
     let draft_evidence =
-        latest_row_evidence(home.path(), work.path(), "create_listing_draft", "pending");
+        latest_row_evidence(home.path(), work.path(), "draft_outreach", "pending");
     assert!(
-        draft_evidence.contains(&format!("argo://chain/{verify_id}")),
-        "create_listing_draft follow-up must reference verify_price `{verify_id}` in evidence; \
-         got: {draft_evidence:?}"
+        draft_evidence.contains(&format!("argo://chain/{person_id}")),
+        "draft_outreach follow-up must reference research_person `{person_id}`"
     );
 
-    // Step 2: complete create_listing_draft → request_photos.
-    let draft_id = execute_and_complete_next(home.path(), work.path(), "create_listing_draft");
-    let photos_evidence =
-        latest_row_evidence(home.path(), work.path(), "request_photos", "pending");
-    assert!(
-        photos_evidence.contains(&format!("argo://chain/{draft_id}")),
-        "request_photos follow-up must reference create_listing_draft `{draft_id}`"
-    );
-
-    // Step 3: complete request_photos → post_listing.
-    // post_listing is approval-gated — the follow-up must land
+    // Step 4: complete draft_outreach → send_outreach.
+    // send_outreach is approval-gated — the follow-up must land
     // `pending` awaiting an explicit operator `approve`. Note
     // the mock provider may have separately emitted a `blocked`
-    // post_listing earlier (evidence-insufficient under mock);
+    // send_outreach earlier (evidence-insufficient under mock);
     // the chain's row is the one with `state=pending` AND
-    // evidence pointing back at request_photos.
-    let photos_id = execute_and_complete_next(home.path(), work.path(), "request_photos");
-    let post_evidence = latest_row_evidence(home.path(), work.path(), "post_listing", "pending");
+    // evidence pointing back at draft_outreach.
+    let draft_id = execute_and_complete_next(home.path(), work.path(), "draft_outreach");
+    let send_evidence = latest_row_evidence(home.path(), work.path(), "send_outreach", "pending");
     assert!(
-        post_evidence.contains(&format!("argo://chain/{photos_id}")),
-        "post_listing chain row must reference request_photos `{photos_id}`; got: {post_evidence:?}"
+        send_evidence.contains(&format!("argo://chain/{draft_id}")),
+        "send_outreach chain row must reference draft_outreach `{draft_id}`; got: {send_evidence:?}"
     );
     let list = run_argo(
         home.path(),
@@ -269,23 +302,29 @@ fn pre_sale_chain_fires_through_the_binary() {
             "--vertical",
             "gtm-engineer",
             "--action-type",
-            "post_listing",
+            "send_outreach",
             "--json",
         ],
     );
     let stdout = String::from_utf8(list.stdout).expect("utf8");
     let row: Value =
-        serde_json::from_str(stdout.lines().next().expect("post_listing row")).unwrap();
+        serde_json::from_str(stdout.lines().next().expect("send_outreach row")).unwrap();
     assert_eq!(
         row["requires_approval"].as_bool(),
         Some(true),
-        "post_listing follow-up must preserve approval gate"
+        "send_outreach follow-up must preserve approval gate"
     );
 
-    // Step 4: NO boost_listing should have appeared anywhere
-    // in the ledger across the entire chain. Locks the "no
-    // auto-spend" contract end-to-end.
-    let boost_list = run_argo(
+    // Step 5: send_outreach is TERMINAL — completing it must NOT
+    // auto-emit any follow-up send. We can't `complete` the
+    // approval-gated row without approving it first, but the
+    // manifest contract (locked in the sibling validation test)
+    // guarantees send_outreach.on_complete_emit is empty. Here we
+    // assert the runtime never produced any SECOND-generation
+    // chain row beyond send_outreach: there must be exactly one
+    // chain-pending send_outreach and nothing chained off it.
+    // (The "no auto follow-up" contract end-to-end.)
+    let send_pending = run_argo(
         home.path(),
         work.path(),
         &[
@@ -293,21 +332,22 @@ fn pre_sale_chain_fires_through_the_binary() {
             "actions",
             "list",
             "--state",
-            "all",
+            "pending",
             "--vertical",
             "gtm-engineer",
             "--action-type",
-            "boost_listing",
+            "send_outreach",
             "--json",
         ],
     );
-    let boost_stdout = String::from_utf8(boost_list.stdout).expect("utf8");
-    let boost_rows: Vec<&str> = boost_stdout
+    let send_stdout = String::from_utf8(send_pending.stdout).expect("utf8");
+    let send_rows: Vec<&str> = send_stdout
         .lines()
         .filter(|l| !l.trim().is_empty())
         .collect();
-    assert!(
-        boost_rows.is_empty(),
-        "boost_listing must NOT auto-emit anywhere in the chain; got rows: {boost_rows:?}"
+    assert_eq!(
+        send_rows.len(),
+        1,
+        "exactly one pending send_outreach chain row expected (no auto re-send); got: {send_rows:?}"
     );
 }

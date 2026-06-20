@@ -32,9 +32,9 @@ pub fn run_argo(home: &Path, work: &Path, args: &[&str]) -> std::process::Output
 
 /// Bootstrap a fresh workspace + ARGO_HOME, run a one-step
 /// mock-mode `gtm-engineer` worker so two actions land in the
-/// ledger:
-///   - `verify_price` → state = `pending` (autonomous-safe)
-///   - `post_listing` → state = `blocked` (gated, evidence
+/// ledger (the vertical-aware mock emits GTM actions):
+///   - `define_icp`     → state = `pending` (autonomous-safe)
+///   - `send_outreach`  → state = `blocked` (gated, evidence
 ///     insufficient under mock)
 pub fn fresh_workspace_with_actions() -> (tempfile::TempDir, tempfile::TempDir) {
     let home = tempfile::tempdir().expect("home tempdir");

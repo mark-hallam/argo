@@ -393,8 +393,9 @@ fn build_emission_for_undeclared_action_lands_blocked_with_reason() {
 /// Locks that the production gtm-engineer manifest (the one
 /// the worker actually loads) declares the autonomous-safe
 /// action types correctly. A regression here would let the
-/// worker accidentally require approval for `verify_price` —
-/// or, worse, autonomously fire `post_listing`.
+/// worker accidentally require approval for a research step —
+/// or, worse, autonomously fire `send_outreach` (the one
+/// external-mutation action that touches a human).
 #[test]
 fn gtm_engineer_manifest_declares_expected_action_classification() {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -408,33 +409,39 @@ fn gtm_engineer_manifest_declares_expected_action_classification() {
     let v = registry.get("gtm-engineer").expect("gtm-engineer present");
     let manifest = &v.manifest;
 
-    // Autonomous-safe set:
-    for safe in ["create_listing_draft", "verify_price", "request_photos"] {
+    // Autonomous-safe set — the 8 GTM research / draft / analysis
+    // steps are draft-only artifacts (no external mutation):
+    for safe in [
+        "define_icp",
+        "find_target_accounts",
+        "research_company",
+        "research_person",
+        "draft_outreach",
+        "analyze_campaign",
+        "detect_gtm_pattern",
+        "propose_gtm_skill",
+    ] {
         assert_eq!(
             classify_for_emission(manifest, safe),
             ApprovalCategory::SafeAutonomous,
             "{safe} must be SafeAutonomous in the production gtm-engineer manifest"
         );
     }
-    // Approval-gated set (the one that touches money / public surfaces / buyers):
-    for gated in [
-        "post_listing",
-        "boost_listing",
-        "reply_to_buyer",
-        "follow_up_buyer",
-        "mark_item_sold",
-        "update_price",
-        "relist_item",
-    ] {
+    // Approval-gated set — the one action that sends externally /
+    // touches another human:
+    let gated = "send_outreach";
+    assert_eq!(
+        classify_for_emission(manifest, gated),
+        ApprovalCategory::Approval,
+        "{gated} must be Approval-gated in the production gtm-engineer manifest"
+    );
+    // Anything not declared is forbidden — including the old
+    // marketplace action names, now removed from this vertical:
+    for forbidden in ["post_to_tiktok", "post_listing", "verify_price"] {
         assert_eq!(
-            classify_for_emission(manifest, gated),
-            ApprovalCategory::Approval,
-            "{gated} must be Approval-gated in the production gtm-engineer manifest"
+            classify_for_emission(manifest, forbidden),
+            ApprovalCategory::Forbidden,
+            "{forbidden} must be Forbidden (undeclared) in the GTM-only manifest"
         );
     }
-    // Anything not declared is forbidden:
-    assert_eq!(
-        classify_for_emission(manifest, "post_to_tiktok"),
-        ApprovalCategory::Forbidden,
-    );
 }

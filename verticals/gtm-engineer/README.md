@@ -14,7 +14,7 @@ propose-skill → review → reuse loop.
 | Identify target accounts that match the ICP | `find_target_accounts` |
 | Research a single company for GTM relevance | `research_company` |
 | Research a person or buying role | `research_person` |
-| Draft personalized outreach (drafts only — no sending) | `generate_outreach` |
+| Draft personalized outreach (drafts only — no sending) | `draft_outreach` |
 | Analyze campaign outcomes + extract winning/failing patterns | `analyze_campaign` |
 | Detect repeatable GTM patterns from accumulated evidence | `detect_gtm_pattern` |
 | Propose reusable learned skills (always pending review) | `propose_gtm_skill` |
@@ -104,7 +104,7 @@ The GTM Engineer should produce:
 2. **Target-account criteria** (via `find_target_accounts`) — a
    ranked, evidence-backed list (not a dump).
 3. **Research plan** — what to verify before drafting.
-4. **Draft outreach angles** (via `generate_outreach`) — with
+4. **Draft outreach angles** (via `draft_outreach`) — with
    personalization rationale per line.
 5. **Risks + assumptions** — explicitly labelled.
 6. **Suggested next experiments** — the hypotheses worth testing.
@@ -212,7 +212,7 @@ verticals/gtm-engineer/
 │   ├── find_target_accounts.skill.md
 │   ├── research_company.skill.md
 │   ├── research_person.skill.md
-│   ├── generate_outreach.skill.md
+│   ├── draft_outreach.skill.md
 │   ├── analyze_campaign.skill.md
 │   ├── detect_gtm_pattern.skill.md
 │   └── propose_gtm_skill.skill.md

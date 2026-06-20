@@ -3,12 +3,12 @@
 //! not the stale pre-completion snapshot. Pre-#778 the
 //! emitter saw `result: None`, so `--result-json` keys never
 //! reached the next chain link's payload — the proof-run
-//! `post_listing` template rendered a blank `{{ payload.price }}`.
+//! `send_outreach` template rendered a blank `{{ payload.message }}`.
 //!
 //! Drives the full path through the binary: queue a job, run
-//! the mock worker once to emit verify_price, then complete
+//! the mock worker once to emit find_target_accounts, then complete
 //! it WITH a result-json containing a marker key. Asserts that
-//! the chain-emitted `create_listing_draft` carries the marker
+//! the chain-emitted `research_company` carries the marker
 //! in its payload.
 
 mod common;
@@ -81,9 +81,9 @@ fn complete_result_keys_propagate_into_next_chain_link_payload() {
     );
     assert!(serve.status.success());
 
-    // Complete verify_price WITH a result-json. The chain
-    // should emit create_listing_draft with payload carrying
-    // both the verify_price source payload AND the operator's
+    // Complete find_target_accounts WITH a result-json. The chain
+    // should emit research_company with payload carrying
+    // both the find_target_accounts source payload AND the operator's
     // result keys.
     let list = run_argo(
         home.path(),
@@ -97,14 +97,14 @@ fn complete_result_keys_propagate_into_next_chain_link_payload() {
             "--vertical",
             "gtm-engineer",
             "--action-type",
-            "verify_price",
+            "find_target_accounts",
             "--json",
         ],
     );
     assert!(list.status.success());
     let stdout = String::from_utf8(list.stdout).expect("utf8");
     let row: Value =
-        serde_json::from_str(stdout.lines().next().expect("verify_price row")).expect("json row");
+        serde_json::from_str(stdout.lines().next().expect("find_target_accounts row")).expect("json row");
     let verify_id = row["action_id"].as_str().expect("action_id").to_string();
 
     // execute → complete with marker keys in result-json
@@ -129,7 +129,7 @@ fn complete_result_keys_propagate_into_next_chain_link_payload() {
             "--note",
             "operator accepts proposal",
             "--result-json",
-            r#"{"accepted_price_aud": 549, "verdict": "accepted"}"#,
+            r#"{"accounts_found": 5, "verdict": "accepted"}"#,
             "--json",
         ],
     );
@@ -139,7 +139,7 @@ fn complete_result_keys_propagate_into_next_chain_link_payload() {
         String::from_utf8_lossy(&complete.stderr)
     );
 
-    // Find the chain-emitted create_listing_draft and assert
+    // Find the chain-emitted research_company and assert
     // both result-keys are visible in its payload.
     let draft_list = run_argo(
         home.path(),
@@ -153,7 +153,7 @@ fn complete_result_keys_propagate_into_next_chain_link_payload() {
             "--vertical",
             "gtm-engineer",
             "--action-type",
-            "create_listing_draft",
+            "research_company",
             "--json",
         ],
     );
@@ -164,8 +164,8 @@ fn complete_result_keys_propagate_into_next_chain_link_payload() {
 
     let payload = &draft_row["payload"];
     assert_eq!(
-        payload["accepted_price_aud"], 549,
-        "result-key from verify_price.complete must propagate into create_listing_draft.payload — \
+        payload["accounts_found"], 5,
+        "result-key from find_target_accounts.complete must propagate into research_company.payload — \
          pre-#778 the chain emitter saw the pre-completion snapshot and silently dropped result keys"
     );
     assert_eq!(

@@ -102,11 +102,11 @@ fn retry_emits_new_pending_action_referencing_failed_one() {
     let rows = list_actions(home.path(), work.path());
     let verify = rows
         .iter()
-        .find(|r| r["action_type"] == "verify_price")
-        .expect("verify_price row");
+        .find(|r| r["action_type"] == "find_target_accounts")
+        .expect("find_target_accounts row");
     let id = verify["action_id"].as_str().expect("action_id");
 
-    // Walk verify_price into failed: pending → executing → failed.
+    // Walk find_target_accounts into failed: pending → executing → failed.
     let _ = run_argo(
         home.path(),
         work.path(),
@@ -135,7 +135,7 @@ fn retry_emits_new_pending_action_referencing_failed_one() {
     assert!(!bogus.status.success());
     assert!(String::from_utf8_lossy(&bogus.stderr).contains("missing"));
 
-    // Retry the failed verify_price action.
+    // Retry the failed find_target_accounts action.
     let retry = run_argo(
         home.path(),
         work.path(),
@@ -153,7 +153,7 @@ fn retry_emits_new_pending_action_referencing_failed_one() {
         .expect("new action_id");
     assert_ne!(new_id, id);
     assert_eq!(v["new_action"]["state"], "pending");
-    assert_eq!(v["new_action"]["action_type"], "verify_price");
+    assert_eq!(v["new_action"]["action_type"], "find_target_accounts");
     let evidence = v["new_action"]["evidence"]
         .as_array()
         .expect("evidence array");
@@ -169,15 +169,15 @@ fn retry_emits_new_pending_action_referencing_failed_one() {
     assert!(
         rows_after.iter().any(|r| r["action_id"] == new_id
             && r["state"] == "pending"
-            && r["action_type"] == "verify_price"),
+            && r["action_type"] == "find_target_accounts"),
         "new pending row missing from ledger; got: {rows_after:?}"
     );
 
     // Retry on a non-failed (currently pending) action must refuse.
     let pl = rows_after
         .iter()
-        .find(|r| r["action_type"] == "post_listing")
-        .expect("post_listing row");
+        .find(|r| r["action_type"] == "send_outreach")
+        .expect("send_outreach row");
     let pl_id = pl["action_id"].as_str().expect("post_id");
     let non_failed = run_argo(
         home.path(),
@@ -191,8 +191,8 @@ fn retry_emits_new_pending_action_referencing_failed_one() {
     assert!(String::from_utf8_lossy(&non_failed.stderr).contains("not 'failed'"));
 }
 
-/// gtm-engineer's `verify_price` declares `max_attempts = 3`
-/// (#755). Walk a verify_price action through the full retry
+/// gtm-engineer's `find_target_accounts` declares `max_attempts = 3`
+/// (#755). Walk a find_target_accounts action through the full retry
 /// budget, verify the limit holds, and verify `--force`
 /// overrides — each behaviour locked end-to-end through the
 /// binary.
@@ -223,12 +223,12 @@ fn retry_enforces_max_attempts_and_force_overrides() {
         );
     };
 
-    // Original verify_price (attempt #1).
+    // Original find_target_accounts (attempt #1).
     let rows = list_actions(home.path(), work.path());
     let verify = rows
         .iter()
-        .find(|r| r["action_type"] == "verify_price")
-        .expect("verify_price row");
+        .find(|r| r["action_type"] == "find_target_accounts")
+        .expect("find_target_accounts row");
     let id1 = verify["action_id"].as_str().expect("action_id").to_string();
     walk_to_failed(&id1);
 
@@ -325,8 +325,8 @@ fn show_json_carries_retry_attempt_and_max_attempts() {
     let rows = list_actions(home.path(), work.path());
     let verify = rows
         .iter()
-        .find(|r| r["action_type"] == "verify_price")
-        .expect("verify_price row");
+        .find(|r| r["action_type"] == "find_target_accounts")
+        .expect("find_target_accounts row");
     let id = verify["action_id"].as_str().expect("action_id");
 
     let show = run_argo(
@@ -336,7 +336,7 @@ fn show_json_carries_retry_attempt_and_max_attempts() {
     );
     assert!(show.status.success());
     let v: Value = serde_json::from_slice(&show.stdout).expect("json");
-    // Original action: attempt 1 of 3 (verify_price's manifest cap).
+    // Original action: attempt 1 of 3 (find_target_accounts's manifest cap).
     assert_eq!(v["retry_attempt"], 1);
     assert_eq!(v["retry_max_attempts"], 3);
 }

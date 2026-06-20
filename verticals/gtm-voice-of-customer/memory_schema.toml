@@ -1,0 +1,32 @@
+schema_version = "1"
+
+# Memory entries hold POINTERS to source records + derived scores, not
+# the records themselves. Raw feedback text, customer PII, and connector
+# secrets stay in the source system (CRM / support inbox / survey tool /
+# analytics) — never copied into memory. Verbatim quotes live in the
+# audit log behind their source pointer, not in memory.
+
+[[entry]]
+key = "feedback_corpus"
+type = "list-of-objects"
+purpose = "Pointers to ingested customer-signal records. Each row: source_id, channel (sales_note|support_ticket|survey|usage|interview), segment, source_pointer, ingested_at, redaction_status (raw|pii_minimised)."
+
+[[entry]]
+key = "themes"
+type = "list-of-objects"
+purpose = "Synthesized, evidence-cited themes. Each row: theme_id, label, segment, evidence_count, confidence (low|medium|high), source_pointers (list), synthesized_at. Verbatim snippets stay in the audit log, not here."
+
+[[entry]]
+key = "segment_fit"
+type = "list-of-objects"
+purpose = "PMF-compass scores per segment. Each row: segment, pull_score, retention_score, willingness_to_pay_score, rank, hardest_pulling (bool), confidence (low|medium|high), scored_at. Scores derived only from sourced evidence."
+
+[[entry]]
+key = "insights"
+type = "list-of-objects"
+purpose = "Proposed product insights — handed to the operator, NOT shipped by the worker. Each row: insight_id, title, segment, recommended_change (one-line), source_pointers (list), proposed_at, approved_by, status (proposed|accepted|declined|deferred)."
+
+[[entry]]
+key = "interviews"
+type = "list-of-objects"
+purpose = "Interview state — requests handed to the operator, NOT sent by the worker. Each row: user_id, segment, guide_pointer, status (requested|approved|completed|declined|no_show), requested_at, approved_by, notes_pointer."

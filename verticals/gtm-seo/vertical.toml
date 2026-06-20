@@ -1,0 +1,128 @@
+schema_version = "1"
+
+[vertical]
+id          = "gtm-seo"
+name        = "SEO & Organic — Search Strategist (Seth)"
+description = "Seth runs Skycot's SEO and organic search program — keyword research (volume, difficulty, intent), SEO content briefs, on-page audits, and realistic backlink targets. Research and drafts are autonomous; publishing a page to the live site is a public-surface action and is approval-gated. Truth-bounded: never invents a traffic number or ranking; cites a source for every figure; thin evidence stays low-confidence; unknown metrics are marked unavailable. Optional Search Console / Ahrefs / blog-CMS MCP connectors; degrades to dry-run when absent."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["seo", "organic", "gtm", "content", "human-gated", "demo"]
+
+[role]
+system_prompt = "system_prompt.md"
+persona       = "persona.toml"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "web_search", "web_extract", "memory", "todo", "clarify"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory_schema.toml"
+
+[skills]
+bundle = "skills/"
+
+[evaluation]
+suites = ["eval/seeds.jsonl"]
+
+# All MCP connectors are OPTIONAL and may not exist yet. When a connector
+# is absent the worker degrades to dry-run: search volumes, difficulty,
+# rankings, and traffic come from operator paste-ins / memory pointers,
+# and every figure it cannot source is marked "unavailable" — never
+# invented. blog_cms is only ever reached behind the approval-gated
+# publish_seo_page action.
+[mcp_servers]
+search_console = { transport = "stdio", command = "argo-mcp-connector-search-console", args = [] }
+ahrefs         = { transport = "stdio", command = "argo-mcp-connector-ahrefs",          args = [] }
+blog_cms       = { transport = "stdio", command = "argo-mcp-connector-blog-cms",         args = [] }
+
+# [escalation].human_approval_required lists built-in TOOLS to gate, not
+# actions — publish_seo_page is already approval-gated via its own
+# requires_approval=true, so this stays empty (matches the spec and avoids
+# a dead-code lint warning).
+[escalation]
+human_approval_required = []
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+# Seth's organic-search targets, declared via the [[kpi]] array (the
+# [success_metrics] block is a fixed legacy schema and cannot carry
+# custom-named SEO metrics). Thresholds: 20% organic-traffic growth,
+# 10 target keywords ranking in the top 10.
+[[kpi]]
+name        = "organic_traffic_growth_pct"
+kind        = "percentage"
+threshold   = 20
+comparator  = "gte"
+gate        = "warn"
+description = "Organic-traffic growth target (percent, period over period)."
+
+[[kpi]]
+name        = "target_rankings_top10"
+kind        = "count"
+threshold   = 10
+comparator  = "gte"
+gate        = "warn"
+description = "Target keywords ranking in the top 10 of search results."
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "SEO & Organic"
+
+[actions]
+
+[actions.research_keywords]
+risk              = "low"
+requires_approval = false
+description       = "Keyword research — volume, difficulty, intent. Auto — output is a sourced research table; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Research keywords for `{{ payload.topic }}`. For EACH keyword report search volume, difficulty, and search intent, and CITE the source (Search Console / Ahrefs / operator paste-in) for every figure. Mark any figure you cannot source as \"unavailable\". Never invent a volume or difficulty number."
+
+[actions.draft_content_brief]
+risk              = "low"
+requires_approval = false
+description       = "Draft an SEO content brief — target keyword, outline, internal links. Auto — output is a draft document; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Draft an SEO content brief for target keyword `{{ payload.keyword }}`: title options, a section-by-section outline, suggested internal links, and the search intent it serves. Cite the sourced volume/difficulty figure that justifies the target; do not pad — a thin brief is worse than none."
+
+[actions.audit_onpage]
+risk              = "low"
+requires_approval = false
+description       = "On-page SEO audit of a URL with concrete fixes. Auto — output is a structured audit; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Run an on-page SEO audit of `{{ payload.url }}` — title, meta, headings, internal links, content depth, schema. List concrete fixes ranked by impact. Cite any metric you reference; mark anything you cannot fetch as \"unavailable\"."
+
+[actions.propose_backlink_targets]
+risk              = "low"
+requires_approval = false
+description       = "Propose realistic backlink targets with rationale. Auto — output is a sourced proposal; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Propose realistic backlink targets for `{{ payload.topic }}` — each with relevance, an authority signal (cite the source), and a rationale for why it is reachable. No outreach is sent here; this is a proposal only. Mark any authority figure you cannot source as \"unavailable\"."
+
+[actions.publish_seo_page]
+risk              = "medium"
+requires_approval = true
+description       = "Publish an SEO page to the live site — public surface. ALWAYS approval-gated; the worker NEVER publishes autonomously."
+executor          = "human"
+platforms         = ["internal"]
+instruction_template = "Publish the SEO page `{{ payload.page_title }}` (target keyword `{{ payload.keyword }}`) to the live site via the blog CMS. Approved by `{{ approved_by }}` at `{{ approved_at }}`. This is a public-surface action — the worker NEVER publishes without explicit approval."
+
+[actions.publish_seo_page.retry]
+max_attempts = 1
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/seo_review.workflow.toml"]

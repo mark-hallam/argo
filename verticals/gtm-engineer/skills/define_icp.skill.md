@@ -13,7 +13,7 @@ Call this skill **first** when the operator asks "who should we
 sell to" or supplies fresh constraints (a new product launch,
 geographic pivot, vertical entry). Output becomes the source of
 truth for `find_target_accounts`, `research_company`, and
-`generate_outreach`.
+`draft_outreach`.
 
 # Inputs you expect
 

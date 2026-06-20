@@ -1,0 +1,26 @@
+schema_version = "1"
+
+# Memory entries hold POINTERS to source records + derived scores, never
+# secrets. Connector tokens, raw customer records, and PII stay in their
+# source systems (CRM / usage analytics / email / calendar) — never
+# copied into memory. Only sourced signals + derived state live here.
+
+[[entry]]
+key = "account_health"
+type = "list-of-objects"
+purpose = "Health scores per account. Each row: account_id, scored_at, health_tier (healthy|watch|at_risk), signals (map of signal→sourced value or 'unavailable'), source_per_signal (map of signal→source), confidence (low|medium|high). Every signal is sourced or 'unavailable' — never invented."
+
+[[entry]]
+key = "checkins"
+type = "list-of-objects"
+purpose = "Proactive check-in drafts — drafted here, NOT sent by the worker. Each row: checkin_id, account_id, drafted_at, body_pointer, trigger_signal, status (drafted|approved_to_send|sent|declined). Sending requires send_customer_message approval; the worker never sends here."
+
+[[entry]]
+key = "churn_flags"
+type = "list-of-objects"
+purpose = "INTERNAL churn-risk flags — the customer is NEVER contacted by a flag. Each row: flag_id, account_id, flagged_at, severity (watch|at_risk), driving_signals (list, each sourced), recommended_save_play, status (open|mitigating|saved|churned). Internal-only; contact requires send_customer_message approval."
+
+[[entry]]
+key = "expansion_proposals"
+type = "list-of-objects"
+purpose = "Expansion/upsell proposals — drafted here, NOT committed by the worker. Each row: proposal_id, account_id, proposed_at, expansion_type (seats|tier|add_on), evidence_pointers (list, each sourced), estimated_uplift_usd, status (drafted|approved|sent|won|declined). Sending requires send_customer_message and any discount requires offer_retention_discount — both approval-gated."
