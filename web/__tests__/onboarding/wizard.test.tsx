@@ -129,9 +129,11 @@ describe("Connect-provider step", () => {
     expect(screen.queryByText(/OpenAI/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Bedrock/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Vertex/i)).not.toBeInTheDocument();
-    expect(screen.getByTestId("onboarding-provider-skip-warning")).toHaveTextContent(
-      /Skipping uses a mock provider/i,
-    );
+    // Managed keys is the non-demo primary escape; the mock-provider skip +
+    // its warning are DEMO-ONLY now, so a real user never gets a simulated
+    // teammate (Item-1 managed-keys default, operator 2026-06-19).
+    expect(screen.getByTestId("onboarding-provider-use-managed")).toBeInTheDocument();
+    expect(screen.queryByTestId("onboarding-provider-skip-warning")).toBeNull();
   });
 
   it("rejects keys that don't start with sk-ant-", async () => {
@@ -144,12 +146,14 @@ describe("Connect-provider step", () => {
     );
   });
 
-  it("skip-for-now advances without calling the gateway", async () => {
+  it("managed-keys advances without calling the gateway", async () => {
     const user = userEvent.setup();
     render(wrap(<ConnectProviderPage />));
-    await user.click(screen.getByTestId("onboarding-provider-skip"));
+    await user.click(screen.getByTestId("onboarding-provider-use-managed"));
     expect(pushMock).toHaveBeenCalledWith("/onboarding/pick-vertical");
-    expect(useOnboardingDraft.getState().providerSkipped).toBe(true);
+    // Managed keys = configured on the platform key, NOT skipped/mock.
+    expect(useOnboardingDraft.getState().providerKeyConfigured).toBe(true);
+    expect(useOnboardingDraft.getState().providerSkipped).toBe(false);
   });
 
   it("validates a real key and advances", async () => {

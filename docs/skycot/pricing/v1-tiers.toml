@@ -32,7 +32,7 @@ max_actions_per_month = 5000
 # point, which refuses further spending actions once period-to-date spend
 # reaches the cap (the DEC-053 "stop, don't surprise" invariant).
 included_actions        = 1500
-overage_multiplier      = 1.4
+overage_multiplier      = 1.10
 default_monthly_cap_usd = 200
 features = [
     "provider_real_keys",

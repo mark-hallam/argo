@@ -1,13 +1,14 @@
 /**
- * Acceptance test for
- * `fix-onboarding-connect-provider-skip-button-equal-weight-to-continue`.
+ * CTA hierarchy on /onboarding/connect-provider.
  *
- * Pins the CTA hierarchy on /onboarding/connect-provider so that the
- * "Validate & continue" button always renders as the filled primary
- * (`ob-cta`) and "Skip for now" always renders as the outline-ghost
- * (`ob-cta-ghost`) — even after a validation error whose previous
- * recovery hint preferred skipping. Closes onboarding F09 (UX e2e
- * audit 2026-05-28-0252).
+ * Updated for Item-1 managed-keys default (operator 2026-06-19): the
+ * NON-DEMO default now offers "Use Skycot managed keys" as the primary
+ * escape (no API key, real responses) — the mock-provider "Skip for now"
+ * + its warning are gated to DEMO mode only, so a real user can never be
+ * dropped onto a simulated teammate. The original skip-vs-continue
+ * hierarchy assertion (fix-onboarding-connect-provider-skip-button-
+ * equal-weight-to-continue, onboarding F09) is preserved but re-scoped to
+ * the demo path, where the skip button still exists.
  */
 
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -21,9 +22,6 @@ const routerMock = vi.hoisted(() => ({
 
 const draftMock = vi.hoisted(() => {
   const state = {
-    // #2660 added a `hasHydrated` gate to the page: it renders the
-    // WizardSkeleton until the persisted draft store rehydrates. The
-    // mock must report hydrated so the form (and its CTA row) renders.
     hasHydrated: true,
     setStep: vi.fn(),
     setProvider: vi.fn(),
@@ -44,9 +42,6 @@ const demoModeMock = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => routerMock,
-  // #2655 wired `usePathname` into WizardEditorialShell (scroll-reset
-  // on route change); the onboarding shell now renders it, so the
-  // mock must supply it or the shell throws.
   usePathname: () => "/onboarding/connect-provider",
 }));
 
@@ -89,19 +84,23 @@ describe("onboarding connect-provider — CTA hierarchy", () => {
     vi.clearAllMocks();
   });
 
-  it("renders Continue as the filled primary and Skip as the ghost in the default state", () => {
+  it("non-demo: offers managed keys as the primary escape, with NO mock-provider skip", () => {
     render(<OnboardingConnectProviderPage />);
 
-    const submit = screen.getByTestId("onboarding-provider-submit");
-    const skip = screen.getByTestId("onboarding-provider-skip");
+    // Managed keys is the recommended one-click primary CTA.
+    const managed = screen.getByTestId("onboarding-provider-use-managed");
+    expect(managed.className).toContain("ob-cta");
+    expect(managed.className).not.toContain("ob-cta-ghost");
 
-    expect(submit.className).toContain("ob-cta");
-    expect(submit.className).not.toContain("ob-cta-ghost");
-    expect(skip.className).toContain("ob-cta-ghost");
-    expect(skip.className).not.toMatch(/(^|\s)ob-cta(\s|$)/);
+    // The BYOK "Validate & continue" submit is still present (secondary path).
+    expect(screen.getByTestId("onboarding-provider-submit")).toBeInTheDocument();
+
+    // A real user must NOT be offered the mock-provider skip or its warning.
+    expect(screen.queryByTestId("onboarding-provider-skip")).toBeNull();
+    expect(screen.queryByTestId("onboarding-provider-skip-warning")).toBeNull();
   });
 
-  it("keeps Continue as the primary CTA even when validation fails with a preferSkip-coded error", async () => {
+  it("non-demo: the BYOK submit stays the filled primary even after a preferSkip-coded error", async () => {
     providerKeyMock.mutateAsync.mockRejectedValueOnce(
       new apiClientMock.ApiError(500, "anything", "provider_validation_unconfigured"),
     );
@@ -110,28 +109,30 @@ describe("onboarding connect-provider — CTA hierarchy", () => {
 
     const input = screen.getByTestId("provider-key") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "sk-ant-abc123" } });
-    const form = screen.getByTestId("onboarding-connect-provider-form");
-    fireEvent.submit(form);
-
-    // Wait for the rejection + state update to flush.
+    fireEvent.submit(screen.getByTestId("onboarding-connect-provider-form"));
     await screen.findByTestId("onboarding-provider-error");
 
     const submit = screen.getByTestId("onboarding-provider-submit");
-    const skip = screen.getByTestId("onboarding-provider-skip");
+    expect(submit.className).toContain("ob-cta");
+    expect(submit.className).not.toContain("ob-cta-ghost");
+    // Still no mock-skip in non-demo even when an error hint preferred it.
+    expect(screen.queryByTestId("onboarding-provider-skip")).toBeNull();
+  });
 
-    // The CTA hierarchy must NOT invert when the error suggested skipping.
+  it("demo: keeps Skip as the ghost + the mock-provider warning (the original F09 hierarchy)", () => {
+    demoModeMock.isDemoMode.mockReturnValue(true);
+    render(<OnboardingConnectProviderPage />);
+
+    const submit = screen.getByTestId("onboarding-provider-submit");
+    const skip = screen.getByTestId("onboarding-provider-skip");
     expect(submit.className).toContain("ob-cta");
     expect(submit.className).not.toContain("ob-cta-ghost");
     expect(skip.className).toContain("ob-cta-ghost");
     expect(skip.className).not.toMatch(/(^|\s)ob-cta(\s|$)/);
-  });
-
-  it("still shows the mock-provider warning callout above the buttons", () => {
-    render(<OnboardingConnectProviderPage />);
 
     const warning = screen.getByTestId("onboarding-provider-skip-warning");
-    expect(warning).toBeInTheDocument();
     expect(warning.textContent ?? "").toMatch(/Mock provider/);
-    expect(warning.textContent ?? "").toMatch(/simulated/i);
+    // Managed-keys CTA is hidden in demo (mock is the demo path).
+    expect(screen.queryByTestId("onboarding-provider-use-managed")).toBeNull();
   });
 });

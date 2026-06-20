@@ -113,7 +113,7 @@ pub struct TierLimits {
     #[serde(default)]
     pub included_actions: u64,
     /// DEC-053 overage multiplier applied to token cost for usage beyond
-    /// [`Self::included_actions`] (Pro: `1.4`). `0.0` (the default)
+    /// [`Self::included_actions`] (Pro: `1.10`). `0.0` (the default)
     /// disables overage display. Kept in the TOML, never hardcoded, so
     /// the operator can tune margin without a code change.
     #[serde(default)]

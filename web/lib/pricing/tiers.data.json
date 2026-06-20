@@ -10,7 +10,7 @@
     "max_workers": 5,
     "max_actions_per_month": 5000,
     "included_actions": 1500,
-    "overage_multiplier": 1.4,
+    "overage_multiplier": 1.1,
     "default_monthly_cap_usd": 200
   },
   "enterprise": {

@@ -19,7 +19,7 @@ function meter(overrides: Partial<MeterResponse> = {}): MeterResponse {
     included_actions: 1500,
     used_actions: 1000,
     overage_units: 0,
-    overage_multiplier: 1.4,
+    overage_multiplier: 1.1,
     estimated_overage_usd: 0,
     cap_usd: 200,
     cap_is_default: true,

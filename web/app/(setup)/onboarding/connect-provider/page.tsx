@@ -201,6 +201,17 @@ function ConnectProviderFormBody() {
     router.push("/onboarding/pick-vertical");
   }
 
+  // Skycot-managed keys — the DEFAULT. The platform supplies the Anthropic
+  // key (the runtime falls back to the platform key when a tenant has no
+  // bring-your-own key), billed at API cost + the Pro overage markup. No key
+  // is POSTed, so the tenant simply has no stored BYOK key and the platform
+  // fallback drives execution with REAL responses — never the mock provider.
+  function onUseManagedKeys() {
+    setProvider(true, false);
+    clearPersistedApiKey();
+    router.push("/onboarding/pick-vertical");
+  }
+
   const submitting = validate.isPending;
   const canSubmit = apiKey.trim().length > 0 && !submitting;
 
@@ -221,8 +232,9 @@ function ConnectProviderFormBody() {
           </>
         ) : (
           <>
-            We verify the key shape (<code>sk-ant-...</code>). A live one-token validation call
-            ships in the next release &mdash; or skip and use a mock provider for now.
+            Use Skycot&rsquo;s managed keys (recommended &mdash; no key needed, billed at
+            API cost plus a small markup), or connect your own Anthropic key below. We
+            verify the key shape (<code>sk-ant-...</code>).
           </>
         )
       }
@@ -234,6 +246,29 @@ function ConnectProviderFormBody() {
           data-testid="onboarding-connect-provider-form"
           noValidate
         >
+          {!demoMode ? (
+            <div className="ob-stack" data-testid="onboarding-provider-managed">
+              <button
+                type="button"
+                className="ob-cta w-full justify-center"
+                onClick={onUseManagedKeys}
+                data-testid="onboarding-provider-use-managed"
+              >
+                Use Skycot managed keys
+              </button>
+              <p
+                className="ob-field-hint"
+                data-testid="onboarding-provider-managed-note"
+              >
+                Recommended — no API key needed. Your teammates run on Skycot&rsquo;s
+                keys, billed at API cost plus a small markup. Real responses, never a
+                simulation.
+              </p>
+              <p className="ob-field-hint text-center opacity-70">
+                — or connect your own Anthropic key —
+              </p>
+            </div>
+          ) : null}
           <label className="ob-field">
             <span className="ob-field-label">Anthropic API key</span>
             <input
@@ -286,17 +321,19 @@ function ConnectProviderFormBody() {
               </span>
             </p>
           ) : null}
-          <div
-            className="ob-form-note flex items-start gap-2"
-            data-testid="onboarding-provider-skip-warning"
-            role="note"
-          >
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-            <span>
-              <strong>Mock provider</strong> — workers run but responses are simulated.
-              Skipping uses a mock provider until you add a real key in Settings · Providers.
-            </span>
-          </div>
+          {demoMode ? (
+            <div
+              className="ob-form-note flex items-start gap-2"
+              data-testid="onboarding-provider-skip-warning"
+              role="note"
+            >
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <span>
+                <strong>Mock provider</strong> — workers run but responses are simulated.
+                Skipping uses a mock provider until you add a real key in Settings · Providers.
+              </span>
+            </div>
+          ) : null}
           <div className="ob-cta-row is-split">
             <button
               type="button"
@@ -307,14 +344,16 @@ function ConnectProviderFormBody() {
               ← Back
             </button>
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                className="ob-cta-ghost"
-                onClick={onSkip}
-                data-testid="onboarding-provider-skip"
-              >
-                Skip for now
-              </button>
+              {demoMode ? (
+                <button
+                  type="button"
+                  className="ob-cta-ghost"
+                  onClick={onSkip}
+                  data-testid="onboarding-provider-skip"
+                >
+                  Skip for now
+                </button>
+              ) : null}
               <button
                 type="submit"
                 className="ob-cta"

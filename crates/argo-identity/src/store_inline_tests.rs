@@ -31,6 +31,7 @@ fn sample_draft() -> HireDraft {
             description: "Send approved follow-up.".into(),
             default_enabled: true,
         }],
+        kpis: vec![],
         voice_profile: None,
         tagline: Some("Marketplace seller persona".into()),
         genesis_plan_id: None,
@@ -94,6 +95,37 @@ async fn create_worker_from_draft_persists_persona_role_duties() {
         .is_some_and(|e| e.contains("balanced")));
     // balanced → auto_approval disabled (Ask-everything default).
     assert!(!loaded.auto_approval.enabled);
+}
+
+#[tokio::test]
+async fn create_worker_from_draft_persists_kpis() {
+    // Item 2b: operator success-measures (KPIs) must SURVIVE the hire — they
+    // were previously dropped on the floor (`Role.kpis = Vec::new()`,
+    // `Worker.kpis = None`), so a delegated teammate had no goals.
+    let store = SessionStore::open(":memory:").await.unwrap();
+    store.migrate().await.unwrap();
+    let tenant = TenantId::new();
+    let identities = IdentityStore::new(&store);
+    let mut draft = sample_draft();
+    draft.kpis = vec!["Reply within 2h".into(), "95% on-time".into()];
+    let worker_id = identities
+        .create_worker_from_draft(&draft, tenant, "human:op")
+        .await
+        .unwrap();
+    let loaded = identities
+        .get_worker(tenant, worker_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        loaded.role.kpis,
+        vec!["Reply within 2h".to_string(), "95% on-time".to_string()],
+        "operator KPIs must persist onto the role",
+    );
+    assert!(
+        loaded.kpis.is_some(),
+        "worker KPIs JSON must be populated (was hardcoded None)",
+    );
 }
 
 #[tokio::test]

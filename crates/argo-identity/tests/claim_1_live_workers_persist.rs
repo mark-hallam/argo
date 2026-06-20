@@ -60,6 +60,7 @@ fn draft_for(name: &str, vertical: &str, charter: &str) -> HireDraft {
             description: format!("Daily kickoff for {name}"),
             default_enabled: true,
         }],
+        kpis: vec![],
         voice_profile: None,
         tagline: None,
         genesis_plan_id: None,

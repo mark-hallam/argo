@@ -24,6 +24,14 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/onboarding/connect-provider",
 }));
 
+// The mock-provider warning + Skip button are DEMO-ONLY now (Item-1
+// managed-keys default, 2026-06-19): in production the user gets the
+// "Use Skycot managed keys" primary CTA instead. This test pins the
+// demo-path warning/skip ordering, so force demo mode on.
+vi.mock("@/lib/skycot/demo-mode", () => ({
+  isDemoMode: () => true,
+}));
+
 function installStorage() {
   const data = new Map<string, string>();
   Object.defineProperty(window, "localStorage", {

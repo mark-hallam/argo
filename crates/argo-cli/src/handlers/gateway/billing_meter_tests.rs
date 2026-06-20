@@ -96,7 +96,7 @@ async fn pro_over_allowance_reports_exact_overage_units() {
     let v = meter_ok(&store).await;
     assert_eq!(v["used_actions"], 2_000);
     assert_eq!(v["overage_units"], 500);
-    assert!((v["overage_multiplier"].as_f64().unwrap() - 1.4).abs() < f64::EPSILON);
+    assert!((v["overage_multiplier"].as_f64().unwrap() - 1.10).abs() < f64::EPSILON);
 }
 
 #[tokio::test]

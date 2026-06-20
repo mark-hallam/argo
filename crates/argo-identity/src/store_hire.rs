@@ -41,6 +41,7 @@ use serde::{Deserialize, Serialize};
 ///         description: "Send approved follow-up.".into(),
 ///         default_enabled: true,
 ///     }],
+///     kpis: vec!["Reply within 2h".into()],
 ///     voice_profile: None,
 ///     tagline: None,
 ///     genesis_plan_id: None,
@@ -63,6 +64,13 @@ pub struct HireDraft {
     pub approval_policy: ApprovalPolicyChoice,
     /// Scheduled duties; at least one must have `default_enabled = true`.
     pub duties: Vec<HireDutyDraft>,
+    /// Operator success-measures (KPIs) captured at Genesis intake
+    /// (`role_contract.success_criteria`). Persisted onto the role + worker so
+    /// the teammate's goals survive the hire — previously DROPPED (the role was
+    /// built with `kpis: Vec::new()`), which is the Item-2b delegation fix.
+    /// Empty when the operator set none.
+    #[serde(default)]
+    pub kpis: Vec<String>,
     /// Optional voice-profile override; falls back to a generated
     /// `"You are <name>, an autonomous SKYCOT worker."` preamble.
     #[serde(default)]
@@ -422,7 +430,7 @@ pub(crate) fn assemble_worker_from_draft(
     let role = Role {
         charter: draft.charter.clone(),
         duties,
-        kpis: Vec::new(),
+        kpis: draft.kpis.clone(),
         escalation: Some(format!(
             "approval_policy_level={}",
             draft.approval_policy.level
@@ -443,7 +451,11 @@ pub(crate) fn assemble_worker_from_draft(
         circuit_state: CircuitState::Closed,
         channels: Vec::new(),
         charter: Some(draft.charter.clone()),
-        kpis: None,
+        kpis: if draft.kpis.is_empty() {
+            None
+        } else {
+            Some(serde_json::json!(draft.kpis))
+        },
         level: WorkerLevel::Entry,
         trust_grade: 0,
         last_used_at: None,

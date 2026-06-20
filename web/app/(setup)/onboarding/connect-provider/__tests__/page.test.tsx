@@ -129,7 +129,10 @@ describe("Connect-provider API key persistence", () => {
     expect(window.sessionStorage.getItem(API_KEY_SESSION_STORAGE_KEY)).toBeNull();
   });
 
-  it("clears the persisted key when the user skips the step", async () => {
+  it("clears the persisted key when the user chooses managed keys", async () => {
+    // Item-1 managed-keys default (2026-06-19): the non-demo escape is now
+    // "Use Skycot managed keys" (the mock-provider skip is demo-only). It
+    // clears any mid-edit BYOK key the same way the old skip did.
     const user = userEvent.setup();
     render(wrap(<ConnectProviderPage />));
 
@@ -138,7 +141,7 @@ describe("Connect-provider API key persistence", () => {
       "sk-ant-mid-edit",
     );
 
-    await user.click(screen.getByTestId("onboarding-provider-skip"));
+    await user.click(screen.getByTestId("onboarding-provider-use-managed"));
     expect(pushMock).toHaveBeenCalledWith("/onboarding/pick-vertical");
     expect(window.sessionStorage.getItem(API_KEY_SESSION_STORAGE_KEY)).toBeNull();
   });

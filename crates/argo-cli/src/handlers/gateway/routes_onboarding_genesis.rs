@@ -7,18 +7,21 @@
 //! vertical — system prompt, action vocabulary, memory schema, eval
 //! seeds"* — was unrecordable against that code path.
 //!
-//! Now: `invoke_genesis` calls the synchronous, keyword-only
-//! [`argo_genesis::plan`] entry point at hire time; the returned
-//! [`GenesisPlan`] feeds [`synthesise_charter`] and [`derive_duties`].
-//! Failure (empty charter, unknown archetype, safety judge) falls
-//! through to a deterministic non-Genesis path so the wizard never
-//! hard-fails mid-flow.
+//! Now: `invoke_genesis` routes through [`resolve_plan`] — the SAME
+//! classifier the `/genesis` SSE surface uses. With
+//! `ARGO_GENESIS_LLM_CLASSIFIER=1` a plain-English brief is classified by
+//! the real LLM and a genuinely off-taxonomy role is synthesised from
+//! scratch; with the flag off it stays on the deterministic keyword
+//! pipeline (no provider call). The returned [`GenesisPlan`] feeds
+//! [`synthesise_charter`] and [`derive_duties`]. A classification failure
+//! carries `plan: None`, so the fail-closed hire gate (DEC-025) refuses
+//! rather than activating an ungated teammate.
 //!
 //! Lives in its own sibling so `routes_onboarding.rs` stays under the
 //! 500-LOC per-file budget — same pattern as `routes_onboarding_helpers.rs`.
 
 use super::routes_onboarding_helpers::{emit_audit, voice_preamble_from_description};
-use argo_genesis::{plan as genesis_plan, GenesisError, GenesisPlan};
+use argo_genesis::{GenesisError, GenesisPlan};
 use argo_identity::{
     ApprovalPolicyChoice, HireDraft, HireDutyDraft, VoiceProfile,
 };
@@ -58,17 +61,27 @@ pub(super) struct GenesisHireOutcome {
     pub(super) fallback_reason: Option<String>,
 }
 
-/// Run [`argo_genesis::plan`] against the operator's hire brief. The
-/// pipeline is synchronous + keyword-only; the LLM-classifier branch
-/// is reserved for the CLI `argo vertical genesis` surface and stays
-/// out of the hire endpoint to keep latency predictable.
+/// Resolve the operator's hire brief into a [`GenesisPlan`] via
+/// [`super::routes_genesis_stream_llm::resolve_plan`] — the SAME entry
+/// point the `/genesis` SSE surface uses, so the wizard's first hire and
+/// the streaming demo classify identically. With
+/// `ARGO_GENESIS_LLM_CLASSIFIER=1` set, the brief is understood by the real
+/// LLM (plain-English roles, off-taxonomy from-scratch synthesis); with the
+/// flag off the deterministic keyword pipeline runs with no provider call —
+/// so this is a strict no-op against the legacy behaviour until the flag is
+/// turned on.
 ///
-/// Empty charter, unknown archetype, or safety-judge rejection all
-/// fall through to the fallback branch — the wizard never hard-fails.
-pub(super) fn invoke_genesis(description: &str, worker_name: &str) -> GenesisHireOutcome {
+/// A hard classification failure carries `plan: None` so the fail-closed
+/// hire gate (DEC-025) refuses — first-hire never activates an ungated
+/// teammate.
+pub(super) async fn invoke_genesis(
+    store: Option<&Arc<SessionStore>>,
+    description: &str,
+    worker_name: &str,
+) -> GenesisHireOutcome {
     let persona = persona_slug(worker_name);
-    match genesis_plan(description, &persona) {
-        Ok(plan) => GenesisHireOutcome {
+    match super::routes_genesis_stream_llm::resolve_plan(description, &persona, store).await {
+        Ok((plan, _mode)) => GenesisHireOutcome {
             plan: Some(plan),
             fallback_reason: None,
         },
@@ -77,7 +90,7 @@ pub(super) fn invoke_genesis(description: &str, worker_name: &str) -> GenesisHir
                 target: "gateway::onboarding",
                 error = %e,
                 worker_name = %worker_name,
-                "genesis hire pipeline failed; falling back to templated charter",
+                "genesis hire classification failed; fail-closed gate will refuse",
             );
             GenesisHireOutcome {
                 plan: None,
@@ -387,6 +400,11 @@ pub(super) fn build_first_hire_draft(
             level: "balanced".into(),
         },
         duties,
+        // KPIs persist via the SPA's worker_draft.kpis (serde-default → Role.kpis,
+        // Item 2b). The intake `success_criteria` isn't threaded into this
+        // server-side first-hire builder yet (the GenesisPlan here doesn't carry
+        // the intake spec) — follow-up to plumb the spec through.
+        kpis: Vec::new(),
         voice_profile: Some(VoiceProfile {
             preamble: voice_preamble_from_description(worker_name, description),
             ..Default::default()
@@ -406,6 +424,10 @@ pub(super) fn build_first_hire_draft(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // `genesis_plan` is only exercised by the tests below now that
+    // `invoke_genesis` routes through `resolve_plan`; keep the alias
+    // test-scoped so production carries no unused import.
+    use argo_genesis::plan as genesis_plan;
 
     #[test]
     fn persona_slug_strips_non_identifier_chars_and_lowercases() {
@@ -451,9 +473,13 @@ mod tests {
         assert_eq!(a.len(), 64, "sha256 hex is 64 chars");
     }
 
-    #[test]
-    fn invoke_genesis_returns_fallback_for_unparseable_charter() {
-        let out = invoke_genesis("xyzzy plugh nonsense filler text", "spock");
+    #[tokio::test]
+    async fn invoke_genesis_returns_fallback_for_unparseable_charter() {
+        // Pin the deterministic keyword path so the assertion is stable
+        // regardless of a concurrent test toggling the classifier flag.
+        let _g = crate::handlers::gateway::shared_env_lock().await;
+        std::env::remove_var("ARGO_GENESIS_LLM_CLASSIFIER");
+        let out = invoke_genesis(None, "xyzzy plugh nonsense filler text", "spock").await;
         assert!(out.plan.is_none(), "no archetype keyword should fall back");
         assert_eq!(out.fallback_reason.as_deref(), Some("unknown_archetype"));
     }

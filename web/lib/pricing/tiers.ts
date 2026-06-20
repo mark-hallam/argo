@@ -43,7 +43,7 @@ export function actions(count: number): string {
 export const FREE = TIERS_DATA.free;
 export const PRO = TIERS_DATA.pro;
 
-/** "× 1.4" multiplier label for the metered-overage copy. */
+/** Metered-overage multiplier label, e.g. "× 1.1" — sourced live from PRO.overage_multiplier. */
 export const OVERAGE_MULTIPLIER_LABEL = `× ${PRO.overage_multiplier}`;
 
 /**

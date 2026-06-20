@@ -326,7 +326,7 @@ pub(super) async fn first_hire_response(
     };
     let worker_name = supplied_name.unwrap_or_else(|| name_from_description(&description));
     let principal_id = format!("{HUMAN_PRINCIPAL_PREFIX}{email}");
-    let outcome = invoke_genesis(&description, &worker_name);
+    let outcome = invoke_genesis(Some(store), &description, &worker_name).await;
     // The operator's role-contract confirmation digest (DEC-025 #1 + #4),
     // echoed back from the contract this seam surfaces. `None` → unconfirmed →
     // the gate holds in `needs_review`, so the first hire is refused without a

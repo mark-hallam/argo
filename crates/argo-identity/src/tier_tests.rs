@@ -39,10 +39,10 @@ fn enterprise_tier_is_unlimited() {
 fn pro_tier_carries_dec053_overage_tunables() {
     let cfg = TierConfig::default_config();
     let pro = cfg.limits(Tier::Pro).expect("pro");
-    // DEC-053: allowance + ×1.4 overage + customer-visible default cap,
-    // all sourced from v1-tiers.toml (never hardcoded).
+    // DEC-053: allowance + ×1.10 overage (operator-set 10% markup, 2026-06-19)
+    // + customer-visible default cap, all sourced from v1-tiers.toml.
     assert_eq!(pro.included_actions, 1500);
-    assert!((pro.overage_multiplier - 1.4).abs() < f64::EPSILON);
+    assert!((pro.overage_multiplier - 1.10).abs() < f64::EPSILON);
     assert_eq!(pro.default_monthly_cap_usd, 200);
 }
 

@@ -2,7 +2,7 @@
 //!
 //! Pro bundles `included_actions` per teammate per month; usage beyond
 //! it bills as **metered overage at token-cost × `overage_multiplier`**
-//! (1.4). This module is the bridge between the live usage meter (the
+//! (1.1). This module is the bridge between the live usage meter (the
 //! `tenant_usage` action total — there is NO parallel counter) and a
 //! Stripe **metered price**: the operator creates the metered price in
 //! the dashboard and its subscription item is read from the
@@ -88,9 +88,9 @@ pub fn plan_overage(used_actions: u64, included_actions: u64) -> OverageReport {
 /// ```
 /// use argo_billing::overage::est_overage_cost_micros;
 /// // 2000 actions used, 1500 included → 500 overage; $1.00 total spend
-/// // over 2000 actions = $0.0005/action; ×1.4 → 500 × 500micros × 1.4.
-/// let micros = est_overage_cost_micros(500, 2_000, 1_000_000, 1.4);
-/// assert_eq!(micros, 350_000); // $0.35
+/// // over 2000 actions = $0.0005/action; ×1.1 → 500 × 500micros × 1.1.
+/// let micros = est_overage_cost_micros(500, 2_000, 1_000_000, 1.1);
+/// assert_eq!(micros, 275_000); // $0.275
 /// ```
 #[must_use]
 pub fn est_overage_cost_micros(
@@ -220,15 +220,15 @@ mod tests {
 
     #[test]
     fn est_cost_is_zero_without_overage_or_usage() {
-        assert_eq!(est_overage_cost_micros(0, 2_000, 1_000_000, 1.4), 0);
-        assert_eq!(est_overage_cost_micros(500, 0, 0, 1.4), 0);
+        assert_eq!(est_overage_cost_micros(0, 2_000, 1_000_000, 1.1), 0);
+        assert_eq!(est_overage_cost_micros(500, 0, 0, 1.1), 0);
         assert_eq!(est_overage_cost_micros(500, 2_000, 1_000_000, 0.0), 0);
     }
 
     #[test]
     fn est_cost_applies_multiplier_to_average_token_cost() {
-        // $1.00 over 2000 actions = $0.0005/action; 500 overage × 1.4.
-        let micros = est_overage_cost_micros(500, 2_000, 1_000_000, 1.4);
-        assert_eq!(micros, 350_000);
+        // $1.00 over 2000 actions = $0.0005/action; 500 overage × 1.1.
+        let micros = est_overage_cost_micros(500, 2_000, 1_000_000, 1.1);
+        assert_eq!(micros, 275_000);
     }
 }

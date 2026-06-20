@@ -87,6 +87,7 @@ fn sample_hire(name: &str) -> HireDraft {
             description: "Send approved follow-up.".into(),
             default_enabled: true,
         }],
+        kpis: vec![],
         voice_profile: None,
         tagline: Some("Marketplace seller persona".into()),
         genesis_plan_id: None,

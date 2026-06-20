@@ -45,6 +45,7 @@ fn draft_with(plan_id: Option<String>) -> HireDraft {
             description: "Send approved follow-up.".into(),
             default_enabled: true,
         }],
+        kpis: vec![],
         voice_profile: None,
         tagline: Some("Marketing intern persona".into()),
         genesis_plan_id: plan_id,
