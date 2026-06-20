@@ -167,7 +167,11 @@ impl MacosCuExecutor {
     pub async fn run(&self, req: MacosCuRunRequest) -> MacosCuResult<MacosCuOutcome> {
         self.pre_flight_tenant_check(&req).await?;
         let report = self.preflight().await;
-        if !report.all_granted() {
+        // Gate on the REQUIRED permissions only. Input Monitoring is not
+        // needed to post synthetic events and can't be probed (permanent
+        // `Unknown`); gating on it via `all_granted()` made this branch
+        // always fire, so the autonomous loop never ran on any Mac.
+        if !report.all_required_granted() {
             return Ok(Self::handoff(report.actionable_summary(), Vec::new()));
         }
         let audit = AuditLog::create(req.audit_dir.clone()).map_err(macos_from_cu)?;
@@ -288,7 +292,9 @@ impl CuStepRunner for MacosCuExecutor {
 
     async fn preflight(&self) -> Result<(), CuError> {
         let report = MacosCuExecutor::preflight(self).await;
-        if report.all_granted() {
+        // Required permissions only — Input Monitoring is non-gating
+        // (see `PermissionReport::all_required_granted`).
+        if report.all_required_granted() {
             Ok(())
         } else {
             Err(CuError::Protocol(report.actionable_summary()))

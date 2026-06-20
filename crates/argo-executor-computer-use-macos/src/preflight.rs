@@ -36,6 +36,20 @@ impl PermissionKind {
         ]
     }
 
+    /// Whether this permission **gates** the autonomous loop. Input
+    /// Monitoring does NOT: it governs *reading* global input
+    /// (keylogger-style `CGEventTap`), but the executor only *posts*
+    /// synthetic events via Accessibility (`CGEventPost`), which is its
+    /// own gated permission. Input Monitoring also can't be probed from
+    /// script-land, so it is permanently `Unknown` — gating on it made
+    /// `all_granted()` unconditionally false on every Mac, so the loop
+    /// never ran. It stays in the report as a recommendation, but never
+    /// blocks the run.
+    #[must_use]
+    pub fn is_required(self) -> bool {
+        !matches!(self, Self::InputMonitoring)
+    }
+
     /// Human-readable name as it appears in System Settings.
     #[must_use]
     pub fn display_name(self) -> &'static str {
@@ -115,11 +129,25 @@ impl PermissionReport {
     }
 
     /// Whether every permission is granted. False if any is
-    /// `Missing` or `Unknown`.
+    /// `Missing` or `Unknown`. Kept strict for operator-facing
+    /// reporting; the autonomous loop gates on [`Self::all_required_granted`].
     #[must_use]
     pub fn all_granted(&self) -> bool {
         self.entries
             .iter()
+            .all(|(_, s)| *s == PermissionStatus::Granted)
+    }
+
+    /// Whether every **gating** permission is granted — Screen Recording,
+    /// Accessibility, and Automation. Input Monitoring is excluded
+    /// ([`PermissionKind::is_required`]): it is not needed to post
+    /// synthetic events and cannot be probed, so its permanent `Unknown`
+    /// must not block the run. This is the check the executor gates on.
+    #[must_use]
+    pub fn all_required_granted(&self) -> bool {
+        self.entries
+            .iter()
+            .filter(|(k, _)| k.is_required())
             .all(|(_, s)| *s == PermissionStatus::Granted)
     }
 
@@ -318,6 +346,47 @@ mod tests {
             probed: true,
         };
         assert!(r.all_granted());
+    }
+
+    #[test]
+    fn input_monitoring_unknown_does_not_gate_the_loop() {
+        // The exact bug the audit found: Input Monitoring can't be probed
+        // from script-land, so it is permanently `Unknown`; gating on it
+        // via `all_granted()` made the autonomous loop unreachable on every
+        // Mac. The three *required* permissions being granted must let the
+        // loop run, even with Input Monitoring `Unknown`.
+        let r = PermissionReport {
+            entries: vec![
+                (PermissionKind::ScreenRecording, PermissionStatus::Granted),
+                (PermissionKind::Accessibility, PermissionStatus::Granted),
+                (PermissionKind::InputMonitoring, PermissionStatus::Unknown),
+                (PermissionKind::Automation, PermissionStatus::Granted),
+            ],
+            probed: true,
+        };
+        assert!(!r.all_granted(), "strict report still requires all four");
+        assert!(
+            r.all_required_granted(),
+            "the GATING set excludes Input Monitoring, so the loop may run"
+        );
+        assert!(!PermissionKind::InputMonitoring.is_required());
+        assert!(PermissionKind::Accessibility.is_required());
+    }
+
+    #[test]
+    fn a_missing_required_permission_still_gates() {
+        // Sanity: dropping a *required* permission DOES block (we only
+        // relaxed Input Monitoring, not the real gates).
+        let r = PermissionReport {
+            entries: vec![
+                (PermissionKind::ScreenRecording, PermissionStatus::Missing),
+                (PermissionKind::Accessibility, PermissionStatus::Granted),
+                (PermissionKind::InputMonitoring, PermissionStatus::Unknown),
+                (PermissionKind::Automation, PermissionStatus::Granted),
+            ],
+            probed: true,
+        };
+        assert!(!r.all_required_granted());
     }
 
     #[test]
