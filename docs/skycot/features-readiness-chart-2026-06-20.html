@@ -1,0 +1,111 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>SKYCOT — Features & Readiness (verified 2026-06-20)</title>
+<style>
+  :root{
+    --ink:#1e1b4b; --muted:#6b7280; --line:#e5e7eb; --bg:#faf8ff;
+    --grad:linear-gradient(90deg,#8B5CF6,#EC4899);
+    --live:#10b981; --liveb:#d1fae5; --partial:#f59e0b; --partialb:#fef3c7;
+    --scaffold:#9ca3af; --scaffoldb:#f3f4f6; --red:#ef4444; --redb:#fee2e2;
+  }
+  *{box-sizing:border-box} html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 Inter,-apple-system,Segoe UI,Roboto,sans-serif;padding:32px 20px}
+  .wrap{max-width:1060px;margin:0 auto}
+  h1{font-size:30px;margin:0 0 4px;letter-spacing:-.5px}
+  .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--muted);margin:0 0 28px;font-size:14px}
+  h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+    margin:34px 0 12px;border-bottom:2px solid var(--ink);padding-bottom:7px}
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);
+    border-radius:12px;overflow:hidden}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:#fcfbff}
+  tr:last-child td{border-bottom:0}
+  .b{display:inline-block;font-weight:700;font-size:12px;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .live{color:#065f46;background:var(--liveb)} .partial{color:#92400e;background:var(--partialb)}
+  .scaffold{color:#374151;background:var(--scaffoldb)} .planned{color:#3730a3;background:#e0e7ff}
+  .was{color:var(--muted);font-size:11px;text-decoration:line-through;margin-left:6px}
+  .note{font-size:13px;color:#374151}
+  .cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  @media(max-width:820px){.cards{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card.green{border-top:4px solid var(--live)} .card.amber{border-top:4px solid var(--partial)}
+  .card.grey{border-top:4px solid var(--scaffold)}
+  .card h3{margin:0 0 10px;font-size:14px}
+  .card ul{margin:0;padding-left:18px} .card li{margin:5px 0;font-size:13px;color:#374151}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;background:#f3f4f6;color:#374151;margin-left:4px}
+  .verdict{background:#fff;border:1px solid var(--line);border-left:5px solid #8B5CF6;border-radius:10px;padding:18px 20px;margin-top:14px}
+  .verdict b{color:#1e1b4b}
+  .foot{color:var(--muted);font-size:12px;margin-top:24px}
+  code{background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+<div class="wrap">
+  <h1>SKYCOT — <span class="grad">Features &amp; Readiness</span></h1>
+  <p class="sub">Verified 2026-06-20 against <code>origin/main 3796bf0ba</code> by a 7-agent code-grounded audit (every badge has file:line evidence). <b>“Code”</b> = on the main branch · <b>“Prod”</b> = actually running in the cloud (ECS task-def&nbsp;:9).</p>
+
+  <h2>The 6 mission claims — corrected</h2>
+  <table>
+    <tr><th>#</th><th>Claim</th><th>Badge (code)</th><th>Reality</th></tr>
+    <tr><td>1</td><td><b>Teammate, not a tool</b></td><td><span class="b live">✅ Live</span></td><td class="note">Live in prod. Named persistent colleagues, not a chatbot.</td></tr>
+    <tr><td>2</td><td><b>Delegation is the unit</b></td><td><span class="b live">✅ Live</span></td><td class="note">Delegation primitive live in prod. <i>Caveat:</i> fully-autonomous “act on a standing duty unasked” needs <code>ARGO_DUTY_AUTOFIRE</code> (off + absent in prod).</td></tr>
+    <tr><td>3</td><td><b>Platform builds workers (Genesis)</b><br><span class="note">turns a plain-English sentence into a real AI vertical</span></td>
+      <td><span class="b partial">🟡 Partial</span><span class="was">✅ Live</span></td>
+      <td class="note">“Understands plain English” = a real-LLM classifier gated behind <code>ARGO_GENESIS_LLM_CLASSIFIER</code> (<b>default OFF</b>). Default path = a 12-archetype <b>keyword</b> matcher, no AI call. Wiring is correct on main (#2996); keyword fallback still hires end-to-end → genuine 🟡. <b>Prod is keyword-only</b> (flag absent + image predates #2996).</td></tr>
+    <tr><td>4</td><td><b>Skills shared + learned</b></td><td><span class="b live">✅ Live</span></td><td class="note">Shared-library load live. Auto-“distill new skills” is honestly caveated behind <code>ARGO_SKILL_DISTILL_LIVE</code> (off).</td></tr>
+    <tr><td>5</td><td><b>Any-PC execution (computer-use, macOS)</b><br><span class="note">a teammate drives a real Mac autonomously</span></td>
+      <td><span class="b partial">🟡 Partial</span><span class="was">✅ Live</span></td>
+      <td class="note">The autonomous loop <b>can’t reach the run stage as coded</b>: a permission check (<code>all_granted()</code>) blocks it, and one probe (Input&nbsp;Monitoring) is hard-coded to “Unknown” ≠ “Granted”, so it <b>always</b> falls back to a “please grant permissions” hand-off. No bypass. Primitives/audit/fence are real; the headline autonomous run is unreached.</td></tr>
+    <tr><td>6</td><td><b>Multi-channel + multi-tenant</b></td><td><span class="b live">✅ Live</span></td><td class="note">Multi-tenant isolation genuinely enforced. <i>But</i> the “9 channels wired both ways” phrasing oversells: those channels carry <b>approvals</b> (approve/reject), not two-way chat. Real chat is the web app.</td></tr>
+  </table>
+  <p class="note" style="margin-top:10px">→ <b>4 of 6 genuinely ✅ Live.</b> Claim 3 &amp; Claim 5 are 🟡 — each headline behaviour is blocked by a default-off switch or an unreachable gate.</p>
+
+  <h2>Ready for paying customers? — the honest dividing line</h2>
+  <div class="cards">
+    <div class="card green">
+      <h3>✅ Live in PROD today</h3>
+      <ul>
+        <li><b>Signup → pay → hire</b> cold-stranger journey (browser-verified)</li>
+        <li>4 solid claims: teammate, delegation, shared skills, multi-tenant isolation</li>
+        <li><b>RBAC genuinely enforced</b> (can’t fake an owner role)</li>
+        <li><b>Hash-chained audit</b> (real tamper-evident SHA-256)</li>
+        <li><b>Genesis cost-cap</b> (per-IP limit, 429-verified live in :9)</li>
+        <li>Durable gateway DB (snapshot/restore)</li>
+      </ul>
+    </div>
+    <div class="card amber">
+      <h3>🟡 On main, needs a DEPLOY <span class="pill">+flag</span></h3>
+      <ul>
+        <li><b>Real-LLM Genesis</b> — redeploy + <code>ARGO_GENESIS_LLM_CLASSIFIER=1</code></li>
+        <li><b>LLM quality rubric</b> — redeploy + <code>ARGO_GENESIS_LLM_RUBRIC=1</code></li>
+        <li><b>Platform-staff suspend / write-lockout</b> (#2993) — your customer-safety lever</li>
+        <li><b>10% markup + managed-keys-default</b> (#2996)</li>
+        <li>Keystone first-hire fix (#2996)</li>
+      </ul>
+    </div>
+    <div class="card grey">
+      <h3>🟡/🟧 Partial — deploy won’t fix</h3>
+      <ul>
+        <li><b>Billing accuracy</b>: bills a <b>flat action count, not real $-spend</b>; Stripe overage unverified live <span class="pill">most material</span></li>
+        <li><b>Autonomous macOS computer-use</b>: gate unreachable</li>
+        <li><b>Autonomous duties / auto-distill</b>: default-off</li>
+        <li><b>Channels ≠ two-way chat</b> (approvals only)</li>
+        <li>apollo / zoominfo / zoom connectors: deferred</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>What landed since the ledger was written (all on main; deploy-pending)</h2>
+  <table>
+    <tr><th>PR</th><th>What</th><th>In prod?</th></tr>
+    <tr><td><b>#2993</b></td><td>Platform-staff console — suspend/reactivate a customer + suspended-tenant write-lockout + audit</td><td><span class="b partial">on main</span></td></tr>
+    <tr><td><b>#2996</b></td><td>Cold-stranger first-hire → LLM classifier path + managed-keys-default + KPI persistence + markup 1.4→<b>1.10</b></td><td><span class="b partial">on main</span></td></tr>
+    <tr><td><b>#2997</b></td><td>Genesis per-IP cost-cap synced to main (code was already live in prod via the :9 image)</td><td><span class="b live">in prod</span></td></tr>
+  </table>
+
+  <div class="verdict">
+    <b>One-line verdict:</b> The product <b>can take a paying customer today</b> — signup→pay→hire works in prod. But before leaning on the marketing claims, three things: <b>(1)</b> deploy the new image so platform-staff suspend + the 10% markup + the keystone go live; <b>(2)</b> fix or re-word the billing claim — you bill <i>per action, not per dollar</i>, and the Stripe overage charge is unverified; <b>(3)</b> decide the Genesis flag — until <code>ARGO_GENESIS_LLM_CLASSIFIER=1</code> in a redeployed prod, “Genesis understands plain English” is keyword-matching, so either flip it or soften the claim.
+  </div>
+
+  <p class="foot">Source of truth: <code>docs/build-plan/FEATURE_MATRIX.md</code> (updated 2026-06-20). Full evidence: workflow <code>wf_bb686325-b9d</code>. Badges: ✅ Live · 🟡 Partial · 🟧 Scaffold · 🗓️ Planned.</p>
+</div>
