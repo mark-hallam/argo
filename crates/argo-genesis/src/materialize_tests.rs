@@ -324,6 +324,32 @@ fn genesis_hire_naming_maya_in_charter_yields_display_name_maya() {
 }
 
 #[test]
+fn genesis_hire_unnamed_etsy_role_uses_archetype_first_letter_not_the_verb() {
+    // Reported bug: "Help me keep my Etsy shop…" → derive_persona takes the
+    // first word → persona slug "help" → teammate literally named "Help".
+    // With no explicit name, the display name must follow the Skycot
+    // first-letter convention (Bookkeeping Assistant → a "B" name), NEVER the
+    // imperative verb the description happened to start with.
+    let draft = BroadRoleDraft {
+        charter: "Help me keep my Etsy shop organized — track orders, reply to \
+                  buyer messages about shipping, and flag any 1-star reviews."
+            .into(),
+        persona: "help".into(),
+        persona_description: "Keeps an Etsy shop's orders and messages on track.".into(),
+        action_vocabulary: vec!["track_order".into(), "flag_review".into()],
+        success_metrics: vec!["orders tracked on time".into()],
+        onboarding_script: "Hi, I keep your shop tidy.".into(),
+    };
+    let spec = CapabilitySpec::from_broad_draft(draft, Archetype::BookkeepingAssistant);
+    let name = materialize_spec(&spec).expect("materialize").manifest.vertical.name;
+    assert_ne!(name, "Help", "must NOT name the teammate after the imperative verb");
+    assert!(
+        name.starts_with('B'),
+        "Bookkeeping Assistant → a 'B' name (first-letter convention); got `{name}`"
+    );
+}
+
+#[test]
 fn genesis_hire_naming_variants_all_extract_the_name() {
     for charter in [
         "a sdr whose name is Sasha and who books meetings",

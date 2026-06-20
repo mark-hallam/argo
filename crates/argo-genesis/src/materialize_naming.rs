@@ -22,6 +22,22 @@ const FROM_SCRATCH_ID_PREFIX: &str = "genesis";
 /// names, so humanizing them would surface placeholder text on the roster.
 const GENERIC_PERSONA_SLUGS: &[&str] = &["worker", "operator", "pioneer"];
 
+/// Slugs that are imperative verbs or function words grabbed from the START of
+/// a plain-English role description — NOT names. The `/genesis` persona
+/// derivation (`routes_genesis_stream::derive_persona`) takes the first
+/// ≥3-char token of the description, so "**Help** me keep my Etsy shop…"
+/// yields the slug `help`; humanizing it surfaced a teammate literally named
+/// "Help". Rejecting these makes the name fall through to the
+/// archetype-derived persona name (the Skycot first-letter convention).
+const ROLE_WORD_SLUGS: &[&str] = &[
+    "help", "keep", "manage", "handle", "track", "make", "build", "create",
+    "draft", "write", "send", "reply", "chase", "flag", "sort", "watch",
+    "check", "monitor", "run", "find", "organize", "organise", "respond",
+    "answer", "review", "process", "update", "schedule", "book", "plan",
+    "need", "want", "looking", "someone", "person", "assistant", "agent",
+    "the", "and", "for", "with", "this", "that", "our", "your", "you",
+];
+
 /// Derive the teammate's **human display name** for `vertical.name` — the
 /// string the SSE `vertical_ready` payload surfaces as `display_name`, which
 /// the hire-commit path persists as `persona.name`. This must read like a
@@ -54,7 +70,72 @@ pub(crate) fn derive_display_name(spec: &CapabilitySpec) -> String {
     if let Some(from_slug) = humanize_persona_slug(&spec.persona) {
         return from_slug;
     }
-    spec.nearest_archetype.label().to_string()
+    archetype_persona_name(spec)
+}
+
+/// A deterministic human first name whose first letter matches the **nearest
+/// archetype's label** — the Skycot naming convention (a Project PM gets a "P"
+/// name like Peta; a Marketing Intern an "M" name like Maya). Picked stably
+/// from a per-letter pool by hashing the persona slug, so a regenerate for the
+/// same role yields the same name. This is the no-explicit-name fallback,
+/// replacing the bare archetype LABEL ("Bookkeeping Assistant") which read as a
+/// job title rather than a colleague — and, crucially, replacing the old
+/// "first word of the description" behaviour that named an Etsy teammate "Help".
+fn archetype_persona_name(spec: &CapabilitySpec) -> String {
+    let letter = spec
+        .nearest_archetype
+        .label()
+        .chars()
+        .find(|c| c.is_ascii_alphabetic())
+        .map_or('A', |c| c.to_ascii_uppercase());
+    let pool = first_name_pool(letter);
+    let idx = (fnv1a(spec.persona.as_bytes()) as usize) % pool.len();
+    pool[idx].to_string()
+}
+
+/// Tiny FNV-1a hash (no deps) for the stable per-teammate name pick.
+fn fnv1a(bytes: &[u8]) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for &b in bytes {
+        h ^= u64::from(b);
+        h = h.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    h
+}
+
+/// Curated human first names keyed by first letter (gender-mixed, modern,
+/// avoids the demo-agent names Portia/Grant/Marcus). Every archetype's first
+/// letter (B/C/G/L/M/O/P/R/S) is covered; the rest exist so the convention
+/// holds for future archetypes. Falls back to the `A` pool for any letter.
+fn first_name_pool(letter: char) -> &'static [&'static str] {
+    match letter {
+        'B' => &["Bailey", "Bex", "Bruno", "Bianca"],
+        'C' => &["Casey", "Cleo", "Cara", "Cody"],
+        'D' => &["Dana", "Dax", "Della", "Dev"],
+        'E' => &["Evan", "Elia", "Esme", "Ezra"],
+        'F' => &["Finn", "Faye", "Fox", "Fia"],
+        'G' => &["Gabe", "Gwen", "Gus", "Greta"],
+        'H' => &["Harper", "Hana", "Hugo", "Hollis"],
+        'I' => &["Indie", "Ivo", "Isa", "Ines"],
+        'J' => &["Jules", "Jax", "Joss", "Juna"],
+        'K' => &["Kai", "Kit", "Koa", "Kira"],
+        'L' => &["Lena", "Levi", "Lux", "Lola"],
+        'M' => &["Maya", "Mateo", "Mira", "Max"],
+        'N' => &["Nova", "Niko", "Nell", "Nadia"],
+        'O' => &["Owen", "Olive", "Otis", "Ola"],
+        'P' => &["Pia", "Pax", "Penny", "Polly"],
+        'Q' => &["Quinn", "Quill", "Quincy", "Qadira"],
+        'R' => &["Remy", "Rosa", "Reid", "Ruby"],
+        'S' => &["Sage", "Sasha", "Sol", "Sami"],
+        'T' => &["Tate", "Tess", "Theo", "Talia"],
+        'U' => &["Uma", "Uri", "Una", "Ulla"],
+        'V' => &["Vera", "Vance", "Vivi", "Vito"],
+        'W' => &["Wren", "Wes", "Willa", "Wade"],
+        'X' => &["Xan", "Xia", "Xeno", "Xara"],
+        'Y' => &["Yara", "Yuki", "Yael", "Yves"],
+        'Z' => &["Zara", "Zane", "Zuri", "Zola"],
+        _ => &["Avery", "Aria", "Adi", "Asa"],
+    }
 }
 
 /// Pull the PERSONA slot value out of free role text — the
@@ -162,7 +243,14 @@ fn take_name_tokens(rest: &str) -> Option<String> {
 /// slug (those are not real names — the caller falls back to the role label).
 fn humanize_persona_slug(persona: &str) -> Option<String> {
     let trimmed = persona.trim();
-    if trimmed.is_empty() || GENERIC_PERSONA_SLUGS.contains(&trimmed.to_lowercase().as_str()) {
+    let lower = trimmed.to_lowercase();
+    // Reject empty, the generic synthesis fallbacks, and imperative/role words
+    // grabbed from the start of a description (e.g. "help") — none are names, so
+    // the caller falls through to the archetype-derived persona name.
+    if trimmed.is_empty()
+        || GENERIC_PERSONA_SLUGS.contains(&lower.as_str())
+        || ROLE_WORD_SLUGS.contains(&lower.as_str())
+    {
         return None;
     }
     let humanized = trimmed
