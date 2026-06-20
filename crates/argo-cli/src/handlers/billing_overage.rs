@@ -65,6 +65,14 @@ fn pro_included_actions() -> u64 {
         .map_or(0, |limits| limits.included_actions)
 }
 
+/// Pro tier `overage_multiplier` (real-cost markup, e.g. `1.10` = +10%) from
+/// the bundled tier config. Used to bill overage on real provider $-spend.
+fn pro_overage_multiplier() -> f64 {
+    TierConfig::default_config()
+        .limits(Tier::Pro)
+        .map_or(1.0, |limits| limits.overage_multiplier)
+}
+
 /// Read every Pro tenant's period-to-date action meter. Returns the
 /// per-tenant meters plus the (shared, monthly) period_start used as the
 /// idempotency anchor. `period_start` defaults to `0` when there are no
@@ -75,6 +83,7 @@ async fn collect_pro_meters(
     now: chrono::DateTime<Utc>,
 ) -> ArgoResult<(Vec<TenantOverageMeter>, i64)> {
     let quotas = TenantQuotaStore::new(store.pool());
+    let multiplier = pro_overage_multiplier();
     let tenants = argo_store::tenant_query::list_tenants_on_tier(store, "pro").await?;
     let mut meters = Vec::with_capacity(tenants.len());
     let mut period_start = 0_i64;
@@ -86,6 +95,10 @@ async fn collect_pro_meters(
             tenant_id,
             used_actions: summary.usage.used_actions,
             included_actions: included,
+            // Real period-to-date provider $-spend (DEC-038 ledger) — bills
+            // overage on actual token cost × markup, not a flat action count.
+            used_usd_micros: summary.usage.used_usd_micros,
+            multiplier,
         });
     }
     Ok((meters, period_start))
@@ -106,7 +119,11 @@ fn print_plan(
                 "dry_run": dry_run,
                 "reports": reports
                     .iter()
-                    .map(|r| json!({ "tenant_id": r.tenant_id, "units": r.units }))
+                    .map(|r| json!({
+                        "tenant_id": r.tenant_id,
+                        "overage_cents": r.overage_cents,
+                        "overage_usd": r.overage_cents as f64 / 100.0,
+                    }))
                     .collect::<Vec<_>>(),
             })
         );
@@ -119,7 +136,11 @@ fn print_plan(
         println!("no Pro tenant is over its included-actions allowance");
     } else {
         for r in reports {
-            println!("{}: {} overage units (planned)", r.tenant_id, r.units);
+            println!(
+                "{}: ${:.2} overage (planned)",
+                r.tenant_id,
+                r.overage_cents as f64 / 100.0
+            );
         }
         println!("{} tenant(s) would be billed", reports.len());
     }
