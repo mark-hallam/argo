@@ -122,9 +122,17 @@ fn ensure_cors_registry_installed() {
 async fn drive_handler(req: String, store: Arc<SessionStore>) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
+    // Mint a UNIQUE src_ip per invocation. `serve_genesis_stream` now applies a
+    // process-global per-IP cost limiter (`genesis_stream_limiter`), so reusing
+    // one IP across the suite would exhaust the shared bucket and make later
+    // tests 429 in an order-dependent way. A monotonic counter starting at
+    // 198.51.100.0 (TEST-NET-2) gives every call its own fresh bucket.
+    static IP_COUNTER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let n = IP_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let src_ip = std::net::IpAddr::V4(std::net::Ipv4Addr::from(0xC633_6400u32.wrapping_add(n)));
     let server = tokio::spawn(async move {
         let (mut server_side, _) = listener.accept().await.unwrap();
-        serve_genesis_stream(&req, Some(&store), &mut server_side)
+        serve_genesis_stream(&req, src_ip, Some(&store), &mut server_side)
             .await
             .unwrap();
     });

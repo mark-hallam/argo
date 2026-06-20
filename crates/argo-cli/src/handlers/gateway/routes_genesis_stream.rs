@@ -57,6 +57,7 @@
 //! regen writes a NEW dir, leaving the reviewed one hireable. The digest gate
 //! is NOT weakened — it covers the capability projection, not the id.
 
+use super::rate_limit_ip::{IpRateLimiter, RateLimitIpCheckResult};
 use super::routes_genesis_stream_llm::resolve_plan;
 use argo_genesis::{name_to_persona_slug, write_vertical_with_overlap};
 use argo_store::SessionStore;
@@ -64,8 +65,9 @@ use frames::{
     open_sse_stream, write_error_event, write_event, write_one_shot_error, write_progress,
 };
 use serde::Deserialize;
+use std::net::IpAddr;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
@@ -77,6 +79,44 @@ pub const PROVIDER_KEY_ENV: &str = "ARGO_GENESIS_PROVIDER_KEY";
 // Provider-key aliases that also satisfy the cost guardrail; presence in any suffices.
 const PROVIDER_KEY_ALIASES: &[&str] = &["ANTHROPIC_API_KEY", "OPENAI_API_KEY"];
 const MIN_ROLE_LEN: usize = 15;
+
+/// Per-IP bucket capacity for the ANONYMOUS Genesis SSE authoring stream.
+/// `POST /api/v1/genesis` has no auth gate (the stream is peeled off ahead
+/// of `require_identity`), so without this a stranger on the open origin can
+/// trigger unbounded real LLM authoring runs — a wallet/cost-DoS bounded only
+/// by the coarse general per-IP limiter. This dedicated limiter caps the
+/// expensive path the same way `public_pitch_limiter` caps the public Q&A
+/// route (`routes_pitch_ask_public.rs`).
+const GENESIS_STREAM_BUCKET_CAPACITY: u32 = 10;
+/// Refill: ~1 token every ~6.7s ⇒ ~9 authoring runs/minute sustained, with a
+/// burst of [`GENESIS_STREAM_BUCKET_CAPACITY`]. Tighter than the public-pitch
+/// route (genesis is a full authoring pipeline, not a single Q&A) yet generous
+/// enough for real pre-public onboarding + demo concurrency.
+///
+/// NB (topology): keyed on the accept-loop `src_ip`. Under the current
+/// SPA-server-side-rewrite + non-XFF-trusting prod topology that `src_ip` is a
+/// shared edge IP, so this is effectively a FLEET-WIDE genesis ceiling, not
+/// per-user. That is the correct interim posture (it bounds the cost-DoS); it
+/// becomes per-user automatically once real client-IP visibility lands (see the
+/// XFF/Cloudflare-topology follow-up). Sized as a deliberate fleet ceiling
+/// accordingly.
+const GENESIS_STREAM_BUCKET_REFILL_PER_SEC: f64 = 0.15;
+
+/// Process-global per-IP limiter dedicated to the anonymous Genesis SSE
+/// authoring stream. Lazily built on first use. `trust_xff = false`: the caller
+/// passes the already-trusted `src_ip` extracted once at the accept loop, so
+/// this limiter never re-parses a spoofable `X-Forwarded-For` itself.
+pub(super) fn genesis_stream_limiter() -> &'static Arc<IpRateLimiter> {
+    static INSTANCE: OnceLock<Arc<IpRateLimiter>> = OnceLock::new();
+    INSTANCE.get_or_init(|| {
+        Arc::new(IpRateLimiter::new(
+            GENESIS_STREAM_BUCKET_CAPACITY,
+            GENESIS_STREAM_BUCKET_REFILL_PER_SEC,
+            true,
+            false,
+        ))
+    })
+}
 
 #[derive(Debug, Deserialize)]
 struct GenesisRequest {
@@ -126,6 +166,7 @@ pub(super) fn is_genesis_streaming_request(req: &str) -> bool {
 /// ```
 pub(super) async fn serve_genesis_stream(
     req: &str,
+    src_ip: IpAddr,
     store: Option<&Arc<SessionStore>>,
     out: &mut TcpStream,
 ) -> tokio::io::Result<()> {
@@ -138,7 +179,27 @@ pub(super) async fn serve_genesis_stream(
     // `fix-spa-genesis-fetch-fails-while-curl-succeeds`.
     let cors_headers = super::cors::cors_headers_for_request(req);
 
-    // Env-var gate first — fail closed before opening the stream so
+    // Per-IP rate limit FIRST — a cheap reject before the provider-key gate,
+    // body parse, or any LLM authoring work. This endpoint is anonymous (the
+    // SSE stream is peeled off ahead of `require_identity`), so without this
+    // a stranger on the open origin could trigger unbounded real LLM runs
+    // (wallet/cost-DoS). Keyed on the trusted accept-loop `src_ip`, never a
+    // spoofable `X-Forwarded-For`. See `genesis_stream_limiter`.
+    if let RateLimitIpCheckResult::Deny { retry_after_secs } = genesis_stream_limiter().check(src_ip)
+    {
+        return write_one_shot_error(
+            out,
+            "429 Too Many Requests",
+            "rate_limited",
+            &format!(
+                "Too many Genesis authoring requests; retry in {retry_after_secs}s (per-IP cost guardrail)"
+            ),
+            &cors_headers,
+        )
+        .await;
+    }
+
+    // Env-var gate next — fail closed before opening the stream so
     // the caller sees a clean 503 instead of half-finished SSE.
     if !provider_key_present() {
         let aliases = PROVIDER_KEY_ALIASES.join(" or ");

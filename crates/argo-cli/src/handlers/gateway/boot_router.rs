@@ -183,7 +183,8 @@ async fn try_dispatch_gates(
     // happen inside the handler; mounted ahead of the dispatch
     // fall-through so the SSE path peels off cleanly.
     if super::routes_genesis_stream::is_genesis_streaming_request(req) {
-        let _ = super::routes_genesis_stream::serve_genesis_stream(req, ctx.store, stream).await;
+        let _ =
+            super::routes_genesis_stream::serve_genesis_stream(req, src_ip, ctx.store, stream).await;
         request_audit::spawn_record(audit.take(), ctx.store, "200 OK", 0);
         let _ = stream.shutdown().await;
         return Some(200);

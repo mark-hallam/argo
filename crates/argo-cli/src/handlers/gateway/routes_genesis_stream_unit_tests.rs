@@ -43,6 +43,35 @@ fn derive_persona_falls_back_to_operator_on_noise() {
 }
 
 #[test]
+fn genesis_stream_limiter_denies_after_capacity_burst() {
+    // Anonymous Genesis SSE wallet/cost-DoS guard: a fresh limiter built with
+    // the genesis constants must allow exactly the burst capacity then deny,
+    // BEFORE any LLM authoring work runs. Build a fresh limiter (not the
+    // process-global one) so the test is isolated from other suites.
+    let limiter = IpRateLimiter::new(
+        GENESIS_STREAM_BUCKET_CAPACITY,
+        GENESIS_STREAM_BUCKET_REFILL_PER_SEC,
+        true,
+        false,
+    );
+    let ip: IpAddr = std::net::Ipv4Addr::new(203, 0, 113, 7).into();
+    for i in 0..GENESIS_STREAM_BUCKET_CAPACITY {
+        assert!(
+            matches!(limiter.check(ip), RateLimitIpCheckResult::Allow),
+            "request {i} within burst capacity should be allowed"
+        );
+    }
+    match limiter.check(ip) {
+        RateLimitIpCheckResult::Deny { retry_after_secs } => {
+            assert!(retry_after_secs >= 1, "deny must carry a Retry-After hint");
+        }
+        RateLimitIpCheckResult::Allow => {
+            panic!("the request past burst capacity must be denied (cost guardrail)")
+        }
+    }
+}
+
+#[test]
 fn persona_for_honours_the_persona_slot_in_the_role_text() {
     // Day-1 fix 4 live repro: the SPA posted no `persona` body field but
     // the composed role text carried the intake's `Persona: Ava` slot.
