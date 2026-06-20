@@ -28,7 +28,7 @@ import { ApiError } from "@/lib/api/types";
  * teammate (DEC-028, the third hero teammate after Portia + Grant).
  * Paste a mention / URL (reply mode) or give a topic (article mode),
  * pick a channel (X short / LinkedIn long-form), and Marcus drafts a
- * truth-bounded piece in Mark's voice via
+ * truth-bounded piece in your brand voice via
  * `POST /api/v1/marketing/draft-response` — filed to the approval queue,
  * NEVER posted. No mock fallback — every draft goes to the gateway (same
  * LLM + truth-boundary path Portia + Grant use).
@@ -374,7 +374,7 @@ export default function MarketingPage() {
             pulseDot
             title="Watch Marcus draft your public voice."
             titleAccent="public voice"
-            sub="Paste a mention or give a topic. Marcus drafts a reply or an article in Mark's voice — truth-bounded, filed to your approval queue, never auto-posted. You post the approved draft."
+            sub="Paste a mention or give a topic. Marcus drafts a reply or an article in your brand voice — truth-bounded, filed to your approval queue, never auto-posted. You post the approved draft."
             subMaxWidth={560}
           />
           <section className="mk-shell" aria-label="Marketing console">

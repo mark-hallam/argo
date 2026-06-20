@@ -6,6 +6,19 @@ function gatewayBase(): string {
   return resolveGatewayUrl();
 }
 
+/**
+ * Pull the `__Host-session` JWT value out of the gateway's `Set-Cookie`
+ * headers so it can be handed to NextAuth client-side. Returns null if the
+ * gateway didn't mint a session cookie.
+ */
+function extractSessionJwt(setCookies: string[]): string | null {
+  for (const cookie of setCookies) {
+    const match = cookie.match(/^__Host-session=([^;]+)/);
+    if (match) return decodeURIComponent(match[1]);
+  }
+  return null;
+}
+
 interface GatewayVerifyResponse {
   needs_onboarding?: boolean;
   tenant_id?: string | null;
@@ -48,10 +61,19 @@ export async function POST(req: NextRequest) {
   if (!upstream.ok) {
     return NextResponse.json(payload, { status: upstream.status || 401 });
   }
+  // Surface the minted gateway JWT (the `__Host-session` cookie value) in
+  // the body so the client can hand it to NextAuth's `gateway-bearer`
+  // provider via `signIn(...)`. Without that handoff, `useSession()` stays
+  // unauthenticated, `session.gatewayToken` is never populated, and every
+  // surface that reads the `tnt` claim falls back to "Guest / Personal
+  // workspace". The token is HttpOnly in the cookie; returning it here is
+  // consistent with the NextAuth session already carrying it client-side.
+  const gatewayToken = extractSessionJwt(upstream.headers.getSetCookie());
   const res = NextResponse.json({
     ok: true,
     needs_onboarding: payload.needs_onboarding ?? true,
     tenant_id: payload.tenant_id ?? null,
+    gateway_token: gatewayToken,
   });
   // Gateway mints two `Set-Cookie` headers — `__Host-session`
   // (HttpOnly, the JWT) and `__Host-csrf` (NOT HttpOnly, the CSRF

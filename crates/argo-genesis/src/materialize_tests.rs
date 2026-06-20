@@ -350,6 +350,35 @@ fn genesis_hire_unnamed_etsy_role_uses_archetype_first_letter_not_the_verb() {
 }
 
 #[test]
+fn genesis_hire_unnamed_friendly_role_uses_archetype_not_the_adjective() {
+    // Reported bug: "A friendly front-desk teammate…" → derive_persona grabs
+    // the first ≥3-char word → persona slug "friendly" → teammate literally
+    // named "Friendly". The earlier fix (#3001) only blocked imperative verbs,
+    // not adjectives. With no explicit name, the display name must be a real
+    // archetype-derived human name, NEVER the adjective lifted from the text.
+    let draft = BroadRoleDraft {
+        charter: "A friendly front-desk teammate who answers inbound customer \
+                  emails about our services and books discovery calls."
+            .into(),
+        persona: "friendly".into(),
+        persona_description: "Warm front-desk teammate for inbound email.".into(),
+        action_vocabulary: vec!["greet_inquiry".into(), "schedule_discovery_call".into()],
+        success_metrics: vec!["inquiries answered same day".into()],
+        onboarding_script: "Hi, I'm your front desk.".into(),
+    };
+    let spec = CapabilitySpec::from_broad_draft(draft, Archetype::CustomerSupportAgent);
+    let name = materialize_spec(&spec).expect("materialize").manifest.vertical.name;
+    assert!(
+        !name.eq_ignore_ascii_case("friendly"),
+        "must NOT name the teammate after the adjective lifted from the description; got `{name}`"
+    );
+    assert!(
+        !name.contains("Genesis Teammate"),
+        "display name must never be the generic placeholder; got `{name}`"
+    );
+}
+
+#[test]
 fn genesis_hire_naming_variants_all_extract_the_name() {
     for charter in [
         "a sdr whose name is Sasha and who books meetings",
@@ -419,15 +448,23 @@ fn genesis_hire_no_name_in_charter_humanizes_the_persona_slug() {
 }
 
 #[test]
-fn genesis_hire_no_name_and_generic_slug_falls_back_to_role_label_not_placeholder() {
-    // Worst case: no name anywhere AND a generic synthesis-fallback slug. The
-    // display name must still be a real role label, NOT "Genesis Teammate".
+fn genesis_hire_no_name_and_generic_slug_falls_back_to_archetype_name_not_placeholder() {
+    // Worst case: no name anywhere AND a generic synthesis-fallback slug. Per
+    // the archetype-first-letter convention (#3001), the display name must be a
+    // real human name keyed to the nearest archetype's first letter (Marketing
+    // Intern → an "M" name like Maya/Mateo), NEVER the bare archetype LABEL and
+    // NEVER the "Genesis Teammate" placeholder.
     for slug in ["operator", "worker", "pioneer"] {
         let spec = named_spec("someone who drafts and schedules social posts", slug);
         let name = materialize_spec(&spec).expect("materialize").manifest.vertical.name;
-        assert_eq!(
+        assert!(
+            name.starts_with('M'),
+            "generic slug `{slug}` must fall back to an archetype-first-letter \
+             name (Marketing Intern → 'M'); got `{name}`"
+        );
+        assert_ne!(
             name, "Marketing Intern",
-            "generic slug `{slug}` must fall back to the archetype label"
+            "must be a human name, not the bare archetype label"
         );
         assert!(
             !name.contains("Genesis Teammate"),

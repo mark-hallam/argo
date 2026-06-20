@@ -41,7 +41,7 @@ export const TIERS: TierCard[] = [
       `${FREE.max_workers} teammate`,
       `${actions(FREE.max_actions_per_month)} actions / month`,
       "Community support",
-      "Mock provider only",
+      "Real responses on Skycot's keys, capped",
       "Single channel (web inbox)",
     ],
     cta: "Choose Free",

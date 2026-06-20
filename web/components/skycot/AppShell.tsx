@@ -110,13 +110,16 @@ export function AppNav() {
             {item.label}
           </NavItem>
         ))}
-        <SingleBinaryFooterChip />
         <div className="flex items-end gap-1">
           <div className="flex-1 min-w-0">
             <UserPill />
           </div>
           <ThemeToggle />
         </div>
+        {/* The self-host pricing CTA lives BELOW the user pill, not flush
+            under the Settings nav item — flush-under-Settings made it easy
+            to mis-click "Settings" and land on the public /pricing page. */}
+        <SingleBinaryFooterChip />
         <ModeStamp />
       </div>
     </>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { signIn } from "next-auth/react";
 import { verifySchema } from "./signup-schema";
 
 export type VerifyState =
@@ -20,6 +21,7 @@ export type VerifyErrorCode =
 interface VerifyBody {
   needs_onboarding?: boolean;
   tenant_id?: string | null;
+  gateway_token?: string | null;
   error?: { code: string; message: string };
 }
 
@@ -57,6 +59,24 @@ export function useVerify(token: string | null) {
           });
           return;
         }
+        // Establish the NextAuth client session so `useSession()` /
+        // `useSkycotSession()` surface `gatewayToken` (and the `tnt`,
+        // `email`, `name` claims decoded from it). Without this handoff the
+        // `__Host-session` cookie is set but the client session stays
+        // unauthenticated, so the app shell falls back to "Guest / Personal
+        // workspace". Best-effort: a failed sign-in still leaves the cookie
+        // in place (API calls work), so we proceed to the verified state.
+        if (body.gateway_token) {
+          try {
+            await signIn("gateway-bearer", {
+              token: body.gateway_token,
+              redirect: false,
+            });
+          } catch {
+            // Non-fatal — only the client-side identity display degrades.
+          }
+        }
+        if (cancelled) return;
         setState({
           kind: "verified",
           needsOnboarding: body.needs_onboarding ?? true,

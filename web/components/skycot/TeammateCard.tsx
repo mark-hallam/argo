@@ -49,17 +49,12 @@ const LONG_PRESS_MS = 500;
 
 // Traits + level are sourced from `sample-personas.ts` so /team and
 // /workers/<id> stay in lockstep. Workers that aren't in the canonical
-// roster (e.g. operator-hired customer workers) fall back to a hashed
-// level + empty trait strip — the card never renders an empty banner.
-function hashLevel(name: string): number {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
-  return (Math.abs(h) % 18) + 2;
-}
-
+// roster (e.g. operator-hired teammates) start at Level 1 — a freshly
+// hired teammate has no track record yet, so a placeholder gamified level
+// (the old hash-of-name) misrepresented brand-new hires as seasoned.
 function levelFor(worker: Worker): number {
   const persona = findSamplePersona(worker.id);
-  return persona?.level ?? hashLevel(worker.name);
+  return persona?.level ?? 1;
 }
 
 function traitsFor(worker: Worker): string[] {
