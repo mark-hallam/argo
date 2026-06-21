@@ -23,6 +23,7 @@ fn vineyard_draft() -> BroadRoleDraft {
             "all trucks dispatched on time".into(),
         ],
         onboarding_script: "Hi, I keep the harvest calendar tight and the trucks moving.".into(),
+        ..Default::default()
     }
 }
 
@@ -121,6 +122,7 @@ fn fallback_description_is_a_grammatical_verb_phrase_not_an_as_the_concatenation
         action_vocabulary: vec!["archive_article".into(), "extract_takeaways".into()],
         success_metrics: vec![],
         onboarding_script: String::new(),
+        ..Default::default()
     };
     let spec = CapabilitySpec::from_broad_draft(draft, Archetype::CalendarCoordinator);
     let descs: Vec<&str> = spec.capabilities.iter().map(|c| c.intent.as_str()).collect();
@@ -148,6 +150,7 @@ fn degenerate_action_name_still_yields_a_grammatical_fallback() {
         action_vocabulary: vec!["!!!".into()],
         success_metrics: vec![],
         onboarding_script: String::new(),
+        ..Default::default()
     };
     let spec = CapabilitySpec::from_broad_draft(draft, Archetype::CalendarCoordinator);
     assert_eq!(spec.capabilities[0].intent, "Perform a task.");

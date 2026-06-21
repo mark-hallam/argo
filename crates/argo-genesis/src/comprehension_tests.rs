@@ -16,6 +16,7 @@ fn spec_for(charter: &str, persona: &str) -> CapabilitySpec {
         action_vocabulary: vec!["review_filing".to_string(), "send_report".to_string()],
         success_metrics: vec!["zero missed deadlines".to_string()],
         onboarding_script: "Hi, I keep your filings on track.".to_string(),
+        ..Default::default()
     };
     CapabilitySpec::from_broad_draft(draft, Archetype::CustomerSupportAgent)
 }

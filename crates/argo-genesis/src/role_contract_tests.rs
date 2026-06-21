@@ -430,6 +430,7 @@ fn with_intake_slots_enriches_for_display_without_breaking_the_digest() {
         action_vocabulary: vec!["draft_post".into()],
         success_metrics: vec![],
         onboarding_script: "Hi.".into(),
+        ..Default::default()
     };
     let mut spec = crate::CapabilitySpec::from_broad_draft(draft, Archetype::MarketingIntern);
     spec.cadence = Some("every weekday at 9am".into());

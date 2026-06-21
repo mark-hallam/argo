@@ -18,6 +18,7 @@ fn spec_of(charter: &str, actions: &[&str]) -> CapabilitySpec {
         action_vocabulary: actions.iter().map(|a| (*a).to_string()).collect(),
         success_metrics: vec!["work gets done".into()],
         onboarding_script: "Hi.".into(),
+        ..Default::default()
     };
     CapabilitySpec::from_broad_draft(draft, Archetype::ResearchAnalyst)
 }

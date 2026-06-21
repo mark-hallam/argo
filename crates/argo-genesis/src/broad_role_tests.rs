@@ -95,6 +95,7 @@ fn broad_output_sentinel_archetype_broad() {
         action_vocabulary: vec!["a".into()],
         success_metrics: vec![],
         onboarding_script: String::new(),
+        ..Default::default()
     };
     assert_eq!(draft.archetype_slug(), "broad");
     assert_eq!(draft.archetype_slug(), BROAD_SENTINEL);
@@ -214,6 +215,7 @@ fn prepend_persona_disclaimer_mutates_description() {
         action_vocabulary: vec![],
         success_metrics: vec![],
         onboarding_script: String::new(),
+        ..Default::default()
     };
     draft.prepend_persona_disclaimer("not a real doctor");
     assert!(draft

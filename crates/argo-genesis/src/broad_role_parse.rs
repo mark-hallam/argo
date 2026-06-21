@@ -1,4 +1,6 @@
 use crate::archetype::{Archetype, ClassificationResult};
+use crate::spec::SuccessCriterion;
+use super::broad_role_richen::{cadence_from_cron, parse_success_criterion, whitelist_access};
 use argo_types::{ArgoError, ArgoResult};
 
 pub(crate) fn parse_confidence_response(raw: &str) -> ClassificationResult {
@@ -26,6 +28,20 @@ pub(crate) struct ParsedBroadRole {
     pub(crate) action_vocabulary: Vec<String>,
     pub(crate) success_metrics: Vec<String>,
     pub(crate) onboarding_script: String,
+    /// Concrete day-to-day duties — populates `CapabilitySpec.responsibilities`
+    /// so the synthesized system prompt no longer falls back to the literal
+    /// `(derive your responsibilities from the charter above)` line.
+    pub(crate) responsibilities: Vec<String>,
+    /// A firing cadence as a validated 5/6-field cron string (or `None` when the
+    /// model emitted free text / no cron) — the shape the hire→duty bridge's
+    /// `normalize_stored_cron` accepts.
+    pub(crate) cadence: Option<String>,
+    /// Typed, measurable success criteria (KPIs) — reuses the manifest KPI
+    /// vocabulary so the captured goals are enforceable, not free text.
+    pub(crate) success_criteria: Vec<SuccessCriterion>,
+    /// Least-privilege access set — only the wired connectors the model named
+    /// (anything else dropped). Surfaced draft-only ("to be connected").
+    pub(crate) access_integrations: Vec<String>,
 }
 
 pub(crate) fn parse_broad_role_response(raw: &str) -> ArgoResult<ParsedBroadRole> {
@@ -42,12 +58,38 @@ pub(crate) fn parse_broad_role_response(raw: &str) -> ArgoResult<ParsedBroadRole
             "broad-role response missing persona_description or action_vocabulary".into(),
         ));
     }
+    // Richer fields are ADDITIVE + tolerant: a model that omits any of them
+    // (or emits a malformed shape) degrades to the empty/None default, never a
+    // parse error — so the base contract (persona + actions) stays the only
+    // hard requirement and a pre-richening model still synthesizes a draft.
+    let responsibilities = json_string_array(&value, "responsibilities");
+    let cadence = value
+        .get("cadence_cron")
+        .and_then(|v| v.as_str())
+        .and_then(cadence_from_cron);
+    let success_criteria = parse_success_criteria(&value);
+    let access_integrations = whitelist_access(&json_string_array(&value, "access_integrations"));
     Ok(ParsedBroadRole {
         persona_description,
         action_vocabulary,
         success_metrics,
         onboarding_script,
+        responsibilities,
+        cadence,
+        success_criteria,
+        access_integrations,
     })
+}
+
+/// Parse the `success_criteria` array of typed objects. Each well-formed entry
+/// becomes a [`SuccessCriterion`]; malformed/blank entries are dropped. Returns
+/// an empty vec when the key is absent or not an array (tolerant).
+fn parse_success_criteria(value: &serde_json::Value) -> Vec<SuccessCriterion> {
+    value
+        .get("success_criteria")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(parse_success_criterion).collect())
+        .unwrap_or_default()
 }
 
 fn json_string(value: &serde_json::Value, key: &str) -> String {

@@ -24,6 +24,7 @@ fn from_scratch_plan() -> GenesisPlan {
         action_vocabulary: vec!["schedule_harvest".into(), "send_dispatch_notice".into()],
         success_metrics: vec!["zero missed harvest windows".into()],
         onboarding_script: "Hi, I keep the harvest calendar tight.".into(),
+        ..Default::default()
     };
     let spec = CapabilitySpec::from_broad_draft(draft, Archetype::CalendarCoordinator);
     let plan = materialize_spec(&spec).expect("materialize a from-scratch plan");

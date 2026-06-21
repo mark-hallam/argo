@@ -242,6 +242,7 @@ fn sync_action_descriptions_plumbs_authored_intent_into_the_manifest() {
         action_vocabulary: vec!["archive_article".into(), "extract_takeaways".into()],
         success_metrics: vec![],
         onboarding_script: String::new(),
+        ..Default::default()
     };
     let spec = CapabilitySpec::from_broad_draft(draft, Archetype::ResearchAnalyst);
     let mut plan = crate::materialize_spec(&spec).expect("materialize broad spec");

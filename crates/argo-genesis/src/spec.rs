@@ -33,6 +33,7 @@
 //!     action_vocabulary: vec!["schedule_harvest".into(), "send_truck_dispatch".into()],
 //!     success_metrics: vec!["zero missed harvest windows".into()],
 //!     onboarding_script: "Hi, I keep the harvest calendar tight.".into(),
+//!     ..Default::default()
 //! };
 //! let spec = CapabilitySpec::from_broad_draft(draft, Archetype::CalendarCoordinator);
 //! assert_eq!(spec.persona, "vinny");
@@ -242,11 +243,20 @@ impl CapabilitySpec {
         // keyword (`hire_gate::behaviour_contract_text` /
         // `eval_seed::generate(&plan.charter, …)`), so the floor no longer
         // depends on the per-action description carrying a role descriptor.
-        let capabilities: Vec<CapabilityDecl> = draft
+        let mut capabilities: Vec<CapabilityDecl> = draft
             .action_vocabulary
             .iter()
             .map(|name| CapabilityDecl::from_action_name(name, synthesized_intent(name)))
             .collect();
+        // Least-privilege access wiring: each whitelisted connector the role
+        // referenced is bound as a *draft* MCP intent on its best-matching
+        // capability (or, if none matches, the first one) so the materialized
+        // manifest records it under `[mcp_servers]` and the role contract
+        // surfaces it as a draft integration. The executor stays `human` at
+        // birth (DEC-025 #6) — this records intent, it does NOT make anything
+        // live. Synthesis NEVER invents access: the list is already filtered to
+        // the wired connectors by `whitelist_access`.
+        bind_draft_integrations(&mut capabilities, &draft.access_integrations);
         let human_approval_required: Vec<String> = capabilities
             .iter()
             .filter(|c| c.requires_approval)
@@ -256,7 +266,11 @@ impl CapabilitySpec {
             charter: draft.charter,
             persona: draft.persona,
             persona_description: draft.persona_description,
-            responsibilities: Vec::new(),
+            // Richened from-scratch synthesis: the model authored concrete
+            // duties, so the system prompt no longer falls back to the literal
+            // "(derive your responsibilities from the charter above)" line. An
+            // empty list (pre-richening model) keeps the old fallback behaviour.
+            responsibilities: draft.responsibilities,
             capabilities,
             success_metrics: draft.success_metrics,
             onboarding_script: draft.onboarding_script,
@@ -271,13 +285,14 @@ impl CapabilitySpec {
             // A draft produced by the broad-role path is by definition the
             // off-taxonomy / from-scratch case.
             from_scratch: true,
-            // The legacy broad-draft path carries no cadence / exceptions /
-            // typed success-criteria; these are populated by the richer intake
-            // (the capture panel) or a later author pass.
-            cadence: None,
+            // Richened from the broad-role draft (in the bridge-accepted cron
+            // shape) / typed KPIs / least-privilege access. Empty/None when the
+            // model omitted them — the conversational capture panel can still
+            // overlay these later via `IntakeState::assemble_spec`.
+            cadence: draft.cadence,
             exceptions: Vec::new(),
-            success_criteria: Vec::new(),
-            access_integrations: Vec::new(),
+            success_criteria: draft.success_criteria,
+            access_integrations: draft.access_integrations,
         }
     }
 
@@ -289,6 +304,59 @@ impl CapabilitySpec {
             .map(|c| c.action_name.clone())
             .collect()
     }
+}
+
+/// Bind each whitelisted draft connector to a capability's `proposed_executor`
+/// as an [`ExecutorIntent::Mcp`] DRAFT intent — so the materializer records it
+/// under `[mcp_servers]` (surfaced as a draft integration in the role
+/// contract) without making it live. Least-privilege + truth-bounded:
+///
+/// - The connector list is already filtered to the wired set upstream
+///   (`broad_role_richen::whitelist_access`), so this never binds an invented
+///   integration.
+/// - Each connector is attached to its best-keyword-matching capability (the
+///   action whose name shares the most word-stems with the connector's vocab),
+///   falling back to the first capability so a referenced connector is never
+///   silently dropped.
+/// - A capability that already carries an `Mcp` intent is left untouched (a
+///   later connector picks the next-best free capability) so two connectors
+///   don't collapse onto one action.
+/// - The executor stays draft-only: `executor_declaration` maps `Mcp` → the
+///   `human` executor at birth (DEC-025 #6), so nothing transmits.
+fn bind_draft_integrations(capabilities: &mut [CapabilityDecl], connectors: &[String]) {
+    if capabilities.is_empty() {
+        return;
+    }
+    for connector in connectors {
+        let server = sanitize_action_name(connector);
+        if server.is_empty() {
+            continue;
+        }
+        // Prefer a capability with no Mcp intent yet; among those, the one whose
+        // action name best matches the connector. Fall back to index 0.
+        let target = capabilities
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| !matches!(c.proposed_executor, ExecutorIntent::Mcp { .. }))
+            .max_by_key(|(_, c)| connector_match_score(&c.action_name, &server))
+            .map_or(0, |(i, _)| i);
+        capabilities[target].proposed_executor = ExecutorIntent::Mcp {
+            server: server.clone(),
+            tool: None,
+        };
+    }
+}
+
+/// A cheap keyword-overlap score between an action name and a connector slug:
+/// the count of shared `_`-split word-stems. Ties + zero-overlap fall back to
+/// declaration order via `max_by_key`'s last-max semantics, which is fine —
+/// the binding is a draft hint the operator reviews, not a hard contract.
+fn connector_match_score(action_name: &str, connector: &str) -> usize {
+    action_name
+        .split('_')
+        .filter(|stem| !stem.is_empty())
+        .filter(|stem| connector.contains(*stem) || stem.contains(connector))
+        .count()
 }
 
 /// Normalise an arbitrary action label to a manifest-legal `snake_case`

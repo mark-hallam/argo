@@ -168,9 +168,11 @@ crates/argo-cli/src/handlers/vertical_workflow_step.rs	run_tool_call_step
 crates/argo-cli/src/handlers/work.rs	serve
 crates/argo-cli/src/handlers/work_artifacts/mod.rs	write_artifacts
 crates/argo-cli/src/handlers/work_artifacts/tests.rs	write_artifacts_blocks_bundle_on_zero_evidence_research
+crates/argo-cli/src/handlers/work_dispatch.rs	process_job
 crates/argo-cli/src/handlers/work_emission.rs	emit_and_persist_actions
 crates/argo-cli/src/handlers/work_jobs.rs	collect_jobs
 crates/argo-cli/src/handlers/work_steps.rs	record_research_unavailable
+crates/argo-cli/src/handlers/work_steps.rs	run_live_loop
 crates/argo-cli/src/handlers/worker_actions_actions_dispatch_arms.rs	run
 crates/argo-cli/src/handlers/worker_actions_dispatch_retry.rs	retry
 crates/argo-cli/src/handlers/worker_actions_emit.rs	build_emission

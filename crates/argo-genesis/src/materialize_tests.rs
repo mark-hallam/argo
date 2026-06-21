@@ -26,6 +26,7 @@ fn vineyard_spec() -> CapabilitySpec {
         ],
         success_metrics: vec!["zero missed harvest windows".into()],
         onboarding_script: "Hi, I keep the harvest calendar tight.".into(),
+        ..Default::default()
     };
     CapabilitySpec::from_broad_draft(draft, Archetype::CalendarCoordinator)
 }
@@ -269,6 +270,7 @@ fn broad_outcome_materialize_seam_is_no_longer_terminal() {
         action_vocabulary: vec!["run_morale_check".into(), "draft_shoutout".into()],
         success_metrics: vec!["rising team sentiment".into()],
         onboarding_script: "Hi, I keep the vibes immaculate.".into(),
+        ..Default::default()
     };
     let outcome = crate::GenesisOutcome::Broad(Box::new(draft));
     assert_eq!(outcome.archetype_slug(), "broad");
@@ -299,6 +301,7 @@ fn named_spec(charter: &str, persona: &str) -> CapabilitySpec {
         action_vocabulary: vec!["draft_post".into(), "schedule_post".into()],
         success_metrics: vec!["posts shipped on time".into()],
         onboarding_script: "Hi, I run the content calendar.".into(),
+        ..Default::default()
     };
     CapabilitySpec::from_broad_draft(draft, Archetype::MarketingIntern)
 }
@@ -339,6 +342,7 @@ fn genesis_hire_unnamed_etsy_role_uses_archetype_first_letter_not_the_verb() {
         action_vocabulary: vec!["track_order".into(), "flag_review".into()],
         success_metrics: vec!["orders tracked on time".into()],
         onboarding_script: "Hi, I keep your shop tidy.".into(),
+        ..Default::default()
     };
     let spec = CapabilitySpec::from_broad_draft(draft, Archetype::BookkeepingAssistant);
     let name = materialize_spec(&spec).expect("materialize").manifest.vertical.name;
@@ -365,6 +369,7 @@ fn genesis_hire_unnamed_friendly_role_uses_archetype_not_the_adjective() {
         action_vocabulary: vec!["greet_inquiry".into(), "schedule_discovery_call".into()],
         success_metrics: vec!["inquiries answered same day".into()],
         onboarding_script: "Hi, I'm your front desk.".into(),
+        ..Default::default()
     };
     let spec = CapabilitySpec::from_broad_draft(draft, Archetype::CustomerSupportAgent);
     let name = materialize_spec(&spec).expect("materialize").manifest.vertical.name;

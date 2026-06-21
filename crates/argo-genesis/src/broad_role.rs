@@ -24,6 +24,7 @@
 
 use crate::archetype::{Archetype, ClassificationResult, ProviderClient};
 use crate::error::GenesisError;
+use crate::spec::SuccessCriterion;
 use argo_types::ArgoResult;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -32,6 +33,8 @@ use serde::{Deserialize, Serialize};
 mod broad_role_parse;
 #[path = "broad_role_plan.rs"]
 mod broad_role_plan;
+#[path = "broad_role_richen.rs"]
+pub(crate) mod broad_role_richen;
 
 pub(crate) use broad_role_parse::{
     first_balanced_object, is_non_json_refusal, parse_broad_role_response, parse_confidence_response,
@@ -54,7 +57,7 @@ pub const BROAD_ROLE_CONFIDENCE_THRESHOLD: f32 = 0.6;
 /// onboarding script. The `archetype_slug()` accessor always returns
 /// [`BROAD_SENTINEL`] so callers can treat this as a "13th non-
 /// archetype slot" without adding it to the [`crate::Archetype`] enum.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BroadRoleDraft {
     /// The original operator charter, byte-identical.
     pub charter: String,
@@ -69,6 +72,35 @@ pub struct BroadRoleDraft {
     pub success_metrics: Vec<String>,
     /// Single-paragraph onboarding script the model produced.
     pub onboarding_script: String,
+    /// Concrete day-to-day responsibilities the model produced. Populates
+    /// [`crate::spec::CapabilitySpec::responsibilities`] so a from-scratch
+    /// teammate's system prompt reads like a real hire instead of falling back
+    /// to the literal `(derive your responsibilities from the charter above)`
+    /// line. Additive + `#[serde(default)]`: drafts serialized before this
+    /// field still deserialize (empty responsibilities).
+    #[serde(default)]
+    pub responsibilities: Vec<String>,
+    /// A firing cadence as a validated 5/6-field cron expression (or `None`
+    /// when the model emitted none / free text). Threaded into
+    /// [`crate::spec::CapabilitySpec::cadence`] in the exact shape the hire→duty
+    /// bridge's `normalize_stored_cron` accepts, so a richened broad role
+    /// actually yields a *firing* duty rather than a skipped one.
+    #[serde(default)]
+    pub cadence: Option<String>,
+    /// Typed, measurable success criteria (KPIs) the model produced — reuses
+    /// the manifest KPI vocabulary (kind / target / comparator). Threaded into
+    /// [`crate::spec::CapabilitySpec::success_criteria`] so the captured goals
+    /// are enforceable, and their names ride to the hire draft's non-empty
+    /// `kpis`. Additive + `#[serde(default)]`.
+    #[serde(default)]
+    pub success_criteria: Vec<SuccessCriterion>,
+    /// Least-privilege access set — only the wired connectors the model named
+    /// (anything outside the whitelist dropped). Threaded into
+    /// [`crate::spec::CapabilitySpec::access_integrations`] as draft-only
+    /// "to be connected" needs (never live bindings at birth). Additive +
+    /// `#[serde(default)]`.
+    #[serde(default)]
+    pub access_integrations: Vec<String>,
 }
 
 impl BroadRoleDraft {
@@ -161,21 +193,37 @@ pub async fn classify_llm_with_confidence(
     }
 }
 
-/// Build the deterministic broad-role synthesis prompt. Asks the
-/// model for a persona description, 3-8 action names, 3-5 success
-/// metrics, and a 1-paragraph onboarding script — all in one JSON
-/// envelope to keep parsing simple.
+/// Build the deterministic broad-role synthesis prompt. Asks the model to
+/// FULLY author a from-scratch teammate in one JSON envelope: persona, action
+/// vocabulary, concrete responsibilities, a firing cadence (cron), typed
+/// success criteria (KPIs), least-privilege access, and an onboarding script.
+///
+/// The richer fields (`responsibilities` / `cadence_cron` / `success_criteria`
+/// / `access_integrations`) are what turn a one-line off-taxonomy role into a
+/// real teammate instead of one whose system prompt says
+/// "(derive your responsibilities from the charter above)". The cadence is
+/// requested AS A CRON so it threads through the hire→duty bridge unchanged;
+/// access is held to the wired connector list so the model cannot invent
+/// integrations. All are best-effort — the parser tolerates a model that omits
+/// any of them — but the prompt asks for them so a capable model fills them in.
 #[must_use]
 pub fn build_broad_role_prompt(charter: &str, persona: &str) -> String {
+    let connectors = broad_role_richen::WIRED_CONNECTORS.join(", ");
     format!(
         "You are designing an AI worker role for an operator. Read the charter \
          and return ONE JSON object with these fields (no extra prose, no markdown):\n\
          {{\n  \
          \"persona_description\": <1-2 sentence persona description, third person>,\n  \
+         \"responsibilities\": [3 to 5 concrete day-to-day duties, plain language — NOT \"derive from the charter\"],\n  \
          \"action_vocabulary\": [3 to 8 action names as snake_case verbs],\n  \
+         \"cadence_cron\": <a 5-field cron expression for WHEN this role runs, e.g. \"0 9 * * 1-5\" for weekday mornings; omit or use \"\" if purely event-driven>,\n  \
          \"success_metrics\": [3 to 5 measurable outcome statements],\n  \
+         \"success_criteria\": [up to 5 typed KPIs, each {{\"name\": <metric>, \"kind\": one of percentage|count|ratio|duration_ms|score, \"target\": <number>, \"comparator\": one of gte|lte|eq}}],\n  \
+         \"access_integrations\": [systems this role needs — ONLY from: {connectors}; omit any not on that list, never invent one],\n  \
          \"onboarding_script\": <one paragraph introducing the worker>\n\
          }}\n\n\
+         Rules: be specific to THIS role; do not invent access outside the allowed connector list; \
+         sensitive or irreversible actions are escalated to a human, never done autonomously.\n\n\
          Persona handle: {persona}\n\
          Charter: {charter}",
     )
@@ -233,9 +281,17 @@ pub async fn genesis_broad_role(
         action_vocabulary: parsed.action_vocabulary,
         success_metrics: parsed.success_metrics,
         onboarding_script: parsed.onboarding_script,
+        responsibilities: parsed.responsibilities,
+        cadence: parsed.cadence,
+        success_criteria: parsed.success_criteria,
+        access_integrations: parsed.access_integrations,
     })
 }
 
 #[cfg(test)]
 #[path = "broad_role_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "broad_role_richen_integration_tests.rs"]
+mod richen_integration_tests;

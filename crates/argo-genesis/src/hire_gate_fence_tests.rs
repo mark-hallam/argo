@@ -151,6 +151,7 @@ fn broad_role_contract(charter: &str, persona: &str, actions: &[&str]) -> RoleCo
         action_vocabulary: actions.iter().map(|s| (*s).to_string()).collect(),
         success_metrics: vec!["operates within policy".into()],
         onboarding_script: "Hi, here to help.".into(),
+        ..Default::default()
     };
     let spec = CapabilitySpec::from_broad_draft(draft, Archetype::ResearchAnalyst);
     let plan = materialize_spec(&spec).expect("dangerous-role teammate materializes");

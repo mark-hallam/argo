@@ -371,6 +371,11 @@ impl IntakeState {
                 .map(|c| c.name.clone())
                 .collect(),
             onboarding_script: String::new(),
+            // The conversational capture path overlays the richer slots
+            // (responsibilities / cadence / typed success-criteria / access)
+            // directly onto the spec below, so the draft itself leaves them at
+            // their defaults here.
+            ..Default::default()
         };
         let mut spec = CapabilitySpec::from_broad_draft(draft, archetype);
         spec.responsibilities = self.responsibilities.clone();

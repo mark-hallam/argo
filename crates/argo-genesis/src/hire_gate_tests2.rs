@@ -50,6 +50,7 @@ fn vineyard_broad_plan() -> GenesisPlan {
         ],
         success_metrics: vec!["zero missed harvest windows".into()],
         onboarding_script: "Hi, I keep the harvest calendar tight.".into(),
+        ..Default::default()
     };
     let spec = CapabilitySpec::from_broad_draft(draft, Archetype::CalendarCoordinator);
     materialize_spec(&spec).expect("broad-path teammate materializes")

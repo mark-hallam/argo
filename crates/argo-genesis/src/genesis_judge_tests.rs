@@ -37,6 +37,7 @@ fn sample_draft() -> BroadRoleDraft {
         action_vocabulary: vec!["check_in".into(), "draft_kudos".into()],
         success_metrics: vec!["weekly_vibe_score_up".into()],
         onboarding_script: "Hi team!".into(),
+        ..Default::default()
     }
 }
 

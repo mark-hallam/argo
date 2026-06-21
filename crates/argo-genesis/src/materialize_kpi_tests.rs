@@ -176,6 +176,7 @@ fn no_typed_criteria_keeps_the_sla_skeleton_and_free_text_hints() {
         action_vocabulary: vec!["schedule_harvest".into()],
         success_metrics: vec!["zero missed harvest windows".into()],
         onboarding_script: "Hi.".into(),
+        ..Default::default()
     };
     let spec = CapabilitySpec::from_broad_draft(draft, Archetype::CalendarCoordinator);
     assert!(spec.success_criteria.is_empty(), "from_broad_draft leaves criteria empty");
