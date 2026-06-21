@@ -110,6 +110,51 @@ pub async fn upsert_group(
     Ok(())
 }
 
+/// The `group_key` under which a tenant's autonomy opt-in is persisted
+/// in [`workspace_settings`](crate::workspace_settings).
+pub const AUTONOMY_GROUP_KEY: &str = "autonomy";
+
+/// The JSON field, within the autonomy group's `value_json`, that opts a
+/// tenant into scheduled-duty autofire.
+pub const DUTY_AUTOFIRE_FIELD: &str = "duty_autofire";
+
+/// Whether this tenant has opted INTO scheduled-duty autofire.
+///
+/// **Default OFF (operator standing rule).** Autonomy means a scheduled
+/// duty FIRES without a human manually starting it — it is NOT
+/// auto-approval of the resulting action; the fired action still passes
+/// through the auto-approval / approvals gate. A tenant must explicitly
+/// opt in: this returns `false` when the tenant has never saved the
+/// autonomy panel, when the stored JSON omits the
+/// [`DUTY_AUTOFIRE_FIELD`] field, or when the JSON is unparseable
+/// (fail-closed).
+///
+/// # Errors
+/// Returns [`ArgoError::Provider`] only if the underlying query itself
+/// fails (e.g. migrations have not run). A malformed stored value is NOT
+/// an error — it fail-closes to `false`.
+///
+/// ```no_run
+/// # async fn demo(pool: &sqlx::SqlitePool) -> argo_types::ArgoResult<()> {
+/// use argo_store::workspace_settings::tenant_duty_autofire_enabled;
+/// // A tenant that never opted in is OFF by default:
+/// let on = tenant_duty_autofire_enabled(pool, "tenant-a").await?;
+/// assert!(!on);
+/// # Ok(()) }
+/// ```
+pub async fn tenant_duty_autofire_enabled(
+    pool: &SqlitePool,
+    tenant_id: &str,
+) -> ArgoResult<bool> {
+    let Some(raw) = get_group(pool, tenant_id, AUTONOMY_GROUP_KEY).await? else {
+        return Ok(false); // never saved → OFF
+    };
+    Ok(serde_json::from_str::<serde_json::Value>(&raw)
+        .ok()
+        .and_then(|v| v.get(DUTY_AUTOFIRE_FIELD).and_then(serde_json::Value::as_bool))
+        .unwrap_or(false)) // missing field / unparseable → OFF (fail-closed)
+}
+
 #[cfg(test)]
 #[path = "workspace_settings_tests.rs"]
 mod tests;

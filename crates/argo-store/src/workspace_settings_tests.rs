@@ -3,7 +3,9 @@
 //! runner up to v85 so the `workspace_settings` table exists exactly
 //! as the live runtime would create it.
 
-use super::{get_group, upsert_group};
+use super::{
+    get_group, tenant_duty_autofire_enabled, upsert_group, AUTONOMY_GROUP_KEY,
+};
 use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::SqlitePool;
 
@@ -95,6 +97,67 @@ async fn other_tenant_sees_none_not_tenant_a_values() {
         .expect("tenant-b get");
     assert_eq!(a.as_deref(), Some("{\"name\":\"A workspace\"}"));
     assert_eq!(b.as_deref(), Some("{\"name\":\"B workspace\"}"));
+}
+
+#[tokio::test]
+async fn duty_autofire_defaults_off_for_unseeded_tenant() {
+    // Operator standing rule: a tenant that never opted in is OFF.
+    let pool = migrated_pool().await;
+    assert!(
+        !tenant_duty_autofire_enabled(&pool, "tenant-a")
+            .await
+            .expect("read"),
+        "an unseeded tenant must default to autonomy OFF"
+    );
+}
+
+#[tokio::test]
+async fn duty_autofire_reads_explicit_opt_in_and_opt_out() {
+    let pool = migrated_pool().await;
+    // Explicit opt-in.
+    upsert_group(&pool, "tenant-a", AUTONOMY_GROUP_KEY, "{\"duty_autofire\":true}", 1)
+        .await
+        .expect("opt-in");
+    assert!(tenant_duty_autofire_enabled(&pool, "tenant-a")
+        .await
+        .expect("read on"));
+    // Explicit opt-out flips it back OFF.
+    upsert_group(&pool, "tenant-a", AUTONOMY_GROUP_KEY, "{\"duty_autofire\":false}", 2)
+        .await
+        .expect("opt-out");
+    assert!(!tenant_duty_autofire_enabled(&pool, "tenant-a")
+        .await
+        .expect("read off"));
+}
+
+#[tokio::test]
+async fn duty_autofire_fail_closes_on_missing_field_or_garbage() {
+    let pool = migrated_pool().await;
+    // Saved autonomy panel that omits the field → OFF (fail-closed).
+    upsert_group(&pool, "t1", AUTONOMY_GROUP_KEY, "{\"other\":1}", 1)
+        .await
+        .expect("seed missing-field");
+    assert!(!tenant_duty_autofire_enabled(&pool, "t1").await.expect("t1"));
+    // Unparseable JSON → OFF (fail-closed), never an error.
+    upsert_group(&pool, "t2", AUTONOMY_GROUP_KEY, "not json", 1)
+        .await
+        .expect("seed garbage");
+    assert!(!tenant_duty_autofire_enabled(&pool, "t2").await.expect("t2"));
+}
+
+#[tokio::test]
+async fn duty_autofire_is_tenant_scoped() {
+    let pool = migrated_pool().await;
+    // Tenant A opts in; tenant B must stay OFF — one customer opting in
+    // never flips it for another.
+    upsert_group(&pool, "tenant-a", AUTONOMY_GROUP_KEY, "{\"duty_autofire\":true}", 1)
+        .await
+        .expect("a opt-in");
+    assert!(tenant_duty_autofire_enabled(&pool, "tenant-a").await.expect("a"));
+    assert!(
+        !tenant_duty_autofire_enabled(&pool, "tenant-b").await.expect("b"),
+        "tenant-a's opt-in must not leak to tenant-b"
+    );
 }
 
 #[tokio::test]

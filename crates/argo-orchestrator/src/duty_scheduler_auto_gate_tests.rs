@@ -17,6 +17,10 @@ async fn open_store() -> Arc<SessionStore> {
     store
 }
 
+/// Create a worker AND opt its tenant into scheduled autonomy, so the
+/// per-tenant gate (default OFF) lets the fire through to the policy
+/// evaluator. The policy-layer tests below exercise the evaluator, not
+/// the per-tenant opt-in (which has its own dedicated tests).
 async fn make_worker(store: &SessionStore, policy: AutoApprovalPolicy) -> Worker {
     let identities = IdentityStore::new(store);
     let mut worker = Worker::draft(
@@ -27,6 +31,7 @@ async fn make_worker(store: &SessionStore, policy: AutoApprovalPolicy) -> Worker
     );
     worker.auto_approval = policy;
     identities.create_worker(&worker).await.unwrap();
+    opt_in_autonomy(store, worker.tenant_id).await;
     worker
 }
 
@@ -45,6 +50,22 @@ fn generous() -> AutoApprovalPolicy {
         enabled: true,
         ..Default::default()
     }
+}
+
+/// Opt a tenant INTO scheduled-duty autonomy (default is OFF). Without
+/// this, every fire is held at the per-tenant gate before the policy
+/// evaluator even runs, so the policy-level assertions below would all
+/// see `DeniedGate`.
+async fn opt_in_autonomy(store: &SessionStore, tenant: TenantId) {
+    argo_store::workspace_settings::upsert_group(
+        store.pool(),
+        &tenant.0.to_string(),
+        argo_store::workspace_settings::AUTONOMY_GROUP_KEY,
+        "{\"duty_autofire\":true}",
+        0,
+    )
+    .await
+    .unwrap();
 }
 
 /// Test resolver that reports a fixed `(risk, requires_approval)` for any
@@ -190,6 +211,91 @@ async fn unconfigured_worker_holds_fire_by_default() {
     let gate = AutoApprovalDutyGate::new(Arc::clone(&store));
     let decision = gate.evaluate(&duty_for(&worker)).await.unwrap();
     assert_eq!(decision, FireDecision::DeniedGate);
+}
+
+/// Make a worker WITHOUT opting its tenant into autonomy — the
+/// per-tenant gate (default OFF) must hold the fire. Mirrors
+/// `make_worker` but omits the `opt_in_autonomy` call.
+async fn make_worker_no_optin(store: &SessionStore, policy: AutoApprovalPolicy) -> Worker {
+    let identities = IdentityStore::new(store);
+    let mut worker = Worker::draft(
+        TenantId::new(),
+        "gtm",
+        Persona::named("Maya", "op"),
+        Role::new("Sell."),
+    );
+    worker.auto_approval = policy;
+    identities.create_worker(&worker).await.unwrap();
+    worker
+}
+
+#[tokio::test]
+async fn default_tenant_autonomy_off_holds_fire_even_for_safe_tier() {
+    // PER-TENANT AUTONOMY DEFAULT OFF (operator standing rule): a tenant
+    // that has NOT opted in keeps every scheduled fire held — even a
+    // low-risk, no-approval-needed, generous-policy fire that would
+    // otherwise auto-approve. The per-tenant setting is authoritative.
+    let store = open_store().await;
+    let worker = make_worker_no_optin(&store, generous()).await;
+    let sink = Arc::new(AuditSink::new_with_tenant(
+        Arc::clone(&store),
+        argo_audit::SYSTEM_AUDIT_TENANT_ID.to_string(),
+    ));
+    let gate = AutoApprovalDutyGate::new(Arc::clone(&store))
+        .with_audit_sink(sink.clone())
+        .with_risk_resolver(resolver("low", false));
+    let decision = gate.evaluate(&duty_for(&worker)).await.unwrap();
+    assert_eq!(
+        decision,
+        FireDecision::DeniedGate,
+        "default-OFF tenant must NOT auto-fire even a safe-tier duty"
+    );
+    // The held fire still surfaces an approval item so the operator sees it.
+    sink.flush_pending().await.unwrap();
+    assert_eq!(
+        count_approval_asked(&store, worker.tenant_id).await,
+        1,
+        "a fire held for missing tenant opt-in must surface an approval item"
+    );
+}
+
+#[tokio::test]
+async fn opted_in_tenant_auto_fires_safe_tier() {
+    // The opt-in is what lets a safe-tier fire through. `make_worker`
+    // opts the tenant in; with a low-risk + no-approval-needed manifest
+    // and a generous policy, the fire auto-approves.
+    let store = open_store().await;
+    let worker = make_worker(&store, generous()).await;
+    let gate =
+        AutoApprovalDutyGate::new(Arc::clone(&store)).with_risk_resolver(resolver("low", false));
+    let decision = gate.evaluate(&duty_for(&worker)).await.unwrap();
+    assert_eq!(
+        decision,
+        FireDecision::AutoApprove,
+        "an opted-in tenant's safe-tier duty must auto-fire"
+    );
+}
+
+#[tokio::test]
+async fn opting_in_does_not_bypass_policy_caps() {
+    // Autonomy is NOT auto-approval of the action: opting the tenant in
+    // only lets the fire reach the evaluator — a `$0` per-action budget
+    // still holds it. (Proves the opt-in doesn't couple to auto-approve.)
+    let store = open_store().await;
+    let policy = AutoApprovalPolicy {
+        enabled: true,
+        max_usd_micros_per_action: Some(0),
+        ..Default::default()
+    };
+    let worker = make_worker(&store, policy).await; // opted in
+    let gate =
+        AutoApprovalDutyGate::new(Arc::clone(&store)).with_risk_resolver(resolver("low", false));
+    let decision = gate.evaluate(&duty_for(&worker)).await.unwrap();
+    assert_eq!(
+        decision,
+        FireDecision::DeniedGate,
+        "opt-in must not bypass the $0-budget cap"
+    );
 }
 
 #[tokio::test]

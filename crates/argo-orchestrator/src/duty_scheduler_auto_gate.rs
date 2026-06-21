@@ -197,6 +197,43 @@ impl DutyGate for AutoApprovalDutyGate {
             return Ok(FireDecision::DeniedGate);
         };
 
+        // PER-TENANT AUTONOMY OPT-IN (default OFF, operator standing rule).
+        // Autonomy = the scheduled duty FIRES without a human starting it; it
+        // is NOT auto-approval of the resulting action (the fire still flows
+        // through the H-1 evaluator below, and a `low`/safe fire that the
+        // evaluator does auto-approve still spawns a real `run_turn` whose own
+        // tool actions hit the runtime approval gate). A tenant that has not
+        // explicitly opted in keeps every scheduled fire HELD — even when the
+        // process-global `ARGO_DUTY_AUTOFIRE` flag selected this gate over the
+        // deny-all `ClosedGate` at boot. The per-tenant setting is therefore
+        // authoritative: one customer can opt ONE workspace into scheduled
+        // autonomous work without flipping it for everyone. A held fire still
+        // surfaces an approval item so the operator sees it in the inbox.
+        if !argo_store::workspace_settings::tenant_duty_autofire_enabled(
+            self.store.pool(),
+            &duty.tenant_id.0.to_string(),
+        )
+        .await
+        .unwrap_or(false)
+        {
+            tracing::info!(
+                target: "argo_orchestrator::duty_scheduler_auto_gate",
+                tenant_id = %duty.tenant_id.0,
+                worker_id = %duty.worker_id,
+                duty_id = %duty.id,
+                "tenant has not opted into scheduled autonomy (default OFF); fire held"
+            );
+            self.surface_approval(
+                duty,
+                &AutoApprovalDecision::Ask {
+                    channel: None,
+                    reason: "tenant autonomy disabled (default OFF)".to_string(),
+                },
+            )
+            .await;
+            return Ok(FireDecision::DeniedGate);
+        }
+
         let policy = worker.resolved_policy(&self.workspace_default);
         let now = Utc::now();
         let today = spend_today_for_worker(self.store.pool(), &duty.worker_id.to_string(), now)
