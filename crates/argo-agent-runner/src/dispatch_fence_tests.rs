@@ -41,6 +41,8 @@ async fn ctx_for_profile(
         store,
         profile,
         is_worker_session,
+        // No deliver dispatcher under the capability-fence tests.
+        None,
     )
     .expect("build dispatch ctx")
 }

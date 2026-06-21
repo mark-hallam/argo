@@ -33,6 +33,7 @@ pub(crate) async fn run_turn_with_events_inner(
     stream: bool,
     max_rounds: usize,
     events: Option<&RunEventSink>,
+    deliver_dispatcher: Option<Arc<dyn argo_tool::DeliverDispatcher>>,
 ) -> ArgoResult<TurnResult> {
     let session = store
         .get_session(session_id)
@@ -230,6 +231,7 @@ pub(crate) async fn run_turn_with_events_inner(
         session.worker_id,
         &invocation_id,
         &mut pending_ab_outcomes,
+        deliver_dispatcher,
     )
     .await;
     let succeeded = result.is_ok();

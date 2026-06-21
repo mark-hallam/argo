@@ -406,6 +406,7 @@ async fn truth_boundary_run_turn_with_tools_gates_final_once() {
             None,
             "truth-boundary-test",
             &mut pending_ab,
+            None,
         )
         .await
     })

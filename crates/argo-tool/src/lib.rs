@@ -44,8 +44,9 @@ pub use tool::{
 };
 pub use tools::{
     builtin_tools, builtin_tools_with_memory, builtin_tools_with_runtime,
-    builtin_tools_with_runtime_and_message_dispatcher, risk_tier, Clarify, ClarifyAnswer,
-    ClarifyDispatcher, CodeExecute, DelegateTask, FilePatch, FileRead, FileWrite, Memory,
+    builtin_tools_with_runtime_and_dispatchers, builtin_tools_with_runtime_and_message_dispatcher,
+    risk_tier, Clarify, ClarifyAnswer, ClarifyDispatcher, CodeExecute, DelegateTask,
+    DeliverDispatcher, DeliverOutcome, EnqueueAction, FilePatch, FileRead, FileWrite, Memory,
     MessageDispatcher, Process, ResolvedImage, SendMessage, SendOutcome, SessionSearch, Terminal,
     Todo, TodoItem, Vision, VisionAnswer, VisionDispatcher, WebExtract, WebSearch,
 };

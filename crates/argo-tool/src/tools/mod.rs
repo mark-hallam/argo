@@ -15,6 +15,7 @@
 mod clarify;
 mod code_execute;
 mod delegate_task;
+mod deliver;
 mod file_patch;
 mod file_read;
 mod file_write;
@@ -31,6 +32,7 @@ mod web;
 pub use clarify::{Clarify, ClarifyAnswer, ClarifyDispatcher};
 pub use code_execute::CodeExecute;
 pub use delegate_task::DelegateTask;
+pub use deliver::{DeliverDispatcher, DeliverOutcome, EnqueueAction};
 pub use file_patch::FilePatch;
 pub use file_read::FileRead;
 pub use file_write::FileWrite;
@@ -80,6 +82,7 @@ pub fn builtin_tools(_workspace_root: PathBuf) -> Vec<Arc<dyn Tool>> {
         Arc::new(Todo),
         Arc::new(Clarify::default()),
         Arc::new(Process),
+        Arc::new(EnqueueAction::default()),
     ]
 }
 
@@ -112,6 +115,7 @@ pub fn builtin_tools_with_memory(
         Arc::new(Todo),
         Arc::new(Clarify::default()),
         Arc::new(Process),
+        Arc::new(EnqueueAction::default()),
     ]
 }
 
@@ -149,12 +153,13 @@ pub fn builtin_tools_with_runtime(
     orchestrator: Arc<OrchestratorStore>,
     session_store: Arc<SessionStore>,
 ) -> Vec<Arc<dyn Tool>> {
-    builtin_tools_with_runtime_and_message_dispatcher(
+    builtin_tools_with_runtime_and_dispatchers(
         workspace_root,
         memory,
         memory_namespace,
         orchestrator,
         session_store,
+        None,
         None,
     )
 }
@@ -171,12 +176,45 @@ pub fn builtin_tools_with_runtime(
 /// [`OutboundChannel`](https://docs.rs/argo-channels) impls on it.
 #[must_use]
 pub fn builtin_tools_with_runtime_and_message_dispatcher(
+    workspace_root: PathBuf,
+    memory: Option<(Arc<MemoryStore>, WorkspaceId, Option<String>)>,
+    memory_namespace: Option<MemoryNs>,
+    orchestrator: Arc<OrchestratorStore>,
+    session_store: Arc<SessionStore>,
+    message_dispatcher: Option<Arc<dyn MessageDispatcher>>,
+) -> Vec<Arc<dyn Tool>> {
+    builtin_tools_with_runtime_and_dispatchers(
+        workspace_root,
+        memory,
+        memory_namespace,
+        orchestrator,
+        session_store,
+        message_dispatcher,
+        None,
+    )
+}
+
+/// Same as [`builtin_tools_with_runtime_and_message_dispatcher`] but also
+/// wires the `enqueue_action` in-turn delivery tool to the supplied
+/// [`DeliverDispatcher`] when `deliver_dispatcher` is `Some`
+/// (WAVE-2 ⑥ chat→delivery bridge). When `None`, the tool keeps its
+/// default `"enqueue_action backend not wired"` dispatcher so it still
+/// appears in the model's schema with a clear diagnostic.
+///
+/// The delivery backend is constructed in `argo-cli` (the only crate
+/// that can reach the bridge primitive + the bound vertical manifest /
+/// job context) and injected here, so the tool carries no upward crate
+/// dependency. The injected backend submits the action through the
+/// approval gate (pending, requires_approval) and never executes it.
+#[must_use]
+pub fn builtin_tools_with_runtime_and_dispatchers(
     _workspace_root: PathBuf,
     memory: Option<(Arc<MemoryStore>, WorkspaceId, Option<String>)>,
     memory_namespace: Option<MemoryNs>,
     orchestrator: Arc<OrchestratorStore>,
     session_store: Arc<SessionStore>,
     message_dispatcher: Option<Arc<dyn MessageDispatcher>>,
+    deliver_dispatcher: Option<Arc<dyn DeliverDispatcher>>,
 ) -> Vec<Arc<dyn Tool>> {
     let memory_tool: Arc<dyn Tool> = match memory {
         Some((store, workspace_id, vertical_id)) => match memory_namespace {
@@ -188,6 +226,10 @@ pub fn builtin_tools_with_runtime_and_message_dispatcher(
     let send_message_tool: Arc<dyn Tool> = match message_dispatcher {
         Some(dispatcher) => Arc::new(SendMessage::with_dispatcher(dispatcher)),
         None => Arc::new(SendMessage::default()),
+    };
+    let enqueue_action_tool: Arc<dyn Tool> = match deliver_dispatcher {
+        Some(dispatcher) => Arc::new(EnqueueAction::with_dispatcher(dispatcher)),
+        None => Arc::new(EnqueueAction::default()),
     };
     vec![
         Arc::new(FileRead),
@@ -205,6 +247,7 @@ pub fn builtin_tools_with_runtime_and_message_dispatcher(
         Arc::new(Todo),
         Arc::new(Clarify::default()),
         Arc::new(Process),
+        enqueue_action_tool,
     ]
 }
 
@@ -222,7 +265,7 @@ mod tests {
     #[test]
     fn builtin_tools_returns_unique_names() {
         let tools = builtin_tools(PathBuf::from("/tmp"));
-        assert_eq!(tools.len(), 15);
+        assert_eq!(tools.len(), 16);
         let mut names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         names.sort_unstable();
         let mut deduped = names.clone();
@@ -234,6 +277,7 @@ mod tests {
                 "clarify",
                 "code_execute",
                 "delegate_task",
+                "enqueue_action",
                 "file_patch",
                 "file_read",
                 "file_write",

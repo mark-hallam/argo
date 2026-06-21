@@ -115,6 +115,15 @@ pub(crate) async fn process_job(
         p::mint_pre_approved_grants(store, tenant, session_id, pre).await?;
     }
 
+    // WAVE-2 ⑥: build the in-turn chat→delivery bridge backend for THIS run,
+    // capturing the bound vertical manifest + job/worker context so the agent
+    // can call the `enqueue_action` tool mid-turn to submit a drafted action
+    // for approval. `None` when the worker has no id (system job) or the
+    // manifest can't load — the tool then stays unwired (errors on use), never
+    // auto-delivering. The backend submits actions through the approval gate
+    // and never executes them.
+    let deliver_dispatcher = build_deliver_dispatcher(store, tenant, workspace, worker_id, vertical_id, job);
+
     let step_run = p::run_job_steps(
         store,
         session_id,
@@ -124,6 +133,7 @@ pub(crate) async fn process_job(
         &prompt,
         max_steps,
         max_tool_rounds,
+        deliver_dispatcher,
     )
     .await?;
 
@@ -223,6 +233,36 @@ async fn finalize_job(
         actions_emitted,
     );
     Ok(())
+}
+
+/// Build the per-run [`argo_tool::DeliverDispatcher`] backend that the
+/// in-turn `enqueue_action` tool dispatches into (WAVE-2 ⑥).
+///
+/// Returns `Some` only when BOTH a `worker_id` is present (an in-turn
+/// delivery must attribute to a teammate, not a system job) AND the
+/// worker's bound vertical manifest loads — otherwise `None`, which leaves
+/// the tool unwired (it errors on use rather than auto-delivering). The
+/// backend submits actions through the approval gate; it never executes.
+fn build_deliver_dispatcher(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    workspace: WorkspaceId,
+    worker_id: Option<WorkerId>,
+    vertical_id: &str,
+    job: &MemoryEntry,
+) -> Option<Arc<dyn argo_tool::DeliverDispatcher>> {
+    let worker_id = worker_id?;
+    let dir = super::vertical::resolve_verticals_dir();
+    let loaded = argo_vertical::load_for_worker(&dir, &tenant.to_string(), vertical_id)?;
+    let dispatcher = super::worker_actions_bridge_dispatcher::BridgeDeliverDispatcher::new(
+        Arc::clone(store),
+        workspace,
+        Arc::new(loaded.manifest),
+        vertical_id.to_string(),
+        job.id.to_string(),
+        worker_id,
+    );
+    Some(Arc::new(dispatcher))
 }
 
 /// `#722` — pre-flight research-tools gate. Multi-step worker mode

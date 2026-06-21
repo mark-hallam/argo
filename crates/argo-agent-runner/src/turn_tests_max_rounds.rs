@@ -129,6 +129,7 @@ async fn max_rounds_returns_ok_with_stopped_on_tool_budget_flag() {
         None,
         "test-invocation",
         &mut pending_ab,
+        None,
     )
     .await
     .expect("max_rounds must NOT produce an Err post-#724");

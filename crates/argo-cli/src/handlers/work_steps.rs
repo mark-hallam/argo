@@ -7,10 +7,12 @@
 //!   dispatch. Always emits the four sectioned deliverables +
 //!   `[STOP: TASK_COMPLETE]` so downstream artifact splitters
 //!   and the loop terminator both see what they expect.
-//! * `run_live_loop` — runs `chat::run_turn` per step inside the
-//!   `work_loop::run_loop` orchestrator. Each step is one full
-//!   agent turn (with internal tool dispatch up to
-//!   `MAX_TOOL_ROUNDS`).
+//! * `run_live_loop` — runs `argo_agent_runner::run_turn_with_deliver`
+//!   per step inside the `work_loop::run_loop` orchestrator. Each step
+//!   is one full agent turn (with internal tool dispatch up to
+//!   `MAX_TOOL_ROUNDS`), and carries the optional in-turn
+//!   `enqueue_action` delivery backend so a teammate can submit a
+//!   drafted action for approval mid-run (WAVE-2 ⑥).
 //! * `research_tools_available_for` + `record_research_unavailable`
 //!   — pre-flight gate. Multi-step runs presume research, so we
 //!   refuse to start when neither `web_search` nor `web_extract`
@@ -138,6 +140,7 @@ pub(crate) async fn run_live_loop(
     initial_prompt: String,
     max_steps: u32,
     max_tool_rounds: usize,
+    deliver_dispatcher: Option<Arc<dyn argo_tool::DeliverDispatcher>>,
 ) -> ArgoResult<StepRunOutput> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let anomaly_policy = load_anomaly_policy(&cwd);
@@ -149,15 +152,21 @@ pub(crate) async fn run_live_loop(
     let step_driver = |_step: u32, prompt: String| {
         let store = store.clone();
         let cwd = cwd.clone();
+        // WAVE-2 ⑥: each step gets the same in-turn delivery backend so the
+        // agent can call `enqueue_action` on any step. `None` keeps the tool
+        // unwired (the historical behavior for non-worker runs).
+        let deliver_dispatcher = deliver_dispatcher.clone();
         let last_assistant_id = &last_assistant_id;
         async move {
-            match crate::handlers::chat::run_turn(
+            match argo_agent_runner::run_turn_with_deliver(
                 &store,
                 &cwd,
                 session_id,
                 Some(&prompt),
                 false,
                 max_tool_rounds,
+                None,
+                deliver_dispatcher,
             )
             .await
             {

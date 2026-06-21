@@ -77,6 +77,6 @@ pub use transport::{
 pub use transport_gate::{anonymous_tenant_id, TransportGate};
 pub use turn::turn_planner::{maybe_decompose, DecomposeOutcome, PlannerHook};
 pub use turn::{
-    compose_system_prompt_for_diagnostics, run_turn, run_turn_with_events,
+    compose_system_prompt_for_diagnostics, run_turn, run_turn_with_deliver, run_turn_with_events,
     run_turn_with_planner_hook, TurnResult, MAX_TOOL_ROUNDS,
 };

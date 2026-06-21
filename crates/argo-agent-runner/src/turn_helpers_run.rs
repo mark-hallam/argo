@@ -77,6 +77,7 @@ pub(super) async fn build_turn_dispatch_ctx(
     worker_id: Option<argo_store::WorkerId>,
     invocation_id: &str,
     pending_ab_outcomes: &mut Vec<PendingAbOutcome>,
+    deliver_dispatcher: Option<Arc<dyn argo_tool::DeliverDispatcher>>,
 ) -> ArgoResult<TurnDispatchCtx> {
     let session = store
         .get_session(session_id)
@@ -192,6 +193,9 @@ pub(super) async fn build_turn_dispatch_ctx(
         // acts as a worker — i.e. it carries a `worker_id`. A bare human
         // operator session (no worker_id) keeps `owner`.
         session.worker_id.is_some(),
+        // WAVE-2 ⑥: inject the in-turn `enqueue_action` delivery backend on the
+        // worker job-run path. `None` everywhere else (tool stays unwired).
+        deliver_dispatcher,
     )?;
     let background_processes =
         super::turn_helpers_run_support::process_registry_for(session.tenant_id, session_id);

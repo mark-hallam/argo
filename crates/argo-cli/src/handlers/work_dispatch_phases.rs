@@ -172,6 +172,7 @@ pub(super) async fn run_job_steps(
     prompt: &str,
     max_steps: u32,
     max_tool_rounds: usize,
+    deliver_dispatcher: Option<Arc<dyn argo_tool::DeliverDispatcher>>,
 ) -> ArgoResult<StepRunOutput> {
     if provider == "mock" {
         super::work_steps::run_mock_step(
@@ -189,6 +190,7 @@ pub(super) async fn run_job_steps(
             prompt.to_string(),
             max_steps,
             max_tool_rounds,
+            deliver_dispatcher,
         )
         .await
     }

@@ -8,7 +8,8 @@ use argo_orchestrator::{HandoffId, OrchestratorStore, SessionId as OrchSessionId
 use argo_provider::ToolSchema as ProviderToolSchema;
 use argo_store::SessionStore;
 use argo_tool::{
-    builtin_tools_with_runtime, ProcessRegistry, ToolContext, ToolRegistry, ToolSchema,
+    builtin_tools_with_runtime_and_dispatchers, ProcessRegistry, ToolContext, ToolRegistry,
+    ToolSchema,
 };
 use argo_types::{
     ArgoResult, Capability, ContentBlock, Principal, SpawnKind, TenantId, ToolCallRequest,
@@ -54,6 +55,7 @@ const GENESIS_WORKER_ROLE: &str = "genesis-worker";
 ///   profile is denied at the existing `engine.check` dispatch seam,
 ///   with **zero new enforcement code**. The broad `BackgroundProcess`
 ///   spawn grant is intentionally NOT extended to a fenced worker.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn build_dispatch_ctx(
     cwd: &Path,
     memory: Option<(Arc<MemoryStore>, WorkspaceId, Option<String>)>,
@@ -70,14 +72,24 @@ pub(crate) fn build_dispatch_ctx(
     // no derived profile fences to deny-all (fail-closed); only a bare human
     // session keeps `owner`.
     is_worker_session: bool,
+    // WAVE-2 ⑥: the in-turn `enqueue_action` delivery backend. `Some` only on
+    // the worker job-run path (argo-cli's `BridgeDeliverDispatcher`); `None`
+    // leaves the tool with its unwired default (still in the schema, errors on
+    // use). The injected backend submits actions through the approval gate and
+    // never executes — so this does NOT add an auto-deliver path.
+    deliver_dispatcher: Option<Arc<dyn argo_tool::DeliverDispatcher>>,
 ) -> ArgoResult<(ToolRegistry, CapabilityEngine, Principal)> {
     let mut reg = ToolRegistry::new();
-    let tools = builtin_tools_with_runtime(
+    let tools = builtin_tools_with_runtime_and_dispatchers(
         cwd.to_path_buf(),
         memory,
         memory_namespace,
         orchestrator,
         session_store,
+        // No production message dispatcher is wired at this seam yet (the
+        // `send_message` tool keeps its unwired default here, unchanged).
+        None,
+        deliver_dispatcher,
     );
     for t in tools {
         reg.register(t);

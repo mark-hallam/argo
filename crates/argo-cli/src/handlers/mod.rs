@@ -391,6 +391,8 @@ mod worker_actions_auto_approval;
 mod worker_actions_auto_approval_gates;
 mod worker_actions_auto_approval_quiet_hours;
 mod worker_actions_batch;
+mod worker_actions_bridge;
+mod worker_actions_bridge_dispatcher;
 mod worker_actions_dispatch;
 mod worker_actions_dispatch_ledger;
 mod worker_actions_dispatch_retry;

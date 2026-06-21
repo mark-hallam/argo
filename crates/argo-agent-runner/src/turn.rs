@@ -147,6 +147,36 @@ pub async fn run_turn_with_events(
     max_rounds: usize,
     events: Option<&RunEventSink>,
 ) -> ArgoResult<TurnResult> {
+    run_turn_with_deliver(store, cwd, session_id, user, stream, max_rounds, events, None).await
+}
+
+/// Like [`run_turn_with_events`], but also injects an in-turn
+/// [`argo_tool::DeliverDispatcher`] backend so the agent can call the
+/// `enqueue_action` tool to submit a drafted action for approval +
+/// delivery mid-turn (WAVE-2 ⑥ chat→delivery bridge).
+///
+/// Only the worker job-run path (`argo-cli`'s `process_job` → live loop)
+/// supplies a `Some(dispatcher)` — it constructs the `argo-cli`
+/// `BridgeDeliverDispatcher` capturing the bound vertical manifest +
+/// job/worker context the lower crates cannot reach, so the tool wires
+/// without any upward crate dependency. Every other caller passes `None`,
+/// and the `enqueue_action` tool then keeps its unwired backend (it is
+/// still listed in the schema with a clear "not wired" diagnostic).
+///
+/// The injected backend NEVER executes the action — it submits it through
+/// the existing approval gate (`state = "pending"`, `requires_approval`),
+/// so this entry point cannot auto-deliver.
+#[allow(clippy::too_many_arguments)]
+pub async fn run_turn_with_deliver(
+    store: &Arc<SessionStore>,
+    cwd: &Path,
+    session_id: SessionId,
+    user: Option<&str>,
+    stream: bool,
+    max_rounds: usize,
+    events: Option<&RunEventSink>,
+    deliver_dispatcher: Option<Arc<dyn argo_tool::DeliverDispatcher>>,
+) -> ArgoResult<TurnResult> {
     let span = tracing::info_span!(
         argo_telemetry::spans::AGENT_TURN,
         session_id = %session_id.0,
@@ -154,7 +184,14 @@ pub async fn run_turn_with_events(
         worker_id = tracing::field::Empty,
     );
     turn_run_loop::run_turn_with_events_inner(
-        store, cwd, session_id, user, stream, max_rounds, events,
+        store,
+        cwd,
+        session_id,
+        user,
+        stream,
+        max_rounds,
+        events,
+        deliver_dispatcher,
     )
     .instrument(span)
     .await

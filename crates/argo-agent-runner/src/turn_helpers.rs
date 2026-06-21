@@ -176,6 +176,7 @@ pub(super) async fn run_turn_with_tools(
     worker_id: Option<argo_store::WorkerId>,
     invocation_id: &str,
     pending_ab_outcomes: &mut Vec<PendingAbOutcome>,
+    deliver_dispatcher: Option<Arc<dyn argo_tool::DeliverDispatcher>>,
 ) -> ArgoResult<TurnResult> {
     let mut session_grants = session_grants;
     let ctx = build_turn_dispatch_ctx(
@@ -190,6 +191,7 @@ pub(super) async fn run_turn_with_tools(
         worker_id,
         invocation_id,
         pending_ab_outcomes,
+        deliver_dispatcher,
     )
     .await?;
     let mut last_outcome = None;
