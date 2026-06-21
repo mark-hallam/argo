@@ -45,6 +45,37 @@ ENV CARGO_PROFILE_RELEASE_LTO=thin \
 ARG CARGO_FEATURES=bundled-sqlcipher
 RUN cargo build --locked --release -p argo-cli --bin argo --features "${CARGO_FEATURES}"
 
+# Connector reach: the gateway spawns MCP connectors by binary name on PATH
+# (the vertical manifests register e.g. `command = "argo-mcp-connector-gmail"`,
+# and crates/argo-agent-runner/src/dispatch.rs spawns exactly that program). If
+# the binary isn't on PATH every connector call fails with "spawn" and the AI
+# teammate can never touch a customer's real systems. Build ONLY the wired
+# connectors — the ~17 with a working authorize spec in
+# crates/argo-cli/src/handlers/connector_authorize_specs.rs (gmail, gcal,
+# hubspot, notion, salesforce, slack, jira, asana, linear, monday, pagerduty,
+# fireflies, airtable, stripe, zendesk, clickup, discord). Explicit `-p` per
+# connector (not `--bins`) keeps the image lean: it skips the unwired/stub
+# connectors + dev-only binaries. Same thin-LTO release profile (ENV above) so
+# the link stays within the build host's memory budget.
+RUN cargo build --locked --release \
+    -p argo-mcp-connector-gmail \
+    -p argo-mcp-connector-gcal \
+    -p argo-mcp-connector-hubspot \
+    -p argo-mcp-connector-notion \
+    -p argo-mcp-connector-salesforce \
+    -p argo-mcp-connector-slack \
+    -p argo-mcp-connector-jira \
+    -p argo-mcp-connector-asana \
+    -p argo-mcp-connector-linear \
+    -p argo-mcp-connector-monday \
+    -p argo-mcp-connector-pagerduty \
+    -p argo-mcp-connector-fireflies \
+    -p argo-mcp-connector-airtable \
+    -p argo-mcp-connector-stripe \
+    -p argo-mcp-connector-zendesk \
+    -p argo-mcp-connector-clickup \
+    -p argo-mcp-connector-discord
+
 # ---- runtime ----
 # debian:bookworm-slim, NOT distroless/cc-debian12: the argo binary dynamically
 # links libdbus-1.so.3 (pulled in via the secret-service/keyring credential
@@ -76,6 +107,32 @@ RUN groupadd -g 10001 app && useradd -u 10001 -g 10001 -m -s /usr/sbin/nologin a
 
 WORKDIR /app
 COPY --from=builder /workspace/target/release/argo /usr/local/bin/argo
+
+# Connector binaries on PATH alongside argo. The gateway spawns each by its
+# bare binary name (argo-mcp-connector-<kind>) via dispatch.rs; without these
+# every connector tool call fails at spawn ("No such file or directory") and the
+# AI teammate can never reach a customer's real systems. Copied as a single COPY
+# of the matching glob so the layer stays one line; the builder stage above
+# produced exactly these (the wired ~17). The release dir also holds .d depfiles
+# — the trailing component pattern only matches the extension-less binaries.
+COPY --from=builder /workspace/target/release/argo-mcp-connector-gmail \
+                    /workspace/target/release/argo-mcp-connector-gcal \
+                    /workspace/target/release/argo-mcp-connector-hubspot \
+                    /workspace/target/release/argo-mcp-connector-notion \
+                    /workspace/target/release/argo-mcp-connector-salesforce \
+                    /workspace/target/release/argo-mcp-connector-slack \
+                    /workspace/target/release/argo-mcp-connector-jira \
+                    /workspace/target/release/argo-mcp-connector-asana \
+                    /workspace/target/release/argo-mcp-connector-linear \
+                    /workspace/target/release/argo-mcp-connector-monday \
+                    /workspace/target/release/argo-mcp-connector-pagerduty \
+                    /workspace/target/release/argo-mcp-connector-fireflies \
+                    /workspace/target/release/argo-mcp-connector-airtable \
+                    /workspace/target/release/argo-mcp-connector-stripe \
+                    /workspace/target/release/argo-mcp-connector-zendesk \
+                    /workspace/target/release/argo-mcp-connector-clickup \
+                    /workspace/target/release/argo-mcp-connector-discord \
+                    /usr/local/bin/
 
 # On-disk runtime deps. The binary alone is NOT enough: the gateway reads
 # provider manifests, truth-boundary policies, and the pitch corpus from disk at

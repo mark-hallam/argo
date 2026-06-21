@@ -118,12 +118,56 @@ impl McpClient {
         args: &[String],
         call_timeout: Duration,
     ) -> McpResult<Self> {
-        let mut child = Command::new(program)
+        Self::connect_stdio_with_env(program, args, &[], call_timeout).await
+    }
+
+    /// Same as [`Self::connect_stdio_with_timeout`], but injects extra
+    /// environment variables into the spawned connector subprocess.
+    ///
+    /// This is the credential-injection seam: a caller that knows the
+    /// active tenant loads ONLY that tenant's stored credential section
+    /// and passes it as `env`, so the connector process authenticates as
+    /// the right tenant. Each `(key, value)` is set via [`Command::env`]
+    /// — additive over the parent process env (which carries `PATH` etc.
+    /// but no per-tenant secrets, since those live in the encrypted vault,
+    /// not the gateway's environment). The pool keys cached connector
+    /// subprocesses by `(tenant_id, manifest_id)`, so a process spawned
+    /// with tenant A's env is never reused for tenant B.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use argo_mcp::McpClient;
+    /// use std::time::Duration;
+    /// # async fn doc() -> argo_mcp::McpResult<()> {
+    /// let env = vec![("EXAMPLE_TOKEN".to_string(), "secret".to_string())];
+    /// let client = McpClient::connect_stdio_with_env(
+    ///     "example-server",
+    ///     &[],
+    ///     &env,
+    ///     Duration::from_secs(10),
+    /// )
+    /// .await?;
+    /// client.shutdown().await?;
+    /// # Ok(()) }
+    /// ```
+    pub async fn connect_stdio_with_env(
+        program: impl AsRef<std::ffi::OsStr>,
+        args: &[String],
+        env: &[(String, String)],
+        call_timeout: Duration,
+    ) -> McpResult<Self> {
+        let mut command = Command::new(program);
+        command
             .args(args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .kill_on_drop(true)
+            .kill_on_drop(true);
+        for (key, value) in env {
+            command.env(key, value);
+        }
+        let mut child = command
             .spawn()
             .map_err(|e| McpError::Spawn(e.to_string()))?;
         let stdin = child

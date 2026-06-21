@@ -2,7 +2,7 @@
 //! and MCP dispatch wiring.
 use argo_capability::CapabilityEngine;
 use argo_identity::MemoryNs;
-use argo_mcp::{McpClient, McpClientPool, McpContent, PoolConfig};
+use argo_mcp::McpContent;
 use argo_memory::MemoryStore;
 use argo_orchestrator::{HandoffId, OrchestratorStore, SessionId as OrchSessionId};
 use argo_provider::ToolSchema as ProviderToolSchema;
@@ -19,50 +19,9 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
-/// Wrapper around the process-wide [`McpClientPool`] (shipped in
-/// `mission-mcp-connection-pooling`). The agent-runner used to spawn a
-/// fresh subprocess per turn via a per-turn `HashMap`; the wrapper
-/// preserves the existing `ToolRegistry::set_mcp_pool` injection seam
-/// while routing every acquisition through the warm pool. Subprocesses
-/// stay live across turns; LRU + idle-TTL eviction reaps stale entries.
-pub(crate) struct McpConnectionPool {
-    pool: Arc<McpClientPool>,
-}
-
-impl Default for McpConnectionPool {
-    fn default() -> Self {
-        Self {
-            pool: McpClientPool::new(PoolConfig::default()),
-        }
-    }
-}
-
-impl std::fmt::Debug for McpConnectionPool {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("McpConnectionPool")
-            .field("pool", &self.pool)
-            .finish()
-    }
-}
-
-impl McpConnectionPool {
-    async fn client(
-        &self,
-        tenant_id: TenantId,
-        name: &str,
-        transport: &Value,
-    ) -> Result<Arc<McpClient>, String> {
-        let (command, args) = parse_stdio_transport(transport)?;
-        let guard = self
-            .pool
-            .acquire(tenant_id, name.to_string(), || async move {
-                McpClient::connect_stdio(&command, &args).await
-            })
-            .await
-            .map_err(|e| format!("connect MCP server '{name}': {e}"))?;
-        Ok(guard.client_arc())
-    }
-}
+#[path = "dispatch_mcp_pool.rs"]
+mod dispatch_mcp_pool;
+pub(crate) use dispatch_mcp_pool::McpConnectionPool;
 
 /// Role name bound to a Genesis-hired teammate carrying ONLY its
 /// derived least-privilege capability set (DEC-025 capability fence).
@@ -123,7 +82,12 @@ pub(crate) fn build_dispatch_ctx(
     for t in tools {
         reg.register(t);
     }
-    reg.set_mcp_pool(Arc::new(McpConnectionPool::default()));
+    // Inject the active tenant's stored credentials when a connector is
+    // spawned (the workspace is `cwd` — the same path `load_tenant` reads
+    // the per-tenant vault from). Tenant-scoped at the spawn seam.
+    reg.set_mcp_pool(Arc::new(McpConnectionPool::with_workspace(
+        cwd.to_path_buf(),
+    )));
     register_manifest_mcp_servers(&mut reg);
     let engine = CapabilityEngine::with_workspace_defaults(cwd);
     let os_user = std::env::var("USER")
