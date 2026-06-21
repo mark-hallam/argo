@@ -13,7 +13,12 @@ pub fn spec_for(kind: &str) -> ArgoResult<&'static ConnectorSpec> {
 }
 
 pub fn workspace_dir() -> ArgoResult<PathBuf> {
-    std::env::current_dir().map_err(|e| provider_err(format!("current_dir: {e}")))
+    // Resolve the credential-vault base through the canonical helper so the
+    // gateway WRITE path (`set_tenant`) and the runtime READ path
+    // (`load_tenant` at MCP spawn) agree. In production `$ARGO_WORKSPACE`
+    // (= the durable `/data` mount) wins, so creds persist across redeploys
+    // instead of landing on the throwaway `/app` image layer.
+    Ok(argo_config::cred::workspace_root())
 }
 
 pub fn connector_dir(workspace: &Path, spec: &ConnectorSpec) -> PathBuf {

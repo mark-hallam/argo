@@ -83,10 +83,15 @@ pub(crate) fn build_dispatch_ctx(
         reg.register(t);
     }
     // Inject the active tenant's stored credentials when a connector is
-    // spawned (the workspace is `cwd` — the same path `load_tenant` reads
-    // the per-tenant vault from). Tenant-scoped at the spawn seam.
+    // spawned. The credential vault always lives under the canonical
+    // workspace root (`$ARGO_WORKSPACE` → `$ARGO_HOME` → current_dir, via
+    // `argo_config::cred::workspace_root`) — the SAME base the gateway/CLI
+    // WRITE path (`set_tenant`) uses, so a credential written in prod (under
+    // the durable `/data` mount) is read back from the same durable path
+    // rather than from a per-worker sandbox `cwd` or the throwaway `/app`
+    // image layer. Tenant-scoped at the spawn seam.
     reg.set_mcp_pool(Arc::new(McpConnectionPool::with_workspace(
-        cwd.to_path_buf(),
+        argo_config::cred::workspace_root(),
     )));
     register_manifest_mcp_servers(&mut reg);
     let engine = CapabilityEngine::with_workspace_defaults(cwd);

@@ -52,6 +52,10 @@ const ARGO_DIR: &str = ".argo";
 const CREDENTIALS_FILE: &str = "credentials.toml";
 const ARGO_TOML: &str = "argo.toml";
 
+#[path = "cred_workspace_root.rs"]
+mod cred_workspace_root;
+pub use cred_workspace_root::workspace_root;
+
 /// Credential storage backend selector.
 ///
 /// `Auto` (the default) prefers the OS keyring when one is available
@@ -161,7 +165,10 @@ pub fn credentials_path(workspace: &Path) -> PathBuf {
 /// [`VarError::NotUnicode`] when the environment value is not valid
 /// Unicode.
 pub fn get(tenant_id: &TenantId, key: &str) -> Result<String, VarError> {
-    let cwd = std::env::current_dir().map_err(|_| VarError::NotPresent)?;
+    // Resolve through `workspace_root()` so the durable-volume base
+    // (`$ARGO_WORKSPACE` in prod) is honoured — the same vault the
+    // explicit-workspace read/write paths use.
+    let cwd = workspace_root();
     get_from_workspace(&cwd, tenant_id, key)
 }
 
@@ -177,7 +184,8 @@ pub fn get(tenant_id: &TenantId, key: &str) -> Result<String, VarError> {
 /// [`VarError::NotUnicode`] when the environment value is not valid
 /// Unicode.
 pub fn get_unscoped(key: &str) -> Result<String, VarError> {
-    let cwd = std::env::current_dir().map_err(|_| VarError::NotPresent)?;
+    // Same durable-workspace resolution as `get` (see `workspace_root`).
+    let cwd = workspace_root();
     get_unscoped_from_workspace(&cwd, key)
 }
 
