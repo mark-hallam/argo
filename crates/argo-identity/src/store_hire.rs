@@ -69,7 +69,15 @@ pub struct HireDraft {
     /// the teammate's goals survive the hire — previously DROPPED (the role was
     /// built with `kpis: Vec::new()`), which is the Item-2b delegation fix.
     /// Empty when the operator set none.
-    #[serde(default)]
+    ///
+    /// The SPA hire flow carries the operator's success-measures under the
+    /// camelCase key `successCriteria` (Step-3 Genesis intake), while the
+    /// canonical wire name is `kpis`. The `serde(alias)` accepts EITHER, so a
+    /// LIVE SPA hire's KPIs survive deserialisation instead of silently
+    /// defaulting to empty (which left the teammate's goals blank — the
+    /// Item-2b churn path). The alias is checked AFTER `rename_all`, so both
+    /// `kpis` and `successCriteria` map onto this field.
+    #[serde(default, alias = "successCriteria")]
     pub kpis: Vec<String>,
     /// Optional voice-profile override; falls back to a generated
     /// `"You are <name>, an autonomous SKYCOT worker."` preamble.
@@ -201,7 +209,7 @@ pub struct ApprovalPolicyChoice {
 /// See [`GENESIS_PLAN_PROVENANCE_PREFIX`] for the provenance-chain
 /// marker the hire path uses to forward a Genesis plan id from the
 /// gateway into the persisted persona row.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HireDutyDraft {
     /// Cron expression that drives the duty.
@@ -215,6 +223,15 @@ pub struct HireDutyDraft {
     #[serde(default)]
     pub default_enabled: bool,
 }
+
+// The dual-shape `Deserialize` impl for [`HireDutyDraft`] (canonical
+// `{cron, entryAction}` AND the SPA `{label, schedule:{kind,spec}}` shape)
+// plus the `entry_action` slugifier live in the sibling `duty_shape` module
+// to keep this file under the 500-LOC ceiling.
+#[path = "store_hire_duty_shape.rs"]
+mod duty_shape;
+#[cfg(test)]
+use duty_shape::slugify_entry_action;
 
 /// Extract the Genesis plan id (if any) from a persona's
 /// `provenance_chain`. Reads the canonical
@@ -466,3 +483,7 @@ pub(crate) fn assemble_worker_from_draft(
 #[cfg(test)]
 #[path = "store_hire_provenance_tests.rs"]
 mod probation_tests;
+
+#[cfg(test)]
+#[path = "store_hire_spa_shape_tests.rs"]
+mod spa_shape_tests;
