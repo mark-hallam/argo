@@ -10,11 +10,11 @@ import type { ReactNode } from "react";
 export const metadata: Metadata = {
   title: "Marketing — Marcus",
   description:
-    "Watch Marcus draft truth-bounded replies + articles in Mark's voice, filed to your approval queue — never auto-posted.",
+    "Watch Marcus draft truth-bounded replies + articles in your brand voice, filed to your approval queue — never auto-posted.",
   openGraph: {
     title: "Marketing — Marcus · SKYCOT",
     description:
-      "Watch Marcus draft truth-bounded replies + articles in Mark's voice, filed to your approval queue — never auto-posted.",
+      "Watch Marcus draft truth-bounded replies + articles in your brand voice, filed to your approval queue — never auto-posted.",
   },
 };
 

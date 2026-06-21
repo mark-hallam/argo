@@ -33,7 +33,18 @@ export interface ProvenanceBlockProps {
 
 export function ProvenanceBlock({ data, detail }: ProvenanceBlockProps) {
   const rows = buildRows(data);
-  const emptyProvenance = rows.every((row) => !hasText(row.id) && !hasText(row.full));
+  // The chain anchor (the row's own self-hash) is ALWAYS present, so it
+  // must be excluded from the empty-state check — otherwise a meta-event
+  // row (e.g. `worker.run`) with no model/prompt/skill/memory/policy hashes
+  // still rendered five blank labelled rows, overclaiming the panel's
+  // "hashes pinpoint the exact model/prompt/skill/memory/policy" promise.
+  // When the substantive rows are empty we show the honest empty-state and
+  // keep the anchor row beneath it.
+  const anchorRow = rows.find((row) => row.key === "chain-anchor");
+  const substantiveRows = rows.filter((row) => row.key !== "chain-anchor");
+  const emptyProvenance = substantiveRows.every(
+    (row) => !hasText(row.id) && !hasText(row.full),
+  );
   return (
     <section
       data-testid="audit-provenance-card"
@@ -50,11 +61,18 @@ export function ProvenanceBlock({ data, detail }: ProvenanceBlockProps) {
       </header>
 
       {emptyProvenance ? (
-        <ChainEmptyState
-          testId="audit-provenance-empty"
-          title="Provenance unavailable"
-          body={`This ${detail.actionType} row is a meta-event, so model, prompt, skill, memory, and policy hashes were not produced.`}
-        />
+        <>
+          <ChainEmptyState
+            testId="audit-provenance-empty"
+            title="Provenance unavailable"
+            body={`This ${detail.actionType} row is a meta-event, so model, prompt, skill, memory, and policy hashes were not produced.`}
+          />
+          {anchorRow ? (
+            <dl className="space-y-1.5">
+              <ProvenanceRow row={anchorRow} />
+            </dl>
+          ) : null}
+        </>
       ) : (
         <dl className="space-y-1.5">
           {rows.map((row) => (

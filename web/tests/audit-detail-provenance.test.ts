@@ -86,4 +86,26 @@ describe("ProvenanceBlock chain anchor", () => {
 
     expect(screen.queryByTestId("audit-provenance-row-chain-anchor")).toBeNull();
   });
+
+  it("shows the meta-event empty state (not five blank rows) but keeps the anchor when only the chain anchor is present", () => {
+    // Regression pin: a `worker.run` meta-event records only the chain
+    // anchor — model/prompt/skill/memory/policy hashes are never produced.
+    // The panel must NOT render five blank labelled rows (which overclaimed
+    // "hashes pinpoint the exact model/prompt/skill/memory/policy"); it shows
+    // the honest "provenance unavailable" empty state AND still surfaces the
+    // chain anchor.
+    const detail = detailWithProvenance({
+      model: { id: "", version: "" },
+      promptTemplate: { id: "", hash: "" },
+      skill: { id: "", version: "" },
+      memorySnapshot: { id: "" },
+      policy: { id: "", version: "", hash: "" },
+      hash_chain_anchor: CHAIN_ANCHOR,
+    });
+    renderProvenance(detail);
+
+    expect(screen.getByTestId("audit-provenance-empty")).toBeInTheDocument();
+    expect(screen.queryByTestId("audit-provenance-row-model")).toBeNull();
+    expect(screen.getByTestId("audit-provenance-row-chain-anchor")).toBeInTheDocument();
+  });
 });

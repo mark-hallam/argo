@@ -1,16 +1,23 @@
 "use client";
 
 import * as Popover from "@radix-ui/react-popover";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signOut as nextAuthSignOut } from "next-auth/react";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { signOut as appSignOut } from "@/lib/api/auth";
+import { fetchWorkspaceSettings } from "@/lib/api/settings";
 import { purgeClientTenantState } from "@/lib/auth/purge-client-state";
 import { useSkycotSession } from "@/lib/skycot/use-session";
 import { useToast } from "@/lib/ui/use-toast";
+
+/** Title-case a role slug ("owner" → "Owner") for the workspace sub-label. */
+function capitalizeRole(role: string): string {
+  const r = role.trim();
+  return r.length > 0 ? r.charAt(0).toUpperCase() + r.slice(1) : r;
+}
 
 /**
  * Sidebar bottom-left identity pill.
@@ -25,6 +32,27 @@ import { useToast } from "@/lib/ui/use-toast";
  */
 export function UserPill() {
   const session = useSkycotSession();
+  // The JWT `tnt` claim is an opaque tenant id, so `session.workspaceLabel`
+  // can only derive a label from it (e.g. a prettified id). Fetch the real
+  // workspace name the operator set at onboarding (persisted in
+  // `workspace_settings`, the same source Settings → Workspace reads) and
+  // prefer it. Falls back to the derived label until/if the name loads.
+  const workspaceQuery = useQuery({
+    queryKey: ["workspace", "settings", "pill"],
+    queryFn: fetchWorkspaceSettings,
+    enabled:
+      session.status === "authenticated" &&
+      !session.isDemoMode &&
+      Boolean(session.tenantId),
+    staleTime: 5 * 60_000,
+  });
+  const fetchedName = workspaceQuery.data?.value.name?.trim() ?? "";
+  const workspaceLabel =
+    fetchedName.length > 0
+      ? session.role
+        ? `${fetchedName} · ${capitalizeRole(session.role)}`
+        : fetchedName
+      : session.workspaceLabel;
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [tenantCopied, setTenantCopied] = useState(false);
@@ -97,7 +125,7 @@ export function UserPill() {
               data-testid="appshell-user-workspace"
               className="text-[11px] text-[var(--muted-foreground)] truncate max-w-[140px]"
             >
-              {session.workspaceLabel}
+              {workspaceLabel}
             </span>
           </span>
           <ChevronDown className="size-4 text-[var(--muted-foreground)]" />

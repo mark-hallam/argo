@@ -118,6 +118,14 @@ pub(super) async fn provision_response(
     // provision (the catalog can still be filled from the marketplace).
     seed_baseline_skills(store, &outcome.tenant_id).await;
 
+    // Persist the operator-typed workspace name into the `workspace_settings`
+    // panel the SPA reads (`GET /api/v1/workspace`). Without this, the name
+    // typed at onboarding lived only on the `workspace` row, so Settings →
+    // Workspace and the sidebar identity pill showed a blank/derived label
+    // instead of "Brightline Studio". Best-effort + seed-once (never clobbers
+    // a returning operator who edited the field).
+    seed_workspace_name(store, &outcome.tenant_id, &workspace_name, &user.email).await;
+
     if let Err(e) = seed_and_audit(store, &outcome.tenant_id).await {
         // Seeds are best-effort polish: failing to seed shouldn't 500
         // a successful provision — the wiki can still be authored by
@@ -297,6 +305,51 @@ async fn seed_baseline_skills(store: &Arc<SessionStore>, tenant_id: &TenantId) {
             tenant_id = %tenant_id,
             "baseline skill seed failed; /skills will paint empty until the operator installs from the marketplace",
         ),
+    }
+}
+
+/// Seed the `workspace_settings` "workspace" panel with the onboarding
+/// workspace name (+ the verified email as the default billing contact) so
+/// `GET /api/v1/workspace` returns the operator's real name. Seed-once: if
+/// the tenant already has a saved workspace panel (e.g. they edited it in
+/// Settings), this is a no-op so a re-provision never clobbers their edits.
+/// Best-effort — a settings hiccup must not 500 an otherwise-clean provision.
+async fn seed_workspace_name(
+    store: &Arc<SessionStore>,
+    tenant_id: &TenantId,
+    workspace_name: &str,
+    billing_email: &str,
+) {
+    let tenant = tenant_id.to_string();
+    match argo_store::workspace_settings::get_group(store.pool(), &tenant, "workspace").await {
+        Ok(Some(_)) => return,
+        Ok(None) => {}
+        Err(e) => {
+            tracing::warn!(
+                target: "gateway::onboarding_provision::ws_name",
+                error = %e,
+                tenant_id = %tenant_id,
+                "workspace settings read failed; skipping name seed",
+            );
+            return;
+        }
+    }
+    let value = json!({
+        "name": workspace_name,
+        "billing_contact": billing_email,
+    })
+    .to_string();
+    let now = chrono::Utc::now().timestamp();
+    if let Err(e) =
+        argo_store::workspace_settings::upsert_group(store.pool(), &tenant, "workspace", &value, now)
+            .await
+    {
+        tracing::warn!(
+            target: "gateway::onboarding_provision::ws_name",
+            error = %e,
+            tenant_id = %tenant_id,
+            "workspace settings name seed failed",
+        );
     }
 }
 

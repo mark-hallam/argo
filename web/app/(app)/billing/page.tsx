@@ -32,6 +32,7 @@ import { Card } from "@/components/ui/Card";
 import { useCheckout, redirectToCheckout } from "@/lib/billing/use-checkout";
 import { usePortal, redirectToPortal } from "@/lib/billing/use-portal";
 import { fetchTenantUsage, type UsageResponse } from "@/lib/api/usage";
+import { FREE, PRO, usd, actions } from "@/lib/pricing/tiers";
 import { UsageMeter } from "@/components/billing/UsageMeter";
 import { MeterPanel } from "@/components/billing/MeterPanel";
 import { SpendPanel } from "@/components/billing/SpendPanel";
@@ -47,22 +48,35 @@ interface PlanOffer {
   cta: string;
 }
 
+// Plan numbers (price, worker + action allowances) are read from the
+// canonical pricing source of truth (docs/skycot/pricing/v1-tiers.toml →
+// tiers.data.json) via `@/lib/pricing/tiers`, so this page can never drift
+// from /pricing again. Only the billing-specific fields (Stripe priceEnv,
+// CTA label) are local.
 const PLANS: PlanOffer[] = [
   {
     tier: "free",
     title: "Free",
-    price: "$0",
-    blurb: "Try Skycot with the mock provider.",
-    features: ["1 worker", "100 actions / month", "Community support"],
+    price: usd(FREE.price_monthly_usd),
+    blurb: "Real responses on Skycot's keys, capped at the free limit.",
+    features: [
+      `${FREE.max_workers} teammate`,
+      `${actions(FREE.max_actions_per_month)} actions / month`,
+      "Community support",
+    ],
     priceEnv: "",
     cta: "Current tier",
   },
   {
     tier: "pro",
     title: "Pro",
-    price: "$49 / month",
+    price: `${usd(PRO.price_monthly_usd)} / teammate / month`,
     blurb: "Real provider keys, multi-channel, marketplace skills.",
-    features: ["5 workers", "5,000 actions / month", "Email support"],
+    features: [
+      `Up to ${PRO.max_workers} teammates`,
+      `${actions(PRO.included_actions)} actions / teammate included`,
+      "Email support",
+    ],
     priceEnv: "NEXT_PUBLIC_STRIPE_PRICE_PRO",
     cta: "Upgrade to Pro",
   },

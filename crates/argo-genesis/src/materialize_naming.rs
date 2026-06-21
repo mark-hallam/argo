@@ -68,9 +68,34 @@ pub(crate) fn derive_display_name(spec: &CapabilitySpec) -> String {
         return named;
     }
     if let Some(from_slug) = humanize_persona_slug(&spec.persona) {
-        return from_slug;
+        // Guard: the persona slug from `derive_persona`'s first-word fallback is
+        // a word lifted from the role text (e.g. "friendly" from "A friendly
+        // front-desk teammate"), NOT a chosen name. A per-word denylist can't
+        // anticipate every adjective, so reject structurally: if the would-be
+        // name appears verbatim in the charter, it's a descriptor — fall through
+        // to a real archetype name. Explicitly-chosen names (Persona slot /
+        // "named X") are resolved above and don't reach here, so this never
+        // rejects an operator-chosen name.
+        if !persona_is_lifted_from_charter(&spec.persona, &spec.charter) {
+            return from_slug;
+        }
     }
     archetype_persona_name(spec)
+}
+
+/// True when the persona slug appears verbatim as a word in the charter — the
+/// signature of `derive_persona` having grabbed the first descriptive word of
+/// the role text rather than an operator-chosen name. Single-token, ≥3 chars
+/// (matches what `derive_persona` can produce).
+fn persona_is_lifted_from_charter(persona: &str, charter: &str) -> bool {
+    let needle = persona.trim().to_lowercase();
+    if needle.len() < 3 {
+        return false;
+    }
+    charter
+        .to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .any(|word| word == needle)
 }
 
 /// A deterministic human first name whose first letter matches the **nearest
