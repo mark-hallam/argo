@@ -150,6 +150,15 @@ locals {
     { name = "DB_SNAPSHOT_S3_BUCKET", value = var.db_snapshot_bucket },
     { name = "DB_SNAPSHOT_S3_PREFIX", value = var.db_snapshot_prefix },
     { name = "DB_SNAPSHOT_INTERVAL", value = var.db_snapshot_interval },
+    # INCLUDE_CREDENTIALS=1: the periodic S3 backup snapshot (backup-cron.sh,
+    # invoked by the gateway entrypoint) runs `argo backup create
+    # --include-credentials`, so the encrypted per-tenant connector
+    # credentials.toml is captured in every snapshot. Without it, connector
+    # creds are NOT in the backup and are lost on task replacement (the DB is
+    # restored on boot but creds are not), silently breaking every per-tenant
+    # connector after a redeploy. Matches the manually-deployed prod task-def
+    # :13 (image wave1-371292fb3). Read by scripts/backup-cron.sh.
+    { name = "INCLUDE_CREDENTIALS", value = "1" },
   ], local.proxy_env, local.email_env, local.trusted_origins_env)
 
   container_def = [{

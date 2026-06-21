@@ -40,9 +40,9 @@ variable "az_count" {
 }
 
 variable "image_tag" {
-  description = "Tag of the argo container image inside the ECR repo. Operator pushes :latest by default."
+  description = "Tag of the argo container image inside the ECR repo. Reconciled to the live prod image (manually-deployed task-def skycot-prod-argo:13, image wave1-371292fb3, ARM64) so a future `terraform apply` does not revert the running gateway to an older tag. Override per-deploy via -var/tfvars when pushing a newer image."
   type        = string
-  default     = "latest"
+  default     = "wave1-371292fb3"
 }
 
 variable "task_cpu" {
