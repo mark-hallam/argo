@@ -295,6 +295,10 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         // ── public early-access waitlist capture (WS6)
         ("POST", "/api/v1/waitlist", "capture a public early-access waitlist signup ({email})"),
         ("POST", "/api/v1/enterprise-inquiry", "capture a public enterprise expression-of-interest lead (persisted + audited)"),
+        // ── DEC-057 platform-staff console (cross-tenant, staff-gated, default-deny)
+        ("GET", "/api/v1/platform/tenants", "cross-tenant account list (DEC-057 platform-staff console; staff-gated, default-deny)"),
+        ("POST", "/api/v1/platform/tenants/<id>/suspend", "suspend a tenant — write-lockout; optional body {reason} (DEC-057)"),
+        ("POST", "/api/v1/platform/tenants/<id>/reactivate", "reactivate a suspended tenant (DEC-057)"),
     ];
     let body: Vec<serde_json::Value> = rows
         .iter()

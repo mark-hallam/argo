@@ -73,12 +73,17 @@ allowlisted_files=()
 unallowlisted_files=()
 while IFS= read -r f; do
   matched=0
-  for pat in "${patterns[@]}"; do
-    if [[ "$f" == *"$pat"* ]]; then
-      matched=1
-      break
-    fi
-  done
+  # bash 3.2 (macOS default) throws "unbound variable" on "${patterns[@]}"
+  # when the array is empty AND `set -u` is active — guard the iteration so
+  # the gate reports the real compile error instead of crashing on the tool.
+  if [[ ${#patterns[@]} -gt 0 ]]; then
+    for pat in "${patterns[@]}"; do
+      if [[ "$f" == *"$pat"* ]]; then
+        matched=1
+        break
+      fi
+    done
+  fi
   if [[ "$matched" -eq 1 ]]; then
     allowlisted_files+=("$f")
   else

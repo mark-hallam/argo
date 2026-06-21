@@ -40,6 +40,7 @@ fn genesis_draft(plan_id: Option<&str>) -> HireDraft {
             description: "Send approved follow-up.".into(),
             default_enabled: true,
         }],
+        kpis: vec![],
         voice_profile: None,
         tagline: None,
         genesis_plan_id: plan_id.map(str::to_string),

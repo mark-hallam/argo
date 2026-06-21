@@ -58,15 +58,23 @@
 //! is NOT weakened — it covers the capability projection, not the id.
 
 use super::rate_limit_ip::{IpRateLimiter, RateLimitIpCheckResult};
+use super::routes_genesis_stream_helpers::{
+    count_eval_seeds, persona_for, provider_key_present, resolve_vertical_dir, sanitize_tenant,
+};
+// `derive_persona` is exercised only by the unit-test module (it reaches the
+// helpers via `super::*`); the production path uses `persona_for`. Gate the
+// import to the test build so the bin/clippy build doesn't see it as unused.
+#[cfg(test)]
+use super::routes_genesis_stream_helpers::derive_persona;
 use super::routes_genesis_stream_llm::resolve_plan;
-use argo_genesis::{name_to_persona_slug, write_vertical_with_overlap};
+use argo_genesis::write_vertical_with_overlap;
 use argo_store::SessionStore;
 use frames::{
     open_sse_stream, write_error_event, write_event, write_one_shot_error, write_progress,
 };
 use serde::Deserialize;
 use std::net::IpAddr;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, OnceLock};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
@@ -77,7 +85,7 @@ mod frames;
 
 pub const PROVIDER_KEY_ENV: &str = "ARGO_GENESIS_PROVIDER_KEY";
 // Provider-key aliases that also satisfy the cost guardrail; presence in any suffices.
-const PROVIDER_KEY_ALIASES: &[&str] = &["ANTHROPIC_API_KEY", "OPENAI_API_KEY"];
+pub(super) const PROVIDER_KEY_ALIASES: &[&str] = &["ANTHROPIC_API_KEY", "OPENAI_API_KEY"];
 const MIN_ROLE_LEN: usize = 15;
 
 /// Per-IP bucket capacity for the ANONYMOUS Genesis SSE authoring stream.
@@ -469,69 +477,6 @@ pub(super) async fn serve_genesis_stream(
     )
     .await;
     out.shutdown().await
-}
-
-fn provider_key_present() -> bool {
-    let non_empty = |key: &str| {
-        std::env::var(key)
-            .map(|v| !v.trim().is_empty())
-            .unwrap_or(false)
-    };
-    non_empty(PROVIDER_KEY_ENV) || PROVIDER_KEY_ALIASES.iter().any(|k| non_empty(k))
-}
-
-/// Resolve the persona slug for the run: the explicit `persona` body
-/// field wins; else a `Persona: <Name>` slot embedded in the role text
-/// (the intake conversation's persona slot rides inside the SPA's
-/// composed `role_description` — day-1 fix 4: ignoring it minted a
-/// teammate named after the charter's first word, "Read"); else the
-/// first-word fallback.
-fn persona_for(explicit: Option<&str>, role_description: &str) -> String {
-    let raw = explicit
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(str::to_string)
-        .or_else(|| argo_genesis::persona_name_from_role_text(role_description))
-        .unwrap_or_else(|| derive_persona(role_description));
-    name_to_persona_slug(&raw)
-}
-
-fn derive_persona(role_description: &str) -> String {
-    // First "wordy" token (>=3 chars), capped at 16; "operator" on noise.
-    let candidate = role_description
-        .split(|c: char| !c.is_alphanumeric())
-        .find(|s| s.len() >= 3)
-        .unwrap_or("operator");
-    let trimmed: String = candidate.chars().take(16).collect();
-    if trimmed.is_empty() {
-        "operator".to_string()
-    } else {
-        trimmed
-    }
-}
-
-/// Canonical tenant→slug map for the `.genesis/<slug>/` tree. Delegates to
-/// the shared [`super::genesis_tenant::sanitize_tenant`] so the slug this
-/// writer writes under matches the slug the hire gate + runtime fence read
-/// under (P5 (b) tenant-match enforcement — no parallel definition).
-fn sanitize_tenant(tenant_id: &str) -> String {
-    super::genesis_tenant::sanitize_tenant(tenant_id)
-}
-
-fn resolve_vertical_dir(tenant_slug: &str, vertical_id: &str) -> Result<PathBuf, String> {
-    let root = argo_vertical::default_dir();
-    let tenant_dir = root.join(".genesis").join(tenant_slug);
-    std::fs::create_dir_all(&tenant_dir)
-        .map_err(|e| format!("create tenant dir {}: {e}", tenant_dir.display()))?;
-    Ok(tenant_dir.join(vertical_id))
-}
-
-fn count_eval_seeds(vertical_dir: &Path) -> usize {
-    let path = vertical_dir.join("eval-seed.toml");
-    let Ok(contents) = std::fs::read_to_string(&path) else {
-        return 0;
-    };
-    contents.matches("[[seed]]").count()
 }
 
 #[cfg(test)]

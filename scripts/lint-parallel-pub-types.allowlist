@@ -88,3 +88,11 @@ StepOutcome argo-cli argo-orchestrator
 # (Completed/Failed/Skipped). Different state machines that happen to share a
 # name; merging would couple readiness checks to the run-graph executor.
 StepStatus argo-cli argo-orchestrator
+
+# CuRiskTier — identical copy-paste of the executor-floor reversibility enum
+# (Observe/Act) across the per-platform CU executor crates. cfg-gated, mutually
+# exclusive compilation. ALLOWLISTED rather than canonicalized because the
+# Windows crate cannot be compile-verified on macOS; a proper canonicalization
+# into the shared base crate (argo-executor-computer-use) is queued for the
+# Windows fleet.
+CuRiskTier argo-executor-computer-use-macos argo-executor-computer-use-windows
