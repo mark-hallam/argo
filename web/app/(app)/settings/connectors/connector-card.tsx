@@ -107,6 +107,17 @@ export function ConnectorCard({
           >
             <Trash2 size={13} /> {isDisconnecting ? "Removing…" : "Disconnect"}
           </button>
+        ) : connector.comingSoon ? (
+          <button
+            type="button"
+            className="connector-btn connector-btn-secondary"
+            disabled
+            aria-disabled="true"
+            title="This connector isn't wired yet — coming soon."
+            data-testid={`connector-coming-soon-${connector.id}`}
+          >
+            <Plug size={13} /> Coming soon
+          </button>
         ) : (
           <button
             type="button"

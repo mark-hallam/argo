@@ -67,6 +67,20 @@ export interface ConnectorEntry {
    * brand logo for that connector is being sourced.
    */
   fallbackIcon: LucideIcon;
+  /**
+   * `true` when the connector card is shown for discovery but has NO
+   * wired authorize spec in
+   * `crates/argo-cli/src/handlers/connector_authorize_specs.rs`. The
+   * card renders a disabled "Coming soon" button instead of a Connect
+   * button that would 404 against `/connect/<id>`. The UI roster MUST
+   * stay honest about what can actually run — flip this to `false` (or
+   * delete it) in the same change that lands the matching Rust spec.
+   *
+   * Wired set as of 2026-06-21 (17): gmail, gcal, hubspot, notion,
+   * salesforce, slack, jira, asana, linear, monday, pagerduty,
+   * fireflies, airtable, stripe, zendesk, clickup, discord.
+   */
+  comingSoon?: boolean;
 }
 
 export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
@@ -90,6 +104,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     description: "Read availability and surface booking links.",
     authType: "apikey",
     fallbackIcon: CalendarClock,
+    comingSoon: true,
   },
   {
     id: "clickup",
@@ -111,6 +126,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     description: "Read files, comments, and design tokens.",
     authType: "oauth",
     fallbackIcon: PenLine,
+    comingSoon: true,
   },
   {
     id: "fireflies",
@@ -132,6 +148,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     description: "Open, comment on, and close issues across repos.",
     authType: "oauth",
     fallbackIcon: Github,
+    comingSoon: true,
   },
   {
     id: "gmail",
@@ -146,6 +163,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     description: "Start and schedule Meet sessions for your team.",
     authType: "oauth",
     fallbackIcon: Video,
+    comingSoon: true,
   },
   {
     id: "hubspot",
@@ -160,6 +178,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     description: "Send and receive iMessage via a Blue Bubbles relay.",
     authType: "apikey",
     fallbackIcon: MessageSquare,
+    comingSoon: true,
   },
   {
     id: "jira",
@@ -181,6 +200,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     description: "Manage audiences, send campaigns, read reports.",
     authType: "apikey",
     fallbackIcon: MailCheck,
+    comingSoon: true,
   },
   {
     id: "monday",
@@ -202,6 +222,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     description: "Read and update files in your Microsoft OneDrive.",
     authType: "oauth",
     fallbackIcon: Cloud,
+    comingSoon: true,
   },
   {
     id: "pagerduty",
@@ -216,6 +237,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     description: "Send transactional email and read delivery stats.",
     authType: "apikey",
     fallbackIcon: Send,
+    comingSoon: true,
   },
   {
     id: "salesforce",
@@ -230,6 +252,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     description: "Send transactional email and read delivery stats.",
     authType: "apikey",
     fallbackIcon: Send,
+    comingSoon: true,
   },
   {
     id: "slack",
@@ -251,6 +274,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     description: "Read-only webhook event log paired with Stripe.",
     authType: "apikey",
     fallbackIcon: Receipt,
+    comingSoon: true,
   },
   {
     id: "trello",
@@ -258,6 +282,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     description: "Move cards, comment on lists, manage boards.",
     authType: "oauth",
     fallbackIcon: Trello,
+    comingSoon: true,
   },
   {
     id: "typeform",
@@ -265,6 +290,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     description: "Read form responses and create follow-up tasks.",
     authType: "apikey",
     fallbackIcon: FileText,
+    comingSoon: true,
   },
   {
     id: "zendesk",
