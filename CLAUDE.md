@@ -105,7 +105,7 @@ Five non-negotiable invariants:
 2. Multi-tenant by construction (tenant_id plumbed through every primitive)
 3. Capability-based security with first-class RBAC
 4. Provider manifests, not adapters (TOML, not Rust)
-5. MCP-first integration (lean core, currently 15 in-core tools;
+5. MCP-first integration (lean core, currently 17 in-core tools;
    new tools default to MCP unless they require direct AgentDeps
    or runtime access)
 
