@@ -178,7 +178,7 @@
 
 > **Conductor heartbeat note**: each tick during this window MUST cite this directive in `run_notes` so the next tick knows the overnight authorization is in force.
 
-> **🔌 2026-06-22 — CONNECTOR-REACH + DELIVERY PROGRAM ([DEC-059](../skycot/decisions/DEC-059-connector-reach-and-delivery-program.md)):** **Wave 1 LIVE** in prod (gateway task-def **:13**, image `wave1-371292fb3`, `INCLUDE_CREDENTIALS=1`) — 17 wired connector binaries now ship in the image + per-tenant creds injected at spawn + durable. **Wave 2 backend deployed** (gateway task-def **:14**) — #3004–3011. **Wave 3 PLANNED** (overage-billing cron / customer-facing audit trust surface / per-worker truth-boundary routing / surface honesty). **Remaining:** Wave-2 ⑤ upfront-capture + the SPA honest-roster redeploy + the OAuth `/connect` writer route.
+> **🔌 2026-06-22 — CONNECTOR-REACH + DELIVERY PROGRAM ([DEC-059](../skycot/decisions/DEC-059-connector-reach-and-delivery-program.md)):** **Wave 1 LIVE** in prod (gateway task-def **:13**, image `wave1-371292fb3`, `INCLUDE_CREDENTIALS=1`) — 17 wired connector binaries now ship in the image + per-tenant creds injected at spawn + durable. **Wave 2 backend deployed** (gateway task-def **:14**) — #3004–3011. **Wave 3 LANDED + LIVE** (gateway task-def **:15**, image `wave3-57826e971`) — #3013–3017 (⑨ customer-facing audit endpoints `/api/v1/audit/verify|export|cert`, ⑩ per-worker truth-boundary policy routing, ③ overage-billing cron [terraform, operator-gated apply], ⑪ `/health` real git-SHA + `billing_overage.rs` ARGO_HOME fix); e2e green (1838 backend tests + prod API + browser). **Remaining:** the SPA honest-roster redeploy (#3006), Wave-2 ⑤ upfront-capture, ④ OAuth `/connect` writer route, ③ terraform apply.
 
 >
 > **🧭 LIVE DIRECTIVES:**
