@@ -298,3 +298,17 @@ fn canonical_questions_lists_six_questions_with_stable_ids() {
     let required_count = qs.iter().filter(|q| q.required).count();
     assert_eq!(required_count, 5);
 }
+
+// genesis-draft-worker-reply-leak (HOP 2, defensive guard): an internal/debug
+// action description must NEVER render as a customer-facing example reply.
+#[test]
+fn is_internal_marker_catches_debug_leak_strings() {
+    assert!(is_internal_marker(
+        "Genesis-suggested action: matched skill keywords: on, post, summary"
+    ));
+    assert!(is_internal_marker("matched skill keywords: x"));
+    // Real human copy passes through.
+    assert!(!is_internal_marker("post summary"));
+    assert!(!is_internal_marker("draft the weekly newsletter"));
+    assert!(!is_internal_marker(""));
+}

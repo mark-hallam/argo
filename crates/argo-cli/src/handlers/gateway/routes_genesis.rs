@@ -292,12 +292,23 @@ fn derive_example_replies(gp: &GenesisPlan) -> Vec<String> {
         .map(|a| {
             a.actions
                 .values()
-                .filter(|decl| !decl.description.trim().is_empty())
+                .map(|decl| decl.description.trim())
+                .filter(|d| !d.is_empty() && !is_internal_marker(d))
                 .take(3)
-                .map(|decl| format!("Sure — I can {}.", decl.description.trim()))
+                .map(|d| format!("Sure — I can {d}."))
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default()
+}
+
+/// Defensive guard so an internal/debug action description can NEVER surface as
+/// a customer-facing example reply (genesis-draft-worker-reply-leak). The real
+/// fix is at the source (`argo_genesis::pipeline` no longer puts the matcher's
+/// debug `reason` into a `description`); this is belt-and-braces against a
+/// future regression re-leaking a marker verbatim.
+fn is_internal_marker(description: &str) -> bool {
+    description.starts_with("Genesis-suggested action:")
+        || description.contains("matched skill keywords")
 }
 
 fn derive_approval_policy(gp: &GenesisPlan) -> String {

@@ -215,6 +215,12 @@ fn add_suggested_actions(
             continue;
         }
         let requires_approval = crate::safety_judge::matches_sensitive_verb(&action_type);
+        // Human-readable description derived from the action NAME — never the
+        // matcher's internal debug `reason` ("matched skill keywords: …"),
+        // which leaked verbatim into customer-facing example replies AND the
+        // manifest (genesis-draft-worker-reply-leak). The matcher keeps the
+        // `reason` for logs/audit; it must never reach a `description`.
+        let description = humanize_action(&action_type);
         actions.actions.insert(
             action_type,
             ActionDeclaration {
@@ -224,7 +230,7 @@ fn add_suggested_actions(
                     ActionRiskLevel::Low
                 },
                 requires_approval,
-                description: format!("Genesis-suggested action: {}", suggestion.reason),
+                description,
                 executor: ExecutorDeclaration::default(),
                 ..ActionDeclaration::default()
             },
@@ -232,6 +238,19 @@ fn add_suggested_actions(
     }
     safety_judge::auto_fix(actions);
     safety_judge::judge(actions)
+}
+
+/// Turn a snake_case manifest action name into a plain human-readable phrase
+/// for the `description` (manifest + example replies). Deliberately simple —
+/// the point is that it is REAL copy ("post summary"), never the matcher's
+/// internal debug `reason` ("matched skill keywords: …").
+fn humanize_action(action_type: &str) -> String {
+    let phrase = action_type.trim_matches('_').replace('_', " ");
+    if phrase.is_empty() {
+        "complete the requested task".to_string()
+    } else {
+        phrase
+    }
 }
 
 /// Build a plan AND run the quality gate in one shot. Returns

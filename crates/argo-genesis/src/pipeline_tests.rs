@@ -289,3 +289,19 @@ fn sync_action_descriptions_is_a_noop_on_the_archetype_path() {
     plan.sync_action_descriptions_from_spec();
     assert_eq!(plan.manifest, before, "archetype-path manifest is untouched");
 }
+
+// genesis-draft-worker-reply-leak (HOP 1, source): a skill-matched suggested
+// action gets a clean human-readable description, NEVER the matcher's internal
+// debug `reason` ("matched skill keywords: …").
+#[test]
+fn humanize_action_yields_clean_copy_never_debug_reason() {
+    assert_eq!(humanize_action("post_summary"), "post summary");
+    assert_eq!(humanize_action("draft_email"), "draft email");
+    assert_eq!(humanize_action("_leading_trailing_"), "leading trailing");
+    assert_eq!(humanize_action(""), "complete the requested task");
+    for a in ["post_summary", "schedule_meeting", "send_invoice"] {
+        let d = humanize_action(a);
+        assert!(!d.contains("Genesis-suggested action"), "leaked marker: {d}");
+        assert!(!d.contains("matched skill keywords"), "leaked debug reason: {d}");
+    }
+}
