@@ -178,6 +178,8 @@
 
 > **Conductor heartbeat note**: each tick during this window MUST cite this directive in `run_notes` so the next tick knows the overnight authorization is in force.
 
+> **🔌 2026-06-22 — CONNECTOR-REACH + DELIVERY PROGRAM ([DEC-059](../skycot/decisions/DEC-059-connector-reach-and-delivery-program.md)):** **Wave 1 LIVE** in prod (gateway task-def **:13**, image `wave1-371292fb3`, `INCLUDE_CREDENTIALS=1`) — 17 wired connector binaries now ship in the image + per-tenant creds injected at spawn + durable. **Wave 2 backend deployed** (gateway task-def **:14**) — #3004–3011. **Wave 3 PLANNED** (overage-billing cron / customer-facing audit trust surface / per-worker truth-boundary routing / surface honesty). **Remaining:** Wave-2 ⑤ upfront-capture + the SPA honest-roster redeploy + the OAuth `/connect` writer route.
+
 >
 > **🧭 LIVE DIRECTIVES:**
 > - **HISTORICAL (rescinded 2026-05-21 by operator)** — `conductor-prompt-deployment-path-v3.md` (2026-05-12) and its two queued successors (`conductor-prompt-post-v3-directives.md` BLOCK 1 SKILL-CANVAS-v1 + BLOCK 2 ENTERPRISE-PARITY-v1). All three are superseded by the post-25-audit / PRODUCT_ROADMAP web-* work that has been the swarm's actual workload since 2026-05-12. Track L (Skill-Canvas) is 14 MERGED / 4 DROPPED, Track M (Enterprise-Parity) is 18 MERGED / 1 BLOCKED (paddleocr operator-decisional) / 1 DROPPED. Files retained on disk for traceability only; conductors should **NOT** read these as active overrides. Normal PROTOCOL_LOOP_PROMPT step-8 replenishment applies (idea sources in priority order: MISSION_BACKLOG[NEW] → PRODUCT_ROADMAP tracks → recent PR-body deferrals → git log -100).
