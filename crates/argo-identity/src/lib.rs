@@ -20,6 +20,7 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod auto_approval;
+pub mod autonomy_level;
 pub mod circuit;
 pub mod classification;
 /// Customer-facing GDPR/CCPA Article 15 data-export bundle assembly
@@ -44,6 +45,7 @@ pub mod roster_policy_override;
 mod roster_store;
 mod store;
 mod store_archive_methods;
+mod store_autonomy;
 mod store_channels;
 mod store_hire;
 mod store_hire_fs_root;

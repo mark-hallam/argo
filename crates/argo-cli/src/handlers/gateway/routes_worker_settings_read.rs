@@ -203,8 +203,12 @@ pub(crate) async fn patch_autonomy(
         Err(resp) => return resp,
     };
     let level = match body.get("level").and_then(Value::as_str) {
-        Some(l) if matches!(l, "conservative" | "balanced" | "aggressive") => l.to_string(),
-        _ => return bad_request("'level' must be conservative | balanced | aggressive"),
+        Some(l) if matches!(l, "always_ask" | "conservative" | "balanced" | "aggressive") => {
+            l.to_string()
+        }
+        _ => {
+            return bad_request("'level' must be always_ask | conservative | balanced | aggressive")
+        }
     };
     let payload = json!({ "level": level });
     emit_audit(
@@ -224,6 +228,25 @@ pub(crate) async fn patch_autonomy(
             json!({ "reason": "autonomy_set_conservative" }),
         )
         .await;
+    }
+    // DEC-060: make the chosen level REAL — persist the worker's auto-approval
+    // spend envelope derived from it (the duty gate enforces this via
+    // `Worker::resolved_policy`). This changes NO live behavior on its own:
+    // scheduled firing stays gated by a separate per-worker opt-in (DEC-060
+    // PR-2), so a generous envelope sits inert until that activation lands.
+    if let Some(autonomy) = argo_identity::autonomy_level::AutonomyLevel::from_label(&level) {
+        let ids = argo_identity::IdentityStore::new(store.as_ref());
+        if let Err(e) = ids
+            .update_auto_approval(worker.tenant_id, worker.id, &autonomy.policy())
+            .await
+        {
+            tracing::warn!(
+                target: "argo_cli::routes_worker_settings",
+                worker_id = %worker.id,
+                error = %e,
+                "autonomy-level policy persist failed; level audited but envelope unchanged"
+            );
+        }
     }
     ("200 OK", json!({ "autonomy": payload }).to_string())
 }
