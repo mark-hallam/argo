@@ -95,7 +95,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     id: "asana",
     name: "Asana",
     description: "Create tasks, projects, and move work along.",
-    authType: "oauth",
+    authType: "apikey",
     fallbackIcon: ListChecks,
   },
   {
@@ -117,7 +117,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     id: "discord",
     name: "Discord",
     description: "Post updates and reply in your server channels.",
-    authType: "oauth",
+    authType: "apikey",
     fallbackIcon: MessageCircle,
   },
   {
@@ -184,14 +184,14 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     id: "jira",
     name: "Jira",
     description: "Create issues, transition workflows, link tickets.",
-    authType: "oauth",
+    authType: "apikey",
     fallbackIcon: AppWindow,
   },
   {
     id: "linear",
     name: "Linear",
     description: "Open issues and move tickets along.",
-    authType: "oauth",
+    authType: "apikey",
     fallbackIcon: Linkedin,
   },
   {
@@ -206,14 +206,14 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     id: "monday",
     name: "Monday",
     description: "Read boards, update items, run automations.",
-    authType: "oauth",
+    authType: "apikey",
     fallbackIcon: KanbanSquare,
   },
   {
     id: "notion",
     name: "Notion",
     description: "Read pages, update databases, capture notes.",
-    authType: "apikey",
+    authType: "oauth",
     fallbackIcon: BookOpen,
   },
   {
@@ -258,7 +258,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorEntry[] = [
     id: "slack",
     name: "Slack",
     description: "Post updates and reply in your workspace.",
-    authType: "oauth",
+    authType: "apikey",
     fallbackIcon: MessageSquare,
   },
   {

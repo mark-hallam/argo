@@ -67,14 +67,18 @@ describe("/settings/connectors page", () => {
     expect(screen.getByTestId("connectors-empty-filter")).toBeInTheDocument();
   });
 
-  it("opens the connect modal on the Notion (api-key) card", async () => {
+  it("opens the connect modal on the Stripe (api-key) card", async () => {
+    // Stripe is an unambiguous token/api-key connector (matches the backend
+    // connector_authorize_specs.rs). Was previously asserted on Notion, but
+    // Notion is OAuth (corrected to match the gateway specs) and the Gmail
+    // test below already covers the OAuth-start flow.
     render(wrap(<ConnectorsPage />));
 
-    fireEvent.click(screen.getByTestId("connector-connect-notion"));
+    fireEvent.click(screen.getByTestId("connector-connect-stripe"));
 
     expect(await screen.findByTestId("connector-modal")).toHaveAttribute(
       "data-connector-id",
-      "notion",
+      "stripe",
     );
     expect(screen.getByTestId("connector-modal-apikey-form")).toBeInTheDocument();
   });
