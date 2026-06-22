@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<!-- SKYCOT — verified state + outstanding, 2026-06-23. Built from a 5-agent
+     parallel verification against the ACTUAL code (main 1dc654dd3) AND live prod
+     (gateway 5b7d609e1, SPA web-624d30954) + live AWS inspection. NO THEATER:
+     every "live" is code-path + live-signal verified; gaps are evidence-backed. -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SKYCOT — Verified State &amp; Outstanding · 2026-06-23</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--g1:#8B5CF6;--g2:#EC4899;--ink:#15121f;--ink2:#4a4458;--ink3:#7c7689;--line:#e9e6ef;--bg:#fafafb;--card:#fff;
+--ok:#0e9f6e;--okbg:#e7f7f0;--warn:#b45309;--warnbg:#fdf5e9;--red:#c81e3a;--redbg:#fdeef0;--blue:#2563eb;--bluebg:#eef2fd;}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:36px 22px 80px}
+.hero{background:linear-gradient(135deg,var(--g1),var(--g2));border-radius:22px;padding:32px 34px;color:#fff;box-shadow:0 18px 50px rgba(139,92,246,.28)}
+.hero h1{margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em}
+.hero .sub{margin:8px 0 0;font-size:15px;opacity:.95;max-width:760px}
+.hero .meta{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:5px 12px;font-size:12.5px;font-family:'JetBrains Mono',monospace}
+h2{font-size:13px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);margin:38px 0 14px;display:flex;align-items:center;gap:9px}
+h2 .bar{width:26px;height:3px;border-radius:2px;background:linear-gradient(90deg,var(--g1),var(--g2))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:17px 19px;margin-bottom:11px}
+.row{display:flex;gap:13px;align-items:flex-start}
+.tag{flex:none;font-size:11px;font-weight:700;letter-spacing:.03em;border-radius:7px;padding:3px 9px;margin-top:1px;white-space:nowrap}
+.t-ok{background:var(--okbg);color:var(--ok)}.t-warn{background:var(--warnbg);color:var(--warn)}.t-red{background:var(--redbg);color:var(--red)}.t-blue{background:var(--bluebg);color:var(--blue)}
+.row .body{flex:1}.row .body b{font-weight:700}
+.row .body .d{font-size:13.5px;color:var(--ink2);margin-top:3px}
+.row .body .ev{font-size:12px;color:var(--ink3);margin-top:4px;font-family:'JetBrains Mono',monospace}
+.crit{border-left:4px solid var(--red)}.cap{border-left:4px solid var(--warn)}
+.lead{background:linear-gradient(135deg,#fff,#fbf7ff);border:1px solid var(--line);border-radius:15px;padding:18px 20px;margin:18px 0;font-size:15px}
+.lead b{color:var(--g1)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.mini{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px}
+.mini .h{font-weight:700;font-size:14px;display:flex;align-items:center;gap:7px}
+.mini .h .dot{width:8px;height:8px;border-radius:50%}.dok{background:var(--ok)}.dwarn{background:var(--warn)}.dred{background:var(--red)}
+.mini .x{font-size:12.5px;color:var(--ink2);margin-top:5px}
+.ol{counter-reset:o;list-style:none;padding:0;margin:0}
+.ol li{counter-increment:o;position:relative;padding:13px 16px 13px 50px;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:9px}
+.ol li::before{content:counter(o);position:absolute;left:13px;top:13px;width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--g1),var(--g2));color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center}
+.ol li b{font-weight:700}.ol .who{font-size:11px;font-weight:700;border-radius:6px;padding:2px 7px;margin-left:6px}
+.who-op{background:var(--warnbg);color:var(--warn)}.who-code{background:var(--bluebg);color:var(--blue)}
+.ol li .d{font-size:13px;color:var(--ink2);margin-top:3px}
+.foot{margin-top:30px;font-size:12px;color:var(--ink3);text-align:center;border-top:1px solid var(--line);padding-top:18px}
+</style></head><body><div class="wrap">
+
+<div class="hero">
+  <h1>SKYCOT — Verified State &amp; Outstanding</h1>
+  <p class="sub">Built 2026-06-23 from a 5-agent parallel verification against the <b>actual code</b> and <b>live production</b> (not the docs). Every "live" below is a verified code path + live signal; every gap is evidence-backed.</p>
+  <div class="meta">
+    <span class="pill">main 1dc654dd3</span>
+    <span class="pill">gateway 5b7d609e1 ✓live</span>
+    <span class="pill">SPA web-624d30954 (9 behind)</span>
+    <span class="pill">AWS ap-southeast-2</span>
+  </div>
+</div>
+
+<div class="lead">
+  <b>Bottom line:</b> the platform is real and the core hire path works — <b>Genesis (real-LLM) first-hire, tenant-isolated auth, hash-chained audit, and the connector/tool engine are verified LIVE.</b> Nothing is faked. But <b>no cold stranger can pay yet</b>, and there are <b>two production issues you didn't know about</b> (flagged first below). The remaining work is overwhelmingly <span style="color:var(--warn);font-weight:700">operator config</span> + <span style="color:var(--blue);font-weight:700">deploy freshness</span>, not missing code.
+</div>
+
+<h2><span class="bar"></span>🔴 Two things surfaced live this session — fix first</h2>
+<div class="card crit"><div class="row"><span class="tag t-red">SECURITY</span><div class="body">
+  <b>The ALB origin is wide open to the internet — Cloudflare is bypassable.</b>
+  <div class="d">The prod ALB security group accepts <code>0.0.0.0/0</code> + <code>::/0</code> on ports 80 &amp; 443, and the ALB DNS is directly reachable. Anyone hitting the origin with the right Host header bypasses every Cloudflare WAF / rate-limit / bot rule. This contradicts the code's secure default and the documented go-live gate — a bring-up escape hatch was never reverted.</div>
+  <div class="ev">VERIFIED: sg-0example000000000 ingress = 0.0.0.0/0:80,443 · fix: lock SG to Cloudflare CIDRs, then scripts/check-alb-origin-locked.sh · #1 fix before public traffic</div>
+</div></div></div>
+<div class="card crit"><div class="row"><span class="tag t-red">RESILIENCE</span><div class="body">
+  <b>The gateway flapped under load during this audit — single small task, no scaling.</b>
+  <div class="d">5 verification agents + one Genesis LLM stream overwhelmed the single 2 GB / 1 vCPU gateway task (desiredCount 1) → it failed ELB health checks → ~90s of 503 → restarted → recovered. A handful of concurrent users + an LLM call can knock prod offline briefly. Fine for a demo; a real availability risk for paying users.</div>
+  <div class="ev">VERIFIED: task-def :17 cpu 1024 / mem 2048, desired 1 · stop reason "failed ELB health checks" 09:35 · self-recovered (uptime climbing) · fix: bump cpu/mem + raise desiredCount (needs the split-brain note below for &gt;1)</div>
+</div></div></div>
+
+<h2><span class="bar"></span>✅ Verified LIVE &amp; real (code path + live signal)</h2>
+<div class="grid">
+  <div class="mini"><div class="h"><span class="dot dok"></span>Genesis first-hire (real LLM)</div><div class="x">SSE 200 text/event-stream live; ARGO_GENESIS_LLM_CLASSIFIER=1 + anthropic pinned in IaC. The strongest live surface — off-taxonomy plain-English roles synthesize.</div></div>
+  <div class="mini"><div class="h"><span class="dot dok"></span>Auth + tenant model</div><div class="x">Magic-link signup→verify→JWT-with-tenant→workspace as owner. The cwd-vs-JWT bug is fixed: routes derive tenant from the signed JWT, not cwd.</div></div>
+  <div class="mini"><div class="h"><span class="dot dok"></span>OAuth /connect route (#3026)</div><div class="x">Live 302, discriminating (not_oauth / unknown_connector / not_configured). Inert-until-configured by design. CSRF + tenant-scoped token persist real.</div></div>
+  <div class="mini"><div class="h"><span class="dot dok"></span>Token connectors (17)</div><div class="x">Binaries shipped in the prod image; per-tenant creds injected at spawn (real HTTP, not dry-run). Platform-live; per-tenant token + grant still required.</div></div>
+  <div class="mini"><div class="h"><span class="dot dok"></span>file_list tool (#3031)</div><div class="x">In builtin_tools (count now 17) + granted to every Genesis teammate via the safe baseline. Teammates can enumerate a folder, not just read known paths.</div></div>
+  <div class="mini"><div class="h"><span class="dot dok"></span>Audit chain + trust endpoints</div><div class="x">Real SHA-256 hash-chain, tenant-scoped; verify/export/cert live (401 authed). Truth-bounded verify (never fakes intact). Verify button deployed in SPA.</div></div>
+  <div class="mini"><div class="h"><span class="dot dok"></span>Stripe billing code</div><div class="x">Real Stripe HTTP, no stubs; webhook verifies HMAC + handles customer.subscription.created (old wrong-event bug fixed); overage = real $-spend × markup in cents.</div></div>
+  <div class="mini"><div class="h"><span class="dot dok"></span>Capability fence + multi-tenancy</div><div class="x">Deny-by-default; Genesis teammates get read-only baseline, terminal/CU/connectors denied at birth. tenant_id plumbed; cross-tenant negative tests present.</div></div>
+  <div class="mini"><div class="h"><span class="dot dok"></span>Durable DB (S3 restore)</div><div class="x">Fail-closed restore-on-boot (exit 70/71, never boots empty). Genuine durability across task replacement.</div></div>
+  <div class="mini"><div class="h"><span class="dot dok"></span>Security headers</div><div class="x">Strong CSP (nonce + strict-dynamic), HSTS 2yr+preload, X-Frame DENY, nosniff. API 401 = clean JSON, no stack leak.</div></div>
+</div>
+
+<h2><span class="bar"></span>💤 Built &amp; deployed, but DORMANT by design</h2>
+<div class="card cap"><div class="row"><span class="tag t-warn">DORMANT</span><div class="body">
+  <b>The DEC-060 autonomy ladder is live in the gateway but does nothing — triple-OFF by construction.</b>
+  <div class="d">Always Ask / Accept Safe / Auto / Bypass + spend envelopes are built, deployed, and verified — but inert behind three independent OFF-by-default locks, each fail-closed: <b>(1)</b> global <code>ARGO_DUTY_AUTOFIRE</code> unset → boot wires deny-all; <b>(2)</b> per-tenant opt-in off; <b>(3)</b> per-teammate default Always-Ask. Nothing auto-fires for any customer today.</div>
+  <div class="ev">HONEST CAVEAT: the "permanent floor" (money-out / first-recipient / irreversible) the SPA shows as a guarantee is enforced INDIRECTLY via manifest risk-tiering — there is NO dedicated code predicate for first-time-recipient/money-out. It holds only if manifest actions are correctly risk-stamped. Worth a named backstop before autonomy is ever switched on.</div>
+</div></div></div>
+
+<h2><span class="bar"></span>🟠 Operator-gated — config, not code (this is what blocks revenue)</h2>
+<div class="card cap"><div class="row"><span class="tag t-warn">OP-GATED</span><div class="body"><b>Magic-link email isn't wired</b> — provider defaults to Noop (log-only); SES SMTP is commented out. A cold stranger requests a link but <b>no email is sent</b>. The single hardest blocker on cold signup.<div class="ev">fix: set SKYCOT_EMAIL_PROVIDER=smtp + SKYCOT_SMTP_* to SES</div></div></div></div>
+<div class="card cap"><div class="row"><span class="tag t-warn">OP-GATED</span><div class="body"><b>Stripe is fully gated</b> — code is real + unstubbed, but no live keys, no Stripe products/prices, no registered webhook; overage cron is merged-but-unapplied + STRIPE_PRICE_PRO_OVERAGE unset. No revenue can flow.<div class="ev">fix: live keys + products/prices + SPA price-ID build + register webhook + terraform apply overage</div></div></div></div>
+<div class="card cap"><div class="row"><span class="tag t-warn">OP-GATED</span><div class="body"><b>OAuth connectors gated to zero</b> — /connect route is live + correct, but all 5 (gmail/gcal/hubspot/notion/salesforce) return not_configured (no provider client IDs). The plumbing's done; the apps aren't registered.<div class="ev">fix: register each provider OAuth app + set client-id/secret (runbook: OAUTH-SETUP-RUNBOOK.md). Gmail/GCal also need Google verification.</div></div></div></div>
+<div class="card cap"><div class="row"><span class="tag t-warn">DECISION</span><div class="body"><b>Voice runs the MOCK provider in prod</b> — no OPENAI_API_KEY / ARGO_VOICE_PROVIDER in the task-def, so STT/TTS are deterministic fakes (realtime WebRTC 503s). "Voice live on /pitch" is FALSE; pitch <i>text</i> answers are real (Anthropic). One secret + one env var away.<div class="ev">fix: add OPENAI_API_KEY secret + ARGO_VOICE_PROVIDER=openai to the ECS task</div></div></div></div>
+
+<h2><span class="bar"></span>🟦 Deploy freshness gaps</h2>
+<div class="card"><div class="row"><span class="tag t-blue">DEPLOY</span><div class="body"><b>The SPA is 9 commits behind main.</b> The live SPA (web-624d30954) does NOT include the <b>autonomy 4-rung selector UI (#3030)</b> or the OAuth /connect SPA surface (#3026). The audit-verify button (#3021) IS deployed. → an SPA (App Runner) redeploy surfaces the autonomy dial.</div></div></div>
+<div class="card"><div class="row"><span class="tag t-blue">DEPLOY</span><div class="body"><b>Gateway is 1 commit behind main</b> — PR-4 #3034 (autonomy spend-read fail-close) is merged-but-undeployed. Moot while autonomy is off, but prod ≠ HEAD on a safety fix.</div></div></div>
+<div class="card"><div class="row"><span class="tag t-blue">STRUCTURAL</span><div class="body"><b>Every gateway deploy = ~90s+ outage.</b> Single-writer SQLite + replace-style rollout (minHealthy 0, desiredCount 1) means stop-old-then-start-new, and boot includes the S3 restore. Not zero-downtime — and the same single-writer constraint is why you can't simply raise desiredCount to fix the resilience gap above (2 tasks = split-brain) until the DB moves to Postgres/RDS.</div></div></div>
+
+<h2><span class="bar"></span>⚪ Honest corrections (claim → reality)</h2>
+<div class="grid">
+  <div class="mini"><div class="h"><span class="dot dwarn"></span>Channels = approval callbacks, not chat</div><div class="x">Slack/SMS/Discord/email webhooks are yes/no <i>approval</i> routes (real signature verification), NOT two-way inbound messaging. Don't market as multi-channel chat.</div></div>
+  <div class="mini"><div class="h"><span class="dot dred"></span>Computer-use is dead-in-prod</div><div class="x">macOS-only; prod is headless Fargate → cannot run. No customer-facing CU exists. (The old preflight gate-bug IS fixed — correct that stale note. A downloadable local runner is the path, a v1.x build.)</div></div>
+  <div class="mini"><div class="h"><span class="dot dwarn"></span>Image generation deferred</div><div class="x">Stub backend, CLI-only, no gateway route, gated capability. Correctly deferred — confirmed.</div></div>
+  <div class="mini"><div class="h"><span class="dot dwarn"></span>In-core tool count is 17, not 15</div><div class="x">CLAUDE.md invariant #5 still says "15" — stale doc, not a code gap.</div></div>
+</div>
+
+<h2><span class="bar"></span>📋 Outstanding — prioritized</h2>
+<ol class="ol">
+  <li><b>Lock the ALB origin to Cloudflare</b> <span class="who who-op">OPERATOR</span><div class="d">Close the 0.0.0.0/0 ingress; restrict to Cloudflare CIDRs; re-run the go-live gate. The #1 security fix before any public traffic.</div></li>
+  <li><b>Wire magic-link email (SES)</b> <span class="who who-op">OPERATOR</span><div class="d">Without it, cold signup dead-ends. Set the SMTP/SES env. The first unlock of the paying journey.</div></li>
+  <li><b>Complete Stripe setup + apply overage</b> <span class="who who-op">OPERATOR</span><div class="d">Live keys + products/prices + webhook + SPA price-ID build + terraform apply. No revenue until done.</div></li>
+  <li><b>Redeploy the SPA from main</b> <span class="who who-code">DEPLOY</span><div class="d">Surfaces the autonomy selector + OAuth /connect UI (App Runner deploy — low-risk, no DB).</div></li>
+  <li><b>Register OAuth provider apps</b> <span class="who who-op">OPERATOR</span><div class="d">Per the runbook — turns the live /connect route from inert to usable for Gmail/CRM/Notion/Salesforce.</div></li>
+  <li><b>Right-size the gateway + plan HA</b> <span class="who who-code">CODE/INFRA</span><div class="d">Bump cpu/mem now; for real HA (desiredCount &gt;1) move the DB off single-writer SQLite to Postgres/RDS first.</div></li>
+  <li><b>Decide on autonomy + add the named floor</b> <span class="who who-op">DECISION</span><div class="d">Before ever flipping ARGO_DUTY_AUTOFIRE: add a dedicated money-out/first-recipient floor predicate (don't rely solely on manifest risk-stamping), and deploy PR-4 (fail-close).</div></li>
+  <li><b>Wire voice (OpenAI) if you want real speech in the demo</b> <span class="who who-op">OPERATOR</span><div class="d">One secret + one env var. Otherwise keep marketing pitch as text-real, voice-plumbed.</div></li>
+</ol>
+
+<div class="foot">SKYCOT verified state · 2026-06-23 · main 1dc654dd3 · gateway 5b7d609e1 · 5-agent code+live verification · supersedes strategy-full-report-2026-06-21 / launch-readiness-2026-06-21 / SKYCOT-STATE-AND-PATH-2026-06-22</div>
+</div></body></html>
