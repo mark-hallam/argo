@@ -9,6 +9,8 @@ import { useToast } from "@/lib/ui/use-toast";
 import {
   AUTONOMY_LEVELS,
   AUTONOMY_LABELS,
+  AUTONOMY_DESCRIPTIONS,
+  AUTONOMY_FLOOR_ITEMS,
   type AutonomyConfig,
   type AutonomyLevel,
 } from "@/lib/api/worker-settings";
@@ -98,30 +100,53 @@ export function AutonomySection({
                   data-testid={`autonomy-option-${opt}`}
                   title={
                     opt === RATCHET_RESET_LEVEL
-                      ? `Conservative resets the trust ratchet — ${workerName} asks again for any action she's been doing autonomously.`
+                      ? `Accept Safe resets the trust ratchet — ${workerName} asks again for any action she's been doing autonomously.`
                       : undefined
                   }
                   className={cn(
-                    "flex items-center gap-3 rounded-[var(--radius-md)] border px-3 py-2 cursor-pointer",
+                    "flex flex-col gap-1 rounded-[var(--radius-md)] border px-3 py-2.5 cursor-pointer",
                     level === opt
                       ? "border-[var(--primary)]/60 bg-[var(--accent)]/20"
                       : "border-[var(--border)]",
                   )}
                 >
-                  <input
-                    type="radio"
-                    value={opt}
-                    data-testid={`autonomy-radio-${opt}`}
-                    className="size-3.5 accent-[var(--primary)]"
-                    {...register("level")}
-                  />
-                  <span className="text-sm text-[var(--foreground)]">
-                    {AUTONOMY_LABELS[opt]}
+                  <span className="flex items-center gap-3">
+                    <input
+                      type="radio"
+                      value={opt}
+                      data-testid={`autonomy-radio-${opt}`}
+                      className="size-3.5 accent-[var(--primary)]"
+                      {...register("level")}
+                    />
+                    <span className="text-sm font-medium text-[var(--foreground)]">
+                      {AUTONOMY_LABELS[opt]}
+                    </span>
+                  </span>
+                  <span className="pl-[1.625rem] text-xs leading-snug text-[var(--muted-foreground)]">
+                    {AUTONOMY_DESCRIPTIONS[opt]}
                   </span>
                 </label>
               </li>
             ))}
           </ul>
+          <div
+            data-testid="autonomy-floor"
+            className="mt-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--muted)]/40 px-3 py-2.5"
+          >
+            <p className="text-xs font-semibold text-[var(--foreground)]">
+              These always wait for you — even on Bypass
+            </p>
+            <ul className="mt-1.5 flex flex-wrap gap-1.5">
+              {AUTONOMY_FLOOR_ITEMS.map((item) => (
+                <li
+                  key={item}
+                  className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--background)] px-2 py-0.5 text-[11px] text-[var(--muted-foreground)]"
+                >
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
           {formState.errors.level ? (
             <p
               role="alert"
@@ -161,7 +186,7 @@ export function AutonomySection({
           if (!open) setPendingConfirm(null);
         }}
         title="Reset trust ratchet?"
-        description={`Switching to Conservative resets the trust ratchet — ${workerName} asks again for any action she's been doing autonomously.`}
+        description={`Switching to Accept Safe resets the trust ratchet — ${workerName} asks again for any action she's been doing autonomously.`}
         confirmLabel="Reset & save"
         cancelLabel="Cancel"
         confirmVariant="destructive"

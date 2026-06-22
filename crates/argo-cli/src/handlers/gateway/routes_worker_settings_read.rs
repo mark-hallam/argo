@@ -284,7 +284,10 @@ async fn build_settings_payload(
             "used_month_usd": 0.0,
         },
         "autonomy": {
-            "level": autonomy.get("level").and_then(Value::as_str).unwrap_or("balanced"),
+            // DEC-060 default is Always Ask: an unconfigured teammate is held
+            // by the duty gate (disabled policy), so the UI must show that, not
+            // a stale "balanced" that the gate would never honour.
+            "level": autonomy.get("level").and_then(Value::as_str).unwrap_or("always_ask"),
         },
         "advanced": advanced,
     })

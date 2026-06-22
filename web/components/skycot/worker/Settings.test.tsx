@@ -304,6 +304,29 @@ describe("WorkerSettingsPage", () => {
     expect(onUpdateAutonomyMock).toHaveBeenCalledWith({ level: "aggressive" });
   });
 
+  it("Autonomy: renders all four DEC-060 rungs incl. Always Ask + the permanent floor", async () => {
+    useSettingsMock.mockReturnValue(settingsState());
+    render(<WorkerSettingsPage />);
+    // The new safe-default rung is present alongside the existing three.
+    expect(screen.getByTestId("autonomy-radio-always_ask")).toBeInTheDocument();
+    expect(screen.getByTestId("autonomy-radio-conservative")).toBeInTheDocument();
+    expect(screen.getByTestId("autonomy-radio-balanced")).toBeInTheDocument();
+    expect(screen.getByTestId("autonomy-radio-aggressive")).toBeInTheDocument();
+    // The irreducible floor is always shown — even on Bypass.
+    const floor = screen.getByTestId("autonomy-floor");
+    expect(floor).toHaveTextContent(/even on Bypass/i);
+    expect(floor).toHaveTextContent(/Money leaving the business/i);
+  });
+
+  it("Autonomy: selecting Always Ask saves the always_ask level", async () => {
+    const user = userEvent.setup();
+    useSettingsMock.mockReturnValue(settingsState());
+    render(<WorkerSettingsPage />);
+    await user.click(screen.getByTestId("autonomy-radio-always_ask"));
+    await user.click(screen.getByTestId("autonomy-save"));
+    expect(onUpdateAutonomyMock).toHaveBeenCalledWith({ level: "always_ask" });
+  });
+
   it("Advanced: View manifest opens a read-only TOML modal that can be closed", async () => {
     const user = userEvent.setup();
     useSettingsMock.mockReturnValue(settingsState());

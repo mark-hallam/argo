@@ -52,19 +52,49 @@ export const CHANNEL_LABELS: Record<ChannelKind, string> = {
   voice: "Voice",
 };
 
-export type AutonomyLevel = "conservative" | "balanced" | "aggressive";
+// DEC-060 autonomy ladder. Storage labels (always_ask|conservative|balanced|
+// aggressive) are kept for back-compat; the DISPLAY names are the operator's
+// Claude-Code-style rungs. Ordered safest → most permissive.
+export type AutonomyLevel =
+  | "always_ask"
+  | "conservative"
+  | "balanced"
+  | "aggressive";
 
 export const AUTONOMY_LEVELS: readonly AutonomyLevel[] = [
+  "always_ask",
   "conservative",
   "balanced",
   "aggressive",
 ] as const;
 
 export const AUTONOMY_LABELS: Record<AutonomyLevel, string> = {
-  conservative: "Conservative — ask often",
-  balanced: "Balanced — current",
-  aggressive: "Aggressive — minimal asking",
+  always_ask: "Always Ask",
+  conservative: "Accept Safe",
+  balanced: "Auto",
+  aggressive: "Bypass",
 };
+
+/** One-line description of what each rung does on its own (DEC-060). */
+export const AUTONOMY_DESCRIPTIONS: Record<AutonomyLevel, string> = {
+  always_ask:
+    "Prepares and proposes, but every action waits for your approval. Nothing is sent, changed, or spent without you.",
+  conservative:
+    "Runs scheduled duties and auto-handles only safe, low-cost steps within a tight budget. Anything outbound or over budget asks you.",
+  balanced:
+    "Wider budget — auto-handles routine, reversible actions to known contacts. Consequential or first-time actions still ask.",
+  aggressive:
+    "Skips the approval queue for everything the permanent floor allows, within the budget. Bypass skips the queue — never the floor.",
+};
+
+/** The irreducible approval floor — these always wait for a human, at every
+ *  rung including Bypass (DEC-051 / DEC-060). Shown in the selector. */
+export const AUTONOMY_FLOOR_ITEMS: readonly string[] = [
+  "Money leaving the business",
+  "A first-time external recipient",
+  "Deleting or anything irreversible",
+  "Granting access",
+];
 
 export interface ChannelsConfig {
   enabled: ChannelKind[];
