@@ -222,6 +222,14 @@ async fn try_dispatch_gates(
         super::sso_dispatch::serve(req, ctx.store, stream).await;
         return Some(200);
     }
+    // Connector OAuth connect/callback is stream-owning (mirroring SSO) so it
+    // can emit `Location:` + `Set-Cookie:` for the provider-consent redirect
+    // dance — item ④, the browser path to connect Gmail/CRM the credential-POST
+    // route can't carry.
+    if super::routes_connectors_oauth::is_connector_oauth_request(req) {
+        super::routes_connectors_oauth::serve(req, ctx.store, stream).await;
+        return Some(200);
+    }
     // Magic-link verify is stream-owning (mirroring SSO) so it can
     // emit `Set-Cookie: __Host-session=...` directly, which the
     // `(status, body)` dispatch tuple cannot carry. Signup stays on

@@ -66,6 +66,7 @@ mod session_jwt;
 mod routes_api_keys;
 mod routes_api_keys_helpers;
 mod routes_connectors;
+mod routes_connectors_oauth;
 mod routes_provider_keys;
 mod routes_approval_bundles;
 mod routes_approvals_execute;
