@@ -24,17 +24,11 @@
 # is already at $ARGO_WORKSPACE/.argo (EFS mount or local file) — same script
 # everywhere.
 #
-# ⚠️ DB-PATH BRIDGE (the one non-obvious bit). The rest of the platform writes
-# its DB at `$ARGO_HOME/sessions.db` and snapshots `<cwd>/.argo/` — the canonical
-# `.argo` convention. But the `argo billing report-overage` handler
-# (crates/argo-cli/src/handlers/billing_overage.rs open_store()) hardcodes
-# `<cwd>/.skycot/sessions.db` and does NOT honour ARGO_HOME — a real
-# convention mismatch in that one handler. This is INFRA-ONLY work, so rather
-# than touch Rust we BRIDGE it here: after restore (which yields
-# `$ARGO_WORKSPACE/.argo/sessions.db`) we expose the same DB at
-# `<cwd>/.skycot/sessions.db` and run the command from cwd=$ARGO_WORKSPACE. A
-# follow-up should make billing_overage.rs use home.rs resolve_home/db_path like
-# its sibling handlers (worker_budget.rs etc.) so this bridge can be deleted.
+# DB PATH. We point the command at the restored/live DB by setting ARGO_HOME to
+# `$ARGO_WORKSPACE/.argo` — `argo billing report-overage` honours ARGO_HOME via
+# home.rs resolve_home/db_path (crates/argo-cli/src/handlers/billing_overage.rs
+# open_store(), fixed #3016), opening `$ARGO_HOME/sessions.db` directly and
+# creating the dir itself if absent. No path bridge needed.
 #
 # IDEMPOTENCY (cron-safe). `argo billing report-overage` pushes each Pro
 # tenant's CUMULATIVE period-to-date overage with Stripe `action=set` keyed on a
@@ -111,29 +105,13 @@ else
   fi
 fi
 
-# ---------- 2. bridge the .argo db to where report-overage looks (.skycot) ----------
-# See the DB-PATH BRIDGE note above. The handler opens `<cwd>/.skycot/sessions.db`
-# (+ migrate(), which writes — and SQLite's create_if_missing creates the FILE but
-# NOT its parent dir), so expose the restored/live .argo db at .skycot under
-# $ARGO_WORKSPACE and run from there.
-SKYCOT_DIR="${WORKSPACE%/}/.skycot"
-if [ -e "$DB" ]; then
-  # We have a real db at ${DATA_DIR}/sessions.db (restored or in-place). Symlink
-  # .skycot -> .argo so it stays a single source of truth (no stale copy).
-  if [ ! -e "${SKYCOT_DIR}/sessions.db" ]; then
-    ln -sfn "$DATA_DIR" "$SKYCOT_DIR"
-    log "bridged ${SKYCOT_DIR} -> ${DATA_DIR} so report-overage finds the db"
-  fi
-else
-  # Fresh-empty case (no snapshot existed): no db to bridge. Just ensure the
-  # parent dir exists so the CLI's create_if_missing can make an empty db
-  # (which migrates to zero Pro tenants → a clean no-op run).
-  mkdir -p "$SKYCOT_DIR"
-  log "no db to bridge — created empty ${SKYCOT_DIR} for a clean no-op run"
-fi
-cd "$WORKSPACE"
-
-# ---------- 3. run the idempotent overage report ----------
-log "running (cwd=$(pwd)): argo billing report-overage ${REPORT_OVERAGE_ARGS}"
+# ---------- 2. run the idempotent overage report ----------
+# `argo billing report-overage` honours ARGO_HOME (open_store() via home.rs
+# resolve_home/db_path, #3016): point it at the restored/live db dir. In the
+# fresh-empty case (no snapshot existed) the dir may not exist yet — the handler
+# ensure_dir's it and create_if_missing's an empty db that migrates to zero Pro
+# tenants → a clean no-op run.
+export ARGO_HOME="$DATA_DIR"
+log "running (ARGO_HOME=${ARGO_HOME}): argo billing report-overage ${REPORT_OVERAGE_ARGS}"
 # shellcheck disable=SC2086  # REPORT_OVERAGE_ARGS is an intentional word-split flag list.
 exec "$ARGO_BIN" billing report-overage ${REPORT_OVERAGE_ARGS}
