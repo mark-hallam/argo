@@ -91,6 +91,7 @@ mod routes_audit_rollups_tools;
 mod routes_audit_screenshot;
 mod routes_audit_session;
 mod routes_audit_stream;
+mod routes_audit_trust;
 mod routes_auth;
 mod routes_auth_csrf;
 mod routes_auth_logout;

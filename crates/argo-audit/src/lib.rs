@@ -73,6 +73,8 @@ mod sink_concurrency_tests;
 mod sink_tenant_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod verify_tenant_tests;
 
 pub use csv::{
     canonical_payload_json, write_audit_csv_header, write_audit_csv_row, CSV_HEADER,
@@ -87,5 +89,7 @@ pub use replay::{filter_rows as filter_replay_rows, render as render_replay, Rep
 pub use sink::{compute_chain_hash, AuditEvent, AuditSink, AUDIT_BROADCAST_CAPACITY};
 pub use sink_tx::AuditPostCommit;
 pub use sink_tenant::{ANONYMOUS_AUDIT_TENANT_ID, DEFAULT_AUDIT_TENANT_ID, SYSTEM_AUDIT_TENANT_ID};
-pub use verify::{verify_all, verify_session, ChainBreak, VerifyReport};
+pub use verify::{
+    tenant_head_hash, verify_all, verify_session, verify_tenant, ChainBreak, VerifyReport,
+};
 pub use watchdog::{spawn_watchdog, WatchdogConfig};

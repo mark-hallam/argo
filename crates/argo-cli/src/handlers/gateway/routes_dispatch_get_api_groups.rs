@@ -383,11 +383,32 @@ pub(super) async fn dispatch_audit_support_knowledge(
                     .await,
                 );
             }
+            // w3-audit-trust-surface — customer-facing trust endpoints.
+            // `cert/<action_id>` is a per-action verified-delivery
+            // certificate; `verify` / `export` are the self-serve
+            // "prove intact" + "compliance bundle" surfaces.
+            if segments.len() == 2 && segments[0] == "cert" {
+                return Some(
+                    super::routes_audit_trust::cert_response(req, segments[1], store).await,
+                );
+            }
             if segments.len() == 1 {
-                if is_audit_detail_id(segments[0]) {
-                    return Some(super::routes_audit_detail::detail_response(req, segments[0], store).await);
+                match segments[0] {
+                    "verify" => {
+                        return Some(super::routes_audit_trust::verify_response(req, store).await)
+                    }
+                    "export" => {
+                        return Some(
+                            super::routes_audit_trust::export_response(req, query, store).await,
+                        )
+                    }
+                    id if is_audit_detail_id(id) => {
+                        return Some(
+                            super::routes_audit_detail::detail_response(req, id, store).await,
+                        )
+                    }
+                    _ => return Some(audit_endpoint_not_found(path)),
                 }
-                return Some(audit_endpoint_not_found(path));
             }
         }
     }

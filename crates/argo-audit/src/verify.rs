@@ -114,6 +114,81 @@ pub async fn verify_all(store: &SessionStore) -> ArgoResult<VerifyReport> {
     Ok(combined)
 }
 
+/// Verify every session-chain owned by `tenant_id`.
+///
+/// The audit chain is keyed per `session_id` (chain heads do not
+/// connect across sessions — see [`verify_all`]). A `session` belongs
+/// to exactly one tenant, so this gathers the tenant's distinct
+/// session ids and verifies each session's chain in full. It is the
+/// backend for the customer-facing "prove my log is intact" trust
+/// surface (`GET /api/v1/audit/verify`): a tenant verifies its OWN
+/// chain and never observes another tenant's rows.
+///
+/// `head_hash` (returned alongside the report by the gateway handler)
+/// is the most-recent row's `self_hash` across the tenant's rows, in
+/// `seq` order — the single value a customer can pin to attest the
+/// log's current tip. Returned by [`tenant_head_hash`].
+///
+/// Rows with `session_id IS NULL` (the cross-tenant global chain) are
+/// intentionally excluded: that chain links rows from many tenants, so
+/// verifying a single tenant's subset of it would falsely report a
+/// break. Customer-meaningful audit (their workers' actions) is
+/// session-scoped, so this is the truthful per-tenant view.
+///
+/// # Errors
+/// Returns [`ArgoError::Provider`] on SQL failure.
+pub async fn verify_tenant(store: &SessionStore, tenant_id: &str) -> ArgoResult<VerifyReport> {
+    let session_ids: Vec<Vec<u8>> = sqlx::query_scalar(
+        "SELECT DISTINCT session_id FROM audit_record \
+         WHERE session_id IS NOT NULL AND tenant_id = ? \
+         ORDER BY session_id ASC",
+    )
+    .bind(tenant_id)
+    .fetch_all(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("audit verify_tenant sessions: {e}")))?;
+    let mut combined = VerifyReport {
+        rows: 0,
+        ok: true,
+        ..Default::default()
+    };
+    for sid in session_ids {
+        let rows: Vec<RawRow> = sqlx::query_as::<_, RawRow>(
+            "SELECT seq, kind, payload_json, parent_hash, self_hash, tenant_id, \
+                    worker_id, channel, action_type, outcome_status, \
+                    approver_id, cost_band, data_classification \
+             FROM audit_record WHERE session_id = ? ORDER BY seq ASC",
+        )
+        .bind(&sid)
+        .fetch_all(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("audit verify_tenant fetch: {e}")))?;
+        merge_into(&mut combined, verify_rows(rows));
+    }
+    Ok(combined)
+}
+
+/// The most-recent `self_hash` (hex) across `tenant_id`'s rows in
+/// `seq` order — the chain tip a customer pins as proof of the log's
+/// current head. `None` when the tenant has no audit rows yet.
+///
+/// # Errors
+/// Returns [`ArgoError::Provider`] on SQL failure.
+pub async fn tenant_head_hash(
+    store: &SessionStore,
+    tenant_id: &str,
+) -> ArgoResult<Option<String>> {
+    let head: Option<Vec<u8>> = sqlx::query_scalar(
+        "SELECT self_hash FROM audit_record \
+         WHERE tenant_id = ? ORDER BY seq DESC LIMIT 1",
+    )
+    .bind(tenant_id)
+    .fetch_optional(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("audit tenant_head_hash: {e}")))?;
+    Ok(head.map(hex::encode))
+}
+
 fn merge_into(out: &mut VerifyReport, src: VerifyReport) {
     out.rows += src.rows;
     out.ok = out.ok && src.ok;
