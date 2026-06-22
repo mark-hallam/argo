@@ -21,8 +21,10 @@ use std::path::Path;
 /// when the resolved tenant is a real UUID (the signed-in path) — the
 /// anonymous/test fallback slug isn't a valid policy `tenant_id`, so we echo
 /// without persisting rather than fabricating a tenant. Per-worker RUNTIME
-/// loading of the persisted policy is a deferred follow-up (runtime loading is
-/// process-global via `ARGO_TRUTH_BOUNDARY_POLICY_PATH` today).
+/// loading of the persisted policy is DONE (PR #2801 + Wave-3 ⑩): the runner
+/// resolves this exact file at session boot for the bound teammate, keyed on
+/// the server-authoritative tenant + vertical and scoped to the teammate's own
+/// tenant — see `argo_agent_runner::turn_helpers_truth_boundary`.
 pub(super) fn persist_and_echo_boundaries(
     spec: Option<&BoundariesSpec>,
     tenant_id: &str,

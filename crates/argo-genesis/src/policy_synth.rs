@@ -26,17 +26,22 @@
 //! class (a real improvement over a policy-less worker), not every conceivable
 //! over-claim. The SPA copy reflects this.
 //!
-//! ## Scope boundary (this brief)
+//! ## Scope boundary (this module)
 //!
-//! Persisting the synthesized policy so the runtime auto-loads it *per worker*
-//! at session boot needs a per-worker policy-routing store that does not exist
-//! today (runtime loading is process-global via `ARGO_TRUTH_BOUNDARY_POLICY_PATH`
-//! — see `argo_agent_runner::turn_helpers_truth_boundary`). That routing is a
-//! separate follow-up brief. Here we (a) synthesize + serialize the policy in
-//! the canonical loadable format, (b) write it next to the generated vertical as
-//! the artifact that future loader will read, and (c) echo what was synthesized
-//! on the `vertical_ready` SSE payload so the SPA renders server truth, not local
-//! form state.
+//! This module (a) synthesizes + serializes the policy in the canonical loadable
+//! format, (b) writes it next to the generated vertical, and (c) echoes what was
+//! synthesized on the `vertical_ready` SSE payload so the SPA renders server
+//! truth, not local form state.
+//!
+//! Per-worker RUNTIME loading is DONE (PR #2801 + Wave-3 ⑩): at session boot the
+//! runner resolves THIS synthesized policy for the bound teammate, keyed on the
+//! server-authoritative `tenant_id` + `vertical_id` and scoped to the teammate's
+//! own tenant — replacing the process-global `ARGO_TRUTH_BOUNDARY_POLICY_PATH`
+//! load for Genesis teammates. See
+//! `argo_agent_runner` `turn_helpers_truth_boundary_genesis::genesis_truth_boundary_ctx_for_worker`
+//! (the boot seam) and `turn_vertical_fence::load_synthesized_policy_in` (the
+//! tenant-scoped disk loader). A teammate with no synthesized policy falls back
+//! to the conservative default, so an un-configured teammate never regresses.
 
 use argo_capability::{
     ChannelScope, ClaimClass, ClaimDisposition, EscalationKind, EscalationTarget,

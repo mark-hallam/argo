@@ -326,19 +326,13 @@ fn manifest_from_catalog(root: &Path, id: &str) -> Option<argo_vertical::Vertica
 /// Keyed on the SERVER-AUTHORITATIVE `tenant_id` + `vertical_id` (never a
 /// client/spec field). Returns `None` when there is no per-vertical policy
 /// file (or it can't be read/parsed) — the caller then falls back to the
-/// conservative default. Production callers go through this wrapper, which
-/// passes [`argo_vertical::default_dir()`].
-#[must_use]
-pub(crate) fn load_synthesized_policy_for_worker(
-    tenant_id: TenantId,
-    vertical_id: Option<&str>,
-) -> Option<TruthBoundaryPolicy> {
-    load_synthesized_policy_in(&argo_vertical::default_dir(), tenant_id, vertical_id)
-}
-
-/// Root-parameterized core of [`load_synthesized_policy_for_worker`], so tests
-/// can point at a fixture verticals tree without mutating the process-global
-/// `$ARGO_VERTICALS_DIR`.
+/// conservative default.
+///
+/// The production session-boot caller is
+/// `turn_helpers_truth_boundary_genesis::genesis_truth_boundary_ctx_for_worker`,
+/// which owns the [`argo_vertical::default_dir()`] wrapping; this root-
+/// parameterized form lets both that caller and tests point at a fixture
+/// verticals tree without mutating the process-global `$ARGO_VERTICALS_DIR`.
 ///
 /// The dir lookup is already tenant-scoped (`genesis_vertical_dir_in` only
 /// resolves under THIS tenant's `.genesis/<slug>/` segment), so a worker can

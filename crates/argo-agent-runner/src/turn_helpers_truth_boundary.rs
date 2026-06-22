@@ -69,6 +69,14 @@ impl TruthBoundaryTurnCtx {
         let policy = self.policy.as_deref()?;
         (policy.tenant_id == tenant_id).then_some(policy)
     }
+
+    /// The `policy_id` of the bound policy, if any. Test-only read so the
+    /// per-teammate routing decision (synthesized-vs-default) can be asserted
+    /// at the boot seam without reaching into the private `policy` field.
+    #[cfg(test)]
+    pub(super) fn policy_id(&self) -> Option<&str> {
+        self.policy.as_deref().map(|p| p.id.as_str())
+    }
 }
 
 /// Load optional truth-boundary state from process configuration.
@@ -97,50 +105,10 @@ pub(super) fn load_truth_boundary_ctx(
     ))
 }
 
-/// Build the truth-boundary gate for a Genesis-generated teammate (DEC-025
-/// #6 / Genesis P5 part (a)). Binds `argo_capability::genesis_default_policy`
-/// scoped to `tenant_id`, so the teammate's declared financial/legal/medical/
-/// factual claims **escalate** (queue an approval, hold the reply) regardless
-/// of the process-global `ARGO_TRUTH_BOUNDARY_POLICY_PATH`.
-///
-/// Channel is [`ChannelKind::Chat`] (the conservative all-channels default
-/// for a generated teammate); the gate's per-turn tenant guard
-/// (`active_policy_for`) still applies the policy only to `tenant_id`'s
-/// sessions, so this can never gate another tenant. No refusal templates are
-/// needed — every gated class is `Escalate`, not `Forbid`.
-#[must_use]
-pub(super) fn genesis_default_truth_boundary_ctx(tenant_id: TenantId) -> TruthBoundaryTurnCtx {
-    TruthBoundaryTurnCtx::new(
-        argo_capability::genesis_default_policy(tenant_id),
-        ChannelKind::Chat,
-        RefusalTemplateRegistry::empty(),
-    )
-}
-
-/// Build the truth-boundary gate for a Genesis-hired teammate, preferring the
-/// operator's SYNTHESIZED per-vertical policy over the conservative default
-/// (wire-genesis-policy-per-worker-runtime-loading — completes Genesis P5 (a)).
-///
-/// At session boot we try to load the policy the access-control panel persisted
-/// next to the worker's vertical, keyed on the server-authoritative
-/// `tenant_id` + `vertical_id` (NEVER a client field). When it loads, the
-/// operator's ACTUAL boundaries (e.g. a read-only financial scope, a configured
-/// dollar ceiling, a custom escalation topic) bite at runtime. When no
-/// per-vertical policy exists, we fall back to
-/// [`genesis_default_truth_boundary_ctx`] — the conservative default — so a
-/// Genesis-bound worker is never LESS guarded than before this wiring landed.
-#[must_use]
-pub(super) fn genesis_truth_boundary_ctx_for_worker(
-    tenant_id: TenantId,
-    vertical_id: Option<&str>,
-) -> TruthBoundaryTurnCtx {
-    match crate::turn_vertical_fence::load_synthesized_policy_for_worker(tenant_id, vertical_id) {
-        Some(policy) => {
-            TruthBoundaryTurnCtx::new(policy, ChannelKind::Chat, RefusalTemplateRegistry::empty())
-        }
-        None => genesis_default_truth_boundary_ctx(tenant_id),
-    }
-}
+// The Genesis-teammate context BUILDERS (`genesis_default_truth_boundary_ctx`,
+// `genesis_truth_boundary_ctx_for_worker[_in]`) live in the sibling module
+// `turn_helpers_truth_boundary_genesis` — extracted to keep this file under the
+// 500-LOC HARD RULE. Callers import them from that module directly.
 
 #[cfg(test)]
 pub(super) async fn with_test_truth_boundary_ctx<F, Fut, T>(ctx: TruthBoundaryTurnCtx, f: F) -> T

@@ -157,10 +157,11 @@ pub(super) async fn build_turn_dispatch_ctx(
         signals.truth_boundary,
         fence::TruthBoundaryBinding::Bound
     ) {
-        truth_boundary = super::turn_helpers_truth_boundary::genesis_truth_boundary_ctx_for_worker(
-            session.tenant_id,
-            vertical_scope,
-        );
+        truth_boundary =
+            super::turn_helpers_truth_boundary_genesis::genesis_truth_boundary_ctx_for_worker(
+                session.tenant_id,
+                vertical_scope,
+            );
     }
     // cu1 (DEC-050 G1): bind the worker's scoped sandbox root onto the derived
     // profile so `to_capability_set` emits `FsRead`/`FsWrite{<fs_root>/**}` for

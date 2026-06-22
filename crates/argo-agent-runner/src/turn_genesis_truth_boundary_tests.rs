@@ -12,9 +12,8 @@
 //! read reports `Bound`) is pinned in `turn_vertical_fence_probation_tests`.
 
 use super::turn_helpers_run::RoundOutcome;
-use super::turn_helpers_truth_boundary::{
-    apply_truth_boundary_gate, default_claim_provenance, genesis_default_truth_boundary_ctx,
-};
+use super::turn_helpers_truth_boundary::{apply_truth_boundary_gate, default_claim_provenance};
+use super::turn_helpers_truth_boundary_genesis::genesis_default_truth_boundary_ctx;
 use argo_audit::{rows_for_session, AuditSink};
 use argo_store::approvals::list_pending;
 use argo_store::SessionStore;

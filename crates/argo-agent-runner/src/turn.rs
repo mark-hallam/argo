@@ -227,6 +227,9 @@ mod turn_helpers_run_support;
 #[path = "turn_helpers_truth_boundary.rs"]
 mod turn_helpers_truth_boundary;
 
+#[path = "turn_helpers_truth_boundary_genesis.rs"]
+mod turn_helpers_truth_boundary_genesis;
+
 #[cfg(test)]
 #[path = "turn_helpers_truth_boundary_tests.rs"]
 mod turn_helpers_truth_boundary_tests;
@@ -234,6 +237,10 @@ mod turn_helpers_truth_boundary_tests;
 #[cfg(test)]
 #[path = "turn_genesis_truth_boundary_tests.rs"]
 mod turn_genesis_truth_boundary_tests;
+
+#[cfg(test)]
+#[path = "turn_per_worker_policy_routing_tests.rs"]
+mod turn_per_worker_policy_routing_tests;
 
 #[path = "turn_canary.rs"]
 mod turn_canary;
