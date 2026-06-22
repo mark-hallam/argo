@@ -2,6 +2,7 @@
 
 import { Download, Hash, ShieldAlert, ShieldCheck } from "lucide-react";
 import { buttonVariants } from "@/components/ui/Button";
+import { AuditVerifyButton } from "./AuditVerifyButton";
 import {
   AUDIT_RANGE_LABELS,
   isCustomRange,
@@ -96,12 +97,7 @@ export function AuditChainExplorerHero({
               <Download aria-hidden className="size-4" />
               Proof bundle
             </button>
-            <span
-              data-testid="audit-chain-verifier-note"
-              className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)]/80 px-3 py-2 text-xs font-medium text-[var(--muted-foreground)]"
-            >
-              CLI verify not run in browser
-            </span>
+            <AuditVerifyButton />
           </div>
         </div>
 

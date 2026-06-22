@@ -161,8 +161,10 @@ describe("AuditPage", () => {
     );
     expect(within(hero).getByText("act_hash_head")).toBeInTheDocument();
     expect(within(hero).getByText("2/2")).toBeInTheDocument();
-    expect(within(hero).getByTestId("audit-chain-verifier-note")).toHaveTextContent(
-      /CLI verify not run in browser/i,
+    // The old "CLI verify not run in browser" placeholder is gone — the hero now
+    // carries the real in-browser chain-integrity action (#3014).
+    expect(within(hero).getByTestId("audit-verify-button")).toHaveTextContent(
+      /verify integrity/i,
     );
   });
 
