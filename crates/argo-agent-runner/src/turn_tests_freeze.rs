@@ -185,6 +185,7 @@ async fn pre_dispatch_check_refuses_tool_calls_for_frozen_worker() {
         "test-invocation",
         &mut pending_ab,
         None,
+        None,
     )
     .await
     .err()

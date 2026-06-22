@@ -78,6 +78,10 @@ pub(crate) fn build_dispatch_ctx(
     // use). The injected backend submits actions through the approval gate and
     // never executes — so this does NOT add an auto-deliver path.
     deliver_dispatcher: Option<Arc<dyn argo_tool::DeliverDispatcher>>,
+    // The in-turn `clarify` escalation backend (argo-cli's
+    // `ClarifyEscalateDispatcher`). `Some` only on the worker job-run path;
+    // `None` leaves the tool with its unwired default (still in the schema).
+    clarify_dispatcher: Option<Arc<dyn argo_tool::ClarifyDispatcher>>,
 ) -> ArgoResult<(ToolRegistry, CapabilityEngine, Principal)> {
     let mut reg = ToolRegistry::new();
     let tools = builtin_tools_with_runtime_and_dispatchers(
@@ -90,6 +94,7 @@ pub(crate) fn build_dispatch_ctx(
         // `send_message` tool keeps its unwired default here, unchanged).
         None,
         deliver_dispatcher,
+        clarify_dispatcher,
     );
     for t in tools {
         reg.register(t);

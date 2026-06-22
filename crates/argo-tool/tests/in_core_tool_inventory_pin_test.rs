@@ -20,7 +20,7 @@ use argo_tool::builtin_tools;
 /// `Capability::ToolDispatch { tool_name_glob }` as the sole gate.
 /// Documented in the tool's module header — keep this list in sync
 /// with those docstrings.
-const DOCUMENTED_EMPTY: &[&str] = &["session_search"];
+const DOCUMENTED_EMPTY: &[&str] = &["session_search", "enqueue_action"];
 
 /// Minimal-valid args per tool. Picked so `required_capabilities`
 /// returns a non-empty `CapabilitySet` for every tool except the
@@ -35,6 +35,7 @@ fn example_args(name: &str) -> serde_json::Value {
         "clarify" => serde_json::json!({"question": "x"}),
         "code_execute" => serde_json::json!({}),
         "delegate_task" => serde_json::json!({}),
+        "enqueue_action" => serde_json::json!({"action_type": "draft_email"}),
         "file_patch" => {
             serde_json::json!({"path": "a.txt", "old_str": "b", "new_str": "c"})
         }
@@ -84,6 +85,7 @@ const TOOL_TEST_FILES: &[(&str, &[&str])] = &[
             "tests/delegate_task_real_smoke.rs",
         ],
     ),
+    ("enqueue_action", &["src/tools/deliver_tests.rs"]),
     ("file_patch", &["src/tools/file_patch.rs"]),
     ("file_read", &["src/tools/file_read.rs"]),
     ("file_write", &["src/tools/file_write.rs"]),
@@ -135,7 +137,7 @@ fn tool_declares_capability_or_documented_empty() {
     let tools = builtin_tools(PathBuf::from("/tmp"));
     assert_eq!(
         tools.len(),
-        15,
+        16,
         "in-core tool count drift; companion pin at \
          crates/argo-tool/src/tools/mod.rs::tests::builtin_tools_returns_unique_names",
     );

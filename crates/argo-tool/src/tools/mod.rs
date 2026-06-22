@@ -161,6 +161,7 @@ pub fn builtin_tools_with_runtime(
         session_store,
         None,
         None,
+        None,
     )
 }
 
@@ -191,6 +192,7 @@ pub fn builtin_tools_with_runtime_and_message_dispatcher(
         session_store,
         message_dispatcher,
         None,
+        None,
     )
 }
 
@@ -207,6 +209,7 @@ pub fn builtin_tools_with_runtime_and_message_dispatcher(
 /// dependency. The injected backend submits the action through the
 /// approval gate (pending, requires_approval) and never executes it.
 #[must_use]
+#[allow(clippy::too_many_arguments)] // per-dispatcher injection seam (message + deliver + clarify); matches build_dispatch_ctx
 pub fn builtin_tools_with_runtime_and_dispatchers(
     _workspace_root: PathBuf,
     memory: Option<(Arc<MemoryStore>, WorkspaceId, Option<String>)>,
@@ -215,6 +218,12 @@ pub fn builtin_tools_with_runtime_and_dispatchers(
     session_store: Arc<SessionStore>,
     message_dispatcher: Option<Arc<dyn MessageDispatcher>>,
     deliver_dispatcher: Option<Arc<dyn DeliverDispatcher>>,
+    // The in-turn `clarify` "ask the operator" backend. `Some` only on the
+    // worker job-run path (argo-cli's `ClarifyEscalateDispatcher`, which records
+    // the question + escalates it as a NEED_INFO stop); `None` everywhere else
+    // leaves the tool with its unwired default (still in the schema, errors on
+    // use). It never answers autonomously — it escalates and stops.
+    clarify_dispatcher: Option<Arc<dyn ClarifyDispatcher>>,
 ) -> Vec<Arc<dyn Tool>> {
     let memory_tool: Arc<dyn Tool> = match memory {
         Some((store, workspace_id, vertical_id)) => match memory_namespace {
@@ -231,6 +240,10 @@ pub fn builtin_tools_with_runtime_and_dispatchers(
         Some(dispatcher) => Arc::new(EnqueueAction::with_dispatcher(dispatcher)),
         None => Arc::new(EnqueueAction::default()),
     };
+    let clarify_tool: Arc<dyn Tool> = match clarify_dispatcher {
+        Some(dispatcher) => Arc::new(Clarify::new(dispatcher)),
+        None => Arc::new(Clarify::default()),
+    };
     vec![
         Arc::new(FileRead),
         Arc::new(FileWrite),
@@ -245,7 +258,7 @@ pub fn builtin_tools_with_runtime_and_dispatchers(
         send_message_tool,
         Arc::new(SessionSearch::new(session_store)),
         Arc::new(Todo),
-        Arc::new(Clarify::default()),
+        clarify_tool,
         Arc::new(Process),
         enqueue_action_tool,
     ]
@@ -353,6 +366,89 @@ mod tests {
             .unwrap();
         assert!(!r.is_error, "send_message dispatch should hit the supplied dispatcher");
         assert_eq!(*dispatcher.calls.lock().unwrap(), 1);
+    }
+
+    #[derive(Debug, Default)]
+    struct RecordingClarify {
+        asked: std::sync::Mutex<Vec<String>>,
+    }
+
+    #[async_trait]
+    impl ClarifyDispatcher for RecordingClarify {
+        fn surface_id(&self) -> &str {
+            "test"
+        }
+        async fn ask(
+            &self,
+            question: &str,
+            _options: Option<&[String]>,
+        ) -> Result<ClarifyAnswer, String> {
+            self.asked.lock().unwrap().push(question.to_string());
+            Ok(ClarifyAnswer::free_form("escalated"))
+        }
+    }
+
+    #[tokio::test]
+    async fn builtin_tools_with_runtime_and_dispatchers_wires_clarify() {
+        // work-serve-wire-clarify-dispatcher: a supplied clarify dispatcher must
+        // back the `clarify` tool so a mid-turn question reaches the operator
+        // surface instead of the "dispatcher not wired" error.
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let orch = Arc::new(OrchestratorStore::new(Arc::clone(&store)));
+        let dispatcher = Arc::new(RecordingClarify::default());
+        let tools = builtin_tools_with_runtime_and_dispatchers(
+            PathBuf::from("/tmp"),
+            None,
+            None,
+            orch,
+            Arc::clone(&store),
+            None,
+            None,
+            Some(dispatcher.clone() as Arc<dyn ClarifyDispatcher>),
+        );
+        let clarify = tools
+            .iter()
+            .find(|t| t.name() == "clarify")
+            .expect("clarify tool registered");
+        let ctx = ToolContext::new(
+            argo_types::Principal::Local { os_user: "u".into() },
+            std::env::temp_dir(),
+        );
+        let r = clarify
+            .dispatch(serde_json::json!({"question": "what is X?"}), &ctx)
+            .await
+            .unwrap();
+        assert!(
+            !r.is_error,
+            "clarify dispatch should hit the supplied dispatcher, not the not-wired default"
+        );
+        assert_eq!(dispatcher.asked.lock().unwrap().as_slice(), &["what is X?"]);
+    }
+
+    #[tokio::test]
+    async fn builtin_tools_keeps_default_clarify_when_dispatcher_none() {
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let orch = Arc::new(OrchestratorStore::new(Arc::clone(&store)));
+        let tools =
+            builtin_tools_with_runtime(PathBuf::from("/tmp"), None, None, orch, Arc::clone(&store));
+        let clarify = tools
+            .iter()
+            .find(|t| t.name() == "clarify")
+            .expect("clarify tool registered");
+        let ctx = ToolContext::new(
+            argo_types::Principal::Local { os_user: "u".into() },
+            std::env::temp_dir(),
+        );
+        let r = clarify
+            .dispatch(serde_json::json!({"question": "x"}), &ctx)
+            .await
+            .unwrap();
+        assert!(
+            r.is_error,
+            "clarify with no dispatcher returns the not-wired error"
+        );
     }
 
     #[tokio::test]

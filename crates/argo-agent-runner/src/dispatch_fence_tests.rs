@@ -43,6 +43,8 @@ async fn ctx_for_profile(
         is_worker_session,
         // No deliver dispatcher under the capability-fence tests.
         None,
+        // No clarify dispatcher either.
+        None,
     )
     .expect("build dispatch ctx")
 }

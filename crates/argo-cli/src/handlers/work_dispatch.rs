@@ -123,6 +123,13 @@ pub(crate) async fn process_job(
     // auto-delivering. The backend submits actions through the approval gate
     // and never executes them.
     let deliver_dispatcher = build_deliver_dispatcher(store, tenant, workspace, worker_id, vertical_id, job);
+    // work-serve-wire-clarify-dispatcher: a fresh per-run cell the headless
+    // `clarify` backend records into. `run_live_loop` turns a recorded question
+    // into a deterministic `[STOP: NEED_INFO]` so the agent's correct instinct
+    // to ASK (instead of guess) ends the run cleanly at need_info, rather than
+    // failing on the unwired-dispatcher error. Always wired on the live worker
+    // path; the cell stays empty unless the agent actually calls `clarify`.
+    let clarify_cell = Some(std::sync::Arc::new(std::sync::Mutex::new(None)));
 
     let step_run = p::run_job_steps(
         store,
@@ -134,6 +141,7 @@ pub(crate) async fn process_job(
         max_steps,
         max_tool_rounds,
         deliver_dispatcher,
+        clarify_cell,
     )
     .await?;
 

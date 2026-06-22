@@ -55,6 +55,7 @@ pub mod chat;
 pub mod classify_list;
 pub mod classify_rules;
 pub mod classify_set;
+mod clarify_escalate_dispatcher;
 pub mod canonical_qa_lint;
 pub mod completions;
 #[cfg(test)]

@@ -78,6 +78,7 @@ pub(super) async fn build_turn_dispatch_ctx(
     invocation_id: &str,
     pending_ab_outcomes: &mut Vec<PendingAbOutcome>,
     deliver_dispatcher: Option<Arc<dyn argo_tool::DeliverDispatcher>>,
+    clarify_dispatcher: Option<Arc<dyn argo_tool::ClarifyDispatcher>>,
 ) -> ArgoResult<TurnDispatchCtx> {
     let session = store
         .get_session(session_id)
@@ -197,6 +198,8 @@ pub(super) async fn build_turn_dispatch_ctx(
         // WAVE-2 ⑥: inject the in-turn `enqueue_action` delivery backend on the
         // worker job-run path. `None` everywhere else (tool stays unwired).
         deliver_dispatcher,
+        // The in-turn `clarify` escalation backend (worker job-run path only).
+        clarify_dispatcher,
     )?;
     let background_processes =
         super::turn_helpers_run_support::process_registry_for(session.tenant_id, session_id);

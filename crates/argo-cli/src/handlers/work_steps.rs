@@ -141,9 +141,25 @@ pub(crate) async fn run_live_loop(
     max_steps: u32,
     max_tool_rounds: usize,
     deliver_dispatcher: Option<Arc<dyn argo_tool::DeliverDispatcher>>,
+    // work-serve-wire-clarify-dispatcher: the shared question cell for the
+    // headless `clarify` backend. `Some` on the worker job-run path; the
+    // dispatcher records any mid-turn question here and we convert it into a
+    // deterministic NEED_INFO stop after the turn. `None` keeps `clarify`
+    // unwired (the historical behaviour).
+    clarify_cell: Option<super::clarify_escalate_dispatcher::ClarifyCell>,
 ) -> ArgoResult<StepRunOutput> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let anomaly_policy = load_anomaly_policy(&cwd);
+    // Build the headless clarify backend from the shared cell (when wired): a
+    // `clarify` call records its question into the cell instead of erroring;
+    // the per-step post-turn check below turns a recorded question into a
+    // `[STOP: NEED_INFO: <q>]` marker the loop parses to stop cleanly.
+    let clarify_dispatcher: Option<Arc<dyn argo_tool::ClarifyDispatcher>> =
+        clarify_cell.as_ref().map(|cell| {
+            Arc::new(super::clarify_escalate_dispatcher::ClarifyEscalateDispatcher::new(
+                cell.clone(),
+            )) as Arc<dyn argo_tool::ClarifyDispatcher>
+        });
     // Tracked outside the closure because async closures can't
     // easily mutate captured state; we hold the latest assistant
     // id in a Cell so the loop helper stays parametric.
@@ -156,6 +172,8 @@ pub(crate) async fn run_live_loop(
         // agent can call `enqueue_action` on any step. `None` keeps the tool
         // unwired (the historical behavior for non-worker runs).
         let deliver_dispatcher = deliver_dispatcher.clone();
+        let clarify_dispatcher = clarify_dispatcher.clone();
+        let clarify_cell = clarify_cell.clone();
         let last_assistant_id = &last_assistant_id;
         async move {
             match argo_agent_runner::run_turn_with_deliver(
@@ -167,6 +185,7 @@ pub(crate) async fn run_live_loop(
                 max_tool_rounds,
                 None,
                 deliver_dispatcher,
+                clarify_dispatcher,
             )
             .await
             {
@@ -188,6 +207,20 @@ pub(crate) async fn run_live_loop(
                             "\n_[step boundary: tool-round budget exhausted; \
                              continuing in next step]_\n",
                         );
+                    }
+                    // work-serve-wire-clarify-dispatcher: if the agent paused to
+                    // ask the operator this step, the `clarify` backend recorded
+                    // the question. Convert it into a deterministic NEED_INFO
+                    // stop so the run ends cleanly with the question captured in
+                    // `stop_reason` (the loop parser reads this marker), instead
+                    // of the agent guessing or hitting the unwired error.
+                    if let Some(cell) = &clarify_cell {
+                        if let Some(q) = cell.lock().ok().and_then(|mut s| s.take()) {
+                            if !text.is_empty() && !text.ends_with('\n') {
+                                text.push('\n');
+                            }
+                            text.push_str(&format!("\n[STOP: NEED_INFO: {q}]"));
+                        }
                     }
                     work_loop::StepResult { text }
                 }

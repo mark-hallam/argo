@@ -147,7 +147,7 @@ pub async fn run_turn_with_events(
     max_rounds: usize,
     events: Option<&RunEventSink>,
 ) -> ArgoResult<TurnResult> {
-    run_turn_with_deliver(store, cwd, session_id, user, stream, max_rounds, events, None).await
+    run_turn_with_deliver(store, cwd, session_id, user, stream, max_rounds, events, None, None).await
 }
 
 /// Like [`run_turn_with_events`], but also injects an in-turn
@@ -176,6 +176,11 @@ pub async fn run_turn_with_deliver(
     max_rounds: usize,
     events: Option<&RunEventSink>,
     deliver_dispatcher: Option<Arc<dyn argo_tool::DeliverDispatcher>>,
+    // The in-turn `clarify` escalation backend. `Some` only on the worker
+    // job-run path (argo-cli's `ClarifyEscalateDispatcher`); `None` elsewhere
+    // (the `clarify` tool keeps its unwired default). See `run_turn_with_deliver`
+    // docs — same injection contract as `deliver_dispatcher`.
+    clarify_dispatcher: Option<Arc<dyn argo_tool::ClarifyDispatcher>>,
 ) -> ArgoResult<TurnResult> {
     let span = tracing::info_span!(
         argo_telemetry::spans::AGENT_TURN,
@@ -192,6 +197,7 @@ pub async fn run_turn_with_deliver(
         max_rounds,
         events,
         deliver_dispatcher,
+        clarify_dispatcher,
     )
     .instrument(span)
     .await
