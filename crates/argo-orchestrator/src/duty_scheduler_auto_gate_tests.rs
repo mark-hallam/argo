@@ -402,3 +402,40 @@ async fn no_audit_sink_still_holds_fire_without_panicking() {
     assert_eq!(decision, FireDecision::DeniedGate);
     assert_eq!(count_approval_asked(&store, worker.tenant_id).await, 0);
 }
+
+#[tokio::test]
+async fn spend_ledger_read_error_fails_closed() {
+    // DEC-060 adversarial-review fix: if the spend ledger can't be read, the
+    // gate must HOLD (fail-closed), not assume $0 spent and auto-fire. Inject a
+    // spend reader that ERRORS and assert an otherwise-auto-firing safe-tier
+    // duty (enabled policy + opted-in tenant + low-risk manifest) is HELD. The
+    // injectable seam exists because forcing a real DB read error on an
+    // in-memory store is unreliable (pooled `:memory:` connections don't share).
+    let store = open_store().await;
+    let worker = make_worker(&store, generous()).await; // enabled + opted in
+    let gate = AutoApprovalDutyGate::new(Arc::clone(&store))
+        .with_risk_resolver(resolver("low", false)) // safe tier — would auto-fire
+        .with_spend_reader(Arc::new(|_wid: &str| {
+            Err(argo_types::ArgoError::Provider("ledger unavailable".into()))
+        }));
+    let decision = gate.evaluate(&duty_for(&worker)).await.unwrap();
+    assert_eq!(
+        decision,
+        FireDecision::DeniedGate,
+        "an unreadable spend ledger must hold the fire, not auto-fire on assumed $0"
+    );
+}
+
+#[tokio::test]
+async fn spend_reader_ok_value_is_used_when_injected() {
+    // The seam is faithful: an injected reader returning Ok is honored — a $0
+    // spend under a generous policy + safe tier still auto-fires (proves the
+    // override doesn't itself change the decision when the read succeeds).
+    let store = open_store().await;
+    let worker = make_worker(&store, generous()).await;
+    let gate = AutoApprovalDutyGate::new(Arc::clone(&store))
+        .with_risk_resolver(resolver("low", false))
+        .with_spend_reader(Arc::new(|_wid: &str| Ok(0)));
+    let decision = gate.evaluate(&duty_for(&worker)).await.unwrap();
+    assert_eq!(decision, FireDecision::AutoApprove);
+}

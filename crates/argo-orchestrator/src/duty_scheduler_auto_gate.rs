@@ -67,6 +67,13 @@ pub const DEFAULT_DUTY_ESTIMATE_USD_MICROS: u64 = 50_000;
 /// affirmatively reports the action is low-risk + `requires_approval=false`.
 pub type DutyRiskResolver = Arc<dyn Fn(&str, &str) -> Option<(String, bool)> + Send + Sync>;
 
+/// Reads a worker's spend-to-date (USD micros) for the daily-budget check.
+/// Injectable so a test can force the read to ERROR; the production reader is
+/// the async `worker_budget` ledger query ([`spend_today_for_worker`]). Called
+/// with the worker id string. On `Err` the gate fails CLOSED (holds the fire) —
+/// see [`AutoApprovalDutyGate::evaluate`].
+pub type DutySpendReader = Arc<dyn Fn(&str) -> ArgoResult<u64> + Send + Sync>;
+
 /// Fail-closed risk class + approval flag used when the duty's real
 /// risk cannot be resolved. `high` + `requires_approval` → the policy
 /// always asks (held), so an unresolved duty NEVER auto-fires.
@@ -86,6 +93,7 @@ pub struct AutoApprovalDutyGate {
     audit_sink: Option<Arc<AuditSink>>,
     per_fire_estimate_usd_micros: u64,
     risk_resolver: Option<DutyRiskResolver>,
+    spend_reader: Option<DutySpendReader>,
 }
 
 impl AutoApprovalDutyGate {
@@ -102,7 +110,17 @@ impl AutoApprovalDutyGate {
             audit_sink: None,
             per_fire_estimate_usd_micros: DEFAULT_DUTY_ESTIMATE_USD_MICROS,
             risk_resolver: None,
+            spend_reader: None,
         }
+    }
+
+    /// Inject an alternate spend reader (defaults to the async `worker_budget`
+    /// ledger query). Used by tests to force a read error and prove the gate
+    /// fails CLOSED; production never sets it.
+    #[must_use]
+    pub fn with_spend_reader(mut self, reader: DutySpendReader) -> Self {
+        self.spend_reader = Some(reader);
+        self
     }
 
     /// Inject the manifest-backed risk resolver (DEC-041 risk-tiering).
@@ -282,9 +300,40 @@ impl DutyGate for AutoApprovalDutyGate {
                 .or(self.workspace_default.daily_budget_usd_micros);
         }
         let now = Utc::now();
-        let today = spend_today_for_worker(self.store.pool(), &duty.worker_id.to_string(), now)
-            .await
-            .unwrap_or(0);
+        // FAIL-CLOSED on a spend-ledger read error (DEC-060 adversarial review).
+        // Every other branch of this gate fails closed, but this read previously
+        // coerced an error to `$0 spent` (fail-OPEN) — which makes the daily-cap
+        // check MORE likely to auto-approve precisely when the ledger is
+        // unreadable. An unknown spend state must never auto-fire: hold it +
+        // surface an approval item. The `spend_reader` seam lets tests force the
+        // error; production uses the async `worker_budget` query.
+        let worker_id_str = duty.worker_id.to_string();
+        let today_result = match self.spend_reader.as_ref() {
+            Some(read) => read(&worker_id_str),
+            None => spend_today_for_worker(self.store.pool(), &worker_id_str, now).await,
+        };
+        let today = match today_result {
+            Ok(spent) => spent,
+            Err(e) => {
+                tracing::warn!(
+                    target: "argo_orchestrator::duty_scheduler_auto_gate",
+                    tenant_id = %duty.tenant_id.0,
+                    worker_id = %duty.worker_id,
+                    duty_id = %duty.id,
+                    error = %e,
+                    "spend-ledger read failed; holding fire (fail-closed) rather than assuming $0 spent"
+                );
+                self.surface_approval(
+                    duty,
+                    &AutoApprovalDecision::Ask {
+                        channel: None,
+                        reason: "spend ledger unavailable (fail-closed)".to_string(),
+                    },
+                )
+                .await;
+                return Ok(FireDecision::DeniedGate);
+            }
+        };
         // `evaluate` reads only `today_usd_micros`; the persisted
         // ledger exposes today's spend per worker (UF-A6). The
         // monthly field is a lower-bounded best effort (today's spend
