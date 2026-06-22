@@ -36,6 +36,20 @@ domain_name = "api.skycot.com"
 # throwaway/dev apply that does not need an independent offsite copy. See
 # modules/backup/README.md for the image prerequisite the SCHEDULED run needs.
 # enable_offsite_backups = false
+
+# Wave-3 ③ — SCHEDULED OVERAGE BILLING. A daily EventBridge-scheduled ECS RunTask
+# restores the gateway's latest DB snapshot, then runs the idempotent
+# `argo billing report-overage`, so metered Pro overage bills WITHOUT a manual CLI
+# run. Provisioned + firing by default — but PLAN-ONLY (no Stripe push) until you
+# create the metered price and set stripe_price_pro_overage, so it is safe to
+# leave on before then. Set stripe_price_pro_overage to the si_… metered
+# subscription item to turn real billing ON.
+# enable_overage_billing          = false                 # don't provision at all
+# enable_overage_billing_schedule = false                 # provision but don't fire
+# stripe_price_pro_overage        = "si_XXXXXXXXXXXX"      # turns the push ON
+# report_overage_args             = "--dry-run --json"     # preview run (no push)
+# overage_schedule_expression     = "cron(0 18 * * ? *)"   # 18:00 UTC daily (default)
+
 # FRONT-DOOR (sign-in email) — set these or the very first user touch breaks.
 # Left commented = the default-empty (log-only) path, which plans cleanly for a
 # bring-up smoke: signup HONESTLY returns status="not_configured". Uncomment +

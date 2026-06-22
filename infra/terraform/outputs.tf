@@ -62,3 +62,13 @@ output "backup_schedule_arn" {
   description = "ARN of the EventBridge Scheduler schedule running the daily backup RunTask. Empty when enable_offsite_backups = false."
   value       = var.enable_offsite_backups ? module.backup[0].backup_schedule_arn : ""
 }
+
+output "overage_schedule_arn" {
+  description = "Wave-3 ③: ARN of the EventBridge Scheduler schedule running the daily overage-billing RunTask. Empty when enable_overage_billing = false."
+  value       = var.enable_overage_billing ? module.overage[0].overage_schedule_arn : ""
+}
+
+output "overage_task_definition_arn" {
+  description = "Wave-3 ③: ARN of the overage task definition. Run once manually via `aws ecs run-task --cluster <cluster> --task-definition <this> --launch-type FARGATE --network-configuration ...`. Empty when enable_overage_billing = false."
+  value       = var.enable_overage_billing ? module.overage[0].overage_task_definition_arn : ""
+}

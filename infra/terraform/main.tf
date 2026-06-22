@@ -146,6 +146,40 @@ module "backup" {
   scheduled_backup_enabled = var.gateway_db_on_efs
 }
 
+module "overage" {
+  source = "./modules/overage"
+  count  = var.enable_overage_billing ? 1 : 0
+
+  name_prefix         = local.name_prefix
+  region              = var.region
+  image_repo_url      = module.ecr.repository_url
+  image_tag           = var.image_tag
+  private_subnets     = module.network.private_subnet_ids
+  service_sg_id       = module.alb.service_sg_id
+  ecs_cluster_name    = module.ecs.cluster_name
+  execution_role_arn  = module.iam.execution_role_arn
+  secret_arns         = module.secrets.secret_arns
+  kms_key_arn         = module.kms.key_arn
+  log_retention_days  = var.log_retention_days
+
+  # Wave-3 ③: the scheduled caller for DEC-053 metered overage. The overage task
+  # restores the gateway's latest DB snapshot from the SAME bucket+prefix the
+  # gateway snapshots to (DEC-056 B′: the live DB is on the gateway's local disk,
+  # only reachable via S3), then runs the idempotent `argo billing report-overage`.
+  # Empty bucket (no offsite backups) => the task reads the DB in place; on the
+  # live B′ topology the bucket is required for the task to see any tenant data.
+  db_snapshot_bucket = var.enable_offsite_backups ? "${local.name_prefix}-backups" : ""
+  db_snapshot_prefix = var.gateway_db_snapshot_prefix
+
+  # The metered Stripe price + run flags. Default unset/empty => the daily run is
+  # PLAN-ONLY (no Stripe push) until the operator creates the price and sets this
+  # — harmless to schedule before then.
+  stripe_price_pro_overage        = var.stripe_price_pro_overage
+  report_overage_args             = var.report_overage_args
+  enable_overage_billing_schedule = var.enable_overage_billing_schedule
+  schedule_expression             = var.overage_schedule_expression
+}
+
 module "observability" {
   source = "./modules/observability"
 

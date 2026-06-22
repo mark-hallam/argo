@@ -137,3 +137,39 @@ variable "gateway_db_snapshot_interval_seconds" {
   type        = number
   default     = 300
 }
+
+# Wave-3 ③ — scheduled overage-billing caller (modules/overage). The overage job
+# (`argo billing report-overage`) + the 10% markup shipped (#2996/#2999); this is
+# the daily EventBridge schedule that actually CALLS it so metered usage bills
+# without a manual CLI run. It restores the gateway's latest DB snapshot from the
+# backups bucket (DEC-056 B′), so it depends on enable_offsite_backups for a
+# bucket to read on the live local-disk topology.
+variable "enable_overage_billing" {
+  description = "Provision the scheduled overage-billing module (a daily EventBridge-scheduled ECS RunTask that restores the latest DB snapshot, then runs the idempotent `argo billing report-overage`). Default true: a fresh prod apply bills metered Pro overage on a schedule rather than only via a manual CLI run. The run is PLAN-ONLY (no Stripe push) until stripe_price_pro_overage is set, so this is safe to enable before the metered price exists. Set false for a throwaway/dev apply."
+  type        = bool
+  default     = true
+}
+
+variable "enable_overage_billing_schedule" {
+  description = "Whether the daily overage-billing schedule FIRES once provisioned. The task-def + IAM are always created when enable_overage_billing=true; this only flips the EventBridge schedule ENABLED/DISABLED. Default true."
+  type        = bool
+  default     = true
+}
+
+variable "stripe_price_pro_overage" {
+  description = "Stripe metered subscription-item id (si_…) for the Pro overage price (STRIPE_PRICE_PRO_OVERAGE). When set, the scheduled overage task PUSHES per-tenant overage to Stripe. When empty (default), the run is PLAN-ONLY (no push) — a safe default until the operator creates the metered price. Setting this is what turns overage billing fully ON."
+  type        = string
+  default     = ""
+}
+
+variable "report_overage_args" {
+  description = "Extra flags appended to `argo billing report-overage` on the scheduled run (e.g. `--dry-run --json` for a no-push preview). Empty (default) = a real push when stripe_price_pro_overage is also set."
+  type        = string
+  default     = ""
+}
+
+variable "overage_schedule_expression" {
+  description = "EventBridge Scheduler expression for the daily overage run. Default = 18:00 UTC daily (an hour after the offsite backup so the latest snapshot exists). Idempotent (Stripe action=set keyed on tenant+period), so any cadence is safe."
+  type        = string
+  default     = "cron(0 18 * * ? *)"
+}
