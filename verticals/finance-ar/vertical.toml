@@ -17,8 +17,14 @@ default   = "anthropic/claude-sonnet-4-6"
 fallback  = "openai/gpt-4o"
 cost_tier = "balanced"
 
+# enqueue_action activates the in-turn chat→delivery bridge (#3010): this AR
+# teammate can submit a declared action (e.g. a dunning email via the gmail
+# connector, or a drafted statement) for approval-gated delivery mid-turn. The
+# bridge ALWAYS parks pending + requires_approval and never auto-executes —
+# governed delivery, the regulated-back-office trust posture. (Live send still
+# needs the gmail connector wired; drafts deliver today.)
 [tools]
-allowed = ["file_read", "memory"]
+allowed = ["file_read", "memory", "enqueue_action"]
 denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
 
 [memory]

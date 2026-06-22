@@ -17,8 +17,13 @@ default   = "anthropic/claude-sonnet-4-6"
 fallback  = "openai/gpt-4o"
 cost_tier = "balanced"
 
+# enqueue_action activates the in-turn chat→delivery bridge (#3010): this
+# teammate can submit one of its declared actions (e.g. a drafted lifecycle
+# email) for approval-gated delivery mid-conversation. The bridge ALWAYS parks
+# the action pending + requires_approval and never auto-executes, so this is the
+# governed "draft → you approve → it sends" path, not autonomy.
 [tools]
-allowed = ["file_read", "web_search", "memory", "todo", "clarify"]
+allowed = ["file_read", "web_search", "memory", "todo", "clarify", "enqueue_action"]
 denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
 
 [memory]
