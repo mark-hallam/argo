@@ -227,3 +227,22 @@ fn finding_has_span_kind_mask() {
     assert!(f.masked_value.starts_with("41"));
     assert!(f.masked_value.ends_with("11"));
 }
+
+#[test]
+fn credit_card_requires_recognized_iin_not_a_bare_numeric_run() {
+    // pii-creditcard-bare-number-false-positive: a Luhn-valid 16-digit run that
+    // does NOT open with a real card IIN (a numeric run starting `00`, the
+    // shape assembled from adjacent CSV columns — `00**************01`) must
+    // NOT flag as a credit card.
+    let bare = scan("survey counts 0000000000000000 recorded");
+    assert!(
+        !kinds(&bare).contains(&PiiKind::CreditCard),
+        "a non-IIN Luhn-valid run must not flag as a card, got: {bare:?}"
+    );
+
+    // Recall preserved — genuine brand prefixes still detect:
+    assert!(kinds(&scan("visa 4111 1111 1111 1111")).contains(&PiiKind::CreditCard));
+    assert!(kinds(&scan("mc 5555555555554444")).contains(&PiiKind::CreditCard));
+    // Amex (15-digit test PAN 378282246310005, opens 37).
+    assert!(kinds(&scan("amex 378282246310005")).contains(&PiiKind::CreditCard));
+}

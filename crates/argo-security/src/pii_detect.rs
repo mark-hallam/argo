@@ -199,6 +199,26 @@ fn luhn_valid(s: &str) -> bool {
     sum.is_multiple_of(10)
 }
 
+/// True when the match opens with a recognized major-brand IIN/BIN prefix.
+/// A real card always carries one, so this is a PRECISION lever: it rejects
+/// bare numeric runs that pass Luhn by chance (the reef-CSV
+/// `00**************01` false-positive) without narrowing recall — every live
+/// brand starts 3/4/5/6 or, for Mastercard's 2-series, 22–27. Separators in
+/// the match are ignored; only the leading digits matter.
+fn has_recognized_iin(s: &str) -> bool {
+    let digits: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
+    match digits.as_bytes().first() {
+        // Amex/Diners/JCB (3x), Visa (4), Mastercard (5x), Discover/Maestro (6x).
+        Some(b'3' | b'4' | b'5' | b'6') => true,
+        // Mastercard 2-series (2221–2720) — coarse 22–27 window.
+        Some(b'2') => digits
+            .get(..2)
+            .and_then(|two| two.parse::<u32>().ok())
+            .is_some_and(|n| (22..=27).contains(&n)),
+        _ => false,
+    }
+}
+
 fn iban_valid(s: &str) -> bool {
     if s.len() < 15 || s.len() > 34 {
         return false;
@@ -292,7 +312,13 @@ fn scan_inner(input: &str) -> PiiFindings {
     }
     if let Some(re) = &p.cc {
         for m in re.find_iter(input) {
-            if !luhn_valid(m.as_str()) {
+            // Precision: a real card is Luhn-valid AND opens with a recognized
+            // IIN/brand prefix. The bare `\d{13,19}` alternative otherwise
+            // false-positives on ordinary numeric data that passes Luhn by
+            // chance — e.g. a 16-digit run assembled from adjacent CSV columns
+            // (`00**************01`, pii-creditcard-bare-number-false-positive).
+            // This NARROWS what counts as a card; it never broadens it.
+            if !luhn_valid(m.as_str()) || !has_recognized_iin(m.as_str()) {
                 continue;
             }
             raw.push(PiiFinding {
