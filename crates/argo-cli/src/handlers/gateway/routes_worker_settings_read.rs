@@ -188,7 +188,10 @@ pub(crate) async fn patch_autonomy(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    if let Some(deny) = enforce_role(req, Action::WorkerSettingsPatch) {
+    // Owner-only (DEC-060 + adversarial review): setting a teammate's autonomy
+    // level grants a standing auto-approval spend envelope — as money-sensitive
+    // as capability-grant / billing, which are Owner-gated. Admin is too low.
+    if let Some(deny) = enforce_role(req, Action::WorkerAutonomyPatch) {
         return deny;
     }
     let Some(store) = store else {

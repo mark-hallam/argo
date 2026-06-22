@@ -52,6 +52,20 @@ fn generous() -> AutoApprovalPolicy {
     }
 }
 
+/// The production-enabled safe-tier workspace default ($0.50/action,
+/// $5/day) the gateway injects via `with_workspace_default`. A disabled
+/// worker policy falls back to THIS in `resolved_policy`, so it is the
+/// envelope an `Always Ask` teammate would auto-fire under if the
+/// DEC-060 per-teammate level gate did not hold it first.
+fn enabled_workspace_default() -> AutoApprovalPolicy {
+    AutoApprovalPolicy {
+        enabled: true,
+        max_usd_micros_per_action: Some(500_000),
+        daily_budget_usd_micros: Some(5_000_000),
+        ..Default::default()
+    }
+}
+
 /// Opt a tenant INTO scheduled-duty autonomy (default is OFF). Without
 /// this, every fire is held at the per-tenant gate before the policy
 /// evaluator even runs, so the policy-level assertions below would all
@@ -296,6 +310,82 @@ async fn opting_in_does_not_bypass_policy_caps() {
         FireDecision::DeniedGate,
         "opt-in must not bypass the $0-budget cap"
     );
+}
+
+#[tokio::test]
+async fn always_ask_worker_held_even_under_enabled_workspace_default() {
+    // DEC-060 (the load-bearing fix): a disabled-policy "Always Ask" teammate
+    // must be HELD even when the tenant opted in AND the gate carries the
+    // PRODUCTION-enabled safe-tier workspace default. Without the explicit
+    // per-teammate level gate, `resolved_policy` would fall the disabled
+    // worker back to that enabled default and auto-fire its low-risk duties.
+    // The other gate tests use the disabled default, which masks this — so
+    // this test pins the real production wiring.
+    let store = open_store().await;
+    // disabled policy = Always Ask; `make_worker` also opts the tenant in.
+    let worker = make_worker(&store, AutoApprovalPolicy::default()).await;
+    let gate = AutoApprovalDutyGate::new(Arc::clone(&store))
+        .with_workspace_default(enabled_workspace_default())
+        .with_risk_resolver(resolver("low", false)); // safe tier — WOULD auto-fire but for the level
+    let decision = gate.evaluate(&duty_for(&worker)).await.unwrap();
+    assert_eq!(
+        decision,
+        FireDecision::DeniedGate,
+        "an Always-Ask teammate must be held even under the enabled safe-tier default"
+    );
+}
+
+#[tokio::test]
+async fn enabled_but_uncapped_policy_inherits_workspace_ceiling() {
+    // DEC-060 adversarial-review HIGH: an enabled worker policy with NO
+    // explicit caps must NOT auto-fire unbounded — the gate clamps each
+    // missing cap to the workspace default. Here the workspace default has a
+    // $0 per-action ceiling, so the (otherwise uncapped) enabled worker is
+    // held rather than auto-firing. Without the clamp this would AutoApprove.
+    let store = open_store().await;
+    let worker = make_worker(
+        &store,
+        AutoApprovalPolicy {
+            enabled: true,
+            ..Default::default() // enabled, but no caps = unbounded without the clamp
+        },
+    )
+    .await;
+    let zero_cap_default = AutoApprovalPolicy {
+        enabled: true,
+        max_usd_micros_per_action: Some(0),
+        daily_budget_usd_micros: Some(0),
+        ..Default::default()
+    };
+    let gate = AutoApprovalDutyGate::new(Arc::clone(&store))
+        .with_workspace_default(zero_cap_default)
+        .with_risk_resolver(resolver("low", false));
+    let decision = gate.evaluate(&duty_for(&worker)).await.unwrap();
+    assert_eq!(
+        decision,
+        FireDecision::DeniedGate,
+        "an enabled-but-uncapped policy must inherit the workspace ceiling, not fire unbounded"
+    );
+}
+
+#[tokio::test]
+async fn accept_safe_worker_fires_within_its_own_enabled_policy() {
+    // An enabled per-teammate policy (>= Accept Safe) passes the level gate
+    // and is evaluated against ITS OWN envelope — auto-fires a safe-tier duty
+    // even though the workspace default is also enabled.
+    let store = open_store().await;
+    let policy = AutoApprovalPolicy {
+        enabled: true,
+        max_usd_micros_per_action: Some(200_000),
+        daily_budget_usd_micros: Some(2_000_000),
+        ..Default::default()
+    };
+    let worker = make_worker(&store, policy).await;
+    let gate = AutoApprovalDutyGate::new(Arc::clone(&store))
+        .with_workspace_default(enabled_workspace_default())
+        .with_risk_resolver(resolver("low", false));
+    let decision = gate.evaluate(&duty_for(&worker)).await.unwrap();
+    assert_eq!(decision, FireDecision::AutoApprove);
 }
 
 #[tokio::test]

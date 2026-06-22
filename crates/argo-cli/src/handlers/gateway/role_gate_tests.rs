@@ -68,6 +68,13 @@ fn capability_map_floors_match_brief() {
     );
     assert_eq!(required_role(Action::AuditCrossTenant), UserTenantRole::Owner);
     assert_eq!(required_role(Action::DataExport), UserTenantRole::Owner);
+    // DEC-060 + adversarial review: setting a teammate's autonomy LEVEL grants
+    // a standing auto-approval spend envelope → Owner-only (NOT the Admin floor
+    // of the other settings facets).
+    assert_eq!(
+        required_role(Action::WorkerAutonomyPatch),
+        UserTenantRole::Owner
+    );
 
     assert_eq!(required_role(Action::WorkerHire), UserTenantRole::Admin);
     assert_eq!(required_role(Action::WorkerFreeze), UserTenantRole::Admin);

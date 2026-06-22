@@ -80,9 +80,15 @@ pub(super) enum Action {
     /// now be used), so owner only — the same floor as the other
     /// credential-/fence-loosening mutations.
     ConnectorAuthorize,
-    /// `PATCH /api/v1/workers/<id>/{channels,quiet-hours,budget,autonomy}`.
-    /// Anyone can flip autonomy today — gate to admin+.
+    /// `PATCH /api/v1/workers/<id>/{channels,quiet-hours,budget}`.
+    /// Admin+. (Autonomy LEVEL is split out to `WorkerAutonomyPatch`.)
     WorkerSettingsPatch,
+    /// `PATCH /api/v1/workers/<id>/autonomy` — sets the teammate's DEC-060
+    /// autonomy LEVEL, and thereby a standing auto-approval SPEND envelope.
+    /// **Owner-only**: as money-sensitive as capability-grant / billing /
+    /// connector-authorize (all Owner-gated). Admin must not be able to
+    /// promote a teammate to a wider autonomous-spend level.
+    WorkerAutonomyPatch,
     /// `POST /api/v1/approvals/<id>/decide`. The load-bearing
     /// human-in-the-loop gate — owner + admin + user.
     ApprovalDecide,
@@ -150,6 +156,7 @@ impl Action {
             Self::WorkerFileUpload => "worker.file_upload",
             Self::ConnectorAuthorize => "connector.authorize",
             Self::WorkerSettingsPatch => "worker.settings_patch",
+            Self::WorkerAutonomyPatch => "worker.autonomy_patch",
             Self::ApprovalDecide => "approval.decide",
             Self::ApprovalUndo => "approval.undo",
             Self::AuditFeedRead => "audit.feed",
@@ -182,6 +189,7 @@ pub(super) fn required_role(action: Action) -> UserTenantRole {
         | Action::AuditCrossTenant
         | Action::DataExport
         | Action::BillingManage
+        | Action::WorkerAutonomyPatch
         | Action::KnowledgeDelete => UserTenantRole::Owner,
         // admin+: hiring, freeze (legacy CapabilityEngine matched this
         // — user role lacks `WorkerFreeze`), lifecycle, archive,

@@ -234,7 +234,53 @@ impl DutyGate for AutoApprovalDutyGate {
             return Ok(FireDecision::DeniedGate);
         }
 
-        let policy = worker.resolved_policy(&self.workspace_default);
+        // DEC-060 PER-TEAMMATE AUTONOMY LEVEL (authoritative floor). A worker
+        // only fires autonomously when its OWN level is >= Accept Safe — i.e.
+        // its `auto_approval` policy is explicitly enabled. `Always Ask` (and
+        // any unconfigured worker, whose default policy is disabled) holds
+        // every fire. This is checked on `worker.auto_approval` DIRECTLY, NOT
+        // via `resolved_policy`: when the worker policy is disabled,
+        // `resolved_policy` falls back to the (production-enabled) safe-tier
+        // workspace default, which would otherwise let an `Always Ask`
+        // teammate auto-fire at the workspace budget. The explicit check makes
+        // the chosen per-teammate level the floor the fallback cannot lift.
+        if !worker.auto_approval.enabled {
+            tracing::info!(
+                target: "argo_orchestrator::duty_scheduler_auto_gate",
+                tenant_id = %duty.tenant_id.0,
+                worker_id = %duty.worker_id,
+                duty_id = %duty.id,
+                "teammate autonomy level is Always Ask (policy disabled); fire held"
+            );
+            self.surface_approval(
+                duty,
+                &AutoApprovalDecision::Ask {
+                    channel: None,
+                    reason: "teammate autonomy level Always Ask (held)".to_string(),
+                },
+            )
+            .await;
+            return Ok(FireDecision::DeniedGate);
+        }
+
+        let mut policy = worker.resolved_policy(&self.workspace_default);
+        // Defense in depth (DEC-060 adversarial review, HIGH): an enabled
+        // policy with NO explicit ceiling auto-approves unbounded — the
+        // worker's policy is returned verbatim by `resolved_policy`, so the
+        // workspace-default caps are only the fallback the enabled worker never
+        // hits. Clamp any MISSING cap down to the workspace default so an
+        // enabled teammate always has a ceiling. The DEC-060 ladder always sets
+        // caps, so this only bites a mis-configured / legacy enabled-but-
+        // uncapped policy. Explicit caps (incl. the ladder's higher rungs) are
+        // untouched.
+        if policy.enabled {
+            policy.max_usd_micros_per_action = policy
+                .max_usd_micros_per_action
+                .or(self.workspace_default.max_usd_micros_per_action);
+            policy.daily_budget_usd_micros = policy
+                .daily_budget_usd_micros
+                .or(self.workspace_default.daily_budget_usd_micros);
+        }
         let now = Utc::now();
         let today = spend_today_for_worker(self.store.pool(), &duty.worker_id.to_string(), now)
             .await
