@@ -50,12 +50,14 @@ use std::collections::BTreeSet;
 
 /// Read-only in-core tools granted to EVERY materialized teammate on top of
 /// [`argo_capability::MINIMAL_TEAMMATE_TOOLS`] (clarify / memory /
-/// skill_view / skills_list). `file_read` alone here: reading inside the
-/// worker's sandbox is the one capability every file-working role needs to
-/// do its job, and the actual filesystem reach stays doubly fenced — no
-/// `FsRead` capability is emitted unless the worker also has a scoped
+/// skill_view / skills_list). `file_read` (read a known path) + `file_list`
+/// (enumerate a directory): reading AND discovering files inside the worker's
+/// sandbox is the baseline every file-working role needs — without `file_list`
+/// an "ingest this folder / inbox" teammate has to guess filenames and stalls
+/// (the 2026-06-20 stress-test P1). Both stay doubly fenced — they emit only an
+/// `FsRead` capability, which is inert unless the worker also has a scoped
 /// `fs_root` (`WorkerCapabilityProfile::with_fs_root`).
-pub(crate) const SAFE_BASELINE_EXTRA_TOOLS: &[&str] = &["file_read"];
+pub(crate) const SAFE_BASELINE_EXTRA_TOOLS: &[&str] = &["file_read", "file_list"];
 
 /// The read-only web research pair, granted ONLY when the role text carries
 /// a research/lookup signal ([`RESEARCH_SIGNAL_TOKENS`] /

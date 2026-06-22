@@ -77,6 +77,7 @@ fn allowed_is_always_a_subset_of_the_real_grantable_tool_names() {
         "skill_view",
         "skills_list",
         "file_read",
+        "file_list",
         "file_write",
         "web_search",
         "web_extract",

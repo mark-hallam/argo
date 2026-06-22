@@ -16,6 +16,7 @@ mod clarify;
 mod code_execute;
 mod delegate_task;
 mod deliver;
+mod file_list;
 mod file_patch;
 mod file_read;
 mod file_write;
@@ -33,6 +34,7 @@ pub use clarify::{Clarify, ClarifyAnswer, ClarifyDispatcher};
 pub use code_execute::CodeExecute;
 pub use delegate_task::DelegateTask;
 pub use deliver::{DeliverDispatcher, DeliverOutcome, EnqueueAction};
+pub use file_list::FileList;
 pub use file_patch::FilePatch;
 pub use file_read::FileRead;
 pub use file_write::FileWrite;
@@ -68,6 +70,7 @@ use std::sync::Arc;
 pub fn builtin_tools(_workspace_root: PathBuf) -> Vec<Arc<dyn Tool>> {
     vec![
         Arc::new(FileRead),
+        Arc::new(FileList),
         Arc::new(FileWrite),
         Arc::new(FilePatch),
         Arc::new(Terminal::default()),
@@ -101,6 +104,7 @@ pub fn builtin_tools_with_memory(
 ) -> Vec<Arc<dyn Tool>> {
     vec![
         Arc::new(FileRead),
+        Arc::new(FileList),
         Arc::new(FileWrite),
         Arc::new(FilePatch),
         Arc::new(Terminal::default()),
@@ -246,6 +250,7 @@ pub fn builtin_tools_with_runtime_and_dispatchers(
     };
     vec![
         Arc::new(FileRead),
+        Arc::new(FileList),
         Arc::new(FileWrite),
         Arc::new(FilePatch),
         Arc::new(Terminal::default()),
@@ -278,7 +283,7 @@ mod tests {
     #[test]
     fn builtin_tools_returns_unique_names() {
         let tools = builtin_tools(PathBuf::from("/tmp"));
-        assert_eq!(tools.len(), 16);
+        assert_eq!(tools.len(), 17);
         let mut names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         names.sort_unstable();
         let mut deduped = names.clone();
@@ -291,6 +296,7 @@ mod tests {
                 "code_execute",
                 "delegate_task",
                 "enqueue_action",
+                "file_list",
                 "file_patch",
                 "file_read",
                 "file_write",

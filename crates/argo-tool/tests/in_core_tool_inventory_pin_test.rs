@@ -36,6 +36,7 @@ fn example_args(name: &str) -> serde_json::Value {
         "code_execute" => serde_json::json!({}),
         "delegate_task" => serde_json::json!({}),
         "enqueue_action" => serde_json::json!({"action_type": "draft_email"}),
+        "file_list" => serde_json::json!({"path": "."}),
         "file_patch" => {
             serde_json::json!({"path": "a.txt", "old_str": "b", "new_str": "c"})
         }
@@ -86,6 +87,7 @@ const TOOL_TEST_FILES: &[(&str, &[&str])] = &[
         ],
     ),
     ("enqueue_action", &["src/tools/deliver_tests.rs"]),
+    ("file_list", &["src/tools/file_list_tests.rs"]),
     ("file_patch", &["src/tools/file_patch.rs"]),
     ("file_read", &["src/tools/file_read.rs"]),
     ("file_write", &["src/tools/file_write.rs"]),
@@ -137,7 +139,7 @@ fn tool_declares_capability_or_documented_empty() {
     let tools = builtin_tools(PathBuf::from("/tmp"));
     assert_eq!(
         tools.len(),
-        16,
+        17,
         "in-core tool count drift; companion pin at \
          crates/argo-tool/src/tools/mod.rs::tests::builtin_tools_returns_unique_names",
     );
