@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<!--
+  SKYCOT · Teammate Autonomy — level selector mockup (2026-06-22)
+  Design language: LOCKED settings register (brand-restrained) — Inter, light page,
+  purple→pink gradient (#8B5CF6 → #EC4899) used SPARINGLY on the selected rung + level badge.
+  This is NOT an optometrist exploration — settings has a locked direction; this consumes it.
+  Every level maps to an enforcement primitive that ALREADY EXISTS in the gate
+  (ClosedGate / AutoApprovalDutyGate + spend envelope + manifest risk tier + DEC-051 floor).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teammate Autonomy — level selector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --grad-a:#8B5CF6; --grad-b:#EC4899;
+    --ink:#16131F; --ink-2:#4A4458; --ink-3:#7C7689;
+    --line:#E9E6EF; --line-2:#DCD8E6;
+    --bg:#FAFAFB; --card:#FFFFFF; --tint:#F6F3FC;
+    --ok:#0E9F6E; --warn:#B45309; --warn-bg:#FEF6E7; --lock:#6D28D9;
+    --radius:16px; --shadow:0 1px 2px rgba(22,19,31,.04),0 8px 24px rgba(22,19,31,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;
+       -webkit-font-smoothing:antialiased;line-height:1.5;padding:40px 20px}
+  .wrap{max-width:760px;margin:0 auto}
+
+  /* header */
+  .crumbs{font-size:13px;color:var(--ink-3);margin-bottom:18px}
+  .crumbs b{color:var(--ink-2);font-weight:500}
+  .head{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .avatar{width:46px;height:46px;border-radius:12px;flex:none;
+          background:linear-gradient(135deg,var(--grad-a),var(--grad-b));
+          display:grid;place-items:center;color:#fff;font-weight:700;font-size:18px}
+  h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0}
+  .sub{font-size:14px;color:var(--ink-2);margin:2px 0 0}
+  .ceiling{margin:22px 0 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+           font-size:13px;color:var(--ink-2)}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--tint);
+        border:1px solid var(--line-2);border-radius:999px;padding:5px 12px;font-weight:500;color:var(--lock)}
+  .chip svg{width:13px;height:13px}
+
+  .section-label{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+                 color:var(--ink-3);margin:26px 0 12px}
+
+  /* ladder */
+  .ladder{display:flex;flex-direction:column;gap:10px}
+  .rung{position:relative;background:var(--card);border:1.5px solid var(--line);
+        border-radius:var(--radius);padding:16px 18px 16px 16px;cursor:pointer;
+        transition:border-color .15s,box-shadow .15s,background .15s}
+  .rung:hover{border-color:var(--line-2)}
+  .rung.sel{border-color:transparent;box-shadow:var(--shadow),0 0 0 2px var(--grad-a);background:#fff}
+  .rung.sel::before{content:"";position:absolute;inset:0;border-radius:var(--radius);padding:2px;
+        background:linear-gradient(135deg,var(--grad-a),var(--grad-b));
+        -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+        -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+  .rung-top{display:flex;align-items:center;gap:13px}
+  .badge{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;
+         font-size:13px;font-weight:700;color:var(--ink-3);background:var(--tint);border:1px solid var(--line-2)}
+  .rung.sel .badge{color:#fff;background:linear-gradient(135deg,var(--grad-a),var(--grad-b));border-color:transparent}
+  .rung-name{font-size:15.5px;font-weight:600;letter-spacing:-.01em}
+  .rung-tag{font-size:12px;color:var(--ink-3);font-weight:500;margin-left:auto}
+  .rung-line{font-size:13.5px;color:var(--ink-2);margin:9px 0 0 43px}
+  .cols{display:flex;gap:22px;margin:12px 0 2px 43px;flex-wrap:wrap}
+  .col{flex:1;min-width:210px}
+  .col h4{margin:0 0 5px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+  .col.on h4{color:var(--ok)}
+  .col.ask h4{color:var(--warn)}
+  .col ul{margin:0;padding:0;list-style:none}
+  .col li{font-size:13px;color:var(--ink-2);padding:2px 0 2px 18px;position:relative}
+  .col li::before{position:absolute;left:0;top:1px;font-size:12px}
+  .col.on li::before{content:"✓";color:var(--ok)}
+  .col.ask li::before{content:"✦";color:var(--warn)}
+
+  /* envelope (shown under selected auto-levels) */
+  .env{margin:12px 0 2px 43px;display:flex;gap:14px;flex-wrap:wrap;
+       background:var(--tint);border:1px solid var(--line-2);border-radius:12px;padding:13px 15px}
+  .env-f{display:flex;flex-direction:column;gap:4px}
+  .env-f label{font-size:11px;font-weight:600;color:var(--ink-3);letter-spacing:.03em}
+  .env-f .inp{display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--line-2);
+              border-radius:8px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink)}
+  .env-f .inp b{color:var(--ink-3);font-weight:500;font-family:Inter}
+  .env-note{font-size:12px;color:var(--ink-3);align-self:center;max-width:200px}
+
+  /* the floor — non-negotiable */
+  .floor{margin-top:18px;background:var(--warn-bg);border:1px solid #F4D9A6;border-radius:var(--radius);
+         padding:16px 18px}
+  .floor-h{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:700;color:var(--warn)}
+  .floor-h svg{width:16px;height:16px}
+  .floor p{margin:8px 0 0 25px;font-size:13px;color:#7a5a1e}
+  .floor .items{margin:9px 0 0 25px;display:flex;flex-wrap:wrap;gap:7px}
+  .floor .it{font-size:12px;background:#fff;border:1px solid #F0DBB0;border-radius:7px;padding:4px 9px;color:#7a5a1e;font-weight:500}
+
+  /* footer controls */
+  .foot{margin-top:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+        padding-top:18px;border-top:1px solid var(--line)}
+  .kill{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:#B91C1C;
+        background:#fff;border:1.5px solid #F1C7C7;border-radius:10px;padding:9px 15px;cursor:pointer}
+  .kill svg{width:15px;height:15px}
+  .save{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:#fff;
+        background:linear-gradient(135deg,var(--grad-a),var(--grad-b));border:0;border-radius:10px;padding:11px 22px;cursor:pointer}
+  .verify{font-size:12.5px;color:var(--ink-3);display:flex;align-items:center;gap:7px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(14,159,110,.15)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="crumbs">Settings · <b>Riley</b> · Autonomy</div>
+  <div class="head">
+    <div class="avatar">R</div>
+    <div>
+      <h1>Riley · Accounts-Receivable teammate</h1>
+      <p class="sub">How much Riley does on its own — and what always waits for you.</p>
+    </div>
+  </div>
+
+  <div class="ceiling">
+    <span class="chip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+      Workspace ceiling: <b style="color:inherit">Accept Safe</b>
+    </span>
+    <span>Your workspace allows teammates up to <b>Accept Safe</b>. Raise it in <u>Workspace → Autonomy</u> to unlock Auto &amp; Bypass.</span>
+  </div>
+
+  <div class="section-label">Choose Riley's level</div>
+
+  <div class="ladder">
+
+    <!-- L0 Always Ask -->
+    <div class="rung">
+      <div class="rung-top">
+        <span class="badge">0</span>
+        <span class="rung-name">Always Ask</span>
+        <span class="rung-tag">safest · default for new teammates</span>
+      </div>
+      <div class="rung-line">Riley prepares and proposes — but every single action waits for your yes. Nothing is sent, changed, or spent without you clicking approve.</div>
+    </div>
+
+    <!-- L1 Accept Safe — SELECTED -->
+    <div class="rung sel">
+      <div class="rung-top">
+        <span class="badge">1</span>
+        <span class="rung-name">Accept Safe</span>
+        <span class="rung-tag">recommended to start</span>
+      </div>
+      <div class="rung-line">Riley runs its scheduled duties on its own and auto-handles only <b>safe, low-cost</b> steps. Anything that reaches out or spends over budget escalates to you.</div>
+      <div class="cols">
+        <div class="col on"><h4>Accepts on its own</h4>
+          <ul><li>Runs scheduled checks (e.g. chase overdue invoices)</li><li>Reads + labels + sorts records</li><li>Prepares drafts &amp; internal notes</li></ul></div>
+        <div class="col ask"><h4>Always asks you</h4>
+          <ul><li>Sending an email / message</li><li>Any spend over the budget below</li><li>Anything the risk model flags</li></ul></div>
+      </div>
+      <div class="env">
+        <div class="env-f"><label>Auto-approve up to / action</label><div class="inp">$ <span>0.20</span></div></div>
+        <div class="env-f"><label>Daily auto-approve budget</label><div class="inp">$ <span>2.00</span></div></div>
+        <div class="env-note">Above these, Riley pauses and asks — the spend counter is real and audited.</div>
+      </div>
+    </div>
+
+    <!-- L2 Auto (ceiling-locked) -->
+    <div class="rung" style="opacity:.6">
+      <div class="rung-top">
+        <span class="badge">2</span>
+        <span class="rung-name">Auto</span>
+        <span class="rung-tag" style="color:var(--lock)">🔒 above workspace ceiling</span>
+      </div>
+      <div class="rung-line">Wider budget. Riley auto-handles routine, <b>reversible</b> outbound actions to <b>known</b> contacts; consequential or first-time actions still ask. You supervise by exception.</div>
+    </div>
+
+    <!-- L3 Bypass (ceiling-locked) -->
+    <div class="rung" style="opacity:.6">
+      <div class="rung-top">
+        <span class="badge">3</span>
+        <span class="rung-name">Bypass</span>
+        <span class="rung-tag" style="color:var(--lock)">🔒 above workspace ceiling</span>
+      </div>
+      <div class="rung-line">Skips the approval queue for everything the permanent floor allows, within the spend caps. <b>Bypass skips the queue — never the floor below.</b> A teammate still can't move money or message a stranger on its own.</div>
+    </div>
+
+  </div>
+
+  <!-- The non-negotiable floor -->
+  <div class="floor">
+    <div class="floor-h">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.4 8-8 9-4.6-1-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg>
+      These ALWAYS wait for you — even on Bypass, no exceptions
+    </div>
+    <p>This floor is built into the platform. <b>Not even Bypass can lift it</b> — a teammate can never do these on its own, at any level:</p>
+    <div class="items">
+      <span class="it">Money leaving the business</span>
+      <span class="it">Paying / refunding</span>
+      <span class="it">A first-time external recipient</span>
+      <span class="it">Deleting or anything irreversible</span>
+      <span class="it">Granting access</span>
+    </div>
+    <p style="margin-top:11px">Every action — auto or approved — is written to the hash-chained audit log, and you can hit <b>Pause autonomy</b> anytime.</p>
+  </div>
+
+  <!-- Controls -->
+  <div class="foot">
+    <button class="kill">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+      Pause autonomy
+    </button>
+    <span class="verify"><span class="dot"></span>Enforced by the duty gate · changes are audited</span>
+    <button class="save">Save level</button>
+  </div>
+
+</div>
+</body>
+</html>
