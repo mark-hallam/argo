@@ -43,6 +43,16 @@ ENV CARGO_PROFILE_RELEASE_LTO=thin \
 # mode too (the gate doesn't fire without production mode). Override to "" for
 # a faster stock dev image.
 ARG CARGO_FEATURES=bundled-sqlcipher
+
+# Embed the build commit into the binary so `/health` reports a real
+# `build_commit` instead of "unknown". The `.dockerignore` excludes
+# `.git`, so argo-cli/build.rs can't `git rev-parse` inside the image —
+# it reads this `GIT_SHA` env var as the fallback. Pass it at build time
+# with `--build-arg GIT_SHA=$(git rev-parse --short HEAD)`. Unset → blank
+# → build.rs keeps "unknown" (same as today). Must precede the build so
+# build.rs sees it.
+ARG GIT_SHA
+ENV GIT_SHA=${GIT_SHA}
 RUN cargo build --locked --release -p argo-cli --bin argo --features "${CARGO_FEATURES}"
 
 # Connector reach: the gateway spawns MCP connectors by binary name on PATH

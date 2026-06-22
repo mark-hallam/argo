@@ -17,8 +17,13 @@ fn main() {
     println!("cargo:rerun-if-changed=../../.git/refs/heads");
     println!("cargo:rerun-if-env-changed=PROFILE");
     println!("cargo:rerun-if-env-changed=TARGET");
+    // Prod Docker builds exclude `.git` (`.dockerignore`), so
+    // `git rev-parse` finds nothing and falls back to "unknown". The
+    // image build passes the SHA in via `--build-arg GIT_SHA=...` →
+    // `ENV GIT_SHA`, which build.rs reads as the second-choice source.
+    println!("cargo:rerun-if-env-changed=GIT_SHA");
 
-    let git_sha = probe("git", &["rev-parse", "--short=7", "HEAD"]);
+    let git_sha = git_sha();
     let git_date = probe("git", &["log", "-1", "--date=short", "--format=%cd"]);
     let target = std::env::var("TARGET").unwrap_or_else(|_| "unknown".into());
     let profile = std::env::var("PROFILE").unwrap_or_else(|_| "unknown".into());
@@ -38,6 +43,27 @@ fn main() {
          pub const FEATURES: &[&str] = &{features:?};\n",
     );
     std::fs::write(&dest, body).expect("write build_info.rs to OUT_DIR");
+}
+
+/// Resolve the embedded short git SHA, in precedence order:
+/// 1. `git rev-parse --short=7 HEAD` (local dev with `.git` present),
+/// 2. the `GIT_SHA` build-time env var (prod Docker passes it via
+///    `--build-arg GIT_SHA=...` → `ENV GIT_SHA`, because the image
+///    build excludes `.git`),
+/// 3. `"unknown"` (tarball build, no git, no build-arg).
+///
+/// Empty or whitespace-only env values are treated as unset so an
+/// unset `ARG GIT_SHA` (which expands to "") still falls through to
+/// "unknown" rather than embedding a blank SHA.
+fn git_sha() -> String {
+    let from_git = probe("git", &["rev-parse", "--short=7", "HEAD"]);
+    if from_git != "unknown" {
+        return from_git;
+    }
+    match std::env::var("GIT_SHA") {
+        Ok(sha) if !sha.trim().is_empty() => sha.trim().to_string(),
+        _ => "unknown".into(),
+    }
 }
 
 /// Run a probe command; on any failure (non-zero exit, missing

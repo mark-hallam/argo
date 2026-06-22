@@ -14,6 +14,7 @@
 //! Stripe call, so an operator can preview exactly what would be billed.
 
 use crate::cli::BillingReportOverageArgs;
+use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_billing::{
     plan_overage_reports, run_overage_reports, OverageRunSummary, PlannedOverageReport,
     StripeClient, TenantOverageMeter, STRIPE_PRICE_PRO_OVERAGE_ENV,
@@ -168,11 +169,18 @@ fn print_summary(reports: &[PlannedOverageReport], summary: &OverageRunSummary, 
     );
 }
 
+/// Open the workspace store the SAME way every sibling handler does:
+/// resolve the home via `ARGO_HOME` / `[core].home` / `~/.argo`
+/// (`crate::home::resolve_home`), then open `<home>/sessions.db`. The
+/// previous hardcoded `<cwd>/.skycot/sessions.db` ignored `ARGO_HOME`,
+/// so in the container (cwd=`/app`, `ARGO_HOME=/data/.argo`) it opened
+/// an empty DB and billed $0.
 async fn open_store() -> ArgoResult<SessionStore> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let db = cwd.join(".skycot").join("sessions.db");
-    let store = SessionStore::open(db.to_string_lossy().as_ref()).await?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
     Ok(store)
 }

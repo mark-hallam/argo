@@ -48,3 +48,51 @@ pub async fn cwd_workspace(store: &SessionStore) -> ArgoResult<WorkspaceId> {
     let (_tenant, workspace) = store.ensure_workspace(name, &root).await?;
     Ok(workspace)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    // Env mutation is process-global; serialize the tests that touch
+    // `ARGO_HOME` so a parallel run can't observe a half-set value.
+    static ENV_GUARD: Mutex<()> = Mutex::new(());
+
+    /// Save + restore `ARGO_HOME` around a test so we never leak state
+    /// into other tests sharing this process.
+    struct HomeRestore {
+        prev: Option<std::ffi::OsString>,
+    }
+    impl HomeRestore {
+        fn take() -> Self {
+            let prev = std::env::var_os("ARGO_HOME");
+            std::env::remove_var("ARGO_HOME");
+            Self { prev }
+        }
+    }
+    impl Drop for HomeRestore {
+        fn drop(&mut self) {
+            match &self.prev {
+                Some(v) => std::env::set_var("ARGO_HOME", v),
+                None => std::env::remove_var("ARGO_HOME"),
+            }
+        }
+    }
+
+    #[test]
+    fn resolve_home_honors_argo_home_env() {
+        let _lock = ENV_GUARD.lock().unwrap_or_else(|p| p.into_inner());
+        let _restore = HomeRestore::take();
+
+        // ARGO_HOME set → it wins over cwd/argo.toml. This is the
+        // container case (cwd=/app, ARGO_HOME=/data/.argo) that the
+        // overage handler previously ignored, opening an empty DB.
+        std::env::set_var("ARGO_HOME", "/data/.argo");
+        let cwd = Path::new("/app");
+        let home = resolve_home(cwd).expect("resolve_home with ARGO_HOME set");
+        assert_eq!(home, PathBuf::from("/data/.argo"));
+        // The store path billing_overage::open_store opens roots under
+        // that home, NOT under cwd/.skycot.
+        assert_eq!(db_path(&home), PathBuf::from("/data/.argo/sessions.db"));
+    }
+}
