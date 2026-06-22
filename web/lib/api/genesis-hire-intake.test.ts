@@ -108,10 +108,38 @@ describe("buildHireDraftFromGenesis round-trip", () => {
     expect(draft.suggestedName).toBe("Sam");
     expect(draft.cadence).toBe("every morning at 7am");
     expect(draft.exceptions).toEqual(["skip duplicate alerts"]);
-    // Unedited success-criteria still ride along from the server echo.
+    // Unedited success-criteria ride along as STRINGS, not the typed objects.
+    // The gateway's `HireDraft.kpis` is `Vec<String>`; forwarding the typed
+    // SuccessCriterion objects raw fails deserialization ("worker_draft:
+    // invalid shape") and HARD-BLOCKS the hire — the prod regression the live
+    // e2e caught. The typed thresholds persist in the vertical manifest's
+    // [[kpi]] section, so the readable string here loses nothing.
+    expect(draft.successCriteria).toEqual(["first response time: ≤ 300000 (duration_ms)"]);
+  });
+
+  it("stringifies every typed success-criterion so the gateway Vec<String> deserialises (hire-blocker regression)", () => {
+    const draft = buildHireDraftFromGenesis(
+      ready(
+        contract({
+          success_criteria: [
+            { name: "DSO", kind: "count", target: 45, comparator: "lte" },
+            { name: "coverage", kind: "percentage", target: 95, comparator: "gte" },
+            { name: "exact", kind: "count", target: 0, comparator: "eq" },
+          ],
+        }),
+      ),
+      "AR assistant.",
+    );
     expect(draft.successCriteria).toEqual([
-      { name: "first response time", kind: "duration_ms", target: 300000, comparator: "lte" },
+      "DSO: ≤ 45 (count)",
+      "coverage: ≥ 95 (percentage)",
+      "exact: = 0 (count)",
     ]);
+    // A SINGLE object entry would make serde_json::from_value::<Vec<String>>
+    // fail at the gateway — assert every entry is a primitive string.
+    for (const k of draft.successCriteria as unknown[]) {
+      expect(typeof k).toBe("string");
+    }
   });
 
   it("omits intake slots entirely when none were captured", () => {

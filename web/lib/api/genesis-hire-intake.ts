@@ -21,6 +21,7 @@ import { parseCadenceToCron } from "./genesis-cadence";
 import type {
   GenesisVerticalReadyEvent,
   RoleContract,
+  SuccessCriterion,
 } from "./genesis";
 import type { CadenceExceptionsSelection } from "@/components/skycot/genesis/CadenceExceptionsCapture";
 
@@ -120,9 +121,22 @@ function folderCandidate(raw: string): string | undefined {
  *
  * When the role contract carries operator-captured (or operator-EDITED, via
  * [[applyIntakeEdits]]) cadence / exceptions / success-criteria, they ride
- * along on the draft. The gateway's `HireDraft` deserializer ignores unknown
- * fields (no `deny_unknown_fields`), so these advisory slots are forward-safe.
+ * along on the draft. The gateway's `HireDraft` deserializer ignores truly
+ * unknown fields (no `deny_unknown_fields`) — but `successCriteria` is NOT
+ * unknown: it's the wire alias of the typed `kpis: Vec<String>`, so the typed
+ * `SuccessCriterion` objects must be stringified before they ride along (see
+ * [[kpiLabel]]) or the whole draft fails to deserialize.
  */
+/**
+ * Render a typed [[SuccessCriterion]] into the string form the gateway's
+ * `HireDraft.kpis` (`Vec<String>`, wire alias `successCriteria`) accepts —
+ * e.g. `"first response time: ≤ 2 (duration_ms)"`.
+ */
+function kpiLabel(c: SuccessCriterion): string {
+  const op = c.comparator === "gte" ? "≥" : c.comparator === "lte" ? "≤" : "=";
+  return `${c.name}: ${op} ${c.target} (${c.kind})`;
+}
+
 export function buildHireDraftFromGenesis(
   ready: GenesisVerticalReadyEvent,
   roleDescription: string,
@@ -181,7 +195,17 @@ export function buildHireDraftFromGenesis(
     if (rc.cadence && rc.cadence.trim().length > 0) draft.cadence = rc.cadence;
     if (rc.exceptions && rc.exceptions.length > 0) draft.exceptions = rc.exceptions;
     if (rc.success_criteria && rc.success_criteria.length > 0) {
-      draft.successCriteria = rc.success_criteria;
+      // The role contract's success_criteria are TYPED objects
+      // ({name,kind,target,comparator}) since the Genesis richening (#3011),
+      // but the gateway's `HireDraft.kpis` is `Vec<String>` (wire alias
+      // `successCriteria`). Forwarding the objects raw fails the gateway's
+      // deserialization ("worker_draft: invalid shape") and HARD-BLOCKS the hire.
+      // Map each typed criterion to a readable KPI string; the typed thresholds
+      // also persist in the vertical manifest's [[kpi]] section, so this loses
+      // nothing. (Defensive: tolerate a plain-string criterion too.)
+      draft.successCriteria = rc.success_criteria.map((c) =>
+        typeof c === "string" ? c : kpiLabel(c),
+      );
     }
     // uf-bind-intake-access-folder-to-fs-root: when the captured Access needs
     // name a local folder, carry it so the gateway can bind worker.fs_root to
