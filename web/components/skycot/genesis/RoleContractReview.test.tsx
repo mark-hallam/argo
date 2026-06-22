@@ -265,4 +265,73 @@ describe("RoleContractReview", () => {
     expect(button).toBeDisabled();
     expect(button).toHaveTextContent(/Hiring/);
   });
+
+  it("⑤ readiness: lists what must be connected at hire (draft integrations ∪ intake access), so nothing stalls mid-task", () => {
+    render(
+      <RoleContractReview
+        ready={ready({
+          role_contract: contract({
+            draft_integrations: ["gmail"],
+            access_needs: ["Xero"],
+          }),
+        })}
+        onConfirmHire={() => {}}
+        isHiring={false}
+      />,
+    );
+    const connect = screen.getByTestId("genesis-readiness-connect");
+    expect(connect).toHaveTextContent("gmail");
+    expect(connect).toHaveTextContent("Xero");
+    // It frames the connect items as draft-but-can't-transmit (no overclaim).
+    expect(connect).toHaveTextContent(/can't send or\s+transmit through it until you do/i);
+    // With something to connect, it does NOT claim end-to-end readiness.
+    expect(screen.queryByTestId("genesis-readiness-allclear")).toBeNull();
+  });
+
+  it("⑤ readiness: dedups a system captured both as draft integration AND intake access", () => {
+    render(
+      <RoleContractReview
+        ready={ready({
+          role_contract: contract({
+            draft_integrations: ["gmail"],
+            access_needs: ["Gmail"],
+          }),
+        })}
+        onConfirmHire={() => {}}
+        isHiring={false}
+      />,
+    );
+    const items = screen.getByTestId("genesis-readiness-connect").querySelectorAll("li");
+    // "gmail" and "Gmail" collapse to a single connect line.
+    expect(items).toHaveLength(1);
+  });
+
+  it("⑤ readiness: with nothing to connect, says it can run end-to-end now — and names approvals as the only interruptions", () => {
+    // The default contract has no draft integrations / access needs and a
+    // parseable (absent) cadence, but DOES gate send_campaign on approval.
+    render(<RoleContractReview ready={ready()} onConfirmHire={() => {}} isHiring={false} />);
+    expect(screen.getByTestId("genesis-readiness-allclear")).toHaveTextContent(
+      /run\s+end-to-end the moment you hire/i,
+    );
+    expect(screen.getByTestId("genesis-readiness-approvals")).toHaveTextContent("send_campaign");
+    // No connect checklist when there's nothing to connect.
+    expect(screen.queryByTestId("genesis-readiness-connect")).toBeNull();
+  });
+
+  it("⑤ readiness: an unparseable cadence becomes a clear-at-hire 'confirm the schedule' item, not a silent mid-task drop", () => {
+    render(
+      <RoleContractReview
+        ready={ready({
+          role_contract: contract({ cadence: "whenever an inbound ticket arrives" }),
+        })}
+        onConfirmHire={() => {}}
+        isHiring={false}
+      />,
+    );
+    expect(screen.getByTestId("genesis-readiness-schedule")).toHaveTextContent(
+      /confirm the schedule/i,
+    );
+    // The presence of a to-clear item suppresses the all-clear message.
+    expect(screen.queryByTestId("genesis-readiness-allclear")).toBeNull();
+  });
 });

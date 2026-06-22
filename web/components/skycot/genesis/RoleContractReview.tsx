@@ -138,6 +138,82 @@ function ActionRow({ action }: { action: RoleContractAction }) {
   );
 }
 
+/**
+ * Genesis ⑤ "completeness preview" — the one panel that turns invisible
+ * mid-task stalls into a hire-time checklist. Computed PURELY from the contract
+ * the operator is already looking at (no new backend, no overclaim): the things
+ * to CONNECT once at hire (bound-but-draft integrations ∪ access named at
+ * intake) + an unparseable schedule, vs. the genuine run-time approvals that are
+ * the GOOD interruptions ("only approvals remain" — the product vision). When
+ * there's nothing to connect, it says so plainly: it can run end-to-end now.
+ */
+function ReadinessPreview({
+  contract,
+  scheduleNeedsConfirm,
+}: {
+  contract: RoleContract;
+  scheduleNeedsConfirm: boolean;
+}) {
+  // CONNECT-AT-HIRE set: draft-only integrations (bound but can't transmit) plus
+  // access named at intake but not yet bound. Dedup case-insensitively so the
+  // same system captured both ways ("Gmail" intake / "gmail" draft) shows once.
+  const seen = new Set<string>();
+  const connectNeeded: string[] = [];
+  for (const raw of [...contract.draft_integrations, ...(contract.access_needs ?? [])]) {
+    const name = raw.trim();
+    const key = name.toLowerCase();
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    connectNeeded.push(name);
+  }
+  const approvals = contract.approval_required ?? [];
+  const nothingToClear = connectNeeded.length === 0 && !scheduleNeedsConfirm;
+
+  return (
+    <div className="rc-panel rc-panel-readiness" data-testid="genesis-readiness">
+      <h4 className="rc-h4">
+        <CheckCircle2 size={13} aria-hidden /> Readiness — clear once at hire, then only approvals
+      </h4>
+      {nothingToClear ? (
+        <p className="rc-escalation" data-testid="genesis-readiness-allclear">
+          Nothing to connect — with what you&apos;ve given it, {contract.role_name} can run
+          end-to-end the moment you hire.{" "}
+          {approvals.length > 0
+            ? "The only interruptions you'll see are the genuine approvals below."
+            : "It runs on its own within the boundaries above."}
+        </p>
+      ) : (
+        <>
+          <p className="rc-escalation">
+            {contract.role_name} can start drafting and proposing immediately. To run all the way
+            to delivery, clear these once — here, not mid-task:
+          </p>
+          <ul className="rc-tag-list" data-testid="genesis-readiness-connect">
+            {connectNeeded.map((c) => (
+              <li key={c}>
+                Connect <strong>{c}</strong> — it can draft, but physically can&apos;t send or
+                transmit through it until you do.
+              </li>
+            ))}
+            {scheduleNeedsConfirm ? (
+              <li data-testid="genesis-readiness-schedule">
+                <strong>Confirm the schedule</strong> after hiring — its words didn&apos;t map to a
+                fixed time, so it won&apos;t fire on a cadence until you set one.
+              </li>
+            ) : null}
+          </ul>
+        </>
+      )}
+      {approvals.length > 0 ? (
+        <p className="rc-escalation" data-testid="genesis-readiness-approvals">
+          After that, the only run-time interruptions are genuine approvals:{" "}
+          {approvals.join(", ")} — everything else runs free.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function RoleContractReview({
   ready,
   onConfirmHire,
@@ -368,6 +444,8 @@ export function RoleContractReview({
             </div>
           </aside>
         </div>
+
+        <ReadinessPreview contract={contract} scheduleNeedsConfirm={cadenceNeedsConfirm} />
 
         <div className="rc-confirm">
           <label className="rc-confirm-check">

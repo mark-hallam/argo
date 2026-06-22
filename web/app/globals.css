@@ -592,6 +592,30 @@
   .rc-panel-willnot {
     border-color: color-mix(in srgb, var(--destructive) 35%, var(--border));
   }
+  .rc-panel-readiness {
+    border-color: color-mix(in srgb, var(--brand-primary) 32%, var(--border));
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--brand-primary) 7%, var(--card)),
+      color-mix(in srgb, var(--brand-pink) 5%, var(--card))
+    );
+  }
+  .rc-panel-readiness .rc-tag-list {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .rc-panel-readiness .rc-tag-list li {
+    background: var(--card);
+    border: 1px solid var(--brand-line);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .rc-panel-readiness strong {
+    color: var(--brand-ink);
+    font-weight: 700;
+  }
   .rc-tag-list {
     list-style: none;
     padding: 0;
