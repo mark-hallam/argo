@@ -141,6 +141,16 @@ locals {
     # safety judge) and the Pitch LLM path.
     { name = "ARGO_GENESIS_LLM_PROVIDER", value = "anthropic" },
     { name = "ARGO_PITCH_LLM_PROVIDER", value = "anthropic" },
+    # ARGO_GENESIS_LLM_CLASSIFIER=1 turns on the live LLM role classifier
+    # (DEC-025-gated): an off-taxonomy, plain-English role description is
+    # resolved into a coherent least-privilege contract instead of hard-422'ing.
+    # This is the KEYSTONE flag for "describe any job in plain English" (#2996).
+    # It was set MANUALLY on the running prod task-def (:10..:15) but was NOT in
+    # this module — so a fresh `terraform apply` would have silently dropped it,
+    # degrading Genesis back to keyword-only (the default first-hire would 422 on
+    # any non-taxonomy role). Pinned here so the IaC can't silently revert it.
+    # No-op until DEC-025's other gates are satisfied; safe everywhere.
+    { name = "ARGO_GENESIS_LLM_CLASSIFIER", value = "1" },
     # DEC-056 durable DB ("B′"): the entrypoint wrapper (scripts/gateway-entrypoint.sh)
     # restores-on-boot (fail-closed) + streams whole-file snapshots of the
     # local-disk SQLite DB to S3. ARGO_WORKSPACE=/data so the snapshot
@@ -245,6 +255,15 @@ resource "aws_ecs_service" "this" {
   task_definition                    = aws_ecs_task_definition.this.arn
   desired_count                      = 1
   launch_type                        = "FARGATE"
+  # STOP-THEN-START (min 0 / max 100) is DELIBERATE, not an oversight — do NOT
+  # naively flip to min 100 / max 200 for "zero-downtime". The gateway is a
+  # SINGLE-WRITER SQLite DB (local-disk ephemeral + DEC-056 S3 snapshot/restore,
+  # or EFS — and WAL-on-EFS is incompatible per gateway_db_on_efs). Two tasks
+  # behind one ALB during a rolling deploy = two divergent databases serving
+  # round-robined traffic = split-brain writes / lost data — strictly worse than
+  # a few seconds of deploy downtime. Zero-downtime is GATED on moving the DB to
+  # a real multi-task durable store (RDS/Postgres, or no-WAL shared SQLite).
+  # Until that lands, keep min 0 / max 100. (Strategy report ⑪ / 2026-06-22.)
   deployment_minimum_healthy_percent = 0
   deployment_maximum_percent         = 100
   health_check_grace_period_seconds  = 60
