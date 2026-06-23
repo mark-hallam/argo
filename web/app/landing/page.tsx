@@ -5,6 +5,7 @@ import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { WaitlistForm } from "@/components/marketing/WaitlistForm";
 import { WalkthroughCta } from "@/components/marketing/WalkthroughCta";
 import { PortiaEmbed } from "@/components/marketing/PortiaEmbed";
+import { GenesisPreviewEmbed } from "@/components/marketing/GenesisPreviewEmbed";
 import { DemoVideoSlot } from "@/components/marketing/DemoVideoSlot";
 import { SEED_CUSTOMERS } from "@/lib/content/customers";
 import "./page.css";
@@ -37,13 +38,13 @@ const FEATURES = [
     icon: <Shield size={22} />,
     title: "Asks before it acts",
     blurb:
-      "Every risky action waits for your yes. Approval-first by default. Trust ratchets up over time.",
+      "Every risky action waits for your yes. You choose how much each teammate can do on its own — and money-out or irreversible actions always ask, by design.",
   },
   {
-    icon: <MessageSquareText size={22} />,
-    title: "Edit workflows in chat",
+    icon: <Shield size={22} />,
+    title: "Its own keys — never yours",
     blurb:
-      "Describe the change in plain English. Your teammate proposes the diff, you approve, it ships.",
+      "A hired teammate gets its own least-privilege access. It physically can't touch a tool or connector it wasn't granted — your credentials stay yours.",
   },
   {
     icon: <GitBranch size={22} />,
@@ -103,15 +104,15 @@ const HOW = [
   },
   {
     n: "02",
-    title: "Meet your new teammate",
+    title: "Meet the teammate it designed for you",
     blurb:
-      "SKYCOT spins up a named teammate (Mariah, Peta, Priya, Jamal, or Nori) with the right skills, joins your Slack, and introduces themselves.",
+      "SKYCOT synthesizes a named teammate tailored to the job you described — with the right skills — joins your Slack, and introduces themselves.",
   },
   {
     n: "03",
     title: "Approve their first decisions",
     blurb:
-      "Your teammate proposes, you approve. Their trust grade rises as they ship correct decisions. Eventually they earn full autonomy.",
+      "Your teammate proposes, you approve. You choose how much it can do on its own — from Always Ask to broader auto-settling within your guardrails. Money-out and irreversible actions always ask, by design.",
   },
   {
     n: "04",
@@ -183,7 +184,7 @@ export default function MarketingLandingPage() {
           <div>
             <div className="land-hero-eyebrow">
               <span className="land-hero-eyebrow-dot" />
-              Early access · Inviting our first 100 teams
+              Founding cohort · hands-on onboarding included
             </div>
             <h1 className="land-hero-h1">
               Hire an AI teammate that <strong>can&apos;t</strong> lie.
@@ -191,17 +192,17 @@ export default function MarketingLandingPage() {
               (Seriously &mdash; we prove it.)
             </h1>
             <p className="land-hero-sub">
-              Every SKYCOT teammate is truth-bounded: it can&apos;t state a number or make a claim
-              it can&apos;t back up &mdash; it defers to you instead. And every action it takes lands in
+              Every teammate you hire is truth-bounded by default: it can&apos;t state a number or
+              make a claim it can&apos;t back up &mdash; it defers to you instead. And every action it takes lands in
               a tamper-evident, hash-chained record you could hand to your board or your regulator.
               That&apos;s the part you need before you let an AI <em>act</em>.
             </p>
             <div className="land-hero-actions">
-              <a href="#book-walkthrough" className="land-btn-primary">
-                Book a governance walkthrough <ArrowRight size={16} />
-              </a>
-              <a href="#demo" className="land-btn-secondary">
-                Watch the demo
+              <Link href="/auth/signup" className="land-btn-primary">
+                Start free &mdash; hire your first teammate <ArrowRight size={16} />
+              </Link>
+              <a href="#book-walkthrough" className="land-btn-secondary">
+                Book a governance walkthrough
               </a>
             </div>
             <div className="land-hero-waitlist">
@@ -304,6 +305,30 @@ export default function MarketingLandingPage() {
             <div className="land-art-center" style={{ left: "40%", zIndex: 1 }}>
               SKYCOT
             </div>
+          </div>
+        </section>
+
+        {/* Live Genesis hire — the product doing the magic, right under the hero */}
+        <section className="land-section" id="genesis" style={{ paddingTop: 8 }}>
+          <p className="land-section-label">DESCRIBE THE JOB</p>
+          <h2 className="land-section-title">
+            Watch SKYCOT <strong>design a teammate</strong> for the job.
+          </h2>
+          <p
+            style={{
+              textAlign: "center",
+              color: "var(--ink3, #7a7396)",
+              fontSize: 15,
+              maxWidth: 560,
+              margin: "0 auto 26px",
+            }}
+          >
+            Not a menu of bots. A real model reads your plain-English job and authors a
+            bespoke teammate &mdash; persona, responsibilities, the numbers it&apos;s measured on,
+            and least-privilege access.
+          </p>
+          <div style={{ maxWidth: 680, margin: "0 auto" }}>
+            <GenesisPreviewEmbed />
           </div>
         </section>
 
@@ -484,12 +509,24 @@ export default function MarketingLandingPage() {
           </div>
         </section>
 
-        {/* Integration logos */}
+        {/* Integration logos — honest split: live connectors vs roadmap */}
         <section className="land-section">
           <p className="land-section-label">CONNECTS TO YOUR STACK</p>
           <h2 className="land-section-title">
             Already where your <strong>work happens</strong>.
           </h2>
+          <p
+            style={{
+              textAlign: "center",
+              color: "var(--ink3, #7a7396)",
+              fontSize: 14,
+              maxWidth: 600,
+              margin: "0 auto 22px",
+            }}
+          >
+            Connect securely with OAuth from Settings &mdash; a teammate only ever gets the
+            access you grant.
+          </p>
           <div
             style={{
               display: "grid",
@@ -502,22 +539,13 @@ export default function MarketingLandingPage() {
             {[
               "Slack",
               "Gmail",
-              "Outlook",
               "Zendesk",
-              "Intercom",
               "Salesforce",
               "HubSpot",
-              "QuickBooks",
-              "Xero",
-              "NetSuite",
-              "Greenhouse",
-              "Lever",
-              "Workday",
               "Notion",
               "Linear",
               "GitHub",
               "Stripe",
-              "Shopify",
             ].map((name) => (
               <div
                 key={name}
@@ -531,6 +559,57 @@ export default function MarketingLandingPage() {
                   fontSize: 13.5,
                   fontWeight: 600,
                   color: "var(--ink, #1e1b4b)",
+                }}
+              >
+                {name}
+              </div>
+            ))}
+          </div>
+          <p
+            style={{
+              textAlign: "center",
+              color: "var(--ink3, #7a7396)",
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              margin: "28px 0 12px",
+            }}
+          >
+            On the roadmap
+          </p>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+              gap: 14,
+              maxWidth: 900,
+              margin: "0 auto",
+            }}
+          >
+            {[
+              "Outlook",
+              "Intercom",
+              "QuickBooks",
+              "Xero",
+              "NetSuite",
+              "Greenhouse",
+              "Lever",
+              "Workday",
+              "Shopify",
+            ].map((name) => (
+              <div
+                key={name}
+                style={{
+                  padding: "16px 18px",
+                  border: "1px dashed var(--line, #d9d4ea)",
+                  borderRadius: 12,
+                  background: "transparent",
+                  textAlign: "center",
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  color: "var(--ink3, #9a93b5)",
                 }}
               >
                 {name}

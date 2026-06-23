@@ -72,6 +72,16 @@ pub(super) fn decide_gate(
         return GateDecision::Deny;
     }
     let has_grant = session_grants.allows(tool_name);
+    // PERMANENT money-out / irreversible floor: an irreversible action is held
+    // for explicit approval ABOVE the probation + manifest gates, regardless of
+    // what the manifest claims — cleared ONLY by an explicit operator grant (the
+    // human saying yes), which is then consumed so the next one is held again. A
+    // single grant never permanently lifts the floor. Reuses the
+    // `EscalationRequired` held-pending path + audit kind.
+    let floor = argo_capability::is_irreversible_action(tool_name);
+    if floor && !has_grant {
+        return GateDecision::EscalationRequired;
+    }
     if probation.is_active() && !has_grant {
         return GateDecision::ProbationHold;
     }
@@ -80,7 +90,7 @@ pub(super) fn decide_gate(
         return GateDecision::EscalationRequired;
     }
     // A grant was the thing that let an otherwise-gated call through.
-    let consume_grant = has_grant && (probation.is_active() || manifest_gated);
+    let consume_grant = has_grant && (probation.is_active() || manifest_gated || floor);
     GateDecision::Dispatch { consume_grant }
 }
 
@@ -324,5 +334,54 @@ mod gate_decision_tests {
             &one_shot("draft_reply"),
         );
         assert_eq!(ungated, GateDecision::Dispatch { consume_grant: false });
+    }
+
+    #[test]
+    fn money_out_held_by_floor_even_when_manifest_marks_it_safe() {
+        // wire_funds is in NEITHER the deny set NOR the approval set, past
+        // probation — without the permanent floor it would Dispatch. The
+        // manifest-independent floor must HOLD it for approval. This is the
+        // adversarial property: a manifest that "approves" a money-out action
+        // cannot clear it.
+        let d = decide_gate(
+            "wire_funds",
+            ProbationStatus::Normal,
+            &set(EMPTY),
+            &set(EMPTY),
+            &SessionGrantState::default(),
+        );
+        assert_eq!(
+            d,
+            GateDecision::EscalationRequired,
+            "money-out must be held by the floor regardless of the manifest"
+        );
+    }
+
+    #[test]
+    fn operator_grant_clears_the_money_out_floor_and_consumes() {
+        // The escape hatch: an explicit operator grant lets a money-out action
+        // through (the human said yes) AND is consumed, so the NEXT money-out is
+        // held again — a single grant never permanently lifts the floor.
+        let d = decide_gate(
+            "wire_funds",
+            ProbationStatus::Normal,
+            &set(EMPTY),
+            &set(EMPTY),
+            &one_shot("wire_funds"),
+        );
+        assert_eq!(d, GateDecision::Dispatch { consume_grant: true });
+    }
+
+    #[test]
+    fn floor_is_narrow_safe_action_dispatches() {
+        // The floor must not over-hold: a reversible action with no gate runs.
+        let d = decide_gate(
+            "draft_reply",
+            ProbationStatus::Normal,
+            &set(EMPTY),
+            &set(EMPTY),
+            &SessionGrantState::default(),
+        );
+        assert_eq!(d, GateDecision::Dispatch { consume_grant: false });
     }
 }

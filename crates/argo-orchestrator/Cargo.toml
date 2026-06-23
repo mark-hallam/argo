@@ -9,6 +9,7 @@ description = "Argo — multi-worker session orchestration: handoffs, escalation
 
 [dependencies]
 argo-audit = { path = "../argo-audit" }
+argo-capability = { path = "../argo-capability" }
 argo-identity = { path = "../argo-identity" }
 argo-mcp-connector-shared = { path = "../argo-mcp-connector-shared" }
 argo-runtime = { path = "../argo-runtime" }

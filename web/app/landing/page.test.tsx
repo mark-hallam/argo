@@ -4,6 +4,7 @@ import MarketingLandingPage from "./page";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/landing",
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 describe("MarketingLandingPage", () => {
@@ -37,16 +38,19 @@ describe("MarketingLandingPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("offers a sales-led 'Book a governance walkthrough' path (hero CTA + qualifying form)", () => {
+  it("offers a dual path: self-serve 'Start free' primary CTA + sales-led 'Book a governance walkthrough'", () => {
     render(<MarketingLandingPage />);
 
-    // The hero leads with the sales-led CTA, anchored to the booking section.
-    const heroCta = screen.getByRole("link", {
+    // Primary hero CTA is now the self-serve signup path — the product can take a
+    // paying customer today (cold signup -> Genesis hire -> Stripe pay, verified).
+    const startFree = screen.getByRole("link", { name: /start free/i });
+    expect(startFree).toHaveAttribute("href", "/auth/signup");
+    // The enterprise governance lane is kept as the SECONDARY CTA, anchored to its
+    // qualifying form (reusing the enterprise-inquiry endpoint); no pre-faked success.
+    const walkthrough = screen.getByRole("link", {
       name: /book a governance walkthrough/i,
     });
-    expect(heroCta).toHaveAttribute("href", "#book-walkthrough");
-    // The booking section + its qualifying form (reusing the enterprise-inquiry
-    // endpoint) are present; no pre-faked success/scheduler before any submit.
+    expect(walkthrough).toHaveAttribute("href", "#book-walkthrough");
     expect(screen.getByTestId("walkthrough-form")).toBeInTheDocument();
     expect(screen.queryByTestId("walkthrough-success")).toBeNull();
   });

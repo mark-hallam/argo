@@ -281,6 +281,34 @@ impl DutyGate for AutoApprovalDutyGate {
             return Ok(FireDecision::DeniedGate);
         }
 
+        // PERMANENT MONEY-OUT / IRREVERSIBLE FLOOR (DEC-060, manifest-independent).
+        // An irreversible / money-moving entry action NEVER auto-fires — it is held
+        // for explicit human approval regardless of the teammate's autonomy level
+        // OR the manifest's risk stamp. This sits ABOVE the risk resolver below, so
+        // a manifest that mis-stamps a money-out action as low-risk can never reach
+        // `autofire_safe`. Same deterministic deny-list the capability fence uses
+        // (`argo_capability::is_irreversible_action`): money movement, destructive,
+        // egress, credential. A false hold costs a click; a false clear moves money.
+        if argo_capability::is_irreversible_action(&duty.entry_action) {
+            tracing::info!(
+                target: "argo_orchestrator::duty_scheduler_auto_gate",
+                tenant_id = %duty.tenant_id.0,
+                worker_id = %duty.worker_id,
+                duty_id = %duty.id,
+                entry_action = %duty.entry_action,
+                "irreversible/money-out entry action; fire held by permanent floor"
+            );
+            self.surface_approval(
+                duty,
+                &AutoApprovalDecision::Ask {
+                    channel: None,
+                    reason: "irreversible/money-out safety floor (held)".to_string(),
+                },
+            )
+            .await;
+            return Ok(FireDecision::DeniedGate);
+        }
+
         let mut policy = worker.resolved_policy(&self.workspace_default);
         // Defense in depth (DEC-060 adversarial review, HIGH): an enabled
         // policy with NO explicit ceiling auto-approves unbounded — the
