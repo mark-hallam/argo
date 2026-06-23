@@ -12,11 +12,15 @@ Genesis SSE first-hire (real LLM, `ARGO_GENESIS_LLM_CLASSIFIER=1`+anthropic, 200
 ## 💤 Built + deployed but DORMANT
 **DEC-060 autonomy ladder** — live in the gateway, inert behind a triple-OFF lock (global `ARGO_DUTY_AUTOFIRE` unset → ClosedGate; per-tenant opt-in off; per-teammate default Always-Ask), all fail-closed. Nothing auto-fires for any customer. **Caveat:** the "permanent floor" (money-out / first-recipient / irreversible) is enforced INDIRECTLY via manifest risk-tiering — there is NO dedicated predicate; it holds only if manifest actions are correctly risk-stamped. Add a named floor backstop before flipping autonomy on.
 
-## 🟠 Operator-gated (config, not code) — blocks the paying journey
-- **Magic-link email NOT wired** — provider defaults to `Noop` (log-only); SES SMTP commented out. Cold signup dead-ends. (set `SKYCOT_EMAIL_PROVIDER=smtp`+`SKYCOT_SMTP_*`)
-- **Stripe fully gated** — real code, but no live keys/products/prices/registered-webhook; overage cron merged-but-unapplied + `STRIPE_PRICE_PRO_OVERAGE` unset. No revenue flows.
-- **OAuth connectors gated to zero** — all 5 return `not_configured` (no provider client IDs). (register apps + keys; Gmail/GCal need Google verification)
-- **Voice = MOCK in prod** — no `OPENAI_API_KEY`/`ARGO_VOICE_PROVIDER`; STT/TTS are fakes, realtime 503s. "Voice live on /pitch" FALSE; pitch *text* is real (Anthropic).
+## ⚠️ CORRECTION (2026-06-23, verified against the LIVE task-def :17 env/secrets)
+Two of the agents' "operator-gated" findings were WRONG — they checked the IaC TEMPLATE default (`terraform.tfvars.example` / `email_outbound={}`), NOT the live deployed env. Corrected:
+- **Magic-link email is WIRED in prod.** Live task-def has `SKYCOT_EMAIL_PROVIDER=smtp` + `SKYCOT_SMTP_HOST=email-smtp.ap-southeast-2.amazonaws.com` (AWS SES, Sydney) + port 587 + username + `SKYCOT_SMTP_PASSWORD` secret + `SKYCOT_EMAIL_FROM_ADDRESS=noreply@skycot.com`. Operator confirms links send. **NOT a blocker.**
+- **Stripe base subscription is WIRED.** `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` are set secrets in the live task-def; the SPA bakes a real PRO price id. Only the OVERAGE metered price (`STRIPE_PRICE_PRO_OVERAGE`) + the overage cron are genuinely unset. (Stripe-side product/webhook-endpoint registration: operator-to-confirm, not AWS-verifiable.)
+
+## 🟠 Operator-gated (config, not code)
+- **OAuth connectors gated to zero** — all 5 return `not_configured` (no provider client IDs). VERIFIED real. (register apps + keys; Gmail/GCal need Google verification)
+- **Overage metered billing** — base sub works; the per-unit overage is off until `STRIPE_PRICE_PRO_OVERAGE` is set + the cron terraform-applied. VERIFIED real.
+- **Voice = MOCK in prod** — no `OPENAI_API_KEY`/`ARGO_VOICE_PROVIDER`; STT/TTS are fakes, realtime 503s. "Voice live on /pitch" FALSE; pitch *text* is real (Anthropic). VERIFIED real.
 
 ## 🟦 Deploy freshness
 - **SPA 9 commits behind main** (`web-624d30954`) — missing the autonomy 4-rung selector UI (#3030) + OAuth /connect SPA surface (#3026). Audit-verify button (#3021) IS deployed. → SPA redeploy.
@@ -29,7 +33,8 @@ Genesis SSE first-hire (real LLM, `ARGO_GENESIS_LLM_CLASSIFIER=1`+anthropic, 200
 - Image-gen deferred (stub backend, CLI-only) — confirmed.
 - In-core tool count = **17** (CLAUDE.md invariant still says 15 — stale).
 
-## Outstanding (prioritized)
-P0 OPERATOR: (1) lock ALB to Cloudflare · (2) wire SES email · (3) complete Stripe + apply overage.
-P1 DEPLOY/OP: (4) redeploy SPA from main · (5) register OAuth apps.
-P2 CODE/DECISION: (6) right-size gateway (+ HA needs DB→Postgres) · (7) named autonomy floor + deploy PR-4 before autofire · (8) wire voice (OpenAI) if real speech wanted.
+## Outstanding (prioritized — post-correction)
+P0 OPERATOR: (1) **lock ALB → Cloudflare** (the ONE verified-real critical gap) · (2) register OAuth provider apps · (3) set `STRIPE_PRICE_PRO_OVERAGE` + apply the overage cron (base sub already wired).
+P1 DONE/CODE: (4) ✅ SPA redeployed from main (App Runner, zero-downtime, web-4ba2ed98e) · (5) ✅ gateway right-sized + PR-4 deployed (task-def :18, cpu 2048/mem 4096, commit 7f9aef8a9 = main HEAD, /health verified DB-intact).
+P2 CODE/DECISION: (6) named runtime autonomy floor (spawned task) before autofire · (7) wire voice (OpenAI) if real speech wanted · (8) for true HA (desiredCount>1) move DB → Postgres.
+NOTE: SES email + Stripe base were FALSE blockers (agents read IaC defaults, not the live task-def) — both wired in prod.
