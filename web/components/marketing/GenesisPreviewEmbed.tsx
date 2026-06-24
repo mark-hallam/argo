@@ -104,10 +104,16 @@ export function GenesisPreviewEmbed() {
     startFree(input);
   }
 
+  // This card is a SELF-CONTAINED product-UI artifact embedded on a marketing
+  // page that may be light OR dark. It must render identically in both, so its
+  // internal colors are pinned to explicit light-mode hex rather than inheriting
+  // the host page's theme tokens (--ink/--bg/etc. resolve to dark-mode values
+  // under `.dark`, which made white-card text invisible). The brand gradient is
+  // the LOCKED SKYCOT purple→pink (#8B5CF6 → #EC4899).
   const card: React.CSSProperties = {
-    border: "1px solid var(--line, #ece9f5)",
+    border: "1px solid #ece9f5",
     borderRadius: 18,
-    background: "white",
+    background: "#ffffff",
     boxShadow: "0 10px 40px -24px rgba(80,40,140,0.45)",
     overflow: "hidden",
   };
@@ -121,7 +127,7 @@ export function GenesisPreviewEmbed() {
           alignItems: "center",
           gap: 10,
           padding: "14px 18px",
-          borderBottom: "1px solid var(--line, #ece9f5)",
+          borderBottom: "1px solid #ece9f5",
         }}
       >
         <span
@@ -134,16 +140,16 @@ export function GenesisPreviewEmbed() {
             alignItems: "center",
             justifyContent: "center",
             color: "white",
-            background: "linear-gradient(135deg, var(--brand-primary, #8B5CF6), var(--gradient-end, #EC4899))",
+            background: "linear-gradient(135deg, #8B5CF6, #EC4899)",
           }}
         >
           <Sparkles size={17} />
         </span>
         <div style={{ flex: 1 }}>
-          <p style={{ margin: 0, fontWeight: 700, fontSize: 14.5, color: "var(--ink, #1e1b4b)" }}>
+          <p style={{ margin: 0, fontWeight: 700, fontSize: 14.5, color: "#1e1b4b" }}>
             Describe the job →
           </p>
-          <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink3, #7a7396)" }}>
+          <p style={{ margin: 0, fontSize: 12.5, color: "#7a7396" }}>
             SKYCOT designs the teammate
           </p>
         </div>
@@ -162,11 +168,11 @@ export function GenesisPreviewEmbed() {
           style={{
             flex: 1,
             padding: "11px 13px",
-            border: "1px solid var(--line, #ece9f5)",
+            border: "1px solid #ece9f5",
             borderRadius: 11,
             fontSize: 14,
             fontFamily: "Inter, sans-serif",
-            color: "var(--ink, #1e1b4b)",
+            color: "#1e1b4b",
             outline: "none",
           }}
         />
@@ -187,7 +193,7 @@ export function GenesisPreviewEmbed() {
             color: "white",
             cursor: input.trim().length === 0 ? "not-allowed" : "pointer",
             opacity: input.trim().length === 0 ? 0.55 : 1,
-            background: "linear-gradient(135deg, var(--brand-primary, #8B5CF6), var(--gradient-end, #EC4899))",
+            background: "linear-gradient(135deg, #8B5CF6, #EC4899)",
           }}
         >
           Generate <ArrowRight size={15} />
@@ -196,7 +202,7 @@ export function GenesisPreviewEmbed() {
 
       {/* Example chips */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 7, padding: "4px 18px 14px" }}>
-        <span style={{ fontSize: 12, color: "var(--ink3, #7a7396)", alignSelf: "center" }}>Or try:</span>
+        <span style={{ fontSize: 12, color: "#7a7396", alignSelf: "center" }}>Or try:</span>
         {SUGGESTIONS.map((q, idx) => (
           <button
             key={q}
@@ -207,9 +213,9 @@ export function GenesisPreviewEmbed() {
               padding: "6px 11px",
               borderRadius: 999,
               border: "1px solid",
-              borderColor: idx === selected ? "var(--brand-primary, #8B5CF6)" : "var(--line, #ece9f5)",
+              borderColor: idx === selected ? "#8B5CF6" : "#ece9f5",
               background: idx === selected ? "rgba(139,92,246,0.08)" : "white",
-              color: idx === selected ? "var(--brand-primary, #8B5CF6)" : "var(--ink2, #4b4470)",
+              color: idx === selected ? "#8B5CF6" : "#4b4470",
               fontSize: 12.5,
               fontWeight: 600,
               cursor: "pointer",
@@ -224,7 +230,7 @@ export function GenesisPreviewEmbed() {
       {/* The synthesized teammate spec */}
       <div
         data-testid="genesis-spec"
-        style={{ borderTop: "1px solid var(--line, #ece9f5)", background: "var(--bg, #faf9ff)", padding: "16px 18px" }}
+        style={{ borderTop: "1px solid #ece9f5", background: "#faf9ff", padding: "16px 18px" }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
           <span
@@ -239,21 +245,21 @@ export function GenesisPreviewEmbed() {
               color: "white",
               fontWeight: 800,
               fontSize: 15,
-              background: "linear-gradient(135deg, var(--brand-primary, #8B5CF6), var(--gradient-end, #EC4899))",
+              background: "linear-gradient(135deg, #8B5CF6, #EC4899)",
             }}
           >
             {spec.name.slice(0, 1)}
           </span>
           <div>
-            <p style={{ margin: 0, fontWeight: 800, fontSize: 15.5, color: "var(--ink, #1e1b4b)" }}>{spec.name}</p>
-            <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink3, #7a7396)" }}>{spec.role}</p>
+            <p style={{ margin: 0, fontWeight: 800, fontSize: 15.5, color: "#1e1b4b" }}>{spec.name}</p>
+            <p style={{ margin: 0, fontSize: 12.5, color: "#7a7396" }}>{spec.role}</p>
           </div>
         </div>
 
         <SpecBlock icon={<ListChecks size={13} />} label="Responsibilities">
           <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
             {spec.responsibilities.map((r) => (
-              <li key={r} style={{ fontSize: 13, color: "var(--ink2, #4b4470)", marginBottom: 3 }}>{r}</li>
+              <li key={r} style={{ fontSize: 13, color: "#4b4470", marginBottom: 3 }}>{r}</li>
             ))}
           </ul>
         </SpecBlock>
@@ -268,7 +274,7 @@ export function GenesisPreviewEmbed() {
         </div>
 
         <SpecBlock icon={<Clock size={13} />} label="Cadence">
-          <p style={{ margin: "3px 0 0", fontSize: 13, color: "var(--ink2, #4b4470)" }}>{spec.cadence}</p>
+          <p style={{ margin: "3px 0 0", fontSize: 13, color: "#4b4470" }}>{spec.cadence}</p>
         </SpecBlock>
       </div>
 
@@ -281,10 +287,10 @@ export function GenesisPreviewEmbed() {
           gap: 12,
           flexWrap: "wrap",
           padding: "13px 18px",
-          borderTop: "1px solid var(--line, #ece9f5)",
+          borderTop: "1px solid #ece9f5",
         }}
       >
-        <p data-testid="genesis-sample-note" style={{ margin: 0, fontSize: 11.5, color: "var(--ink3, #7a7396)", maxWidth: 360 }}>
+        <p data-testid="genesis-sample-note" style={{ margin: 0, fontSize: 11.5, color: "#7a7396", maxWidth: 360 }}>
           Example of a real Genesis output. Your teammate is generated live from your exact
           words when you start — persona, KPIs, and least-privilege access included.
         </p>
@@ -304,7 +310,7 @@ export function GenesisPreviewEmbed() {
             color: "white",
             cursor: "pointer",
             whiteSpace: "nowrap",
-            background: "linear-gradient(135deg, var(--brand-primary, #8B5CF6), var(--gradient-end, #EC4899))",
+            background: "linear-gradient(135deg, #8B5CF6, #EC4899)",
           }}
         >
           Start free — generate yours <ArrowRight size={15} />
@@ -327,7 +333,7 @@ function SpecBlock({ icon, label, children }: { icon: React.ReactNode; label: st
           fontWeight: 800,
           letterSpacing: "0.06em",
           textTransform: "uppercase",
-          color: "var(--brand-primary, #8B5CF6)",
+          color: "#8B5CF6",
         }}
       >
         {icon}
@@ -348,9 +354,9 @@ function ChipList({ items }: { items: string[] }) {
             padding: "3px 9px",
             borderRadius: 7,
             background: "white",
-            border: "1px solid var(--line, #ece9f5)",
+            border: "1px solid #ece9f5",
             fontSize: 12,
-            color: "var(--ink2, #4b4470)",
+            color: "#4b4470",
           }}
         >
           {it}
