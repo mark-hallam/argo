@@ -15,8 +15,8 @@ command = "mdbook-mermaid"
 [output.html]
 default-theme = "navy"
 preferred-dark-theme = "navy"
-git-repository-url = "https://github.com/mark-hallam/Argo-Agent"
-edit-url-template = "https://github.com/mark-hallam/Argo-Agent/edit/main/{path}"
+git-repository-url = "https://github.com/mark-hallam/argo"
+edit-url-template = "https://github.com/mark-hallam/argo/edit/main/{path}"
 no-section-label = false
 mathjax-support = false
 fold = { enable = true, level = 1 }

@@ -27,7 +27,7 @@
 # Operator off-switch: `touch ~/.argo/buildout-stop` (and unload the plist:
 # `launchctl unload ~/Library/LaunchAgents/com.skycot.buildout-resume.plist`).
 set -uo pipefail
-REPO=~/code/argo
+REPO=$HOME/code/argo
 LOG="$HOME/.argo/logs/buildout-resume.log"
 LOCK=/tmp/skycot-buildout-resume.lock
 mkdir -p "$(dirname "$LOG")"
@@ -66,7 +66,7 @@ elif [ "$age_min" -lt 50 ]; then
 fi
 
 echo "[$(ts)] conductor quiet ${age_min}m — resuming build-out." >>"$LOG"
-PROMPT='You are the SKYCOT autonomous platform build-out conductor, resuming after the primary session went quiet (likely a usage-limit reset). Read ~/code/argo/docs/skycot/overnight-build-out.md and follow its RESUME INSTRUCTIONS exactly: pick the highest-priority TODO or PARTIAL item that is NOT BLOCKED, build it, and verify it (for Rust: export CARGO_TARGET_DIR=$HOME/.cache/argo-shared-target CARGO_INCREMENTAL=0, then cargo test + clippy on the touched crate; for web: pnpm/npx vitest + tsc on touched files). git commit + push to origin/main with --no-verify ONLY when green. Append a timestamped Log line to that file each cycle. If an item needs operator input, mark it BLOCKED in the doc, commit that, and move to the next item. Keep building items until everything left is BLOCKED or budget runs low. HARD RULES: you are the SOLE Rust integrator on ONE shared target dir — do NOT create new target dirs (disk is tight); never break the running demo (gateway http://127.0.0.1:7400, SPA http://127.0.0.1:3000); NO THEATER (never mark DONE unless it is real and tested); no force-push (origin/main only, fast-forward); do not touch verticals/.genesis; commit small and often so the singleton guard stays accurate.'
+PROMPT='You are the SKYCOT autonomous platform build-out conductor, resuming after the primary session went quiet (likely a usage-limit reset). Read $HOME/code/argo/docs/skycot/overnight-build-out.md and follow its RESUME INSTRUCTIONS exactly: pick the highest-priority TODO or PARTIAL item that is NOT BLOCKED, build it, and verify it (for Rust: export CARGO_TARGET_DIR=$HOME/.cache/argo-shared-target CARGO_INCREMENTAL=0, then cargo test + clippy on the touched crate; for web: pnpm/npx vitest + tsc on touched files). git commit + push to origin/main with --no-verify ONLY when green. Append a timestamped Log line to that file each cycle. If an item needs operator input, mark it BLOCKED in the doc, commit that, and move to the next item. Keep building items until everything left is BLOCKED or budget runs low. HARD RULES: you are the SOLE Rust integrator on ONE shared target dir — do NOT create new target dirs (disk is tight); never break the running demo (gateway http://127.0.0.1:7400, SPA http://127.0.0.1:3000); NO THEATER (never mark DONE unless it is real and tested); no force-push (origin/main only, fast-forward); do not touch verticals/.genesis; commit small and often so the singleton guard stays accurate.'
 # Portable time-limited run. macOS has no GNU `timeout`; prefer `gtimeout`
 # (coreutils), else a background-watchdog kill so a hung session can't hold the
 # lock forever. (The original `timeout 7200 ...` silently no-op'd on macOS —

@@ -100,11 +100,11 @@ mod tests {
         let n = write_csv_to(
             &target,
             &["k".into()],
-            &[vec!["v1".into()], vec!["v2".into()]],
+            &[vec!["a1".into()], vec!["a2".into()]],
         )
         .unwrap();
         let body = std::fs::read_to_string(&target).unwrap();
-        assert_eq!(body, "k\r\nv1\r\nv2\r\n");
+        assert_eq!(body, "k\r\na1\r\na2\r\n");
         assert_eq!(n, body.len() as u64);
     }
 }

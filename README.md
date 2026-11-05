@@ -1,6 +1,37 @@
-<p align="center"><strong>Argo</strong> — the ship of agents</p>
-
 # Argo
+
+> **Retired and unmaintained.** Argo is published as a record of an experiment, not as a product. It is not maintained, it has had no security review for use by anyone else, and issues and pull requests will not be answered. Read it and learn from it; please do not run it in production.
+
+## What Argo was
+
+Argo was a platform for AI teammates: software workers that carry out real tasks inside a business, with a person approving anything that matters. It is written in Rust (with a Next.js web app), and its core ideas were:
+
+- **Capability-based permissions.** Every action a worker takes is checked against what it has been explicitly allowed to do.
+- **An approval ledger.** Risky actions wait for a human yes, and every yes and no is recorded.
+- **A tamper-evident audit log.** Each record is chained to the one before it, so any later edit shows.
+- **MCP first.** Tools connect through MCP (the Model Context Protocol, an open standard for connecting AI agents to tools) rather than through custom adapters.
+
+In 2026 it ran as a hosted service called SKYCOT AI Teammates. It was retired in June 2026 without paying customers. You will see both names in the code: Argo for the engine, SKYCOT for the product. The hosted service no longer runs.
+
+## How it was built
+
+I am Mark Hallam, and I am not a software developer. Argo was written by AI coding agents (Claude Code and Codex) working as a swarm under my direction, from April to June 2026. I set the goals, approved the plans and decided what shipped; the agents wrote the code, the tests and nearly all of the documents in this repository. In 57 days they merged 2,901 pull requests across 13,803 commits.
+
+The full story, including what worked, what did not and what I would do differently, is in the case study: [Eight weeks running a swarm of AI coding agents](https://www.markhallam.com.au/writing/eight-weeks-running-a-swarm-of-ai-coding-agents).
+
+## What is in this repository
+
+This is the full history of Argo, from the first commit on 29 April 2026 to the last on 24 June 2026, with original dates and messages: 13,765 of the original 13,803 commits (the other 38 only touched documents that were removed), plus one final commit that added this introduction and the MIT licence. Before publishing, the history was cleaned of private material: personal email addresses were replaced with a GitHub no-reply address, business documents such as marketing, launch and fundraising material were removed from every commit, and private names, folder paths and cloud account identifiers were replaced. Every commit was also scanned for secrets, and none were found. The original pull request pages stay in a private repository; the pull request numbers in commit messages refer to them. The folder `docs/build-plan/` is the agents' own coordination record (briefs, status ledger and evaluations), kept as they wrote it. Test files contain fake keys and fake personal details on purpose, because they test the code that detects and hides them.
+
+## Licence
+
+MIT. See [`LICENSE`](LICENSE).
+
+---
+
+# Original README (June 2026)
+
+> The rest of this file is the README as the agents left it when the project stopped. Its status claims, links to the hosted service and install instructions describe the project as it was, not as it is. No release binaries are published for this copy, so the install scripts will not work; build from source instead.
 
 > **Project rename — Argo → Skycot.** The project is being renamed from Argo to **Skycot** (the customer-facing product, domain: skycot.com). For now, `argo` remains the canonical identifier in code, binaries, crates, env vars, `~/.argo/`, `argo.toml`, and existing repo paths — do not start renaming proactively. The user-facing product name is Skycot; the developer-facing binary stays `argo` until a coordinated rename pass. Canonical statement: [`CLAUDE.md`](CLAUDE.md) §"Project rename" + [`docs/skycot/MISSION.md`](docs/skycot/MISSION.md).
 
@@ -89,7 +120,7 @@ For live LLM runs, export an API key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc
 If you'd rather build instead of installing a binary:
 
 ```bash
-git clone https://github.com/mark-hallam/Argo-Agent argo
+git clone https://github.com/mark-hallam/argo argo
 cd argo
 cargo build --workspace --release
 ./target/release/argo --version
@@ -119,4 +150,4 @@ export ARGO_WHISPER_MODEL=~/.argo/ggml-base.en.bin
 
 ## License
 
-Proprietary — all rights reserved. See `LICENSE`.
+Originally proprietary. Now MIT, see `LICENSE` and the note at the top of this file.

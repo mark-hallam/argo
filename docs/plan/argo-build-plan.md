@@ -21,7 +21,7 @@
 **Date:** April 29, 2026
 **Owner:** Skycot
 **Audience:** Coding agents, contributors
-**License:** Proprietary — all rights reserved
+**License:** MIT (originally proprietary; open-sourced November 2026)
 **Companion docs:** `argo-day-0-kickoff.md`, `argo-vs-hermes-gap-analysis.md`
 
 > "Working software is the only measure of progress." Every section ends in **Acceptance** — falsifiable, machine-checkable definition of done. No exceptions.

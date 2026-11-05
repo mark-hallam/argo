@@ -35,7 +35,7 @@
 
 set -euo pipefail
 
-REPO="${REPO:-~/code/argo}"
+REPO="${REPO:-$HOME/code/argo}"
 N_SLOTS="${1:-4}"
 WORKER_SCRIPT="$REPO/scripts/claude-worker-loop.sh"
 STOP_SENTINEL_TMP="/tmp/argo-stop"

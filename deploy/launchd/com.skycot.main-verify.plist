@@ -28,8 +28,8 @@
     <key>Label</key><string>com.skycot.main-verify</string>
     <key>EnvironmentVariables</key>
     <dict>
-      <key>HOME</key><string>~</string>
-      <key>PATH</key><string>~/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+      <key>HOME</key><string>/Users/operator</string>
+      <key>PATH</key><string>/Users/operator/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
       <key>CARGO_BUILD_JOBS</key><string>4</string>
       <key>CARGO_INCREMENTAL</key><string>0</string>
       <key>RUSTC_WRAPPER</key><string>/opt/homebrew/bin/sccache</string>
@@ -39,13 +39,13 @@
     <array>
       <string>/bin/zsh</string>
       <string>-lc</string>
-      <string>cd ~/code/argo &amp;&amp; exec bash ~/.argo/main-verify/bin/main-verify-sweep.sh</string>
+      <string>cd /Users/operator/code/argo &amp;&amp; exec bash /Users/operator/.argo/main-verify/bin/main-verify-sweep.sh</string>
     </array>
     <key>RunAtLoad</key><true/>
     <key>KeepAlive</key><true/>
     <key>ThrottleInterval</key><integer>60</integer>
-    <key>StandardOutPath</key><string>~/.argo/logs/main-verify.launchd.log</string>
-    <key>StandardErrorPath</key><string>~/.argo/logs/main-verify.launchd.log</string>
-    <key>WorkingDirectory</key><string>~/code/argo</string>
+    <key>StandardOutPath</key><string>/Users/operator/.argo/logs/main-verify.launchd.log</string>
+    <key>StandardErrorPath</key><string>/Users/operator/.argo/logs/main-verify.launchd.log</string>
+    <key>WorkingDirectory</key><string>/Users/operator/code/argo</string>
   </dict>
 </plist>

@@ -52,7 +52,7 @@ def repo_root() -> Path:
     auto = HERE.parent.parent
     if _is_argo_root(auto):
         return auto
-    fallback = Path("~/code/argo")
+    fallback = Path.home() / "code" / "argo"
     if _is_argo_root(fallback):
         return fallback
     out = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], cwd=HERE)

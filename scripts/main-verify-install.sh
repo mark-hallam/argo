@@ -7,7 +7,7 @@
 # stale/dirty (the daemon must NOT depend on the volatile checkout it guards).
 # Idempotent — re-run to update after a script change.
 set -uo pipefail
-REPO="${MAIN_VERIFY_REPO:-~/code/argo}"
+REPO="${MAIN_VERIFY_REPO:-$HOME/code/argo}"
 BIN="$HOME/.argo/main-verify/bin"
 LA="$HOME/Library/LaunchAgents"
 PLIST="$LA/com.skycot.main-verify.plist"

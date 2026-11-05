@@ -97,10 +97,10 @@ members = [
 [workspace.package]
 version = "0.0.1"
 edition = "2021"
-license = "LicenseRef-Proprietary"
+license = "MIT"
 rust-version = "1.75"
-authors = ["Skycot"]
-repository = "https://github.com/mark-hallam/Argo-Agent"
+authors = ["Mark Hallam"]
+repository = "https://github.com/mark-hallam/argo"
 description = "Argo — the ship of agents"
 
 [workspace.dependencies]

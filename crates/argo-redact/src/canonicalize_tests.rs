@@ -45,7 +45,7 @@ fn url_decodes_at_sign() {
     // canonical '@' is at byte 3; it came from original bytes 3..6
     // ("%40").
     assert_eq!(c.original_span(3..4), 3..6);
-    // canonical 'c' (after '@') maps to original byte 6.
+    // canonical 'a' (after '@') maps to original byte 6.
     assert_eq!(c.original_span(4..5), 6..7);
 }
 

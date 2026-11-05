@@ -18,7 +18,7 @@
 # best-effort human alert. All timestamps UTC (protocol).
 set -uo pipefail
 
-REPO="${MAIN_VERIFY_REPO:-~/code/argo}"
+REPO="${MAIN_VERIFY_REPO:-$HOME/code/argo}"
 STATE_DIR="$HOME/.argo/main-verify"
 FREEZE="$STATE_DIR/merge-freeze"
 STATUS="$STATE_DIR/status.json"

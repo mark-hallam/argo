@@ -7,7 +7,7 @@ import { chromium } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 
 const BASE = process.env.WALK_BASE ?? "http://localhost:3000";
-const OUT = process.env.WALK_OUT ?? "~/code/argo/docs/skycot/ux-walkthrough-2026-05-29";
+const OUT = process.env.WALK_OUT ?? `${process.env.HOME}/code/argo/docs/skycot/ux-walkthrough-2026-05-29`;
 const SETTLE_MS = 3000;
 
 const routes = [

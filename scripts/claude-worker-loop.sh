@@ -17,7 +17,7 @@
 #   bash scripts/claude-worker-loop.sh
 #
 # Environment:
-#   REPO     — absolute path to the repo. Default: ~/code/argo
+#   REPO     — absolute path to the repo. Default: $HOME/code/argo
 #   FAMILY   — claude (default) or codex (only if a `codex -p` equivalent
 #              is wired; for now, claude only).
 #
@@ -91,7 +91,7 @@ if ! command -v claude >/dev/null 2>&1; then
   fi
 fi
 
-REPO="${REPO:-~/code/argo}"
+REPO="${REPO:-$HOME/code/argo}"
 FAMILY="${FAMILY:-claude}"
 
 # --- Shared cargo target dir (one dir, real disk, cargo-lock serialized) ----

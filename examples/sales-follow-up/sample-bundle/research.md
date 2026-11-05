@@ -1,5 +1,7 @@
 # research
 
+> Fictional example. The person, company and post below are invented for illustration.
+
 ## Lead
 
 - name:    Sarah Patel
