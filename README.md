@@ -11,7 +11,7 @@ Argo was a platform for AI teammates: software workers that carry out real tasks
 - **A tamper-evident audit log.** Each record is chained to the one before it, so any later edit shows.
 - **MCP first.** Tools connect through MCP (the Model Context Protocol, an open standard for connecting AI agents to tools) rather than through custom adapters.
 
-In 2026 it ran as a hosted service called SKYCOT AI Teammates. It was retired in June 2026 without paying customers. You will see both names in the code: Argo for the engine, SKYCOT for the product. The hosted service no longer runs.
+In 2026 it ran as a hosted service called SKYCOT AI Teammates, my own live service for my own work, retired in June 2026 when the running costs outgrew what I could carry alone. You will see both names in the code: Argo for the engine, SKYCOT for the product. The hosted service no longer runs.
 
 ## How it was built
 
